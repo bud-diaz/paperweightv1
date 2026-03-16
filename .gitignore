@@ -1,0 +1,6 @@
+node_modules/
+.env
+data/
+logs/
+hls_output/stream/
+hls_output/previews/
