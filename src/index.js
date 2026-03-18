@@ -28,6 +28,13 @@ process.on('unhandledRejection', (reason) => {
 // ─── App setup ───────────────────────────────────────────────────────────────
 
 function createApp() {
+  // Stripe webhook must receive the raw body before express.json() parses it.
+  // Mount this single route before any body parsers.
+  app.post('/api/payment/webhook/stripe',
+    express.raw({ type: 'application/json' }),
+    require('./api/payment').stripeWebhookHandler
+  );
+
   app.use(express.json());
   app.use(cookieParser());
 

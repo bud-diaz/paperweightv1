@@ -7,14 +7,24 @@ router.use(attachTier);
 
 // Health check
 router.get('/health', (req, res) => {
-  res.json({ status: 'ok', station: config.station.name, version: '1.0.0' });
+  res.json({ status: 'ok', station: config.station.name, version: '1.5.0' });
 });
 
+// v1 routes (unchanged)
 router.use('/stream',    require('./stream'));
 router.use('/library',   require('./library'));
 router.use('/tokens',    require('./tokens'));
 router.use('/schedule',  require('./schedule'));
 router.use('/dashboard', require('./dashboard'));
 router.use('/analytics', require('./analytics'));
+
+// v1.5 routes (new)
+router.use('/listener',  require('./listener'));
+router.use('/payment',   require('./payment'));
+
+// downloads.js defines two routes:
+//   GET /library/:id/signed-url  (mounted at / so becomes /api/library/:id/signed-url)
+//   GET /download/:token         (mounted at / so becomes /api/download/:token)
+router.use('/',          require('./downloads'));
 
 module.exports = router;

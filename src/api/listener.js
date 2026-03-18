@@ -1,0 +1,207 @@
+const router = require('express').Router();
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
+const { getDb } = require('../db');
+
+const BCRYPT_ROUNDS = 10;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function generateToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+// Returns the listener's active token row, or creates a new one.
+function getOrCreateToken(db, listenerId, tier) {
+  const existing = db.prepare(
+    'SELECT * FROM tokens WHERE listener_id = ? AND is_active = 1 LIMIT 1'
+  ).get(listenerId);
+
+  if (existing) return existing;
+
+  const token = generateToken();
+  const info = db.prepare(
+    "INSERT INTO tokens (token, label, tier, listener_id) VALUES (?, ?, ?, ?)"
+  ).run(token, null, tier, listenerId);
+
+  return db.prepare('SELECT * FROM tokens WHERE id = ?').get(info.lastInsertRowid);
+}
+
+// Returns the listener's active subscription, if any.
+function getActiveSubscription(db, listenerId) {
+  return db.prepare(
+    "SELECT * FROM subscriptions WHERE listener_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
+  ).get(listenerId) || null;
+}
+
+// ─── Routes ──────────────────────────────────────────────────────────────────
+
+// POST /api/listener/register
+// Body: { email, password }
+// Returns: { token, tier }
+router.post('/register', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    return res.status(400).json({ error: 'Valid email is required' });
+  }
+  if (!password || typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+
+  const db = getDb();
+
+  const existing = db.prepare('SELECT id FROM listener_accounts WHERE email = ?').get(email.toLowerCase().trim());
+  if (existing) {
+    return res.status(409).json({ error: 'An account with this email already exists' });
+  }
+
+  try {
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+    const info = db.prepare(
+      'INSERT INTO listener_accounts (email, password_hash) VALUES (?, ?)'
+    ).run(email.toLowerCase().trim(), passwordHash);
+
+    const listenerId = info.lastInsertRowid;
+    const tokenRow = getOrCreateToken(db, listenerId, 'free');
+
+    res.status(201).json({ token: tokenRow.token, tier: tokenRow.tier });
+  } catch (err) {
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+// POST /api/listener/login
+// Body: { email, password }
+// Returns: { token, tier }
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  const db = getDb();
+
+  const account = db.prepare(
+    'SELECT * FROM listener_accounts WHERE email = ? AND is_active = 1'
+  ).get(email.toLowerCase().trim());
+
+  if (!account) {
+    return res.status(401).json({ error: 'Invalid email or password' });
+  }
+
+  try {
+    const match = await bcrypt.compare(password, account.password_hash);
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const tokenRow = getOrCreateToken(db, account.id, 'free');
+
+    // Sync tier from active subscription if one exists
+    const sub = getActiveSubscription(db, account.id);
+    const tier = sub ? sub.tier : tokenRow.tier;
+
+    res.json({ token: tokenRow.token, tier });
+  } catch (err) {
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// POST /api/listener/logout
+// No-op server-side — token lives in mobile Keychain and client drops it.
+// Included for API completeness and future token revocation.
+router.post('/logout', (req, res) => {
+  res.json({ ok: true });
+});
+
+// GET /api/listener/me
+// Requires Bearer token. Returns account info + current tier + subscription state.
+router.get('/me', (req, res) => {
+  if (!req.tokenRow || !req.tokenRow.listener_id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const db = getDb();
+  const account = db.prepare(
+    'SELECT id, email, created_at FROM listener_accounts WHERE id = ? AND is_active = 1'
+  ).get(req.tokenRow.listener_id);
+
+  if (!account) {
+    return res.status(401).json({ error: 'Account not found' });
+  }
+
+  const sub = getActiveSubscription(db, account.id);
+
+  res.json({
+    email: account.email,
+    tier: req.tier,
+    subscriptionStatus: sub ? sub.status : null,
+    currentPeriodEnd: sub ? sub.current_period_end : null,
+    provider: sub ? sub.provider : null,
+  });
+});
+
+// GET /api/listener/saved-stations
+// Returns the listener's saved stations.
+router.get('/saved-stations', (req, res) => {
+  if (!req.tokenRow || !req.tokenRow.listener_id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const stations = getDb().prepare(
+    'SELECT id, core_url, slug, name, created_at FROM listener_saved_stations WHERE listener_id = ? ORDER BY created_at ASC'
+  ).all(req.tokenRow.listener_id);
+
+  res.json({ stations });
+});
+
+// POST /api/listener/saved-stations
+// Body: { coreUrl, slug, name }
+router.post('/saved-stations', (req, res) => {
+  if (!req.tokenRow || !req.tokenRow.listener_id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const { coreUrl, slug, name } = req.body;
+  if (!coreUrl || !slug || !name) {
+    return res.status(400).json({ error: 'coreUrl, slug, and name are required' });
+  }
+
+  const db = getDb();
+  try {
+    const info = db.prepare(
+      'INSERT OR IGNORE INTO listener_saved_stations (listener_id, core_url, slug, name) VALUES (?, ?, ?, ?)'
+    ).run(req.tokenRow.listener_id, coreUrl, slug, name);
+
+    const station = db.prepare(
+      'SELECT id, core_url, slug, name, created_at FROM listener_saved_stations WHERE listener_id = ? AND core_url = ? AND slug = ?'
+    ).get(req.tokenRow.listener_id, coreUrl, slug);
+
+    res.status(info.changes > 0 ? 201 : 200).json({ station });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save station' });
+  }
+});
+
+// DELETE /api/listener/saved-stations/:id
+router.delete('/saved-stations/:id', (req, res) => {
+  if (!req.tokenRow || !req.tokenRow.listener_id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const db = getDb();
+  const info = db.prepare(
+    'DELETE FROM listener_saved_stations WHERE id = ? AND listener_id = ?'
+  ).run(req.params.id, req.tokenRow.listener_id);
+
+  if (info.changes === 0) {
+    return res.status(404).json({ error: 'Station not found' });
+  }
+
+  res.json({ ok: true });
+});
+
+module.exports = router;
