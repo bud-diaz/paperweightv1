@@ -33,6 +33,8 @@ const config = {
     identity: process.env.STATION_IDENTITY || 'creator',
     creatorName: process.env.CREATOR_NAME || '',
     creatorDesc: process.env.CREATOR_DESC || '',
+    slug: process.env.STATION_SLUG || '',
+    publicUrl: process.env.STATION_PUBLIC_URL || '',
   },
 
   vault: {

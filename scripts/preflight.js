@@ -39,6 +39,14 @@ if (fs.existsSync(envPath)) {
   } else {
     pass('STATION_NAME is set');
   }
+  const slugMatch = env.match(/^STATION_SLUG=(.+)$/m);
+  if (slugMatch && slugMatch[1].trim()) {
+    const urlMatch = env.match(/^STATION_PUBLIC_URL=(.+)$/m);
+    const url = urlMatch ? urlMatch[1].trim() : '';
+    pass(`STATION_SLUG: ${slugMatch[1].trim()} → ${url || '(no public URL set)'}`);
+  } else {
+    warn('STATION_SLUG not set — re-run scripts/setup.sh to generate your station URL');
+  }
 } else {
   fail('.env not found — run: bash scripts/setup.sh');
 }
@@ -142,6 +150,33 @@ try {
   }
 } catch {
   warn('Could not check mount points (non-Linux system)');
+}
+
+// ── Cloudflare Tunnel ─────────────────────────────────────────────────────────
+section('Cloudflare Tunnel (IP masking)');
+const cfBin = spawnSync('cloudflared', ['--version'], { stdio: 'pipe' });
+if (cfBin.status === 0) {
+  const cfLine = cfBin.stdout.toString().split('\n')[0];
+  pass(`cloudflared: ${cfLine}`);
+} else {
+  warn('cloudflared not installed — your IP will be visible to listeners');
+  console.log('       Pi/Linux:  curl -L https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg > /dev/null');
+  console.log('                  echo \'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main\' | sudo tee /etc/apt/sources.list.d/cloudflared.list');
+  console.log('                  sudo apt update && sudo apt install cloudflared');
+  console.log('       Windows:   winget install Cloudflare.cloudflared');
+}
+
+try {
+  const envRaw = fs.readFileSync(path.join(ROOT, '.env'), 'utf8');
+  const hasToken = envRaw.split('\n').some(l => l.match(/^CLOUDFLARE_TUNNEL_TOKEN=.+/));
+  if (hasToken) {
+    pass('CLOUDFLARE_TUNNEL_TOKEN is set — tunnel will start with PM2');
+  } else {
+    warn('CLOUDFLARE_TUNNEL_TOKEN not set — add it to .env to enable IP masking');
+    console.log('       Set up a free tunnel at: https://one.dash.cloudflare.com → Networks → Tunnels');
+  }
+} catch {
+  warn('Could not read .env to check tunnel token');
 }
 
 // ── PM2 ───────────────────────────────────────────────────────────────────────

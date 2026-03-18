@@ -24,20 +24,28 @@ if [ -z "$STATION_NAME" ]; then
   exit 1
 fi
 
+# --- Station Slug ---
+SLUG_AUTO=$(echo "$STATION_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9 ]//g' | tr ' ' '-' | sed 's/-\+/-/g' | sed 's/^-//;s/-$//')
+echo ""
+echo "Station slug (used in your public URL: https://<slug>.paperweighthq.com)"
+read -rp "Slug [$SLUG_AUTO]: " SLUG_INPUT
+STATION_SLUG="${SLUG_INPUT:-$SLUG_AUTO}"
+STATION_PUBLIC_URL="https://${STATION_SLUG}.paperweighthq.com"
+
 # --- Identity Mode ---
 echo ""
 echo "Identity mode:"
 echo "  1) Creator Brand  (station name, your name, description, logo)"
 echo "  2) Anonymous      (station name only)"
-read -rp "Choose [1/2, default 1]: " IDENTITY_CHOICE
-if [ "$IDENTITY_CHOICE" = "2" ]; then
-  STATION_IDENTITY="anonymous"
-  CREATOR_NAME=""
-  CREATOR_DESC=""
-else
+read -rp "Choose [1/2, default 2]: " IDENTITY_CHOICE
+if [ "$IDENTITY_CHOICE" = "1" ]; then
   STATION_IDENTITY="creator"
   read -rp "Your name (optional): " CREATOR_NAME
   read -rp "Station description (optional): " CREATOR_DESC
+else
+  STATION_IDENTITY="anonymous"
+  CREATOR_NAME=""
+  CREATOR_DESC=""
 fi
 
 # --- Vault Path ---
@@ -58,6 +66,14 @@ case "$VAULT_MODE_CHOICE" in
   *) VAULT_MODE="hybrid" ;;
 esac
 
+# --- Cloudflare Tunnel Token (optional) ---
+echo ""
+echo "Cloudflare Tunnel (optional):"
+echo "  Hides your IP address from listeners — recommended for public stations."
+echo "  Set up a free tunnel at: https://one.dash.cloudflare.com → Networks → Tunnels"
+echo "  After creating a tunnel, paste the token here."
+read -rp "Tunnel token (press Enter to skip): " CF_TUNNEL_TOKEN
+
 # --- Generate Dashboard Token ---
 DASHBOARD_TOKEN=$(node -e "const c=require('crypto');console.log(c.randomBytes(32).toString('hex'))")
 
@@ -71,6 +87,9 @@ sed -i "s|^CREATOR_DESC=.*|CREATOR_DESC=$CREATOR_DESC|" "$ENV_FILE"
 sed -i "s|^VAULT_PATH=.*|VAULT_PATH=$VAULT_PATH|" "$ENV_FILE"
 sed -i "s|^VAULT_MODE=.*|VAULT_MODE=$VAULT_MODE|" "$ENV_FILE"
 sed -i "s|^DASHBOARD_TOKEN=.*|DASHBOARD_TOKEN=$DASHBOARD_TOKEN|" "$ENV_FILE"
+sed -i "s|^STATION_SLUG=.*|STATION_SLUG=$STATION_SLUG|" "$ENV_FILE"
+sed -i "s|^STATION_PUBLIC_URL=.*|STATION_PUBLIC_URL=$STATION_PUBLIC_URL|" "$ENV_FILE"
+sed -i "s|^CLOUDFLARE_TUNNEL_TOKEN=.*|CLOUDFLARE_TUNNEL_TOKEN=$CF_TUNNEL_TOKEN|" "$ENV_FILE"
 
 # --- Create required directories ---
 mkdir -p "$ROOT/data" "$ROOT/logs" "$ROOT/hls_output/stream" "$ROOT/hls_output/previews"
@@ -92,6 +111,7 @@ echo "  Identity:        $STATION_IDENTITY"
 echo "  Vault:           $VAULT_ABS"
 echo "  Vault mode:      $VAULT_MODE"
 echo ""
+echo "  Station URL:     $STATION_PUBLIC_URL"
 echo "  Dashboard token: $DASHBOARD_TOKEN"
 echo "  (Save this — you'll need it to access the dashboard from another device)"
 echo ""

@@ -44,49 +44,7 @@ sudo apt update && sudo apt upgrade -y
 
 ---
 
-## Step 3 — Install Node.js
-
-Paperweight requires Node.js v18 or later.
-
-```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
-```
-
-Verify:
-```bash
-node --version   # should show v22.x.x or higher
-```
-
----
-
-## Step 4 — Install FFmpeg
-
-FFmpeg handles all audio processing and HLS stream generation.
-
-```bash
-sudo apt install -y ffmpeg
-```
-
-Verify:
-```bash
-ffmpeg -version   # should show version info
-ffprobe -version
-```
-
----
-
-## Step 5 — Install PM2
-
-PM2 keeps Paperweight running and restarts it automatically if it crashes.
-
-```bash
-sudo npm install -g pm2
-```
-
----
-
-## Step 6 — Copy Paperweight to the Pi
+## Step 3 — Copy Paperweight to the Pi
 
 **Option A — USB drive or SD card**
 
@@ -110,16 +68,20 @@ git clone YOUR_REPO_URL /home/pi/paperweight
 
 ---
 
-## Step 7 — Install dependencies
+## Step 4 — Run the installer
+
+The installer sets up everything in one shot: Node.js, FFmpeg, PM2, cloudflared, npm packages, and SD card protection for the HLS output directory.
 
 ```bash
 cd /home/pi/paperweight
-npm install
+bash scripts/install.sh
 ```
+
+This takes a few minutes. You'll see each step as it completes.
 
 ---
 
-## Step 8 — Run setup
+## Step 5 — Run setup
 
 ```bash
 bash scripts/setup.sh
@@ -130,16 +92,18 @@ The setup wizard will ask:
 | Question | What to enter |
 |---|---|
 | Station name | Your station name (e.g. `Low End Theory Radio`) |
-| Identity mode | `1` for Creator Brand, `2` for Anonymous |
-| Your name | Optional — shown on the station page |
+| Station slug | Press Enter to accept the auto-generated slug |
+| Identity mode | Press Enter for Anonymous, or `1` for Creator Brand |
+| Your name | Optional — shown on the station page (Creator Brand only) |
 | Vault path | Press Enter to use the default `./vault` |
 | Vault mode | Press Enter for Hybrid (recommended) |
+| Tunnel token | Paste your Cloudflare tunnel token, or press Enter to set up later |
 
-At the end, setup prints a **Dashboard Token**. Save it somewhere — you'll need it to access the dashboard from another device.
+At the end, setup prints your **station URL** and **Dashboard Token**. Save them both.
 
 ---
 
-## Step 9 — Add media
+## Step 6 — Add media
 
 Copy your audio and video files into the vault folders:
 
@@ -162,46 +126,19 @@ You can add more files at any time. The vault scanner picks them up automaticall
 
 ---
 
-## Step 10 — Run the preflight check
+## Step 7 — Run the preflight check
 
 ```bash
 node scripts/preflight.js
 ```
 
-Everything should show ✓ except the tmpfs recommendation (handled in the next step). If anything shows ✗, fix it before continuing.
+Everything should show ✓. If anything shows ✗, fix it before continuing.
 
 ---
 
-## Step 11 — Protect the SD card (recommended)
-
-HLS streaming writes many small files per minute. Running this from SD card will wear it out. Mount the HLS output directory in RAM instead:
-
-Open the fstab file:
-```bash
-sudo nano /etc/fstab
-```
-
-Add this line at the bottom:
-```
-tmpfs /home/pi/paperweight/hls_output tmpfs defaults,noatime,size=100m 0 0
-```
-
-Save with `Ctrl+O`, exit with `Ctrl+X`, then apply:
-```bash
-sudo mount -a
-```
-
-Verify:
-```bash
-mount | grep hls_output   # should show tmpfs
-```
-
----
-
-## Step 12 — Start Paperweight
+## Step 8 — Start Paperweight
 
 ```bash
-cd /home/pi/paperweight
 pm2 start ecosystem.config.js
 ```
 
@@ -220,7 +157,7 @@ You should see:
 
 ---
 
-## Step 13 — Auto-start on boot
+## Step 9 — Auto-start on boot
 
 ```bash
 pm2 save
@@ -231,7 +168,7 @@ PM2 will print a command starting with `sudo env PATH=...`. Copy and run that ex
 
 ---
 
-## Step 14 — Find your Pi's IP address
+## Step 10 — Find your Pi's IP address
 
 ```bash
 hostname -I
@@ -276,35 +213,76 @@ node scripts/gen-token.js "Maria"
 
 ## Making your station available outside your home network
 
-By default, Paperweight is only accessible on your local network. To open it to the internet:
+Paperweight uses **Cloudflare Tunnel** to expose your station to the internet. This hides your Pi's IP address completely — listeners connect through Cloudflare's edge, never directly to your machine. cloudflared is already installed from Step 4.
 
-1. Log into your router and forward **port 3000** to your Pi's local IP (e.g. `192.168.1.42`)
-2. Find your public IP at whatismyip.com
-3. Your station is now at `http://YOUR_PUBLIC_IP:3000`
+### Step 1 — Create a tunnel in Cloudflare
 
-For a permanent address, point a domain name at your public IP using an A record with your DNS provider.
+1. Go to **one.dash.cloudflare.com** and create a free account (or log in)
+2. In the left sidebar: **Networks → Tunnels**
+3. Click **Create a tunnel** → choose **Cloudflared** → give it a name (e.g. `paperweight`)
+4. Copy the tunnel token — it's a long string starting with `eyJ...`
+5. Under **Public Hostname**, add a route:
+   - Subdomain: your station slug (shown during setup, e.g. `low-end-theory`)
+   - Domain: `paperweighthq.com`
+   - Service: `HTTP`, URL: `localhost:3000`
+6. Save the tunnel
 
-> **Note:** If your ISP assigns a dynamic IP (most home connections do), it will change occasionally. A free DDNS service like DuckDNS keeps a stable hostname pointed at your changing IP automatically.
+### Step 2 — Add the token to .env
+
+```bash
+nano /home/pi/paperweight/.env
+```
+
+Find the line:
+```
+CLOUDFLARE_TUNNEL_TOKEN=
+```
+
+Paste your token after the `=`. Save with `Ctrl+O`, exit with `Ctrl+X`.
+
+### Step 3 — Restart PM2
+
+```bash
+pm2 restart all
+pm2 save
+```
+
+Verify both processes are running:
+```bash
+pm2 status
+```
+
+You should see both `paperweight` and `cloudflared-tunnel` with status `online`.
+
+### Step 4 — Share your station URL
+
+Your station is now live at `https://<your-slug>.paperweighthq.com`. Share this URL — listeners connect through Cloudflare and your IP stays hidden.
+
+The URL is also displayed in your dashboard under **Station URL** with a one-click copy button.
 
 ---
 
 ## Useful commands
 
 ```bash
-# Check status
+# Check status of all processes (station + tunnel)
 pm2 status
 
 # View live logs
 pm2 logs paperweight
+pm2 logs cloudflared-tunnel
 
 # Restart the station
 pm2 restart paperweight
 
+# Restart everything (station + tunnel)
+pm2 restart all
+
 # Stop the station
 pm2 stop paperweight
 
-# Update station after adding many files (scanner runs automatically, but you can restart to force it)
-pm2 restart paperweight
+# Stop the tunnel only
+pm2 stop cloudflared-tunnel
 ```
 
 ---
@@ -328,13 +306,23 @@ pm2 restart paperweight
 
 **Dashboard says "access denied" from another device**
 - Use the Dashboard Token printed during setup
-- If you lost it, find it in your `.env` file: `grep DASHBOARD_TOKEN /home/pi/paperweight/.env`
+- If you lost it: `grep DASHBOARD_TOKEN /home/pi/paperweight/.env`
 
 **Pi is running hot or slow**
-- Make sure hls_output is on tmpfs (Step 11)
+- The installer mounts hls_output as tmpfs — verify: `mount | grep hls_output`
 - The broadcast engine uses `-vn` (audio only) to minimize CPU load
 - Raspberry Pi OS applies CPU throttling above ~80°C — a heatsink or case fan helps
 
 **Out of disk space**
 - The `delete_segments` FFmpeg flag keeps the HLS output small (< 5MB at any time)
 - The main disk usage is your vault files — check with: `du -sh /home/pi/paperweight/vault/`
+
+**Tunnel not starting / `cloudflared-tunnel` not in `pm2 status`**
+- Make sure `CLOUDFLARE_TUNNEL_TOKEN` is set in `.env`: `grep CLOUDFLARE_TUNNEL_TOKEN /home/pi/paperweight/.env`
+- After editing `.env`, restart PM2: `pm2 restart all`
+- Check tunnel logs: `pm2 logs cloudflared-tunnel`
+
+**Tunnel shows `online` but station URL doesn't load**
+- Verify the public hostname in Cloudflare dashboard points to `HTTP localhost:3000`
+- Make sure the station itself is running: `pm2 logs paperweight`
+- Try accessing `http://localhost:3000` directly on the Pi to confirm the server is up

@@ -51,6 +51,16 @@ async function loadVaultStats() {
       `<div class="stat-card"><div class="stat-value">${n}</div><div class="stat-label">${cap(cat)}</div></div>`
     ).join('')}
   `;
+
+  if (d.publicUrl) {
+    el('station-public-url').textContent = d.publicUrl;
+    el('station-url-section').hidden = false;
+    el('btn-copy-url').onclick = () => {
+      navigator.clipboard.writeText(d.publicUrl);
+      el('btn-copy-url').textContent = 'Copied!';
+      setTimeout(() => { el('btn-copy-url').textContent = 'Copy'; }, 2000);
+    };
+  }
 }
 
 // ── Broadcast ─────────────────────────────────────────────────────────────────

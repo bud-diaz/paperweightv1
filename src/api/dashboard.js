@@ -62,6 +62,8 @@ router.get('/vault', (req, res) => {
     totalHours: Math.round((totals.totalHours || 0) * 10) / 10,
     lastScanAt: totals.lastScanAt || null,
     byCategory,
+    publicUrl: config.station.publicUrl || null,
+    slug: config.station.slug || null,
   });
 });
 
