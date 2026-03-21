@@ -51,16 +51,90 @@ async function loadVaultStats() {
       `<div class="stat-card"><div class="stat-value">${n}</div><div class="stat-label">${cap(cat)}</div></div>`
     ).join('')}
   `;
+}
 
-  if (d.publicUrl) {
-    el('station-public-url').textContent = d.publicUrl;
-    el('station-url-section').hidden = false;
-    el('btn-copy-url').onclick = () => {
-      navigator.clipboard.writeText(d.publicUrl);
-      el('btn-copy-url').textContent = 'Copied!';
-      setTimeout(() => { el('btn-copy-url').textContent = 'Copy'; }, 2000);
-    };
+// ── Station registry ──────────────────────────────────────────────────────────
+
+async function loadStation() {
+  const res  = await dashFetch('/api/dashboard/station');
+  const data = await res.json();
+
+  if (!data.slug) {
+    el('station-reg-content').hidden = true;
+    el('station-unclaimed').hidden   = false;
+    return;
   }
+
+  el('station-unclaimed').hidden   = true;
+  el('station-reg-content').hidden = false;
+
+  el('station-slug').textContent        = data.slug;
+  el('station-public-url').textContent  = data.url;
+  el('station-url-input').placeholder   = data.url;
+
+  el('btn-copy-url').onclick = () => {
+    navigator.clipboard.writeText(data.url);
+    el('btn-copy-url').textContent = 'Copied!';
+    setTimeout(() => { el('btn-copy-url').textContent = 'Copy'; }, 2000);
+  };
+
+  checkHealth();
+}
+
+async function checkHealth() {
+  setHealthDot('checking');
+  const res    = await dashFetch('/api/dashboard/station/health');
+  const result = await res.json();
+  setHealthDot(result.reachable === true ? 'up' : result.reachable === false ? 'down' : 'unknown', result);
+}
+
+function setHealthDot(state, result = {}) {
+  const dot    = el('health-dot');
+  const status = el('health-status');
+  const colors = { up: 'var(--green)', down: '#e84040', checking: 'var(--muted)', unknown: 'var(--muted)' };
+  dot.style.background = colors[state] || colors.unknown;
+
+  if (state === 'up') {
+    dot.title        = 'Reachable';
+    status.textContent = `Reachable · ${result.latencyMs}ms`;
+    status.style.color = 'var(--green)';
+  } else if (state === 'down') {
+    dot.title          = result.error || 'Unreachable';
+    status.textContent = result.error ? `Unreachable — ${result.error}` : 'Unreachable';
+    status.style.color = '#e84040';
+  } else {
+    dot.title          = 'Checking…';
+    status.textContent = 'Checking…';
+    status.style.color = 'var(--muted)';
+  }
+}
+
+function setupStationUpdate() {
+  el('btn-recheck-health').addEventListener('click', checkHealth);
+
+  el('btn-update-url').addEventListener('click', async () => {
+    const url = el('station-url-input').value.trim();
+    const msg = el('station-url-msg');
+    if (!url) return;
+
+    const res = await dashFetch('/api/dashboard/station/url', {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ url }),
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      msg.className   = 'success-msg';
+      msg.textContent = 'URL updated.';
+      el('station-public-url').textContent = url;
+      setTimeout(() => { msg.textContent = ''; }, 3000);
+      checkHealth();
+    } else {
+      msg.className   = 'error-msg';
+      msg.textContent = data.error || 'Update failed';
+    }
+  });
 }
 
 // ── Broadcast ─────────────────────────────────────────────────────────────────
@@ -271,6 +345,7 @@ function esc(str) {
 
 async function loadDashboard() {
   await Promise.all([
+    loadStation(),
     loadVaultStats(),
     loadBroadcast(),
     loadTokens(),
@@ -292,5 +367,6 @@ export async function initDashboard() {
   setupUpload();
   setupTokenCreate();
   setupScheduleCreate();
+  setupStationUpdate();
   loadDashboard();
 }

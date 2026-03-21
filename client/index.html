@@ -74,14 +74,37 @@
       </div>
 
       <div id="dash-content" hidden>
-        <!-- Station URL -->
-        <div class="dash-section" id="station-url-section" hidden>
-          <h2>Station URL</h2>
-          <div class="url-bar">
-            <span id="station-public-url"></span>
-            <button class="btn btn-sm" id="btn-copy-url">Copy</button>
+        <!-- Station Registry -->
+        <div class="dash-section" id="station-url-section">
+          <h2>Station</h2>
+
+          <!-- Registered state -->
+          <div id="station-reg-content" hidden>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <span style="font-family:monospace;font-size:14px;color:var(--accent)" id="station-slug"></span>
+              <span id="health-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0" title="Checking…"></span>
+              <span id="health-status" style="font-size:12px;color:var(--muted)">Checking…</span>
+              <button class="btn btn-sm" id="btn-recheck-health" style="margin-left:auto;font-size:11px;padding:2px 8px">Recheck</button>
+            </div>
+            <div class="url-bar">
+              <span id="station-public-url" style="font-size:13px;word-break:break-all"></span>
+              <button class="btn btn-sm" id="btn-copy-url">Copy</button>
+            </div>
+            <details style="margin-top:12px">
+              <summary style="cursor:pointer;font-size:13px;color:var(--muted);margin-bottom:8px">Update station URL</summary>
+              <div class="form-row">
+                <input type="url" id="station-url-input" placeholder="https://your-new-tunnel-url.example.com" style="flex:1" />
+                <button class="btn btn-primary btn-sm" id="btn-update-url">Save</button>
+              </div>
+              <div id="station-url-msg" style="font-size:12px;margin-top:6px"></div>
+            </details>
+            <div style="font-size:12px;color:var(--muted);margin-top:8px">Share your slug with listeners. Your IP is hidden behind Cloudflare.</div>
           </div>
-          <div style="font-size:12px;color:var(--muted);margin-top:6px">Share this with listeners. Your IP address is hidden behind Cloudflare.</div>
+
+          <!-- Not-yet-configured state -->
+          <div id="station-unclaimed" hidden style="font-size:13px;color:var(--muted)">
+            No slug configured. Set <code>STATION_SLUG</code> and <code>STATION_PUBLIC_URL</code> in your <code>.env</code>, then restart.
+          </div>
         </div>
 
         <!-- Broadcast -->
