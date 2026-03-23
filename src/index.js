@@ -44,15 +44,16 @@ function createApp() {
   // API routes
   app.use('/api', apiRouter);
 
-  // Serve frontend
-  app.use(express.static(path.join(config.paths.root, 'client')));
+  // Serve frontend (config.paths.app points to the bundled client/ dir,
+  // which lives inside the pkg snapshot when running as a packaged exe)
+  app.use(express.static(path.join(config.paths.app, 'client')));
 
   // SPA fallback — serve index.html for any unmatched GET
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/hls')) {
       return res.status(404).json({ error: 'Not found' });
     }
-    res.sendFile(path.join(config.paths.root, 'client', 'index.html'));
+    res.sendFile(path.join(config.paths.app, 'client', 'index.html'));
   });
 
   // Express error handler — catches sync throws and next(err) calls
