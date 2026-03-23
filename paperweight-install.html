@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paperweight — Download & Setup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg:       #F4F1EB;
+  --bg2:      #ECEAE3;
+  --bg3:      #E3E0D8;
+  --ink:      #0E0E0F;
+  --ink2:     #1C1C1E;
+  --mid:      #6B6860;
+  --muted:    #9E9B95;
+  --border:   rgba(14,14,15,0.1);
+  --border2:  rgba(14,14,15,0.16);
+  --red:      #E8432A;
+  --red-soft: rgba(232,67,42,0.08);
+  --green:    #16A34A;
+  --green-soft: rgba(22,163,74,0.09);
+  --blue:     #2563EB;
+  --blue-soft: rgba(37,99,235,0.08);
+  --yellow:   #D97706;
+  --yellow-soft: rgba(217,119,6,0.08);
+  --mono:     'DM Mono', 'Courier New', monospace;
+  --display:  'Syne', sans-serif;
+  --serif:    'DM Serif Display', serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── NAV ── */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(244,241,235,0.92);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  height: 52px;
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+}
+
+.nav-wordmark {
+  font-family: var(--serif);
+  font-size: 17px;
+  color: var(--ink);
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mid);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover { color: var(--ink); }
+
+.nav-links .active-link { color: var(--ink); font-weight: 500; }
+
+/* ── PAGE HEADER ── */
+.page-header {
+  border-bottom: 1px solid var(--border);
+  padding: 56px 40px 48px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 40px;
+}
+
+.header-eyebrow {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-eyebrow::before {
+  content: '';
+  display: block;
+  width: 20px;
+  height: 1px;
+  background: var(--red);
+}
+
+.page-title {
+  font-family: var(--serif);
+  font-size: clamp(36px, 4vw, 52px);
+  font-style: italic;
+  line-height: 1.1;
+  color: var(--ink);
+  margin-bottom: 14px;
+}
+
+.page-sub {
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--mid);
+  line-height: 1.7;
+  max-width: 520px;
+}
+
+.page-sub strong { color: var(--ink); font-weight: 400; }
+
+/* version badge */
+.version-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.v-num {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.05em;
+}
+
+.v-date {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.v-tag {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--red);
+  background: var(--red-soft);
+  padding: 3px 8px;
+  border-radius: 2px;
+}
+
+/* ── DOWNLOAD STRIP ── */
+.download-strip {
+  background: var(--ink);
+  padding: 28px 40px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.dl-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(244,241,235,0.4);
+  flex-shrink: 0;
+}
+
+.dl-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.dl-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(244,241,235,0.07);
+  border: 1px solid rgba(244,241,235,0.12);
+  border-radius: 3px;
+  padding: 9px 16px;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s;
+  cursor: pointer;
+}
+
+.dl-btn:hover {
+  background: rgba(244,241,235,0.12);
+  border-color: rgba(244,241,235,0.2);
+}
+
+.dl-btn-icon { font-size: 14px; }
+
+.dl-btn-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.dl-btn-os {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 600;
+  color: #F4F1EB;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.dl-btn-file {
+  font-size: 9px;
+  color: rgba(244,241,235,0.4);
+  letter-spacing: 0.1em;
+}
+
+.dl-btn.primary {
+  background: var(--red);
+  border-color: var(--red);
+}
+
+.dl-btn.primary:hover { background: #d63a22; border-color: #d63a22; }
+.dl-btn.primary .dl-btn-os { color: white; }
+.dl-btn.primary .dl-btn-file { color: rgba(255,255,255,0.6); }
+
+.dl-note {
+  font-size: 10px;
+  color: rgba(244,241,235,0.3);
+  letter-spacing: 0.06em;
+  margin-left: auto;
+}
+
+/* ── MAIN LAYOUT ── */
+.main {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: calc(100vh - 280px);
+}
+
+/* ── OS SIDEBAR ── */
+.os-sidebar {
+  border-right: 1px solid var(--border);
+  padding: 32px 0;
+  position: sticky;
+  top: 52px;
+  height: calc(100vh - 52px);
+  overflow-y: auto;
+}
+
+.sidebar-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 24px 16px;
+}
+
+.os-tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-left: 2px solid transparent;
+  text-decoration: none;
+}
+
+.os-tab:hover { background: var(--bg2); }
+
+.os-tab.active {
+  background: var(--bg2);
+  border-left-color: var(--red);
+}
+
+.os-icon { font-size: 18px; flex-shrink: 0; }
+
+.os-info { display: flex; flex-direction: column; gap: 2px; }
+
+.os-name {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.os-sub {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+
+.os-tab.active .os-name { color: var(--red); }
+
+/* sidebar divider */
+.sidebar-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 16px 24px;
+}
+
+.sidebar-help {
+  padding: 16px 24px 0;
+}
+
+.help-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--mid);
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  transition: color 0.2s;
+}
+
+.help-link:hover { color: var(--ink); }
+
+/* ── GUIDE CONTENT ── */
+.guide-content {
+  padding: 40px 56px 80px;
+}
+
+/* OS panel visibility */
+.os-panel { display: none; }
+.os-panel.active { display: block; }
+
+/* Guide header */
+.guide-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 36px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.guide-os-icon { font-size: 28px; }
+
+.guide-os-title {
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.guide-os-sub {
+  font-size: 11px;
+  color: var(--mid);
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+
+.guide-time-badge {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.time-num {
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.time-label {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* prereq box */
+.prereq-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 18px 20px;
+  margin-bottom: 36px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.prereq-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+.prereq-content {}
+
+.prereq-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.prereq-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prereq-list li {
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--mid);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prereq-list li::before {
+  content: '→';
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* Steps */
+.steps { display: flex; flex-direction: column; gap: 0; }
+
+.step {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 20px;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.step:first-child { padding-top: 0; }
+
+/* connector line */
+.step:not(:last-child) .step-num::after {
+  content: '';
+  position: absolute;
+  top: 52px;
+  left: 20px;
+  width: 1px;
+  height: calc(100% - 24px);
+  background: var(--border2);
+}
+
+.step-num {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mid);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.step.done .step-num {
+  background: var(--green-soft);
+  border-color: rgba(22,163,74,0.2);
+  color: var(--green);
+}
+
+.step-body {}
+
+.step-title {
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.step-desc {
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 1.75;
+  color: var(--mid);
+  margin-bottom: 14px;
+}
+
+.step-desc strong { color: var(--ink); font-weight: 400; }
+.step-desc a { color: var(--red); text-decoration: underline; text-underline-offset: 3px; }
+
+/* code block */
+.code-block {
+  background: var(--ink2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+
+.code-bar {
+  background: var(--ink);
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.code-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(244,241,235,0.3);
+}
+
+.copy-btn {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(244,241,235,0.3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--mono);
+  transition: color 0.2s;
+  padding: 0;
+}
+
+.copy-btn:hover { color: rgba(244,241,235,0.7); }
+
+.code-body {
+  padding: 14px 16px;
+  overflow-x: auto;
+}
+
+.code-line {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.7;
+  white-space: pre;
+  color: #A8D8B0;
+}
+
+.code-comment { color: rgba(244,241,235,0.25); }
+.code-prompt   { color: #6EE7B7; }
+.code-dim      { color: rgba(244,241,235,0.35); }
+.code-white    { color: #F4F1EB; }
+
+/* callout boxes */
+.callout {
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin: 12px 0;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.callout.info    { background: var(--blue-soft); border-left: 3px solid var(--blue); }
+.callout.warn    { background: var(--yellow-soft); border-left: 3px solid var(--yellow); }
+.callout.success { background: var(--green-soft); border-left: 3px solid var(--green); }
+.callout.tip     { background: var(--red-soft); border-left: 3px solid var(--red); }
+
+.callout-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+.callout-text {
+  font-size: 11px;
+  font-weight: 300;
+  line-height: 1.65;
+  color: var(--mid);
+}
+
+.callout-text strong { color: var(--ink); font-weight: 400; }
+.callout-text a { color: var(--red); }
+
+/* screenshot placeholder */
+.screenshot-placeholder {
+  background: var(--bg2);
+  border: 1px dashed var(--border2);
+  border-radius: 4px;
+  padding: 24px;
+  margin: 12px 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.ss-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ss-desc {
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--muted);
+}
+
+/* success banner */
+.success-banner {
+  background: var(--green-soft);
+  border: 1px solid rgba(22,163,74,0.18);
+  border-radius: 4px;
+  padding: 20px 22px;
+  margin-top: 32px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.success-icon { font-size: 20px; flex-shrink: 0; }
+
+.success-title {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}
+
+.success-desc {
+  font-size: 11px;
+  font-weight: 300;
+  line-height: 1.65;
+  color: var(--mid);
+}
+
+.success-desc strong { color: var(--ink); font-weight: 400; }
+.success-desc a { color: var(--red); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ── TROUBLESHOOT ── */
+.troubleshoot {
+  margin-top: 48px;
+  border-top: 1px solid var(--border);
+  padding-top: 36px;
+}
+
+.ts-title {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  margin-bottom: 20px;
+}
+
+.ts-items { display: flex; flex-direction: column; gap: 0; }
+
+.ts-item {
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.ts-q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ts-q-text {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+
+.ts-chevron {
+  font-size: 10px;
+  color: var(--muted);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.ts-item.open .ts-chevron { transform: rotate(180deg); }
+
+.ts-a {
+  font-size: 11px;
+  font-weight: 300;
+  line-height: 1.75;
+  color: var(--mid);
+  padding: 0 0 16px 0;
+  display: none;
+}
+
+.ts-a strong { color: var(--ink); font-weight: 400; }
+.ts-item.open .ts-a { display: block; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 24px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg2);
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-wordmark {
+  font-family: var(--serif);
+  font-size: 14px;
+  color: var(--mid);
+}
+
+.footer-copy {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.footer-right a {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-right a:hover { color: var(--mid); }
+</style>
+</head>
+<body>
+
+<!-- ══ NAV ══ -->
+<nav>
+  <a href="/" class="nav-logo">
+    <svg width="20" height="20" viewBox="0 0 52 52" fill="none">
+      <circle cx="26" cy="26" r="23" stroke="#0E0E0F" stroke-width="1.5" fill="none"/>
+      <circle cx="26" cy="26" r="16" fill="#0E0E0F"/>
+      <text x="26" y="27" text-anchor="middle" dominant-baseline="middle"
+        font-family="'DM Mono','Courier New',monospace" font-weight="500" font-size="12"
+        fill="#F4F1EB">&lt;P/&gt;</text>
+    </svg>
+    <span class="nav-wordmark">Paperweight</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="/">Home</a></li>
+    <li><a href="/install" class="active-link">Download & Install</a></li>
+    <li><a href="https://discord.gg/paperweight">Discord</a></li>
+  </ul>
+</nav>
+
+<!-- ══ PAGE HEADER ══ -->
+<div class="page-header">
+  <div>
+    <div class="header-eyebrow">Setup Guide</div>
+    <h1 class="page-title">Download & install<br>Paperweight</h1>
+    <p class="page-sub">
+      Pick your operating system below. Each guide walks you through setup step by step —
+      <strong>no coding experience needed.</strong>
+      Most setups take under 20 minutes.
+    </p>
+  </div>
+  <div class="version-badge">
+    <span class="v-tag">Alpha Build</span>
+    <span class="v-num">v1.0.0</span>
+    <span class="v-date">March 2026</span>
+  </div>
+</div>
+
+<!-- ══ DOWNLOAD STRIP ══ -->
+<div class="download-strip">
+  <span class="dl-label">Download</span>
+  <div class="dl-buttons">
+    <a href="#" class="dl-btn primary" onclick="switchTab('windows'); return false;">
+      <span class="dl-btn-icon">🪟</span>
+      <div class="dl-btn-text">
+        <span class="dl-btn-os">Windows</span>
+        <span class="dl-btn-file">paperweight-v1.0-win.exe · 48 MB</span>
+      </div>
+    </a>
+    <a href="#" class="dl-btn" onclick="switchTab('mac'); return false;">
+      <span class="dl-btn-icon">🍎</span>
+      <div class="dl-btn-text">
+        <span class="dl-btn-os">macOS</span>
+        <span class="dl-btn-file">paperweight-v1.0-mac.dmg · 52 MB</span>
+      </div>
+    </a>
+    <a href="#" class="dl-btn" onclick="switchTab('ubuntu'); return false;">
+      <span class="dl-btn-icon">🐧</span>
+      <div class="dl-btn-text">
+        <span class="dl-btn-os">Ubuntu / Debian</span>
+        <span class="dl-btn-file">paperweight-v1.0-linux.tar.gz · 44 MB</span>
+      </div>
+    </a>
+    <a href="#" class="dl-btn" onclick="switchTab('pi'); return false;">
+      <span class="dl-btn-icon">🍓</span>
+      <div class="dl-btn-text">
+        <span class="dl-btn-os">Raspberry Pi</span>
+        <span class="dl-btn-file">paperweight-v1.0-arm64.tar.gz · 41 MB</span>
+      </div>
+    </a>
+  </div>
+  <span class="dl-note">v1.0.0 · Alpha · All platforms</span>
+</div>
+
+<!-- ══ MAIN ══ -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <aside class="os-sidebar">
+    <div class="sidebar-label">Choose your OS</div>
+
+    <a class="os-tab" id="tab-windows" onclick="switchTab('windows')" href="#">
+      <span class="os-icon">🪟</span>
+      <div class="os-info">
+        <span class="os-name">Windows</span>
+        <span class="os-sub">WSL2 · Win 10 / 11</span>
+      </div>
+    </a>
+    <a class="os-tab" id="tab-mac" onclick="switchTab('mac')" href="#">
+      <span class="os-icon">🍎</span>
+      <div class="os-info">
+        <span class="os-name">macOS</span>
+        <span class="os-sub">Intel + Apple Silicon</span>
+      </div>
+    </a>
+    <a class="os-tab" id="tab-ubuntu" onclick="switchTab('ubuntu')" href="#">
+      <span class="os-icon">🐧</span>
+      <div class="os-info">
+        <span class="os-name">Ubuntu / Debian</span>
+        <span class="os-sub">20.04, 22.04, 24.04</span>
+      </div>
+    </a>
+    <a class="os-tab" id="tab-pi" onclick="switchTab('pi')" href="#">
+      <span class="os-icon">🍓</span>
+      <div class="os-info">
+        <span class="os-name">Raspberry Pi</span>
+        <span class="os-sub">Pi 4 / 5 · 64-bit OS</span>
+      </div>
+    </a>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-help">
+      <a href="https://discord.gg/paperweight" class="help-link">
+        💬 &nbsp;Stuck? Ask in Discord
+      </a>
+    </div>
+  </aside>
+
+  <!-- GUIDE CONTENT -->
+  <div class="guide-content">
+
+    <!-- ════════════ WINDOWS ════════════ -->
+    <div class="os-panel" id="panel-windows">
+      <div class="guide-header">
+        <span class="guide-os-icon">🪟</span>
+        <div>
+          <div class="guide-os-title">Windows Setup</div>
+          <div class="guide-os-sub">Windows 10 or 11 · Uses WSL2 under the hood</div>
+        </div>
+        <div class="guide-time-badge">
+          <span class="time-num">~15</span>
+          <span class="time-label">minutes</span>
+        </div>
+      </div>
+
+      <div class="prereq-box">
+        <span class="prereq-icon">📋</span>
+        <div class="prereq-content">
+          <div class="prereq-title">Before you start — you'll need:</div>
+          <ul class="prereq-list">
+            <li>Windows 10 (version 2004 or later) or Windows 11</li>
+            <li>At least 2 GB of free disk space</li>
+            <li>Your media files somewhere on your computer</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="steps">
+
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Download the installer</div>
+            <div class="step-desc">
+              Click the <strong>Windows download button</strong> at the top of this page.
+              A file called <strong>paperweight-v1.0-win.exe</strong> will download to your Downloads folder.
+            </div>
+            <div class="callout info">
+              <span class="callout-icon">ℹ️</span>
+              <div class="callout-text">
+                Windows may show a "Windows protected your PC" warning when you run the file. This is normal for new software. Click <strong>"More info"</strong> then <strong>"Run anyway"</strong>.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Run the installer</div>
+            <div class="step-desc">
+              Double-click <strong>paperweight-v1.0-win.exe</strong>. The installer will set up WSL2 (Windows Subsystem for Linux) automatically if it isn't already installed.
+              This is what lets Paperweight run on Windows — you don't need to know anything about it.
+            </div>
+            <div class="callout warn">
+              <span class="callout-icon">⚠️</span>
+              <div class="callout-text">
+                If WSL2 needs to be installed, your computer will <strong>restart once</strong>. Save anything you're working on before clicking through. After the restart, run the installer again to continue.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Choose your vault folder</div>
+            <div class="step-desc">
+              The installer will ask you to <strong>select a folder</strong> where your media lives — beats, podcasts, videos, whatever you make.
+              This becomes your Paperweight vault. You can change it later from the dashboard.
+            </div>
+            <div class="callout tip">
+              <span class="callout-icon">💡</span>
+              <div class="callout-text">
+                <strong>Not sure which folder to pick?</strong> Your Music folder, Downloads, or wherever you keep your project files all work fine. Paperweight reads your files but never moves or deletes them.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Let it scan</div>
+            <div class="step-desc">
+              Paperweight will scan your vault folder and index your files. A progress bar shows how it's going.
+              Depending on how many files you have, this takes between 30 seconds and a few minutes.
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">Your station is live</div>
+            <div class="step-desc">
+              Once the scan finishes, Paperweight opens your station in your browser automatically at
+              <strong>localhost:8080</strong>. You'll hear your content already playing.
+              The creator dashboard is at <strong>localhost:8080/dashboard</strong>.
+            </div>
+            <div class="callout success">
+              <span class="callout-icon">✅</span>
+              <div class="callout-text">
+                <strong>It worked if</strong> you can hear your content playing in the browser and see your files listed in the library. If the browser doesn't open automatically, open Chrome or Firefox and go to <strong>localhost:8080</strong>.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="success-banner">
+        <span class="success-icon">🎙️</span>
+        <div>
+          <div class="success-title">You're on air.</div>
+          <div class="success-desc">
+            Your station is broadcasting at <strong>localhost:8080</strong>. To make it accessible to others, you'll need to set up port forwarding on your router — <a href="#">here's a simple guide for that</a>.
+            Or just share the link inside your local network for now.
+          </div>
+        </div>
+      </div>
+
+      <div class="troubleshoot">
+        <div class="ts-title">Common issues</div>
+        <div class="ts-items">
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">The installer says WSL2 isn't supported on my computer</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">WSL2 requires Windows 10 version 2004 (May 2020) or later. Go to <strong>Settings → System → About</strong> and check your Windows version. If it's older, run Windows Update first. If you're on Windows 10 Home, WSL2 is still supported — no upgrade needed.</div>
+          </div>
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">Browser opens but I hear nothing / see no files</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">Your vault folder might be empty or contain file types Paperweight doesn't recognize yet. Supported formats are <strong>MP3, WAV, FLAC, AAC, MP4, MOV</strong>. Try pointing it at a folder you know has MP3s or WAVs and re-run the scan from the dashboard.</div>
+          </div>
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">Paperweight stopped working after my computer restarted</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">Paperweight doesn't start automatically on boot by default. Find the <strong>Paperweight</strong> app in your Start menu and launch it. We'll add auto-start as an option in a future update.</div>
+          </div>
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">Still stuck</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">Join the <a href="https://discord.gg/paperweight"><strong>Paperweight Discord</strong></a> and drop your question in #setup-help. Include your Windows version and a screenshot of the error if you have one.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════ MACOS ════════════ -->
+    <div class="os-panel" id="panel-mac">
+      <div class="guide-header">
+        <span class="guide-os-icon">🍎</span>
+        <div>
+          <div class="guide-os-title">macOS Setup</div>
+          <div class="guide-os-sub">macOS 12 Monterey or later · Intel & Apple Silicon</div>
+        </div>
+        <div class="guide-time-badge">
+          <span class="time-num">~10</span>
+          <span class="time-label">minutes</span>
+        </div>
+      </div>
+
+      <div class="prereq-box">
+        <span class="prereq-icon">📋</span>
+        <div class="prereq-content">
+          <div class="prereq-title">Before you start — you'll need:</div>
+          <ul class="prereq-list">
+            <li>macOS 12 Monterey or later (Intel or Apple Silicon both work)</li>
+            <li>At least 2 GB of free disk space</li>
+            <li>Your media files somewhere on your Mac</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="steps">
+
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Download the DMG</div>
+            <div class="step-desc">
+              Click the <strong>macOS download button</strong> at the top of this page.
+              A file called <strong>paperweight-v1.0-mac.dmg</strong> will download to your Downloads folder.
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Open and install</div>
+            <div class="step-desc">
+              Double-click the DMG file. Drag the <strong>Paperweight</strong> icon into your Applications folder when the window appears.
+            </div>
+            <div class="callout warn">
+              <span class="callout-icon">⚠️</span>
+              <div class="callout-text">
+                macOS may say <strong>"Paperweight can't be opened because it's from an unidentified developer."</strong>
+                To fix this: go to <strong>System Settings → Privacy & Security</strong>, scroll down, and click <strong>"Open Anyway"</strong> next to the Paperweight warning.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Launch Paperweight</div>
+            <div class="step-desc">
+              Open Paperweight from your Applications folder. On first launch it will ask you to <strong>select your vault folder</strong> — point it at wherever your music, podcasts, or videos live.
+            </div>
+            <div class="callout tip">
+              <span class="callout-icon">💡</span>
+              <div class="callout-text">
+                Paperweight will ask for permission to access your selected folder. Click <strong>Allow</strong> when macOS prompts you — this is required for it to read your files.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Let it scan and go live</div>
+            <div class="step-desc">
+              Paperweight scans your vault and starts broadcasting automatically in shuffle mode.
+              Your station opens at <strong>localhost:8080</strong> in your default browser.
+              The creator dashboard is at <strong>localhost:8080/dashboard</strong>.
+            </div>
+            <div class="callout success">
+              <span class="callout-icon">✅</span>
+              <div class="callout-text">
+                <strong>It worked if</strong> you can hear your content playing in the browser. The Paperweight icon will appear in your menu bar — click it any time to open the dashboard or stop the station.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="success-banner">
+        <span class="success-icon">🎙️</span>
+        <div>
+          <div class="success-title">You're on air.</div>
+          <div class="success-desc">
+            Your station is live at <strong>localhost:8080</strong>. Paperweight runs quietly in your menu bar.
+            To share your station with people outside your home network, <a href="#">follow the port forwarding guide</a>.
+          </div>
+        </div>
+      </div>
+
+      <div class="troubleshoot">
+        <div class="ts-title">Common issues</div>
+        <div class="ts-items">
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">"Paperweight is damaged and can't be opened"</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">This is a macOS Gatekeeper issue. Open <strong>Terminal</strong> (search for it with Spotlight) and run: <code>xattr -cr /Applications/Paperweight.app</code> — then try opening it again. We're working on getting the app notarized to remove this step entirely.</div>
+          </div>
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">No sound / files not showing up</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">Make sure your vault folder contains supported formats: <strong>MP3, WAV, FLAC, AAC, MP4, MOV</strong>. Also check that Paperweight has permission to access the folder — go to <strong>System Settings → Privacy & Security → Files and Folders</strong>.</div>
+          </div>
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">Still stuck</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">Join the <a href="https://discord.gg/paperweight"><strong>Paperweight Discord</strong></a> and drop your question in #setup-help with your macOS version and what happened.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════ UBUNTU ════════════ -->
+    <div class="os-panel" id="panel-ubuntu">
+      <div class="guide-header">
+        <span class="guide-os-icon">🐧</span>
+        <div>
+          <div class="guide-os-title">Ubuntu / Debian Setup</div>
+          <div class="guide-os-sub">Ubuntu 20.04, 22.04, 24.04 · Debian 11 / 12</div>
+        </div>
+        <div class="guide-time-badge">
+          <span class="time-num">~10</span>
+          <span class="time-label">minutes</span>
+        </div>
+      </div>
+
+      <div class="prereq-box">
+        <span class="prereq-icon">📋</span>
+        <div class="prereq-content">
+          <div class="prereq-title">Before you start — you'll need:</div>
+          <ul class="prereq-list">
+            <li>Ubuntu 20.04 or later, or Debian 11 or later</li>
+            <li>Access to a terminal window</li>
+            <li>At least 2 GB of free disk space</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="steps">
+
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Open a terminal</div>
+            <div class="step-desc">
+              Press <strong>Ctrl + Alt + T</strong> to open a terminal window. You'll see a blinking cursor waiting for a command. That's all you need.
+            </div>
+            <div class="callout info">
+              <span class="callout-icon">ℹ️</span>
+              <div class="callout-text">To paste commands into the terminal, use <strong>Ctrl + Shift + V</strong> (not Ctrl+V). Then press Enter to run them.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Download and run the installer</div>
+            <div class="step-desc">Copy and paste this command into your terminal, then press Enter:</div>
+            <div class="code-block">
+              <div class="code-bar">
+                <span class="code-label">Terminal</span>
+                <button class="copy-btn" onclick="copyCode(this, 'curl -fsSL https://paperweight.fm/install | bash')">Copy</button>
+              </div>
+              <div class="code-body">
+                <div class="code-line"><span class="code-prompt">$</span><span class="code-white"> curl -fsSL https://paperweight.fm/install | bash</span></div>
+              </div>
+            </div>
+            <div class="step-desc">The installer handles everything — Node.js, FFmpeg, and Paperweight itself. It'll tell you what it's doing as it goes.</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Choose your vault folder</div>
+            <div class="step-desc">
+              The installer will ask: <strong>"Where are your media files?"</strong>
+              Type the path to your folder and press Enter. If you're not sure, your home folder path looks like <strong>/home/yourname/Music</strong>.
+            </div>
+            <div class="callout tip">
+              <span class="callout-icon">💡</span>
+              <div class="callout-text">Not sure what your folder path is? Type <strong>pwd</strong> in the terminal while you're inside the folder to see its exact path.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Start Paperweight</div>
+            <div class="step-desc">Once installation finishes, start your station:</div>
+            <div class="code-block">
+              <div class="code-bar">
+                <span class="code-label">Terminal</span>
+                <button class="copy-btn" onclick="copyCode(this, 'paperweight start')">Copy</button>
+              </div>
+              <div class="code-body">
+                <div class="code-line"><span class="code-prompt">$</span><span class="code-white"> paperweight start</span></div>
+                <div class="code-line"><span class="code-comment">→ scanning vault...</span></div>
+                <div class="code-line"><span class="code-comment">→ broadcast live at localhost:8080</span></div>
+              </div>
+            </div>
+            <div class="step-desc">Open your browser and go to <strong>localhost:8080</strong>. Your station is live.</div>
+            <div class="callout success">
+              <span class="callout-icon">✅</span>
+              <div class="callout-text"><strong>It worked if</strong> you can hear your content in the browser. Run <code>paperweight stop</code> to turn off the station when you're done.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="success-banner">
+        <span class="success-icon">🎙️</span>
+        <div>
+          <div class="success-title">You're on air.</div>
+          <div class="success-desc">
+            Station live at <strong>localhost:8080</strong> · Dashboard at <strong>localhost:8080/dashboard</strong>.
+            To run Paperweight automatically on startup, run <code>paperweight enable</code>. To share your station outside your home network, <a href="#">follow the port forwarding guide</a>.
+          </div>
+        </div>
+      </div>
+
+      <div class="troubleshoot">
+        <div class="ts-title">Common issues</div>
+        <div class="ts-items">
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">"curl: command not found"</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">Run <code>sudo apt install curl</code> first, then try the install command again. Enter your password when asked — the cursor won't move while you type, that's normal.</div>
+          </div>
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">Permission denied errors during install</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">Add <code>sudo</code> before the install command: <code>sudo curl -fsSL https://paperweight.fm/install | bash</code>. You'll be prompted for your password.</div>
+          </div>
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">Still stuck</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">Join the <a href="https://discord.gg/paperweight"><strong>Paperweight Discord</strong></a> — #setup-help. Copy the error message from your terminal and paste it there.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════ RASPBERRY PI ════════════ -->
+    <div class="os-panel" id="panel-pi">
+      <div class="guide-header">
+        <span class="guide-os-icon">🍓</span>
+        <div>
+          <div class="guide-os-title">Raspberry Pi Setup</div>
+          <div class="guide-os-sub">Pi 4 or Pi 5 · Raspberry Pi OS 64-bit (Bookworm)</div>
+        </div>
+        <div class="guide-time-badge">
+          <span class="time-num">~20</span>
+          <span class="time-label">minutes</span>
+        </div>
+      </div>
+
+      <div class="prereq-box">
+        <span class="prereq-icon">📋</span>
+        <div class="prereq-content">
+          <div class="prereq-title">Before you start — you'll need:</div>
+          <ul class="prereq-list">
+            <li>Raspberry Pi 4 (4GB RAM recommended) or Pi 5</li>
+            <li>Raspberry Pi OS 64-bit installed on an SD card (16GB minimum)</li>
+            <li>A USB drive or external hard drive with your media files</li>
+            <li>Your Pi connected to your home network via ethernet or Wi-Fi</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout info" style="margin-bottom: 28px;">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-text">
+          <strong>New to Raspberry Pi?</strong> If you haven't set up your Pi yet, <a href="https://www.raspberrypi.com/documentation/computers/getting-started.html">start here</a> — the official Raspberry Pi Imager makes it straightforward. Come back once you have a working Pi on your network.
+        </div>
+      </div>
+
+      <div class="steps">
+
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Open a terminal on your Pi</div>
+            <div class="step-desc">
+              If you have a monitor connected, press <strong>Ctrl + Alt + T</strong>. If you're connecting from another computer via SSH, open your terminal app and connect with:
+            </div>
+            <div class="code-block">
+              <div class="code-bar">
+                <span class="code-label">Your computer's terminal</span>
+                <button class="copy-btn" onclick="copyCode(this, 'ssh pi@raspberrypi.local')">Copy</button>
+              </div>
+              <div class="code-body">
+                <div class="code-line"><span class="code-prompt">$</span><span class="code-white"> ssh pi@raspberrypi.local</span></div>
+              </div>
+            </div>
+            <div class="callout tip">
+              <span class="callout-icon">💡</span>
+              <div class="callout-text">If <code>raspberrypi.local</code> doesn't work, find your Pi's IP address from your router's device list and use that instead, e.g. <code>ssh pi@192.168.1.42</code>.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Plug in your media drive</div>
+            <div class="step-desc">
+              Connect your USB drive containing your media files to the Pi. To find where it's mounted, run:
+            </div>
+            <div class="code-block">
+              <div class="code-bar">
+                <span class="code-label">Terminal</span>
+                <button class="copy-btn" onclick="copyCode(this, 'lsblk')">Copy</button>
+              </div>
+              <div class="code-body">
+                <div class="code-line"><span class="code-prompt">$</span><span class="code-white"> lsblk</span></div>
+                <div class="code-line"><span class="code-comment">→ look for your drive — usually /media/pi/[drivename]</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Run the installer</div>
+            <div class="step-desc">Paste and run this in the terminal:</div>
+            <div class="code-block">
+              <div class="code-bar">
+                <span class="code-label">Terminal</span>
+                <button class="copy-btn" onclick="copyCode(this, 'curl -fsSL https://paperweight.fm/install | bash')">Copy</button>
+              </div>
+              <div class="code-body">
+                <div class="code-line"><span class="code-prompt">$</span><span class="code-white"> curl -fsSL https://paperweight.fm/install | bash</span></div>
+              </div>
+            </div>
+            <div class="step-desc">On a Pi 4, this takes about 3–5 minutes. The Pi is slower than a laptop — that's fine, let it finish.</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Point it at your vault and start</div>
+            <div class="step-desc">Tell Paperweight where your media is, then start the station:</div>
+            <div class="code-block">
+              <div class="code-bar">
+                <span class="code-label">Terminal</span>
+                <button class="copy-btn" onclick="copyCode(this, 'paperweight start --vault /media/pi/YOURDRIVE/music')">Copy</button>
+              </div>
+              <div class="code-body">
+                <div class="code-line"><span class="code-prompt">$</span><span class="code-white"> paperweight start --vault /media/pi/YOURDRIVE/music</span></div>
+                <div class="code-line"><span class="code-comment">→ replace YOURDRIVE with your drive name</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">Open your station from any device</div>
+            <div class="step-desc">
+              Your Pi's IP address is your station address. Find it by running <code>hostname -I</code>, then open a browser on any device on your home network and go to:
+              <strong>http://[your-pi-ip]:8080</strong>
+            </div>
+            <div class="callout success">
+              <span class="callout-icon">✅</span>
+              <div class="callout-text"><strong>It worked if</strong> you can open the station from your phone or laptop browser. To make the station run automatically every time the Pi powers on, run <code>paperweight enable</code>.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="success-banner">
+        <span class="success-icon">🎙️</span>
+        <div>
+          <div class="success-title">Your Pi is a broadcast station.</div>
+          <div class="success-desc">
+            Runs 24/7 on about <strong>5 watts of power</strong>. Dashboard at <strong>http://[pi-ip]:8080/dashboard</strong>.
+            To open your station to the internet (not just your home network), <a href="#">follow the port forwarding guide</a>.
+          </div>
+        </div>
+      </div>
+
+      <div class="troubleshoot">
+        <div class="ts-title">Common issues</div>
+        <div class="ts-items">
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">Installer is very slow or seems frozen</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">The Pi 4 is genuinely slower at installing software — give it up to 10 minutes before worrying. If there's been no output for over 10 minutes, press Ctrl+C and try again. Make sure your Pi is connected via ethernet rather than Wi-Fi for a faster install.</div>
+          </div>
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">Can't find my drive with lsblk</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">Try unplugging and replugging the drive, then run <code>lsblk</code> again. If it still doesn't show up, try a different USB port. The Pi 4 has both USB 2.0 and USB 3.0 (blue) ports — the blue ones are faster.</div>
+          </div>
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">Station works on my home network but not from the internet</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">That's expected. By default Paperweight is only accessible on your local network. To open it to the internet you'll need to set up port forwarding on your router. <a href="#">Full guide here.</a></div>
+          </div>
+          <div class="ts-item">
+            <div class="ts-q" onclick="toggleTs(this)">
+              <span class="ts-q-text">Still stuck</span>
+              <span class="ts-chevron">▼</span>
+            </div>
+            <div class="ts-a">Join the <a href="https://discord.gg/paperweight"><strong>Paperweight Discord</strong></a> — #setup-help. Tell us your Pi model, OS version, and paste the error message.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end guide-content -->
+</div><!-- end main -->
+
+<!-- ══ FOOTER ══ -->
+<footer>
+  <div class="footer-left">
+    <svg width="18" height="18" viewBox="0 0 52 52" fill="none">
+      <circle cx="26" cy="26" r="23" stroke="#9E9B95" stroke-width="1.5" fill="none"/>
+      <circle cx="26" cy="26" r="16" fill="#9E9B95"/>
+      <text x="26" y="27" text-anchor="middle" dominant-baseline="middle"
+        font-family="'DM Mono','Courier New',monospace" font-weight="500" font-size="12"
+        fill="#F4F1EB">&lt;P/&gt;</text>
+    </svg>
+    <span class="footer-wordmark">Paperweight</span>
+    <span class="footer-copy">© 2026 Paperweight Systems</span>
+  </div>
+  <div class="footer-right">
+    <a href="/">Home</a>
+    <a href="https://discord.gg/paperweight">Discord</a>
+    <a href="#">Roadmap</a>
+  </div>
+</footer>
+
+<script>
+  function switchTab(os) {
+    // Update tabs
+    document.querySelectorAll('.os-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + os).classList.add('active');
+
+    // Update panels
+    document.querySelectorAll('.os-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + os).classList.add('active');
+
+    // Scroll to top of content
+    document.querySelector('.guide-content').scrollTop = 0;
+
+    return false;
+  }
+
+  function toggleTs(el) {
+    const item = el.closest('.ts-item');
+    item.classList.toggle('open');
+  }
+
+  function copyCode(btn, text) {
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied ✓';
+      setTimeout(() => btn.textContent = orig, 1800);
+    });
+  }
+
+  // Default to Windows on load
+  switchTab('windows');
+</script>
+
+</body>
+</html>
