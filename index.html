@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paperweight — Be an Early Tester</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --ink:      #0A0A0B;
+  --ink2:     #111112;
+  --ink3:     #18181A;
+  --paper:    #EDE9E1;
+  --paper2:   #D6D1C7;
+  --warm:     #9C9285;
+  --muted:    #4A4740;
+  --red:      #E8432A;
+  --red-soft: rgba(232,67,42,0.12);
+  --green:    #22C55E;
+  --border:   rgba(237,233,225,0.07);
+  --border2:  rgba(237,233,225,0.13);
+  --mono:     'DM Mono', 'Courier New', monospace;
+  --display:  'Bebas Neue', sans-serif;
+  --serif:    'DM Serif Display', serif;
+  --serif2:   'Instrument Serif', serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  cursor: default;
+}
+
+/* ── grain ── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.4;
+}
+
+/* ════════════════════════════════
+   NAV
+════════════════════════════════ */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  height: 52px;
+  background: rgba(10,10,11,0.9);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+}
+
+.nav-wordmark {
+  font-family: var(--serif);
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  color: var(--paper);
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.nav-tag {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.nav-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--red);
+}
+
+.nav-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--red);
+  animation: blink 2s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* ════════════════════════════════
+   HERO
+════════════════════════════════ */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 0 0 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Full-bleed background text */
+.hero-bg-text {
+  position: absolute;
+  top: 52px;
+  left: 0; right: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  pointer-events: none;
+  overflow: hidden;
+  height: calc(100vh - 52px);
+}
+
+.hero-bg-word {
+  font-family: var(--display);
+  font-size: clamp(180px, 22vw, 320px);
+  letter-spacing: -0.02em;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(237,233,225,0.04);
+  line-height: 0.85;
+  white-space: nowrap;
+  user-select: none;
+  margin-top: -10px;
+}
+
+/* Radial glow */
+.hero-glow {
+  position: absolute;
+  bottom: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  height: 500px;
+  background: radial-gradient(ellipse, rgba(232,67,42,0.08) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+/* Hero content sits at bottom */
+.hero-content {
+  position: relative;
+  padding: 0 56px 80px;
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 80px;
+  align-items: flex-end;
+}
+
+.hero-left {}
+
+.hero-kicker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease forwards 0.1s;
+}
+
+.kicker-line {
+  width: 28px;
+  height: 1px;
+  background: var(--red);
+}
+
+.kicker-text {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--red);
+}
+
+.hero-headline {
+  font-family: var(--display);
+  font-size: clamp(64px, 9vw, 128px);
+  letter-spacing: -0.01em;
+  line-height: 0.92;
+  color: var(--paper);
+  margin-bottom: 28px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease forwards 0.2s;
+}
+
+.hero-headline em {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 0.72em;
+  letter-spacing: 0.01em;
+  color: var(--paper2);
+  display: block;
+}
+
+.hero-sub {
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1.75;
+  color: var(--warm);
+  max-width: 480px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease forwards 0.3s;
+}
+
+.hero-sub strong { color: var(--paper); font-weight: 400; }
+
+/* right: form card */
+.hero-right {
+  opacity: 0;
+  animation: fadeUp 0.7s ease forwards 0.4s;
+}
+
+.form-card {
+  background: var(--ink2);
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.form-card-top {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.form-card-eyebrow {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.form-card-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--paper);
+  line-height: 1.2;
+}
+
+.form-card-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.field input,
+.field select,
+.field textarea {
+  background: var(--ink3);
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--paper);
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+  -webkit-appearance: none;
+}
+
+.field input::placeholder,
+.field textarea::placeholder { color: var(--muted); }
+.field input:focus,
+.field select:focus,
+.field textarea:focus { border-color: var(--red); }
+
+.field select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234A4740' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
+  color: var(--paper);
+}
+
+.field select option { background: var(--ink3); }
+
+.field textarea { resize: none; height: 72px; }
+
+/* segment chips */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  padding: 5px 10px;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  cursor: pointer;
+  color: var(--warm);
+  background: transparent;
+  font-family: var(--mono);
+  transition: all 0.15s;
+}
+
+.chip:hover    { border-color: var(--red); color: var(--paper); }
+.chip.selected { border-color: var(--red); color: var(--red); background: var(--red-soft); }
+
+.submit-btn {
+  width: 100%;
+  background: var(--red);
+  color: var(--paper);
+  border: none;
+  border-radius: 3px;
+  padding: 13px;
+  font-family: var(--display);
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+  margin-top: 4px;
+}
+
+.submit-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
+.form-note {
+  font-size: 9px;
+  color: var(--muted);
+  text-align: center;
+  letter-spacing: 0.08em;
+  line-height: 1.6;
+  margin-top: -4px;
+}
+
+/* ════════════════════════════════
+   DIVIDER
+════════════════════════════════ */
+.section-rule {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 56px;
+  margin: 0;
+}
+
+.rule-line { flex: 1; height: 1px; background: var(--border); }
+.rule-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ════════════════════════════════
+   WHAT YOU GET
+════════════════════════════════ */
+.what-section {
+  padding: 96px 56px;
+}
+
+.what-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  margin-bottom: 64px;
+  align-items: end;
+}
+
+.what-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.what-headline {
+  font-family: var(--serif);
+  font-size: clamp(36px, 4vw, 54px);
+  font-style: italic;
+  line-height: 1.15;
+  color: var(--paper);
+}
+
+.what-body {
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 1.8;
+  color: var(--warm);
+  align-self: end;
+}
+
+.what-body strong { color: var(--paper); font-weight: 400; }
+
+/* perks grid */
+.perks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+}
+
+.perk {
+  background: var(--ink);
+  padding: 32px 28px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: background 0.2s;
+}
+
+.perk:hover { background: var(--ink2); }
+
+.perk-num {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: var(--red);
+}
+
+.perk-title {
+  font-family: var(--serif2);
+  font-size: 22px;
+  font-style: italic;
+  line-height: 1.2;
+  color: var(--paper);
+}
+
+.perk-desc {
+  font-size: 11px;
+  font-weight: 300;
+  line-height: 1.75;
+  color: var(--warm);
+}
+
+.perk-desc strong { color: var(--paper); font-weight: 400; }
+
+/* ════════════════════════════════
+   WHO WE WANT
+════════════════════════════════ */
+.who-section {
+  padding: 0 56px 96px;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 80px;
+  align-items: start;
+}
+
+.who-left {
+  position: sticky;
+  top: 80px;
+}
+
+.who-label {
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.who-headline {
+  font-family: var(--display);
+  font-size: 52px;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+  color: var(--paper);
+  margin-bottom: 20px;
+}
+
+.who-sub {
+  font-size: 11px;
+  font-weight: 300;
+  line-height: 1.7;
+  color: var(--warm);
+}
+
+.who-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.who-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 120px;
+  gap: 20px;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.who-row:first-child { border-top: 1px solid var(--border); }
+
+.who-idx {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+.who-segment {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.who-seg-name {
+  font-family: var(--serif2);
+  font-size: 18px;
+  font-style: italic;
+  color: var(--paper);
+}
+
+.who-seg-desc {
+  font-size: 10px;
+  font-weight: 300;
+  color: var(--warm);
+  line-height: 1.5;
+}
+
+.who-tag {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: right;
+}
+
+.who-tag.open   { color: var(--green); }
+.who-tag.limited { color: var(--red); }
+
+/* ════════════════════════════════
+   PROCESS
+════════════════════════════════ */
+.process-section {
+  background: var(--ink2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 80px 56px;
+}
+
+.process-inner {
+  max-width: 900px;
+}
+
+.process-label {
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.process-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.process-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  position: relative;
+}
+
+/* connector line between steps */
+.process-steps::before {
+  content: '';
+  position: absolute;
+  top: 18px;
+  left: calc(12.5%);
+  right: calc(12.5%);
+  height: 1px;
+  background: var(--border2);
+}
+
+.p-step {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-right: 32px;
+  position: relative;
+}
+
+.p-step-num {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border2);
+  background: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--paper);
+  letter-spacing: 0.05em;
+  position: relative;
+  z-index: 1;
+}
+
+.p-step.active .p-step-num {
+  background: var(--red);
+  border-color: var(--red);
+  color: white;
+}
+
+.p-step-title {
+  font-family: var(--serif2);
+  font-size: 16px;
+  font-style: italic;
+  color: var(--paper);
+  line-height: 1.3;
+}
+
+.p-step-desc {
+  font-size: 10px;
+  font-weight: 300;
+  color: var(--warm);
+  line-height: 1.65;
+}
+
+/* ════════════════════════════════
+   PHILOSOPHY QUOTE
+════════════════════════════════ */
+.quote-section {
+  padding: 96px 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+}
+
+.quote-mark {
+  font-family: var(--serif);
+  font-size: 120px;
+  line-height: 0.6;
+  color: var(--red);
+  opacity: 0.2;
+  margin-bottom: 24px;
+  user-select: none;
+}
+
+.quote-text {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(24px, 3vw, 40px);
+  line-height: 1.3;
+  color: var(--paper);
+  max-width: 800px;
+  margin-bottom: 24px;
+}
+
+.quote-attr {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ════════════════════════════════
+   SECOND CTA
+════════════════════════════════ */
+.cta2-section {
+  background: var(--red);
+  padding: 72px 56px;
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 80px;
+  align-items: center;
+}
+
+.cta2-left {}
+
+.cta2-eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(237,233,225,0.6);
+  margin-bottom: 14px;
+}
+
+.cta2-headline {
+  font-family: var(--display);
+  font-size: clamp(48px, 6vw, 80px);
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+  color: var(--paper);
+  margin-bottom: 20px;
+}
+
+.cta2-sub {
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 1.75;
+  color: rgba(237,233,225,0.7);
+}
+
+.cta2-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cta2-input {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(237,233,225,0.2);
+  border-radius: 3px;
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--paper);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.cta2-input::placeholder { color: rgba(237,233,225,0.35); }
+.cta2-input:focus { border-color: rgba(237,233,225,0.5); }
+
+.cta2-btn {
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  border-radius: 3px;
+  padding: 13px;
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.cta2-btn:hover { opacity: 0.85; }
+
+.cta2-note {
+  font-size: 9px;
+  color: rgba(237,233,225,0.4);
+  text-align: center;
+  letter-spacing: 0.08em;
+}
+
+/* ════════════════════════════════
+   FOOTER
+════════════════════════════════ */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 28px 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--ink2);
+}
+
+.footer-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.footer-wordmark {
+  font-family: var(--serif);
+  font-size: 15px;
+  color: var(--warm);
+}
+
+.footer-copy {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+.footer-right {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* ════════════════════════════════
+   ANIMATIONS
+════════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+</style>
+</head>
+<body>
+
+<!-- ══ NAV ══ -->
+<nav>
+  <a href="#" class="nav-logo">
+    <svg width="20" height="20" viewBox="0 0 52 52" fill="none">
+      <circle cx="26" cy="26" r="23" stroke="#EDE9E1" stroke-width="1.5" fill="none"/>
+      <circle cx="26" cy="26" r="16" fill="#EDE9E1"/>
+      <text x="26" y="27" text-anchor="middle" dominant-baseline="middle"
+        font-family="'DM Mono','Courier New',monospace" font-weight="500" font-size="12"
+        fill="#0A0A0B">&lt;P/&gt;</text>
+    </svg>
+    <span class="nav-wordmark">Paperweight</span>
+  </a>
+  <div class="nav-right">
+    <span class="nav-tag">Alpha — Limited Access</span>
+    <span class="nav-status">
+      <span class="nav-dot"></span>
+      Recruiting
+    </span>
+  </div>
+</nav>
+
+<!-- ══ HERO ══ -->
+<section class="hero">
+
+  <div class="hero-bg-text">
+    <div class="hero-bg-word">SIGNAL</div>
+  </div>
+
+  <div class="hero-glow"></div>
+
+  <div class="hero-content">
+    <div class="hero-left">
+      <div class="hero-kicker">
+        <div class="kicker-line"></div>
+        <span class="kicker-text">Alpha Testing — Closed Access</span>
+      </div>
+      <h1 class="hero-headline">
+        Be first<br>
+        on air.
+        <em>Run your station<br>before anyone else.</em>
+      </h1>
+      <p class="hero-sub" style="opacity:0; animation: fadeUp 0.7s ease forwards 0.3s;">
+        Paperweight is a self-hosted broadcast server that turns your creative archive into a <strong>24/7 live station</strong>.
+        We're inviting a small group of independent creators to run it on their own hardware before public release.
+        No polish. No hand-holding. <strong>Real friction is the point.</strong>
+      </p>
+    </div>
+
+    <div class="hero-right">
+      <div class="form-card">
+        <div class="form-card-top">
+          <div class="form-card-eyebrow">Alpha Application</div>
+          <div class="form-card-title">Apply to test<br>Paperweight v1</div>
+        </div>
+        <div class="form-card-body">
+
+          <div class="field">
+            <label>Your name</label>
+            <input type="text" placeholder="How do people know you">
+          </div>
+
+          <div class="field">
+            <label>Email</label>
+            <input type="email" placeholder="Where we'll reach you">
+          </div>
+
+          <div class="field">
+            <label>What do you make?</label>
+            <div class="chips">
+              <button class="chip" onclick="toggleChip(this)">Beats / Music</button>
+              <button class="chip" onclick="toggleChip(this)">Podcast</button>
+              <button class="chip" onclick="toggleChip(this)">Experimental Radio</button>
+              <button class="chip" onclick="toggleChip(this)">Video / Film</button>
+              <button class="chip" onclick="toggleChip(this)">Ambient / Lo-fi</button>
+              <button class="chip" onclick="toggleChip(this)">Other</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Hardware you'll run it on</label>
+            <select>
+              <option value="" disabled selected>Select your setup</option>
+              <option>Raspberry Pi 4 or 5</option>
+              <option>Windows PC (WSL2)</option>
+              <option>Old laptop — Linux</option>
+              <option>Mini PC / NUC</option>
+              <option>Not sure yet</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Why do you want in? (optional)</label>
+            <textarea placeholder="One or two sentences is fine"></textarea>
+          </div>
+
+          <button class="submit-btn" onclick="handleSubmit(this)">Apply for Access</button>
+
+          <p class="form-note">
+            We'll review and reach out directly.<br>
+            No spam. No pitch. Just setup docs and a friction log.
+          </p>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ WHAT YOU GET ══ -->
+<section class="what-section">
+  <div class="what-header reveal">
+    <div>
+      <div class="what-label">What testers get</div>
+      <h2 class="what-headline">Early access.<br>Direct line.<br>Real credit.</h2>
+    </div>
+    <div class="what-body">
+      Alpha testers aren't beta users. You're the people who shape what this becomes.
+      Your friction data informs every decision before public release.
+      <strong>We want honest, not enthusiastic.</strong>
+    </div>
+  </div>
+
+  <div class="perks">
+    <div class="perk reveal">
+      <div class="perk-num">01</div>
+      <div class="perk-title">Full v1 build, before anyone else</div>
+      <div class="perk-desc">Access to the complete Paperweight v1 — vault scanner, HLS broadcast, web player, library, creator dashboard. Running on your hardware, for real.</div>
+    </div>
+    <div class="perk reveal reveal-delay-1">
+      <div class="perk-num">02</div>
+      <div class="perk-title">Direct access to the founder</div>
+      <div class="perk-desc">Not a support ticket. A direct line. Your friction reports go straight to the person building this. <strong>Your feedback changes the product.</strong></div>
+    </div>
+    <div class="perk reveal reveal-delay-2">
+      <div class="perk-num">03</div>
+      <div class="perk-title">Named in the v1 release</div>
+      <div class="perk-desc">Alpha testers who stick with it get named in the v1 public release notes. You helped ship this. That's on the record.</div>
+    </div>
+    <div class="perk reveal">
+      <div class="perk-num">04</div>
+      <div class="perk-title">Early access to v1.5 monetization</div>
+      <div class="perk-desc">Alpha testers get first access to the Paperweight Play monetization layer — subscriber tiers, tip button, download access — when it ships.</div>
+    </div>
+    <div class="perk reveal reveal-delay-1">
+      <div class="perk-num">05</div>
+      <div class="perk-title">Your station is the proof of concept</div>
+      <div class="perk-desc">When we launch publicly, real stations are the story. <strong>Your station running</strong> — your archive, your broadcast, your audience — is what we show the world.</div>
+    </div>
+    <div class="perk reveal reveal-delay-2">
+      <div class="perk-num">06</div>
+      <div class="perk-title">Zero-config seeding consideration</div>
+      <div class="perk-desc">Standout alpha stations may receive a pre-configured hardware kit at v2 — Station Kit, no setup required. First look at the seeding program before it's announced.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ WHO WE WANT ══ -->
+<div class="section-rule reveal">
+  <div class="rule-line"></div>
+  <div class="rule-label">Who we're looking for</div>
+  <div class="rule-line"></div>
+</div>
+
+<section class="who-section">
+  <div class="who-left reveal">
+    <div class="who-label">Tester profile</div>
+    <h3 class="who-headline">Not everyone.<br>The right ones.</h3>
+    <p class="who-sub">
+      We're not running a public beta.
+      We want 8–12 creators who will actually run this on real hardware, find real friction, and tell us honestly what breaks.
+      Community depth matters more than follower count.
+    </p>
+  </div>
+  <div class="who-right">
+    <div class="who-row reveal">
+      <span class="who-idx">01</span>
+      <div class="who-segment">
+        <div class="who-seg-name">Beatmakers & producers</div>
+        <div class="who-seg-desc">Underground producers with a real archive. BPM metadata, vault organization, shuffle mode stress test.</div>
+      </div>
+      <span class="who-tag open">3 spots open</span>
+    </div>
+    <div class="who-row reveal">
+      <span class="who-idx">02</span>
+      <div class="who-segment">
+        <div class="who-seg-name">Independent podcasters</div>
+        <div class="who-seg-desc">Episode scheduling, audio quality, library browsing. People with a real back-catalog to throw at it.</div>
+      </div>
+      <span class="who-tag open">3 spots open</span>
+    </div>
+    <div class="who-row reveal">
+      <span class="who-idx">03</span>
+      <div class="who-segment">
+        <div class="who-seg-name">Experimental / underground radio</div>
+        <div class="who-seg-desc">Edge case content. Anonymous station mode. Ambient streams. The creators who don't fit neatly elsewhere.</div>
+      </div>
+      <span class="who-tag limited">2 spots open</span>
+    </div>
+    <div class="who-row reveal">
+      <span class="who-idx">04</span>
+      <div class="who-segment">
+        <div class="who-seg-name">Indie filmmakers</div>
+        <div class="who-seg-desc">Video file handling, mixed media vault, the people who will immediately try to break the video pipeline.</div>
+      </div>
+      <span class="who-tag limited">2 spots open</span>
+    </div>
+    <div class="who-row reveal">
+      <span class="who-idx">05</span>
+      <div class="who-segment">
+        <div class="who-seg-name">Self-hosting / tech community</div>
+        <div class="who-seg-desc">Setup process, config edge cases, hardware variety. At least one tester who has never self-hosted anything.</div>
+      </div>
+      <span class="who-tag limited">2 spots open</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PROCESS ══ -->
+<section class="process-section">
+  <div class="process-inner">
+    <div class="process-label reveal">How alpha testing works</div>
+    <div class="process-steps">
+      <div class="p-step active reveal">
+        <div class="p-step-num">01</div>
+        <div class="p-step-title">Apply</div>
+        <div class="p-step-desc">Fill out the form. We review personally and reach out within a week.</div>
+      </div>
+      <div class="p-step reveal reveal-delay-1">
+        <div class="p-step-num">02</div>
+        <div class="p-step-title">Get the build</div>
+        <div class="p-step-desc">Setup guide + the v1 build. You install it on your own hardware, no help from us.</div>
+      </div>
+      <div class="p-step reveal reveal-delay-2">
+        <div class="p-step-num">03</div>
+        <div class="p-step-title">Run it. Break it.</div>
+        <div class="p-step-desc">4–6 weeks of real use. Log friction as you hit it. Don't filter. Honest is what we need.</div>
+      </div>
+      <div class="p-step reveal reveal-delay-3">
+        <div class="p-step-num">04</div>
+        <div class="p-step-title">Shape v1</div>
+        <div class="p-step-desc">Your logs inform the final build. You're named in the release. Public launch follows.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ QUOTE ══ -->
+<section class="quote-section">
+  <div class="quote-mark reveal">"</div>
+  <blockquote class="quote-text reveal">
+    The creator owns the server.<br>The audience comes to them.
+  </blockquote>
+  <p class="quote-attr reveal">The Paperweight philosophy</p>
+</section>
+
+<!-- ══ SECOND CTA ══ -->
+<section class="cta2-section">
+  <div class="cta2-left">
+    <div class="cta2-eyebrow">Still reading? That's a good sign.</div>
+    <h2 class="cta2-headline">Your station<br>is waiting.</h2>
+    <p class="cta2-sub">
+      Drop your email and we'll reach out when we're ready to bring you in.
+      No commitment. No timeline pressure. Just first in line when the door opens.
+    </p>
+  </div>
+  <div class="cta2-form">
+    <input class="cta2-input" type="text" placeholder="Your name">
+    <input class="cta2-input" type="email" placeholder="Your email">
+    <button class="cta2-btn" onclick="handleSubmit2(this)">Reserve My Spot</button>
+    <p class="cta2-note">We don't sell data. We barely have a database.</p>
+  </div>
+</section>
+
+<!-- ══ FOOTER ══ -->
+<footer>
+  <a href="#" class="footer-logo">
+    <svg width="18" height="18" viewBox="0 0 52 52" fill="none">
+      <circle cx="26" cy="26" r="23" stroke="#4A4740" stroke-width="1.5" fill="none"/>
+      <circle cx="26" cy="26" r="16" fill="#4A4740"/>
+      <text x="26" y="27" text-anchor="middle" dominant-baseline="middle"
+        font-family="'DM Mono','Courier New',monospace" font-weight="500" font-size="12"
+        fill="#0A0A0B">&lt;P/&gt;</text>
+    </svg>
+    <span class="footer-wordmark">Paperweight</span>
+  </a>
+  <span class="footer-copy">© 2026 Paperweight Systems · Confidential Pre-Release</span>
+  <span class="footer-right">Alpha — v1.0</span>
+</footer>
+
+<script>
+  // Chip toggle
+  function toggleChip(el) {
+    el.classList.toggle('selected');
+  }
+
+  // Submit handlers
+  function handleSubmit(btn) {
+    btn.textContent = 'Application Received ✓';
+    btn.style.background = '#22C55E';
+    btn.disabled = true;
+  }
+
+  function handleSubmit2(btn) {
+    btn.textContent = 'You\'re on the list ✓';
+    btn.style.background = '#22C55E';
+    btn.style.color = '#0A0A0B';
+    btn.disabled = true;
+  }
+
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.08 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>
