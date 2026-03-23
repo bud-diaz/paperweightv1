@@ -81,6 +81,7 @@ nav {
   letter-spacing: .06em;
   margin-right: auto;
   padding: 14px 0;
+  text-decoration: none;
   text-transform: uppercase;
 }
 .nav-link {
@@ -261,8 +262,268 @@ nav {
 .auth-overlay h2 { font-size: 1rem; }
 .auth-overlay p { color: var(--muted); font-size: 13px; }
 
+/* ── Broadcast actions ──────────────────────────────────────────────────────── */
+.broadcast-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
 /* ── Misc ──────────────────────────────────────────────────────────────────── */
 .empty { color: var(--muted); font-size: 13px; padding: 32px; text-align: center; }
 .error-msg { color: #e74c3c; font-size: 13px; margin-top: 4px; }
 .success-msg { color: var(--green); font-size: 13px; margin-top: 4px; }
 [hidden] { display: none !important; }
+
+/* ── Landing page ───────────────────────────────────────────────────────────── */
+.landing-body {
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.landing-nav {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 52px;
+}
+
+.landing-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.landing-hero-inner {
+  max-width: 560px;
+  width: 100%;
+}
+
+.landing-eyebrow {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.landing-title {
+  font-size: clamp(2.4rem, 8vw, 4.5rem);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1.05;
+  margin-bottom: 20px;
+}
+
+.landing-sub {
+  color: var(--muted);
+  font-size: clamp(0.95rem, 2.5vw, 1.1rem);
+  line-height: 1.65;
+  max-width: 420px;
+  margin: 0 auto 36px;
+}
+
+.landing-cta {
+  font-size: 15px;
+  padding: 12px 28px;
+  border-radius: 8px;
+}
+
+.landing-section {
+  border-top: 1px solid var(--border);
+  padding: 72px 24px;
+}
+
+.landing-section-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.landing-section-title {
+  font-size: clamp(1.3rem, 4vw, 1.8rem);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  margin-bottom: 12px;
+}
+
+.landing-section-body {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.65;
+  max-width: 480px;
+  margin: 0 auto 28px;
+}
+
+/* Community / Discord */
+.community-section { background: var(--surface); }
+
+.community-icon {
+  color: #5865F2;
+  margin-bottom: 16px;
+}
+
+.discord-btn {
+  align-items: center;
+  background: #5865F2;
+  border-color: #5865F2;
+  border-radius: 8px;
+  display: inline-flex;
+  font-size: 15px;
+  gap: 8px;
+  padding: 12px 28px;
+}
+.discord-btn:hover { background: #4752c4; border-color: #4752c4; }
+
+/* Features grid */
+.features-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 36px;
+  text-align: left;
+}
+
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.feature-icon { font-size: 1.5rem; margin-bottom: 10px; }
+
+.feature-card h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.feature-card p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.landing-footer {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  margin-top: auto;
+  padding: 20px 24px;
+}
+
+.landing-footer-links {
+  display: flex;
+  gap: 20px;
+}
+
+.landing-footer-links a {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.landing-footer-links a:hover { color: var(--text); }
+
+/* ── Creator nav — mobile hamburger ─────────────────────────────────────────── */
+.nav-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+}
+
+.nav-toggle span {
+  background: var(--text);
+  border-radius: 2px;
+  display: block;
+  height: 2px;
+  transition: opacity .15s;
+  width: 20px;
+}
+
+.nav-links { display: flex; gap: 4px; }
+
+/* ── Mobile — shared ─────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Creator nav */
+  .nav-toggle { display: flex; }
+
+  .nav-links {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    left: 0;
+    padding: 8px 0;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 100;
+  }
+
+  .nav-links.nav-open { display: flex; }
+
+  nav {
+    flex-wrap: wrap;
+    position: relative;
+  }
+
+  .nav-link {
+    border-bottom: none;
+    border-left: 3px solid transparent;
+    padding: 12px 20px;
+    width: 100%;
+  }
+
+  .nav-link.active {
+    border-bottom: none;
+    border-left-color: var(--accent);
+  }
+
+  /* Page padding */
+  .page { padding: 20px 16px; }
+
+  /* Player page */
+  .station-name { font-size: 1.6rem; }
+
+  /* Library */
+  .library-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .search-input { max-width: 100%; }
+  .media-grid { grid-template-columns: 1fr; }
+
+  /* Subscriber gate */
+  .redeem-row { flex-direction: column; }
+  .redeem-row input, .redeem-row .btn { width: 100%; max-width: 100%; }
+
+  /* Dashboard */
+  .broadcast-bar { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .broadcast-actions { width: 100%; }
+  .broadcast-actions .btn { flex: 1; text-align: center; }
+
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+
+  .form-row { flex-direction: column; }
+  .form-row input, .form-row select { max-width: 100%; }
+
+  .upload-row { flex-direction: column; }
+  .upload-row input, .upload-row select { max-width: 100%; }
+
+  .upload-zone { padding: 24px 16px; }
+
+  /* Landing page */
+  .landing-hero { min-height: 60vh; padding: 48px 20px; }
+  .landing-section { padding: 48px 20px; }
+  .features-grid { grid-template-columns: 1fr; }
+  .landing-footer { flex-direction: column; gap: 12px; text-align: center; }
+  .landing-footer-links { justify-content: center; }
+}
