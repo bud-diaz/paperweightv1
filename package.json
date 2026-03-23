@@ -5,10 +5,11 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "build:exe": "node scripts/build-exe.js"
   },
   "dependencies": {
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^2.4.3",
     "better-sqlite3": "^12.8.0",
     "chokidar": "^3.6.0",
     "cookie-parser": "^1.4.6",
@@ -17,9 +18,25 @@
     "stripe": "^17.0.0"
   },
   "devDependencies": {
+    "@yao-pkg/pkg": "^5.12.0",
     "nodemon": "^3.1.0"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "pkg": {
+    "scripts": [
+      "src/**/*.js",
+      "scripts/preflight.js"
+    ],
+    "assets": [
+      "client/**/*",
+      "node_modules/better-sqlite3/build/Release/*.node",
+      "node_modules/better-sqlite3/build/Release/*.dll"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
   }
 }
