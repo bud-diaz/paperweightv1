@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rolling Woods Radio — Paperweight</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --ink:       #0B0B0C;
+  --paper:     #F8F8F7;
+  --mid:       #A1A1AA;
+  --dim:       #52525B;
+  --border:    rgba(255,255,255,0.07);
+  --border-s:  rgba(255,255,255,0.12);
+  --live-red:  #EF4444;
+  --blue:      #3B82F6;
+  --green:     #22C55E;
+  --surface:   #111113;
+  --surface2:  #18181B;
+  --surface3:  #1C1C1F;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--ink);
+  color: var(--paper);
+  font-family: 'Syne', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── GRAIN OVERLAY ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  opacity: 0.025;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* ── TOP BAR ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 40px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(11,11,12,0.92);
+  backdrop-filter: blur(12px);
+}
+
+.topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.topbar-mark {
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+.topbar-logo:hover .topbar-mark { opacity: 0.8; }
+
+.topbar-pw {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mid);
+  letter-spacing: 0.06em;
+}
+
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.topbar-nav a {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mid);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.topbar-nav a:hover { color: var(--paper); }
+
+.topbar-support {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--paper) !important;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s !important;
+}
+.topbar-support:hover {
+  background: rgba(255,255,255,0.1) !important;
+  border-color: rgba(255,255,255,0.2) !important;
+  color: var(--paper) !important;
+}
+
+/* ── HERO / PLAYER SECTION ── */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  min-height: calc(100vh - 65px);
+  max-height: 780px;
+}
+
+/* Left: broadcast panel */
+.broadcast-panel {
+  padding: 64px 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-right: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Atmospheric background */
+.broadcast-panel::before {
+  content: '';
+  position: absolute;
+  top: -120px;
+  left: -80px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.broadcast-panel::after {
+  content: '';
+  position: absolute;
+  bottom: -60px;
+  right: 80px;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(239,68,68,0.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.station-header { position: relative; z-index: 1; }
+
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--live-red);
+  animation: pulse-dot 1.8s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+  50%       { opacity: 0.7; transform: scale(0.85); box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+}
+
+/* Offline state */
+.live-dot.offline {
+  background: var(--dim);
+  animation: none;
+}
+
+.live-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--live-red);
+}
+.live-label.offline { color: var(--dim); }
+
+.station-name {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(40px, 5vw, 64px);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+  margin-bottom: 12px;
+}
+
+.station-tagline {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--mid);
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+}
+
+/* Now playing block */
+.now-playing {
+  position: relative;
+  z-index: 1;
+}
+
+.np-eyebrow {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 10px;
+}
+
+.np-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(22px, 2.5vw, 30px);
+  font-style: italic;
+  color: var(--paper);
+  line-height: 1.15;
+  margin-bottom: 6px;
+  min-height: 36px;
+  transition: opacity 0.4s ease;
+}
+
+.np-meta {
+  font-size: 13px;
+  color: var(--mid);
+  margin-bottom: 32px;
+}
+
+/* Waveform viz */
+.waveform {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 32px;
+  margin-bottom: 32px;
+}
+
+.wave-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--blue);
+  opacity: 0.6;
+  animation: wave-dance 1.2s ease-in-out infinite;
+  transform-origin: bottom;
+}
+.wave-bar:nth-child(1)  { animation-delay: 0s;    height: 40%; }
+.wave-bar:nth-child(2)  { animation-delay: 0.1s;  height: 70%; }
+.wave-bar:nth-child(3)  { animation-delay: 0.2s;  height: 90%; }
+.wave-bar:nth-child(4)  { animation-delay: 0.05s; height: 55%; }
+.wave-bar:nth-child(5)  { animation-delay: 0.15s; height: 100%; }
+.wave-bar:nth-child(6)  { animation-delay: 0.25s; height: 75%; }
+.wave-bar:nth-child(7)  { animation-delay: 0.08s; height: 45%; }
+.wave-bar:nth-child(8)  { animation-delay: 0.18s; height: 85%; }
+.wave-bar:nth-child(9)  { animation-delay: 0.28s; height: 60%; }
+.wave-bar:nth-child(10) { animation-delay: 0.12s; height: 95%; }
+.wave-bar:nth-child(11) { animation-delay: 0.22s; height: 50%; }
+.wave-bar:nth-child(12) { animation-delay: 0.06s; height: 78%; }
+.wave-bar:nth-child(13) { animation-delay: 0.16s; height: 42%; }
+.wave-bar:nth-child(14) { animation-delay: 0.26s; height: 88%; }
+.wave-bar:nth-child(15) { animation-delay: 0.09s; height: 62%; }
+.wave-bar:nth-child(16) { animation-delay: 0.19s; height: 35%; }
+
+@keyframes wave-dance {
+  0%, 100% { transform: scaleY(0.3); opacity: 0.4; }
+  50%       { transform: scaleY(1);   opacity: 0.8; }
+}
+
+.waveform.paused .wave-bar,
+.waveform.offline .wave-bar {
+  animation: none;
+  transform: scaleY(0.2);
+  opacity: 0.15;
+}
+
+/* Player controls */
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.play-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.15s, background 0.15s;
+}
+.play-btn:hover { transform: scale(1.06); background: #e8e8e7; }
+.play-btn:active { transform: scale(0.97); }
+.play-btn svg { color: var(--ink); margin-left: 2px; }
+.play-btn.playing svg.play-icon { display: none; }
+.play-btn.playing svg.pause-icon { display: block !important; }
+
+.play-btn.offline {
+  background: var(--surface3);
+  cursor: not-allowed;
+}
+.play-btn.offline:hover { transform: none; }
+
+.player-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.up-next-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.up-next-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mid);
+}
+
+/* Volume */
+.volume-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.volume-icon { color: var(--dim); flex-shrink: 0; }
+.volume-slider {
+  -webkit-appearance: none;
+  width: 80px;
+  height: 3px;
+  background: var(--surface3);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--paper);
+  cursor: pointer;
+}
+
+/* Right: schedule panel */
+.schedule-panel {
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+}
+
+.schedule-header {
+  padding: 32px 32px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.schedule-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--mid);
+}
+
+.schedule-day {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.schedule-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface3) transparent;
+}
+
+.schedule-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 32px;
+  border-left: 2px solid transparent;
+  transition: background 0.15s;
+  cursor: default;
+}
+
+.schedule-item:hover { background: var(--surface2); }
+
+.schedule-item.current {
+  border-left-color: var(--live-red);
+  background: rgba(239,68,68,0.04);
+}
+
+.sched-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--dim);
+  min-width: 44px;
+  padding-top: 1px;
+}
+
+.sched-item.current .sched-time { color: var(--live-red); }
+
+.sched-info { flex: 1; min-width: 0; }
+
+.sched-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--paper);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+
+.sched-sub {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.sched-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.sched-badge.live {
+  background: rgba(239,68,68,0.12);
+  border: 1px solid rgba(239,68,68,0.25);
+  color: var(--live-red);
+}
+.sched-badge.up {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+
+/* Listener count */
+.listener-strip {
+  padding: 16px 32px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.listener-count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--mid);
+}
+
+.listener-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.sticker-prompt {
+  font-size: 11px;
+  color: var(--dim);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.sticker-prompt:hover { color: var(--mid); }
+
+/* ── LIBRARY SECTION ── */
+.library-section {
+  padding: 80px 40px;
+  border-top: 1px solid var(--border);
+}
+
+.section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 48px;
+}
+
+.section-eyebrow {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 8px;
+}
+
+.section-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 36px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.filter-tab {
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-tab:hover { color: var(--mid); background: var(--surface); }
+.filter-tab.active {
+  background: var(--surface2);
+  border-color: var(--border-s);
+  color: var(--paper);
+}
+
+/* Library grid */
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 2px;
+}
+
+.lib-card {
+  background: var(--surface);
+  padding: 24px;
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+
+.lib-card:hover { background: var(--surface2); }
+
+.lib-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 60%, rgba(255,255,255,0.02));
+  pointer-events: none;
+}
+
+.lib-card-type {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lib-card-type-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex-shrink: 0;
+}
+
+.lib-card-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 18px;
+  font-style: italic;
+  color: var(--paper);
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+.lib-card-meta {
+  font-size: 12px;
+  color: var(--dim);
+  margin-bottom: 20px;
+}
+
+.lib-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lib-play-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--border-s);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.lib-play-btn:hover { background: rgba(255,255,255,0.14); }
+
+.lib-duration {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+}
+
+/* Locked card */
+.lib-card.locked { cursor: default; }
+.lib-card.locked:hover { background: var(--surface); }
+
+.lib-lock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+}
+
+.lib-unlock-label {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+/* Vault CTA card */
+.vault-cta {
+  background: linear-gradient(135deg, var(--surface2) 0%, rgba(59,130,246,0.06) 100%);
+  border: 1px solid rgba(59,130,246,0.15);
+  padding: 24px;
+  grid-column: span 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.vault-cta-text {}
+.vault-cta-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 6px;
+}
+.vault-cta-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 22px;
+  color: var(--paper);
+  margin-bottom: 6px;
+}
+.vault-cta-sub {
+  font-size: 13px;
+  color: var(--mid);
+}
+
+.vault-cta-btn {
+  background: var(--blue);
+  border: none;
+  border-radius: 8px;
+  padding: 14px 28px;
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: white;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, transform 0.1s;
+}
+.vault-cta-btn:hover { background: #2563EB; transform: translateY(-1px); }
+
+/* ── OFFLINE STATE ── */
+.offline-banner {
+  display: none;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px 32px;
+  margin: 32px;
+  flex-direction: column;
+  gap: 8px;
+}
+.offline-banner.visible { display: flex; }
+.offline-banner-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 20px;
+  color: var(--paper);
+}
+.offline-banner-sub {
+  font-size: 13px;
+  color: var(--mid);
+}
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 32px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.footer-pw {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.footer-pw-text {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+  transition: color 0.2s;
+}
+.footer-pw:hover .footer-pw-text { color: var(--mid); }
+
+.footer-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+}
+
+.footer-copy {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 0.06em;
+}
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+}
+.footer-links a {
+  font-size: 11px;
+  color: var(--dim);
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--mid); }
+
+/* ── ANIMATIONS ── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hero { animation: fade-in 0.6s ease both; }
+.library-section { animation: fade-in 0.6s 0.1s ease both; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
+  .schedule-panel {
+    border-top: 1px solid var(--border);
+    max-height: 340px;
+  }
+  .broadcast-panel { padding: 40px 28px; }
+  .topbar { padding: 16px 24px; }
+  .topbar-nav { gap: 16px; }
+  .library-section { padding: 56px 24px; }
+  .vault-cta { grid-column: span 1; flex-direction: column; }
+  footer { flex-direction: column; gap: 16px; align-items: flex-start; }
+}
+
+@media (max-width: 600px) {
+  .topbar-nav a:not(.topbar-support) { display: none; }
+  .section-header { flex-direction: column; align-items: flex-start; gap: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<nav class="topbar">
+  <a class="topbar-logo" href="#">
+    <svg class="topbar-mark" width="24" height="24" viewBox="0 0 52 52" fill="none">
+      <circle cx="26" cy="26" r="23" stroke="#F8F8F7" stroke-width="1.5" fill="none"/>
+      <circle cx="26" cy="26" r="16" fill="#F8F8F7"/>
+      <text x="26" y="27" text-anchor="middle" dominant-baseline="middle"
+        font-family="'DM Mono','Courier New',monospace" font-weight="700" font-size="11"
+        fill="#0B0B0C">&lt;P/&gt;</text>
+    </svg>
+    <span class="topbar-pw">Paperweight</span>
+  </a>
+  <div class="topbar-nav">
+    <a href="#library">Library</a>
+    <a href="#schedule">Schedule</a>
+    <a href="#" class="topbar-support">Support the Station</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+
+  <!-- LEFT: Broadcast -->
+  <div class="broadcast-panel">
+    <div class="station-header">
+      <div class="live-indicator" id="live-indicator">
+        <div class="live-dot" id="live-dot"></div>
+        <span class="live-label" id="live-label">Live</span>
+      </div>
+      <h1 class="station-name">Rolling Woods<br>Radio</h1>
+      <p class="station-tagline">Underground beats, studio sessions, and the archive.<br>Chicago, IL — self-hosted since 2024.</p>
+    </div>
+
+    <div class="now-playing" id="offline-banner-container">
+
+      <!-- Offline banner (hidden when live) -->
+      <div class="offline-banner" id="offline-banner">
+        <div class="offline-banner-title">Station is offline right now.</div>
+        <div class="offline-banner-sub">The archive and library are still available below. Check back soon for the live broadcast.</div>
+      </div>
+
+      <div id="player-content">
+        <p class="np-eyebrow">Now Playing</p>
+        <p class="np-title" id="np-title">Midnight Metro — 92 BPM</p>
+        <p class="np-meta" id="np-meta">Beat Tape Vol. 3 · 4:17</p>
+
+        <div class="waveform" id="waveform">
+          <div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div><div class="wave-bar"></div>
+        </div>
+
+        <div class="player-controls">
+          <button class="play-btn playing" id="play-btn" onclick="togglePlay()">
+            <svg class="play-icon" style="display:none;" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+            <svg class="pause-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+            </svg>
+          </button>
+          <div class="player-meta">
+            <span class="up-next-label">Up next</span>
+            <span class="up-next-title" id="up-next">Basement Tape #7</span>
+          </div>
+          <div class="volume-row">
+            <svg class="volume-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+            </svg>
+            <input class="volume-slider" type="range" min="0" max="100" value="80">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Schedule -->
+  <div class="schedule-panel" id="schedule">
+    <div class="schedule-header">
+      <span class="schedule-title">Today's Program</span>
+      <span class="schedule-day" id="schedule-day">Sunday</span>
+    </div>
+    <div class="schedule-list" id="schedule-list">
+      <div class="schedule-item">
+        <span class="sched-time">10:00</span>
+        <div class="sched-info">
+          <div class="sched-name">Morning Rotation</div>
+          <div class="sched-sub">Ambient & Lo-fi</div>
+        </div>
+        <span class="sched-badge up">Past</span>
+      </div>
+      <div class="schedule-item">
+        <span class="sched-time">12:00</span>
+        <div class="sched-info">
+          <div class="sched-name">Podcast Block</div>
+          <div class="sched-sub">Rolling Woods Cast, Ep. 14</div>
+        </div>
+        <span class="sched-badge up">Past</span>
+      </div>
+      <div class="schedule-item current">
+        <span class="sched-time" style="color:var(--live-red);">14:00</span>
+        <div class="sched-info">
+          <div class="sched-name">Beat Showcase</div>
+          <div class="sched-sub">Beat Tape Vol. 3 — full rotation</div>
+        </div>
+        <span class="sched-badge live">Live</span>
+      </div>
+      <div class="schedule-item">
+        <span class="sched-time">17:00</span>
+        <div class="sched-info">
+          <div class="sched-name">Studio Sessions</div>
+          <div class="sched-sub">Archive sessions, unedited</div>
+        </div>
+        <span class="sched-badge up">Up next</span>
+      </div>
+      <div class="schedule-item">
+        <span class="sched-time">20:00</span>
+        <div class="sched-info">
+          <div class="sched-name">Late Night Loop</div>
+          <div class="sched-sub">Shuffle — instrumental only</div>
+        </div>
+        <span class="sched-badge up">Later</span>
+      </div>
+      <div class="schedule-item">
+        <span class="sched-time">23:00</span>
+        <div class="sched-info">
+          <div class="sched-name">Overnight Shuffle</div>
+          <div class="sched-sub">Full vault rotation</div>
+        </div>
+        <span class="sched-badge up">Later</span>
+      </div>
+    </div>
+    <div class="listener-strip">
+      <div class="listener-count">
+        <div class="listener-dot" id="listener-dot"></div>
+        <span id="listener-text">14 listening now</span>
+      </div>
+      <a class="sticker-prompt" href="#">Get station sticker →</a>
+    </div>
+  </div>
+
+</section>
+
+<!-- LIBRARY -->
+<section class="library-section" id="library">
+  <div class="section-header">
+    <div>
+      <p class="section-eyebrow">Archive</p>
+      <h2 class="section-title">Public Library</h2>
+    </div>
+    <div class="filter-tabs">
+      <button class="filter-tab active" onclick="setFilter(this, 'all')">All</button>
+      <button class="filter-tab" onclick="setFilter(this, 'beats')">Beats</button>
+      <button class="filter-tab" onclick="setFilter(this, 'podcasts')">Podcasts</button>
+      <button class="filter-tab" onclick="setFilter(this, 'sessions')">Sessions</button>
+    </div>
+  </div>
+
+  <div class="library-grid" id="library-grid">
+
+    <div class="lib-card" data-type="beats">
+      <div class="lib-card-type">
+        <div class="lib-card-type-dot" style="background:var(--live-red)"></div>
+        Beats
+      </div>
+      <div class="lib-card-title">Midnight Metro</div>
+      <div class="lib-card-meta">92 BPM · Minor · 2024</div>
+      <div class="lib-card-footer">
+        <button class="lib-play-btn" onclick="playTrack('Midnight Metro', '92 BPM · Beat Tape Vol. 3')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--paper)"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <span class="lib-duration">4:17</span>
+      </div>
+    </div>
+
+    <div class="lib-card" data-type="beats">
+      <div class="lib-card-type">
+        <div class="lib-card-type-dot" style="background:var(--live-red)"></div>
+        Beats
+      </div>
+      <div class="lib-card-title">Bone Dry — 88</div>
+      <div class="lib-card-meta">88 BPM · Major · 2024</div>
+      <div class="lib-card-footer">
+        <button class="lib-play-btn" onclick="playTrack('Bone Dry — 88', '88 BPM · Beat Tape Vol. 3')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--paper)"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <span class="lib-duration">3:52</span>
+      </div>
+    </div>
+
+    <div class="lib-card" data-type="podcasts">
+      <div class="lib-card-type">
+        <div class="lib-card-type-dot" style="background:var(--green)"></div>
+        Podcast
+      </div>
+      <div class="lib-card-title">Rolling Woods Cast, Ep. 14</div>
+      <div class="lib-card-meta">The archive episode · March 2026</div>
+      <div class="lib-card-footer">
+        <button class="lib-play-btn" onclick="playTrack('Rolling Woods Cast, Ep. 14', 'Podcast · March 2026')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--paper)"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <span class="lib-duration">48:03</span>
+      </div>
+    </div>
+
+    <div class="lib-card" data-type="beats">
+      <div class="lib-card-type">
+        <div class="lib-card-type-dot" style="background:var(--live-red)"></div>
+        Beats
+      </div>
+      <div class="lib-card-title">Night Bus</div>
+      <div class="lib-card-meta">76 BPM · Minor · 2023</div>
+      <div class="lib-card-footer">
+        <button class="lib-play-btn" onclick="playTrack('Night Bus', '76 BPM · 2023 Archive')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--paper)"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <span class="lib-duration">3:34</span>
+      </div>
+    </div>
+
+    <div class="lib-card" data-type="sessions">
+      <div class="lib-card-type">
+        <div class="lib-card-type-dot" style="background:var(--blue)"></div>
+        Session
+      </div>
+      <div class="lib-card-title">Basement Tape #4</div>
+      <div class="lib-card-meta">Live session recording · Nov 2023</div>
+      <div class="lib-card-footer">
+        <button class="lib-play-btn" onclick="playTrack('Basement Tape #4', 'Live session · Nov 2023')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--paper)"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <span class="lib-duration">1:12:44</span>
+      </div>
+    </div>
+
+    <!-- Locked card -->
+    <div class="lib-card locked" data-type="beats">
+      <div class="lib-card-type">
+        <div class="lib-card-type-dot" style="background:var(--dim)"></div>
+        Beats · Supporters only
+      </div>
+      <div class="lib-card-title" style="color:var(--dim);">Cold Front Vol. 2</div>
+      <div class="lib-card-meta" style="color:var(--dim);">Full beat tape · 12 tracks</div>
+      <div class="lib-card-footer">
+        <div class="lib-lock">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--dim)">
+            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+          </svg>
+        </div>
+        <span class="lib-unlock-label">Unlock with support</span>
+      </div>
+    </div>
+
+    <!-- Vault CTA -->
+    <div class="vault-cta" id="vault-cta" data-type="all">
+      <div class="vault-cta-text">
+        <div class="vault-cta-label">Creator Vault</div>
+        <div class="vault-cta-title">Full archive. 200+ tracks.</div>
+        <div class="vault-cta-sub">Beat tapes, studio sessions, podcast back catalog, and exclusive releases — all unlocked for supporters.</div>
+      </div>
+      <button class="vault-cta-btn">Support &amp; Unlock</button>
+    </div>
+
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-left">
+    <a class="footer-pw" href="#">
+      <svg width="18" height="18" viewBox="0 0 52 52" fill="none">
+        <circle cx="26" cy="26" r="23" stroke="#52525B" stroke-width="1.5" fill="none"/>
+        <circle cx="26" cy="26" r="16" fill="#52525B"/>
+        <text x="26" y="27" text-anchor="middle" dominant-baseline="middle"
+          font-family="'DM Mono','Courier New',monospace" font-weight="700" font-size="10"
+          fill="#0B0B0C">&lt;P/&gt;</text>
+      </svg>
+      <span class="footer-pw-text">Powered by Paperweight</span>
+    </a>
+    <div class="footer-divider"></div>
+    <span class="footer-copy">Rolling Woods Media · Chicago</span>
+  </div>
+  <div class="footer-links">
+    <a href="#">RSS Feed</a>
+    <a href="#">Discord</a>
+    <a href="#">Contact</a>
+  </div>
+</footer>
+
+<script>
+// ── State ──
+const STATION_LIVE = true; // Toggle to false to preview offline state
+let isPlaying = STATION_LIVE;
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => {
+  setDay();
+  applyStationState();
+});
+
+function setDay() {
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  document.getElementById('schedule-day').textContent = days[new Date().getDay()];
+}
+
+function applyStationState() {
+  const dot      = document.getElementById('live-dot');
+  const label    = document.getElementById('live-label');
+  const banner   = document.getElementById('offline-banner');
+  const playBtn  = document.getElementById('play-btn');
+  const waveform = document.getElementById('waveform');
+  const listenerDot  = document.getElementById('listener-dot');
+  const listenerText = document.getElementById('listener-text');
+
+  if (!STATION_LIVE) {
+    dot.classList.add('offline');
+    label.textContent = 'Offline';
+    label.classList.add('offline');
+    banner.classList.add('visible');
+    playBtn.classList.add('offline');
+    playBtn.onclick = null;
+    waveform.classList.add('offline');
+    listenerDot.style.background = 'var(--dim)';
+    listenerText.textContent = 'Station offline';
+    document.getElementById('np-title').style.opacity = '0.3';
+    document.getElementById('np-meta').style.opacity = '0.3';
+    document.getElementById('up-next').style.opacity = '0.3';
+  }
+}
+
+// ── Play / pause ──
+function togglePlay() {
+  if (!STATION_LIVE) return;
+  isPlaying = !isPlaying;
+  const btn = document.getElementById('play-btn');
+  const wv  = document.getElementById('waveform');
+  if (isPlaying) {
+    btn.classList.add('playing');
+    wv.classList.remove('paused');
+  } else {
+    btn.classList.remove('playing');
+    wv.classList.add('paused');
+  }
+}
+
+// ── Library track selection ──
+function playTrack(title, meta) {
+  document.getElementById('np-title').style.opacity = '0';
+  setTimeout(() => {
+    document.getElementById('np-title').textContent = title;
+    document.getElementById('np-meta').textContent = meta;
+    document.getElementById('np-title').style.opacity = '1';
+  }, 300);
+
+  if (!isPlaying) {
+    isPlaying = true;
+    document.getElementById('play-btn').classList.add('playing');
+    document.getElementById('waveform').classList.remove('paused');
+  }
+  // Smooth scroll to player
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Filter tabs ──
+function setFilter(btn, type) {
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+
+  document.querySelectorAll('.lib-card, .vault-cta').forEach(card => {
+    if (type === 'all') {
+      card.style.display = '';
+    } else {
+      const cardType = card.dataset.type;
+      card.style.display = (cardType === type || cardType === 'all') ? '' : 'none';
+    }
+  });
+}
+
+// ── Cycling now-playing info (demo) ──
+if (STATION_LIVE) {
+  const tracks = [
+    { title: 'Midnight Metro — 92 BPM', meta: 'Beat Tape Vol. 3 · 4:17', next: 'Basement Tape #7' },
+    { title: 'Bone Dry — 88',           meta: 'Beat Tape Vol. 3 · 3:52', next: 'Night Bus' },
+    { title: 'Night Bus',               meta: '2023 Archive · 3:34',     next: 'Midnight Metro' },
+  ];
+  let ti = 0;
+  setInterval(() => {
+    ti = (ti + 1) % tracks.length;
+    const t = tracks[ti];
+    const el = document.getElementById('np-title');
+    el.style.opacity = '0';
+    setTimeout(() => {
+      el.textContent = t.title;
+      document.getElementById('np-meta').textContent = t.meta;
+      document.getElementById('up-next').textContent = t.next;
+      el.style.opacity = '1';
+    }, 400);
+  }, 8000);
+}
+</script>
+</body>
+</html>
