@@ -384,9 +384,9 @@
       // Listener count
       if (statusRes && statusRes.ok) {
         const status = await statusRes.json().catch(() => ({}));
-        if (typeof status.listeners === 'number') {
+        if (typeof status.listenerCount === 'number') {
           document.getElementById('listener-text').textContent =
-            status.listeners === 1 ? '1 listening now' : `${status.listeners} listening now`;
+            status.listenerCount === 1 ? '1 listening now' : `${status.listenerCount} listening now`;
         }
       }
 

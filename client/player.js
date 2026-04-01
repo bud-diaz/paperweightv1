@@ -19,6 +19,13 @@ function setNowPlaying(status) {
     el('now-playing-artist').textContent = '';
   }
   if (status.station) el('station-name').textContent = status.station;
+
+  const listenerEl = el('listener-text');
+  if (listenerEl && typeof status.listenerCount === 'number') {
+    listenerEl.textContent = status.listenerCount === 1
+      ? '1 listening now'
+      : `${status.listenerCount} listening now`;
+  }
 }
 
 async function fetchStatus() {
@@ -61,6 +68,7 @@ function togglePlay() {
       el('icon-play').hidden  = true;
       el('icon-pause').hidden = false;
       hint.textContent = '';
+      el('waveform')?.classList.remove('paused');
       if (!pingInterval) pingInterval = setInterval(ping, PING_INTERVAL_MS);
       ping();
     }).catch(() => {
@@ -71,12 +79,15 @@ function togglePlay() {
     el('icon-play').hidden  = false;
     el('icon-pause').hidden = true;
     hint.textContent = 'Paused';
+    el('waveform')?.classList.add('paused');
   }
 }
 
 export function initPlayer() {
   if (initialized) return;
   initialized = true;
+
+  el('waveform')?.classList.add('paused');
 
   // Fetch station name and now playing
   fetch('/api/health').then(r => r.json()).then(d => {
@@ -108,4 +119,5 @@ export function destroyPlayer() {
   el('icon-play').hidden  = false;
   el('icon-pause').hidden = true;
   el('player-hint').textContent = 'Click to start stream';
+  el('waveform')?.classList.add('paused');
 }
