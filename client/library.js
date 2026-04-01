@@ -1,3 +1,5 @@
+import { openLibraryItem } from './library-item.js';
+
 const CATEGORIES = ['music', 'beats', 'podcasts', 'videos', 'drafts', 'live_sessions'];
 let state = { page: 1, category: '', search: '', total: 0, debounceTimer: null };
 let activePreview = null;
@@ -42,7 +44,7 @@ function renderCards(items, tier) {
     <div class="media-card">
       <div class="card-top">
         <div class="card-info">
-          <div class="card-title" title="${esc(item.title)}">${esc(item.title)}</div>
+          <div class="card-title card-title-link" title="${esc(item.title)}" data-open="${item.id}">${esc(item.title)}</div>
           <div class="card-artist">${esc(item.artist || '—')}</div>
         </div>
       </div>
@@ -50,13 +52,11 @@ function renderCards(items, tier) {
         <span class="badge">${cap(item.category)}</span>
         <span class="badge">${fmt(item.duration)}</span>
         ${item.bpm ? `<span class="badge">${item.bpm} BPM</span>` : ''}
+        ${item.visibility === 'supporters_only' ? '<span class="badge badge-locked">Supporters</span>' : ''}
       </div>
       <div class="card-actions">
         <button class="btn btn-sm" data-preview="${item.id}">▶ Preview</button>
-        ${tier === 'subscriber'
-          ? `<a class="btn btn-sm" href="${item.downloadUrl}" download>↓ Download</a>`
-          : `<button class="btn btn-sm" style="color:var(--muted)" data-lock>🔒</button>`
-        }
+        <button class="btn btn-sm" data-open="${item.id}">Details</button>
       </div>
       <audio id="preview-${item.id}" hidden></audio>
     </div>
@@ -67,12 +67,9 @@ function renderCards(items, tier) {
     btn.addEventListener('click', () => togglePreview(btn.dataset.preview, btn));
   });
 
-  // Lock buttons open the subscriber gate
-  grid.querySelectorAll('[data-lock]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      el('subscriber-gate').hidden = false;
-      el('subscriber-gate').scrollIntoView({ behavior: 'smooth' });
-    });
+  // Open LibraryItemScreen on title click or Details button
+  grid.querySelectorAll('[data-open]').forEach(el => {
+    el.addEventListener('click', () => openLibraryItem(el.dataset.open));
   });
 }
 
@@ -188,6 +185,21 @@ export function initLibrary() {
       loadLibrary();
     }, 300);
   });
+
+  // After returning from Stripe checkout, show a brief success notice and reload
+  // the library so the updated tier is reflected. The ?subscribed=1 param is set
+  // by /api/payment/web-success before redirecting back here.
+  if (new URLSearchParams(window.location.search).get('subscribed') === '1') {
+    const msg = document.createElement('div');
+    msg.className = 'success-msg';
+    msg.style.cssText = 'margin-bottom:16px;padding:12px;border-radius:6px';
+    msg.textContent = 'Supporter access activated — welcome!';
+    el('media-grid').before(msg);
+    setTimeout(() => msg.remove(), 5000);
+
+    // Strip the query param from the URL without a page reload
+    history.replaceState(null, '', window.location.pathname + window.location.hash);
+  }
 
   loadLibrary();
 }

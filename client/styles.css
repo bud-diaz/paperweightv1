@@ -956,6 +956,58 @@ footer {
 .landing-footer-links a { color: var(--muted); font-size: 13px; }
 .landing-footer-links a:hover { color: var(--text); }
 
+/* ── Library item card enhancements ─────────────────────────────────────────── */
+.card-title-link { cursor: pointer; transition: color .15s; }
+.card-title-link:hover { color: var(--blue); }
+.badge-locked { background: rgba(239,68,68,0.08); color: var(--live-red); }
+
+/* ── LibraryItemScreen overlay ───────────────────────────────────────────────── */
+.lib-item-overlay {
+  align-items: flex-end;
+  background: rgba(0,0,0,0.55);
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 500;
+}
+.lib-item-panel {
+  background: var(--surface2);
+  border-radius: 12px 12px 0 0;
+  border-top: 1px solid var(--border-s);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 28px 28px 40px;
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+}
+.lib-item-close {
+  background: none;
+  border: none;
+  color: var(--dim);
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px 8px;
+  position: absolute;
+  right: 16px;
+  top: 14px;
+}
+.lib-item-close:hover { color: var(--paper); }
+.lib-item-loading { color: var(--dim); font-family: var(--font-mono); font-size: 12px; padding: 24px 0; text-align: center; }
+.lib-item-title { font-family: var(--font-serif); font-size: 1.4rem; font-weight: 400; letter-spacing: -.01em; margin-bottom: 4px; }
+.lib-item-artist { color: var(--mid); font-size: 13px; margin-bottom: 12px; }
+.lib-item-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+.lib-item-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+#lib-item-preview-status { color: var(--muted); font-family: var(--font-mono); font-size: 11px; margin-top: 8px; }
+.lib-item-gate { background: var(--surface3); border: 1px solid var(--border-s); border-radius: var(--radius); margin-top: 8px; padding: 20px; }
+.lib-item-gate-msg { color: var(--mid); font-size: 13px; margin-bottom: 14px; }
+#lib-item-upgrade-msg { color: var(--muted); font-family: var(--font-mono); font-size: 11px; margin-top: 8px; }
+
 /* ── Mobile hamburger ────────────────────────────────────────────────────────── */
 .nav-toggle {
   background: none;

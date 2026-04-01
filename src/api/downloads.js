@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const { getDb } = require('../db');
-const { requireAllAccess } = require('../auth/middleware');
+const { requireSubscriber } = require('../auth/middleware');
 
 // Signed download tokens are valid for 48 hours by default.
 // Configurable via DOWNLOAD_TOKEN_TTL_HOURS env var.
@@ -12,7 +12,7 @@ const TOKEN_TTL_HOURS = parseInt(process.env.DOWNLOAD_TOKEN_TTL_HOURS || '48', 1
 // GET /api/library/:id/signed-url
 // Requires all_access tier. Generates a signed download token for the media item.
 // Returns: { signedUrl, expiresAt }
-router.get('/library/:id/signed-url', requireAllAccess, (req, res) => {
+router.get('/library/:id/signed-url', requireSubscriber, (req, res) => {
   const db = getDb();
 
   const media = db.prepare(

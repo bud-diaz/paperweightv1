@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { getDb } = require('../db');
 const { requireSubscriber } = require('../auth/middleware');
@@ -9,14 +10,49 @@ const config = require('../config');
 const PREVIEW_DIR = path.join(config.paths.hlsOutput, 'previews');
 const PREVIEW_DURATION = 60;
 
+// Tiers that may access supporters_only content
+const SUBSCRIBER_TIERS = new Set(['subscriber', 'pro', 'all_access']);
+
+// ─── HMAC-signed download URLs ────────────────────────────────────────────────
+// Signed URLs are valid for 1 hour. Secret falls back to DASHBOARD_TOKEN so
+// no new env var is required for existing installs.
+
+function signingSecret() {
+  return process.env.DOWNLOAD_SIGNING_SECRET || config.auth.dashboardToken;
+}
+
+function signDownloadUrl(mediaId) {
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  const sig = crypto.createHmac('sha256', signingSecret())
+    .update(`${mediaId}:${exp}`)
+    .digest('hex');
+  return {
+    signedUrl:  `/api/library/${mediaId}/file?exp=${exp}&sig=${sig}`,
+    expiresAt:  new Date(exp * 1000).toISOString(),
+  };
+}
+
+function verifyDownloadSig(mediaId, exp, sig) {
+  const now = Math.floor(Date.now() / 1000);
+  if (!exp || !sig || parseInt(exp, 10) < now) return false;
+  const expected = crypto.createHmac('sha256', signingSecret())
+    .update(`${mediaId}:${exp}`)
+    .digest('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'));
+  } catch {
+    return false;
+  }
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function buildMediaQuery({ category, search, tier }) {
   const conditions = ['m.is_active = 1'];
   const params = {};
 
-  // Free tier sees only public media; subscribers see public + supporters_only
-  if (tier === 'subscriber') {
+  // Free tier sees only public media; any subscriber tier sees public + supporters_only
+  if (SUBSCRIBER_TIERS.has(tier)) {
     conditions.push("m.visibility IN ('public', 'supporters_only')");
   } else {
     conditions.push("m.visibility = 'public'");
@@ -92,9 +128,14 @@ router.get('/:id', (req, res) => {
 
   if (!row) return res.status(404).json({ error: 'Not found' });
 
-  // Subscribers can see supporters_only; free tier cannot
-  if (row.visibility === 'supporters_only' && req.tier !== 'subscriber') {
-    return res.status(403).json({ error: 'Subscriber access required' });
+  // private — blocked for all listener requests regardless of tier
+  if (row.visibility === 'private') {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  // supporters_only — requires any subscriber tier
+  if (row.visibility === 'supporters_only' && !SUBSCRIBER_TIERS.has(req.tier)) {
+    return res.status(403).json({ error: 'Supporter access required' });
   }
 
   res.json(formatItem(row, req.tier));
@@ -146,14 +187,42 @@ router.get('/:id/preview', (req, res) => {
 });
 
 // GET /api/library/:id/download  (subscribers only)
+// Returns a signed URL — never serves the raw file directly.
 router.get('/:id/download', requireSubscriber, (req, res) => {
   const row = getDb().prepare(
     'SELECT * FROM media WHERE id = ? AND is_active = 1'
   ).get(req.params.id);
 
   if (!row) return res.status(404).json({ error: 'Not found' });
+
+  // private content is blocked for all listener requests
+  if (row.visibility === 'private') {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
   if (!fs.existsSync(row.filepath)) {
     return res.status(404).json({ error: 'File not found on disk' });
+  }
+
+  res.json(signDownloadUrl(row.id));
+});
+
+// GET /api/library/:id/file?exp=UNIX_TS&sig=HMAC
+// Validates the HMAC signature issued by the download route and streams the file.
+// No auth header required — the HMAC is the auth mechanism.
+router.get('/:id/file', (req, res) => {
+  const { exp, sig } = req.query;
+
+  if (!verifyDownloadSig(req.params.id, exp, sig)) {
+    return res.status(403).json({ error: 'Invalid or expired download link' });
+  }
+
+  const row = getDb().prepare(
+    'SELECT * FROM media WHERE id = ? AND is_active = 1'
+  ).get(req.params.id);
+
+  if (!row || !fs.existsSync(row.filepath)) {
+    return res.status(404).json({ error: 'File not found' });
   }
 
   res.download(row.filepath, path.basename(row.filepath));

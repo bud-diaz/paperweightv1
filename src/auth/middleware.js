@@ -1,5 +1,9 @@
 const { validateToken } = require('./index');
+const { getDb } = require('../db');
 const config = require('../config');
+
+// Subscriber tiers — includes legacy 'subscriber' and v1.5 named tiers.
+const SUBSCRIBER_TIERS = new Set(['subscriber', 'pro', 'all_access']);
 
 // Runs on every request. Sets req.tier = 'free' | 'subscriber' | 'pro' | 'all_access'.
 // Accepts auth via cookie (web player) or Authorization: Bearer <token> header (mobile).
@@ -21,13 +25,34 @@ function attachTier(req, res, next) {
   }
 
   const row = validateToken(tokenStr);
-  req.tier = row ? row.tier : 'free';
   req.tokenRow = row || null;
+
+  if (!row) {
+    req.tier = 'free';
+    return next();
+  }
+
+  req.tier = row.tier;
+
+  // Real-time subscription expiry check for Stripe-issued tokens.
+  // Tokens linked to a listener_id are validated against subscriptions.current_period_end —
+  // even if the webhook hasn't fired yet, an expired period downgrades to free immediately.
+  // Creator-issued invite tokens (no listener_id) are trusted as-is.
+  if (SUBSCRIBER_TIERS.has(row.tier) && row.listener_id) {
+    try {
+      const sub = getDb().prepare(
+        "SELECT current_period_end FROM subscriptions WHERE listener_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
+      ).get(row.listener_id);
+      if (!sub || new Date(sub.current_period_end) < new Date()) {
+        req.tier = 'free';
+      }
+    } catch {
+      req.tier = 'free';
+    }
+  }
+
   next();
 }
-
-// Subscriber tiers — includes legacy 'subscriber' and v1.5 named tiers.
-const SUBSCRIBER_TIERS = new Set(['subscriber', 'pro', 'all_access']);
 
 // Blocks non-subscriber requests with 403.
 function requireSubscriber(req, res, next) {

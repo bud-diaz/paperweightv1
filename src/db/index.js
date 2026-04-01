@@ -22,6 +22,51 @@ function runMigrations(database) {
     const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
     database.exec(sql);
   }
+
+  // Programmatic ALTER TABLE guards — SQLite has no IF NOT EXISTS for ALTER TABLE.
+  // Each entry checks for the column before running; safe to run on every startup.
+  const alterGuards = [
+    {
+      table:  'tokens',
+      column: 'listener_id',
+      sql:    'ALTER TABLE tokens ADD COLUMN listener_id INTEGER REFERENCES listener_accounts(id)',
+    },
+  ];
+
+  for (const guard of alterGuards) {
+    const cols = database.pragma(`table_info(${guard.table})`);
+    if (!cols.some(c => c.name === guard.column)) {
+      database.exec(guard.sql);
+    }
+  }
+
+  // Schema rebuild guards — for constraints that can't be changed with ALTER TABLE.
+  // Each entry checks sqlite_master for a sentinel string; rebuilds only if missing.
+
+  // 005 — widen subscriptions.tier CHECK to include 'subscriber' (v1.5 supporter tier)
+  const subSchema = database.prepare(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'subscriptions'"
+  ).get();
+
+  if (subSchema && !subSchema.sql.includes("'subscriber'")) {
+    database.exec(`
+      ALTER TABLE subscriptions RENAME TO subscriptions_old;
+
+      CREATE TABLE subscriptions (
+        id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+        listener_id              INTEGER NOT NULL REFERENCES listener_accounts(id),
+        tier                     TEXT    NOT NULL CHECK(tier IN ('subscriber', 'pro', 'all_access')),
+        provider                 TEXT    NOT NULL CHECK(provider IN ('stripe', 'paypal')),
+        provider_subscription_id TEXT    NOT NULL,
+        status                   TEXT    NOT NULL CHECK(status IN ('active', 'cancelled', 'expired')),
+        current_period_end       TEXT    NOT NULL,
+        created_at               TEXT    NOT NULL DEFAULT (datetime('now'))
+      );
+
+      INSERT INTO subscriptions SELECT * FROM subscriptions_old;
+      DROP TABLE subscriptions_old;
+    `);
+  }
 }
 
 function initDb() {

@@ -3,8 +3,9 @@
 -- Also extends the existing tokens table with a listener_id FK.
 -- All changes are additive — existing tables and rows are untouched.
 
--- Extend existing tokens table to link to listener accounts
-ALTER TABLE tokens ADD COLUMN listener_id INTEGER REFERENCES listener_accounts(id);
+-- NOTE: ALTER TABLE tokens ADD COLUMN listener_id is handled in the Node
+-- migration runner (src/db/index.js) so it can be gated on column existence.
+-- SQLite has no IF NOT EXISTS for ALTER TABLE.
 
 -- Listener accounts (separate from creator accounts)
 CREATE TABLE IF NOT EXISTS listener_accounts (

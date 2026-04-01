@@ -228,6 +228,92 @@ router.get('/status', (req, res) => {
   });
 });
 
+// ─── Web player unlock flow ───────────────────────────────────────────────────
+
+// GET /api/payment/checkout-url
+// Public — no auth required. Returns a Stripe checkout URL for the subscriber tier.
+// Used by the web player when a free listener hits a supporters_only item.
+router.get('/checkout-url', async (req, res) => {
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey) {
+    return res.status(503).json({ error: 'Stripe not configured on this server' });
+  }
+
+  const priceId = process.env.STRIPE_PRICE_SUBSCRIBER;
+  if (!priceId) {
+    return res.status(503).json({ error: 'Subscriber price not configured — set STRIPE_PRICE_SUBSCRIBER in .env' });
+  }
+
+  try {
+    const stripe = require('stripe')(stripeKey);
+    const base = config.station.publicUrl || `http://localhost:${process.env.PORT || 3000}`;
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${base}/api/payment/web-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${base}/creator.html#library`,
+    });
+    res.json({ checkoutUrl: session.url });
+  } catch {
+    res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
+// GET /api/payment/web-success?session_id=xxx
+// Stripe redirects here after a successful web checkout.
+// Retrieves the session, finds or creates the listener account, issues a token,
+// sets the pw_token cookie, then redirects to the library with ?subscribed=1.
+router.get('/web-success', async (req, res) => {
+  const { session_id } = req.query;
+
+  if (!session_id || !process.env.STRIPE_SECRET_KEY) {
+    return res.redirect('/creator.html#library');
+  }
+
+  try {
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    const session = await stripe.checkout.sessions.retrieve(session_id, {
+      expand: ['subscription'],
+    });
+
+    const email = session.customer_details?.email || session.customer_email;
+    if (email) {
+      const db = getDb();
+
+      let account = db.prepare('SELECT id FROM listener_accounts WHERE email = ?').get(email);
+      if (!account) {
+        const ph = require('crypto').randomBytes(32).toString('hex');
+        const result = db.prepare(
+          'INSERT INTO listener_accounts (email, password_hash) VALUES (?, ?)'
+        ).run(email, ph);
+        account = { id: result.lastInsertRowid };
+      }
+
+      // Get or create the listener's auth token
+      let tokenRow = db.prepare(
+        'SELECT * FROM tokens WHERE listener_id = ? AND is_active = 1 LIMIT 1'
+      ).get(account.id);
+
+      if (!tokenRow) {
+        const token = require('crypto').randomBytes(32).toString('hex');
+        const info = db.prepare(
+          "INSERT INTO tokens (token, label, tier, listener_id) VALUES (?, ?, 'subscriber', ?)"
+        ).run(token, email, account.id);
+        tokenRow = db.prepare('SELECT * FROM tokens WHERE id = ?').get(info.lastInsertRowid);
+      }
+
+      // Set auth cookie — httpOnly, 1-year expiry
+      res.cookie('pw_token', tokenRow.token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge:   365 * 24 * 60 * 60 * 1000,
+      });
+    }
+  } catch { /* log but don't block redirect — webhook is the authoritative record */ }
+
+  res.redirect('/creator.html?subscribed=1#library');
+});
+
 // ─── Webhooks ─────────────────────────────────────────────────────────────────
 // NOTE: The Stripe webhook is mounted separately in src/index.js BEFORE
 // express.json() so Stripe can verify the raw request body signature.
@@ -280,7 +366,7 @@ router.post('/webhook/paypal', async (req, res) => {
 
 // Exported as a standalone handler for mounting before express.json() in index.js
 // so the raw body buffer is available for Stripe signature verification.
-function stripeWebhookHandler(req, res) {
+async function stripeWebhookHandler(req, res) {
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -288,9 +374,9 @@ function stripeWebhookHandler(req, res) {
     return res.status(503).json({ error: 'Stripe webhook not configured' });
   }
 
+  const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
   let event;
   try {
-    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
     event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
   } catch (err) {
     return res.status(400).json({ error: `Webhook signature invalid: ${err.message}` });
@@ -299,6 +385,39 @@ function stripeWebhookHandler(req, res) {
   const db = getDb();
 
   switch (event.type) {
+
+    // Primary activation path — fires when a Stripe Checkout session completes.
+    // Retrieves the subscription to get current_period_end, then upserts the
+    // listener_accounts row (Stripe-created accounts get an unusable password hash)
+    // and calls activateSubscription with tier='subscriber'.
+    case 'checkout.session.completed': {
+      const session = event.data.object;
+      const email = session.customer_details?.email || session.customer_email;
+      if (!email || !session.subscription) break;
+
+      try {
+        const sub = await stripe.subscriptions.retrieve(session.subscription);
+
+        let account = db.prepare('SELECT id FROM listener_accounts WHERE email = ?').get(email);
+        if (!account) {
+          const ph = require('crypto').randomBytes(32).toString('hex');
+          const result = db.prepare(
+            'INSERT INTO listener_accounts (email, password_hash) VALUES (?, ?)'
+          ).run(email, ph);
+          account = { id: result.lastInsertRowid };
+        }
+
+        activateSubscription(db, {
+          providerSubscriptionId: sub.id,
+          provider: 'stripe',
+          tier: 'subscriber',
+          currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
+          listenerIdOrEmail: account.id,
+        });
+      } catch { /* swallow — return 200 so Stripe does not retry */ }
+      break;
+    }
+
     case 'customer.subscription.created':
     case 'customer.subscription.updated': {
       const sub = event.data.object;
@@ -314,8 +433,20 @@ function stripeWebhookHandler(req, res) {
       }
       break;
     }
+
     case 'customer.subscription.deleted': {
       cancelSubscription(db, { providerSubscriptionId: event.data.object.id });
+      break;
+    }
+
+    // Payment failure — mark the subscription inactive so access is revoked
+    // at the next access check. Stripe will retry the charge; if it recovers,
+    // invoice.payment_succeeded → customer.subscription.updated will reactivate.
+    case 'invoice.payment_failed': {
+      const subscriptionId = event.data.object.subscription;
+      if (subscriptionId) {
+        cancelSubscription(db, { providerSubscriptionId: subscriptionId });
+      }
       break;
     }
   }
