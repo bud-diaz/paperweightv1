@@ -610,6 +610,16 @@ body {
   });
 
   setInterval(cycleState, 2500);
+
+  // Click any sticker → deep-link to the station player with autoplay
+  const STATION_URL = typeof PAPERWEIGHT_STATION_URL !== 'undefined'
+    ? PAPERWEIGHT_STATION_URL
+    : window.location.origin;
+  document.querySelectorAll('.sticker').forEach(s => {
+    s.addEventListener('click', () => {
+      window.open(STATION_URL + '/creator.html?autoplay=1#player', '_blank');
+    });
+  });
 </script>
 
 </body>

@@ -193,7 +193,7 @@ export function initLibrary() {
     const msg = document.createElement('div');
     msg.className = 'success-msg';
     msg.style.cssText = 'margin-bottom:16px;padding:12px;border-radius:6px';
-    msg.textContent = 'Supporter access activated — welcome!';
+    msg.textContent = 'Welcome. You now have full supporter access.';
     el('media-grid').before(msg);
     setTimeout(() => msg.remove(), 5000);
 

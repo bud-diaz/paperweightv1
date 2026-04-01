@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Paperweight — Creator Station</title>
+  <title>Paperweight Play</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css" />
   <!--
     hls.js — required for HLS playback in browsers that don't support it natively.
@@ -25,10 +25,10 @@
         <circle cx="26" cy="26" r="23" stroke="#F8F8F7" stroke-width="1.5" fill="none"/>
         <circle cx="26" cy="26" r="16" fill="#F8F8F7"/>
         <text x="26" y="27" text-anchor="middle" dominant-baseline="middle"
-          font-family="'DM Mono','Courier New',monospace" font-weight="700" font-size="11"
+          font-family="'JetBrains Mono','Courier New',monospace" font-weight="700" font-size="11"
           fill="#0B0B0C">&lt;P/&gt;</text>
       </svg>
-      Paperweight
+      Paperweight Play
     </a>
     <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
       <span></span><span></span><span></span>
@@ -59,6 +59,7 @@
           <p class="station-tagline">Self-hosted radio. Your vault, your signal.</p>
         </div>
 
+        <div class="broadcast-bottom">
         <div class="now-playing-block">
           <p class="np-eyebrow">Now Playing</p>
           <p class="np-title" id="now-playing-title">Loading…</p>
@@ -91,6 +92,21 @@
             </div>
           </div>
         </div>
+
+        <!-- Tip panel — rendered by player.js after fetching tip-config -->
+        <div class="tip-panel" id="tip-panel" hidden>
+          <p class="tip-eyebrow">Support the station</p>
+          <div class="tip-presets" id="tip-presets"></div>
+          <div class="tip-custom-row" id="tip-custom-row" hidden>
+            <input type="number" id="tip-custom-input" min="1" step="1" placeholder="Custom ($)" class="tip-custom-input" />
+          </div>
+          <button class="btn btn-primary tip-submit-btn" id="tip-submit">Send tip</button>
+          <div class="tip-msg" id="tip-msg"></div>
+        </div>
+        <div class="tip-thankyou" id="tip-thankyou" hidden>
+          <p>Thank you for supporting the station.</p>
+        </div>
+        </div><!-- /broadcast-bottom -->
 
       </div>
 
@@ -251,11 +267,25 @@
                 <option value="live_sessions">Live Sessions</option>
               </select>
             </div>
+            <div class="form-group">
+              <label>Access</label>
+              <select id="upload-visibility">
+                <option value="public" selected>Public</option>
+                <option value="supporters_only">Supporters Only</option>
+                <option value="private">Private</option>
+              </select>
+            </div>
           </div>
           <div id="upload-queue"></div>
           <button class="btn btn-primary" id="upload-submit">Upload</button>
           <div id="upload-msg"></div>
         </div>
+      </div>
+
+      <!-- Media -->
+      <div class="dash-section">
+        <h2>Media</h2>
+        <div class="media-list" id="media-list"></div>
       </div>
 
       <!-- Subscriber Tokens -->
@@ -316,6 +346,36 @@
         <div class="stats-row" id="analytics-stats"></div>
       </div>
 
+      <!-- Tip Button Config -->
+      <div class="dash-section">
+        <h2>Tip Button</h2>
+        <p style="color:var(--dim);font-size:13px;margin-bottom:14px">Preset amounts shown to listeners on the station page. Requires Stripe to be configured.</p>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Amount 1 ($)</label>
+            <input type="number" id="tip-amount-1" min="1" step="1" value="3" style="max-width:90px" />
+          </div>
+          <div class="form-group">
+            <label>Amount 2 ($)</label>
+            <input type="number" id="tip-amount-2" min="1" step="1" value="5" style="max-width:90px" />
+          </div>
+          <div class="form-group">
+            <label>Amount 3 ($)</label>
+            <input type="number" id="tip-amount-3" min="1" step="1" value="10" style="max-width:90px" />
+          </div>
+          <div class="form-group" style="align-self:flex-end;padding-bottom:2px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+              <input type="checkbox" id="tip-custom-enabled" checked />
+              Allow custom amount
+            </label>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+          <button class="btn btn-primary btn-sm" id="btn-save-tip-config">Save</button>
+          <span id="tip-config-msg" style="font-family:var(--font-mono);font-size:11px"></span>
+        </div>
+      </div>
+
     </div><!-- /dash-content -->
   </div><!-- /page-dashboard -->
 
@@ -329,13 +389,13 @@
         <circle cx="26" cy="26" r="23" stroke="#F8F8F7" stroke-width="1.5" fill="none"/>
         <circle cx="26" cy="26" r="16" fill="#F8F8F7"/>
         <text x="26" y="27" text-anchor="middle" dominant-baseline="middle"
-          font-family="'DM Mono','Courier New',monospace" font-weight="700" font-size="11"
+          font-family="'JetBrains Mono','Courier New',monospace" font-weight="700" font-size="11"
           fill="#0B0B0C">&lt;P/&gt;</text>
       </svg>
       <span class="footer-pw-text">Paperweight</span>
     </a>
     <div class="footer-divider"></div>
-    <span class="footer-copy">Self-hosted radio</span>
+    <span class="footer-copy">Powered by Paperweight</span>
   </div>
   <div class="footer-links">
     <a href="#player">Station</a>

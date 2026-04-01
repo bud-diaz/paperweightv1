@@ -2,6 +2,7 @@ let hls = null;
 let statusInterval = null;
 let pingInterval = null;
 let initialized = false;
+let selectedTipCents = null;
 
 const HLS_URL = '/hls/stream/index.m3u8';
 const STATUS_INTERVAL_MS = 10_000;
@@ -83,6 +84,96 @@ function togglePlay() {
   }
 }
 
+// ── Tip panel ─────────────────────────────────────────────────────────────────
+
+async function initTipPanel() {
+  // Detect ?tipped=1 from Stripe success redirect — show thank-you, clean URL.
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('tipped')) {
+    params.delete('tipped');
+    const clean = window.location.pathname
+      + (params.toString() ? '?' + params.toString() : '')
+      + window.location.hash;
+    history.replaceState(null, '', clean);
+    const ty = el('tip-thankyou');
+    ty.hidden = false;
+    setTimeout(() => { ty.hidden = true; }, 5000);
+  }
+
+  // Load creator-configured tip amounts.
+  // Fails silently if Stripe isn't configured or tip-config is unavailable.
+  try {
+    const res = await fetch('/api/payment/tip-config');
+    const cfg = await res.json();
+    if (!cfg.enabled || !cfg.amounts?.length) return;
+
+    const panel      = el('tip-panel');
+    const presetsEl  = el('tip-presets');
+    const customRow  = el('tip-custom-row');
+    const customInput = el('tip-custom-input');
+    const submitBtn  = el('tip-submit');
+    const msgEl      = el('tip-msg');
+
+    // Render preset amount buttons
+    presetsEl.innerHTML = cfg.amounts.map(cents => {
+      const label = cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`;
+      return `<button class="tip-preset-btn" data-cents="${cents}">${label}</button>`;
+    }).join('');
+
+    if (cfg.customEnabled) customRow.hidden = false;
+
+    // Preset selection — one active at a time
+    presetsEl.querySelectorAll('.tip-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        presetsEl.querySelectorAll('.tip-preset-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedTipCents = parseInt(btn.dataset.cents, 10);
+        customInput.value = '';
+        msgEl.textContent = '';
+      });
+    });
+
+    // Typing in custom field clears preset selection
+    customInput.addEventListener('input', () => {
+      presetsEl.querySelectorAll('.tip-preset-btn').forEach(b => b.classList.remove('selected'));
+      selectedTipCents = null;
+    });
+
+    submitBtn.addEventListener('click', async () => {
+      let cents = selectedTipCents;
+      if (!cents && cfg.customEnabled && customInput.value) {
+        cents = Math.round(parseFloat(customInput.value) * 100);
+      }
+      if (!cents || cents < 100) {
+        msgEl.className   = 'error-msg';
+        msgEl.textContent = 'Select an amount first';
+        return;
+      }
+
+      submitBtn.disabled     = true;
+      submitBtn.textContent  = 'Loading…';
+
+      try {
+        const tipRes = await fetch('/api/payment/tip', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ amountCents: cents }),
+        });
+        const data = await tipRes.json();
+        if (!tipRes.ok) throw new Error(data.error || 'Failed to start checkout');
+        window.location.href = data.checkoutUrl;
+      } catch (err) {
+        submitBtn.disabled    = false;
+        submitBtn.textContent = 'Send tip';
+        msgEl.className       = 'error-msg';
+        msgEl.textContent     = err.message;
+      }
+    });
+
+    panel.hidden = false;
+  } catch { /* tip unavailable — fail silently, station page still works */ }
+}
+
 export function initPlayer() {
   if (initialized) return;
   initialized = true;
@@ -99,6 +190,20 @@ export function initPlayer() {
   statusInterval = setInterval(fetchStatus, STATUS_INTERVAL_MS);
 
   el('play-btn').addEventListener('click', togglePlay);
+
+  // Auto-start if ?autoplay=1 (e.g. from station sticker deep-link)
+  const apParams = new URLSearchParams(window.location.search);
+  if (apParams.get('autoplay') === '1') {
+    apParams.delete('autoplay');
+    const clean = window.location.pathname
+      + (apParams.toString() ? '?' + apParams.toString() : '')
+      + window.location.hash;
+    history.replaceState(null, '', clean);
+    togglePlay();
+  }
+
+  // Tip panel — async, does not block player init
+  initTipPanel();
 }
 
 export function destroyPlayer() {

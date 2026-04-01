@@ -1,5 +1,5 @@
 /* ── Fonts ──────────────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
 
 /* ── Reset & Variables ─────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -26,7 +26,7 @@
   --text:       #F8F8F7;
   --muted:      #A1A1AA;
   --radius:     6px;
-  --font:       'Syne', system-ui, -apple-system, sans-serif;
+  --font:       'Inter', system-ui, -apple-system, sans-serif;
   --font-mono:  'DM Mono', monospace;
   --font-serif: 'DM Serif Display', Georgia, serif;
 }
@@ -847,6 +847,68 @@ nav {
 .token-label { color: var(--paper); flex: 1; font-size: 13px; font-weight: 600; }
 .token-value { color: var(--dim); font-family: var(--font-mono); font-size: 12px; }
 .token-meta { color: var(--dim); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.04em; }
+
+/* Media list — JS injects .media-row/.media-row-info/.media-row-controls */
+.media-list { background: var(--surface); display: flex; flex-direction: column; margin-bottom: 12px; }
+.media-row {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 16px;
+}
+.media-row:last-child { border-bottom: none; }
+.media-row-info { align-items: center; display: flex; flex: 1; gap: 8px; min-width: 0; overflow: hidden; }
+.media-row-title { color: var(--paper); font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.media-row-controls { align-items: center; display: flex; flex-shrink: 0; gap: 8px; }
+.media-save-msg { font-family: var(--font-mono); font-size: 11px; min-width: 36px; }
+
+/* Tip panel — station page */
+.tip-panel {
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+.tip-eyebrow {
+  color: var(--dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+.tip-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.tip-preset-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--paper);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 16px;
+  transition: background 0.12s, border-color 0.12s;
+}
+.tip-preset-btn:hover { background: var(--surface); border-color: var(--muted); }
+.tip-preset-btn.selected { border-color: var(--green); color: var(--green); }
+.tip-custom-row { margin-bottom: 12px; }
+.tip-custom-input { max-width: 140px; }
+.tip-submit-btn { margin-top: 4px; }
+.tip-msg { font-family: var(--font-mono); font-size: 12px; margin-top: 8px; min-height: 16px; }
+.tip-thankyou {
+  border-top: 1px solid var(--border);
+  color: var(--green);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  margin-top: 24px;
+  padding-top: 16px;
+}
+
+/* Groups now-playing-block + tip panel so broadcast-panel keeps two children */
+.broadcast-bottom { display: flex; flex-direction: column; }
 
 /* Schedule list — JS injects .block-row/.block-label/.block-time */
 .schedule-list { background: var(--surface); display: flex; flex-direction: column; margin-bottom: 12px; }

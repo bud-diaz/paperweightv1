@@ -198,14 +198,16 @@ function queueFiles(files) {
 }
 
 async function submitUploads() {
-  const msg      = el('upload-msg');
-  const category = el('upload-category').value;
-  msg.textContent = '';
+  const msg        = el('upload-msg');
+  const category   = el('upload-category').value;
+  const visibility = el('upload-visibility').value;
+  msg.textContent  = '';
 
   for (const file of uploadFiles) {
     const fd = new FormData();
     fd.append('media', file);
     fd.append('category', category);
+    fd.append('visibility', visibility);
 
     try {
       const res = await dashFetch('/api/dashboard/upload', { method: 'POST', body: fd });
@@ -219,7 +221,7 @@ async function submitUploads() {
   }
   uploadFiles = [];
   el('upload-form').hidden = true;
-  setTimeout(loadVaultStats, 2000); // vault stats update after scanner picks up file
+  setTimeout(() => { loadVaultStats(); loadMedia(); }, 2000);
 }
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
@@ -315,6 +317,65 @@ function setupScheduleCreate() {
   });
 }
 
+// ── Media ─────────────────────────────────────────────────────────────────────
+
+const VISIBILITY_LABELS = { public: 'Public', supporters_only: 'Supporters Only', private: 'Private' };
+
+async function loadMedia() {
+  const res   = await dashFetch('/api/dashboard/media');
+  const items = await res.json();
+  const list  = el('media-list');
+
+  if (!items.length) {
+    list.innerHTML = '<div class="empty">No media in vault yet.</div>';
+    return;
+  }
+
+  list.innerHTML = items.map(item => `
+    <div class="media-row" data-media-id="${item.id}">
+      <div class="media-row-info">
+        <span class="media-row-title">${esc(item.title || item.filename)}</span>
+        <span class="badge">${esc(item.category)}</span>
+      </div>
+      <div class="media-row-controls">
+        <select class="media-vis-select" data-id="${item.id}">
+          <option value="public"${item.visibility === 'public' ? ' selected' : ''}>Public</option>
+          <option value="supporters_only"${item.visibility === 'supporters_only' ? ' selected' : ''}>Supporters Only</option>
+          <option value="private"${item.visibility === 'private' ? ' selected' : ''}>Private</option>
+        </select>
+        <button class="btn btn-sm media-save-btn" data-id="${item.id}">Save</button>
+        <span class="media-save-msg" data-id="${item.id}"></span>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.media-save-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id         = btn.dataset.id;
+      const select     = list.querySelector(`.media-vis-select[data-id="${id}"]`);
+      const msgEl      = list.querySelector(`.media-save-msg[data-id="${id}"]`);
+      const visibility = select.value;
+
+      btn.disabled = true;
+      const saveRes = await dashFetch(`/api/dashboard/media/${id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ visibility }),
+      });
+      btn.disabled = false;
+
+      if (saveRes.ok) {
+        msgEl.className   = 'success-msg';
+        msgEl.textContent = 'Saved';
+        setTimeout(() => { msgEl.textContent = ''; }, 2000);
+      } else {
+        msgEl.className   = 'error-msg';
+        msgEl.textContent = 'Failed';
+      }
+    });
+  });
+}
+
 // ── Analytics ─────────────────────────────────────────────────────────────────
 
 async function loadAnalytics() {
@@ -336,6 +397,46 @@ async function loadAnalytics() {
   `;
 }
 
+// ── Tip Config ────────────────────────────────────────────────────────────────
+
+async function loadTipConfig() {
+  const res  = await dashFetch('/api/dashboard/tip-config');
+  const data = await res.json();
+  const amounts = data.amounts || [300, 500, 1000];
+  el('tip-amount-1').value        = amounts[0] / 100;
+  el('tip-amount-2').value        = amounts[1] / 100;
+  el('tip-amount-3').value        = amounts[2] / 100;
+  el('tip-custom-enabled').checked = !!data.customEnabled;
+}
+
+function setupTipConfig() {
+  el('btn-save-tip-config').addEventListener('click', async () => {
+    const amounts = [
+      Math.round(parseFloat(el('tip-amount-1').value) * 100),
+      Math.round(parseFloat(el('tip-amount-2').value) * 100),
+      Math.round(parseFloat(el('tip-amount-3').value) * 100),
+    ];
+    const customEnabled = el('tip-custom-enabled').checked;
+    const msg = el('tip-config-msg');
+
+    const res  = await dashFetch('/api/dashboard/tip-config', {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ amounts, customEnabled }),
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      msg.className   = 'success-msg';
+      msg.textContent = 'Saved';
+      setTimeout(() => { msg.textContent = ''; }, 2000);
+    } else {
+      msg.className   = 'error-msg';
+      msg.textContent = data.error || 'Failed';
+    }
+  });
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 function cap(s) { return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
@@ -348,9 +449,11 @@ async function loadDashboard() {
     loadStation(),
     loadVaultStats(),
     loadBroadcast(),
+    loadMedia(),
     loadTokens(),
     loadSchedule(),
     loadAnalytics(),
+    loadTipConfig(),
   ]);
 }
 
@@ -368,5 +471,6 @@ export async function initDashboard() {
   setupTokenCreate();
   setupScheduleCreate();
   setupStationUpdate();
+  setupTipConfig();
   loadDashboard();
 }

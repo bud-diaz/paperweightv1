@@ -143,6 +143,9 @@ router.get('/:id', (req, res) => {
 
 // GET /api/library/:id/preview
 // Generates a 60-second AAC clip on first request, serves cached file after.
+// Intentional: supporters_only items return a preview for free-tier listeners.
+// The teaser is the conversion mechanic — hearing 60 seconds drives upgrade clicks.
+// Private items are excluded by the visibility != 'private' filter.
 router.get('/:id/preview', (req, res) => {
   const row = getDb().prepare(
     "SELECT * FROM media WHERE id = ? AND is_active = 1 AND visibility != 'private'"

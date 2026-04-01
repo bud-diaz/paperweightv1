@@ -126,8 +126,8 @@ function renderItem(item, tier) {
 
     ${isGated ? `
       <div class="lib-item-gate">
-        <p class="lib-item-gate-msg">This track is for supporters only.</p>
-        <button class="btn btn-primary btn-sm" id="lib-item-upgrade">Unlock with Supporter Access</button>
+        <p class="lib-item-gate-msg">This one's for supporters.</p>
+        <button class="btn btn-primary btn-sm" id="lib-item-upgrade">Become a supporter</button>
         <div id="lib-item-upgrade-msg"></div>
       </div>
     ` : `
@@ -204,8 +204,8 @@ export async function openLibraryItem(itemId) {
       // Server already gated — render upgrade prompt directly
       document.getElementById('lib-item-body').innerHTML = `
         <div class="lib-item-gate">
-          <p class="lib-item-gate-msg">Supporter access required.</p>
-          <button class="btn btn-primary btn-sm" id="lib-item-upgrade">Unlock with Supporter Access</button>
+          <p class="lib-item-gate-msg">This one's for supporters.</p>
+          <button class="btn btn-primary btn-sm" id="lib-item-upgrade">Become a supporter</button>
           <div id="lib-item-upgrade-msg"></div>
         </div>
       `;

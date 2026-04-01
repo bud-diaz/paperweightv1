@@ -15,7 +15,8 @@ router.use(requireDashboard);
 
 // ─── Multer upload config ─────────────────────────────────────────────────────
 
-const VALID_CATEGORIES = new Set(['music', 'beats', 'podcasts', 'videos', 'drafts', 'live_sessions']);
+const VALID_CATEGORIES  = new Set(['music', 'beats', 'podcasts', 'videos', 'drafts', 'live_sessions']);
+const VALID_VISIBILITY  = new Set(['public', 'supporters_only', 'private']);
 
 const storage = multer.diskStorage({
   destination(req, file, cb) {
@@ -83,14 +84,92 @@ router.post('/upload', (req, res) => {
     }
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-    log('info', 'dashboard', `Uploaded: ${req.file.filename} → ${req.file.destination}`);
+    const category   = path.basename(req.file.destination);
+    const visibility = VALID_VISIBILITY.has(req.body.visibility) ? req.body.visibility : 'public';
+
+    // Stamp visibility immediately so the scanner's later upsert (which doesn't
+    // touch the visibility column) preserves the creator's chosen value.
+    getDb().prepare(`
+      INSERT INTO media (filepath, filename, category, visibility, indexed_at, updated_at)
+      VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+      ON CONFLICT(filepath) DO UPDATE SET visibility = excluded.visibility
+    `).run(req.file.path, req.file.filename, category, visibility);
+
+    log('info', 'dashboard', `Uploaded: ${req.file.filename} → ${req.file.destination} [${visibility}]`);
     res.status(201).json({
-      filename: req.file.filename,
-      filepath: req.file.path,
-      size: req.file.size,
-      category: path.basename(req.file.destination),
+      filename:   req.file.filename,
+      filepath:   req.file.path,
+      size:       req.file.size,
+      category,
+      visibility,
     });
   });
+});
+
+// ─── Media management ────────────────────────────────────────────────────────
+
+// GET /api/dashboard/media
+// Returns all active media items including private — creator sees everything.
+router.get('/media', (req, res) => {
+  const items = getDb().prepare(`
+    SELECT id, title, filename, category, visibility, duration, indexed_at
+    FROM media
+    WHERE is_active = 1
+    ORDER BY indexed_at DESC
+    LIMIT 500
+  `).all();
+  res.json(items);
+});
+
+// PATCH /api/dashboard/media/:id
+// Body: { visibility: 'public' | 'supporters_only' | 'private' }
+router.patch('/media/:id', (req, res) => {
+  const { visibility } = req.body;
+  if (!VALID_VISIBILITY.has(visibility)) {
+    return res.status(400).json({ error: 'visibility must be public, supporters_only, or private' });
+  }
+  const info = getDb().prepare(
+    "UPDATE media SET visibility = ?, updated_at = datetime('now') WHERE id = ? AND is_active = 1"
+  ).run(visibility, req.params.id);
+  if (info.changes === 0) return res.status(404).json({ error: 'Not found' });
+  log('info', 'dashboard', `Media ${req.params.id} visibility → ${visibility}`);
+  res.json({ ok: true, id: Number(req.params.id), visibility });
+});
+
+// ─── Tip configuration ────────────────────────────────────────────────────────
+
+// GET /api/dashboard/tip-config
+router.get('/tip-config', (req, res) => {
+  const row = getDb().prepare('SELECT amounts, custom_enabled FROM tip_config WHERE id = 1').get();
+  const amounts       = row ? JSON.parse(row.amounts) : [300, 500, 1000];
+  const customEnabled = row ? row.custom_enabled === 1 : true;
+  res.json({ amounts, customEnabled });
+});
+
+// PUT /api/dashboard/tip-config
+// Body: { amounts: [cents, cents, cents], customEnabled: bool }
+router.put('/tip-config', (req, res) => {
+  const { amounts, customEnabled } = req.body;
+
+  if (!Array.isArray(amounts) || amounts.length !== 3) {
+    return res.status(400).json({ error: 'amounts must be an array of exactly 3 values' });
+  }
+  const parsed = amounts.map(a => parseInt(a, 10));
+  if (parsed.some(a => isNaN(a) || a < 100)) {
+    return res.status(400).json({ error: 'Each amount must be at least 100 cents ($1.00)' });
+  }
+
+  getDb().prepare(`
+    INSERT INTO tip_config (id, amounts, custom_enabled, updated_at)
+    VALUES (1, ?, ?, datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET
+      amounts        = excluded.amounts,
+      custom_enabled = excluded.custom_enabled,
+      updated_at     = excluded.updated_at
+  `).run(JSON.stringify(parsed), customEnabled ? 1 : 0);
+
+  log('info', 'dashboard', `Tip config updated: amounts=${parsed.join(',')} custom=${customEnabled}`);
+  res.json({ ok: true, amounts: parsed, customEnabled: !!customEnabled });
 });
 
 // ─── Broadcast control ────────────────────────────────────────────────────────
@@ -248,5 +327,24 @@ function updateEnvKey(key, value) {
     : content.trimEnd() + `\n${key}=${value}\n`;
   fs.writeFileSync(envPath, content, 'utf8');
 }
+
+// GET /api/dashboard/webhook-log?limit=50&provider=stripe
+// Returns recent webhook events for production debugging.
+router.get('/webhook-log', (req, res) => {
+  const limitNum    = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+  const { provider } = req.query;
+
+  let sql    = 'SELECT * FROM webhook_events';
+  const params = [];
+  if (provider === 'stripe' || provider === 'paypal') {
+    sql += ' WHERE provider = ?';
+    params.push(provider);
+  }
+  sql += ' ORDER BY received_at DESC LIMIT ?';
+  params.push(limitNum);
+
+  const rows = getDb().prepare(sql).all(...params);
+  res.json({ events: rows, total: rows.length });
+});
 
 module.exports = router;
