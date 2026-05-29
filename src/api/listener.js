@@ -2,6 +2,7 @@ const router = require('express').Router();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { getDb } = require('../db');
+const { authLimiter } = require('../middleware/rateLimiter');
 
 const BCRYPT_ROUNDS = 10;
 
@@ -39,7 +40,7 @@ function getActiveSubscription(db, listenerId) {
 // POST /api/listener/register
 // Body: { email, password }
 // Returns: { token, tier }
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || typeof email !== 'string' || !email.includes('@')) {
@@ -75,7 +76,7 @@ router.post('/register', async (req, res) => {
 // POST /api/listener/login
 // Body: { email, password }
 // Returns: { token, tier }
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {

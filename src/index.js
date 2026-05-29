@@ -6,6 +6,7 @@ const { initDb, closeDb, log } = require('./db');
 const { startScanner, stopScanner } = require('./scanner');
 const broadcast = require('./broadcast');
 const apiRouter = require('./api/router');
+const { csrfCheck } = require('./middleware/csrfCheck');
 
 const app = express();
 let server;
@@ -37,6 +38,7 @@ function createApp() {
 
   app.use(express.json());
   app.use(cookieParser());
+  app.use(csrfCheck);
 
   // Serve HLS output
   app.use('/hls', express.static(config.paths.hlsOutput));

@@ -14,11 +14,11 @@ const PREVIEW_DURATION = 60;
 const SUBSCRIBER_TIERS = new Set(['subscriber', 'pro', 'all_access']);
 
 // ─── HMAC-signed download URLs ────────────────────────────────────────────────
-// Signed URLs are valid for 1 hour. Secret falls back to DASHBOARD_TOKEN so
-// no new env var is required for existing installs.
+// Signed URLs are valid for 1 hour. Secret is DOWNLOAD_SIGNING_SECRET, which
+// is auto-generated at startup when not set, so it never leaks DASHBOARD_TOKEN.
 
 function signingSecret() {
-  return process.env.DOWNLOAD_SIGNING_SECRET || config.auth.dashboardToken;
+  return config.auth.downloadSigningSecret;
 }
 
 function signDownloadUrl(mediaId) {

@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { getDb, log } = require('../db');
 const config = require('../config');
+const { paymentLimiter } = require('../middleware/rateLimiter');
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -64,7 +65,7 @@ function cancelSubscription(db, { providerSubscriptionId }) {
 // Returns: { checkoutUrl }
 // Play opens this URL in a WebView. On success, Core redirects to
 // paperweightplay://payment/success?tier=<tier>
-router.post('/checkout', (req, res) => {
+router.post('/checkout', paymentLimiter, (req, res) => {
   if (!req.tokenRow || !req.tokenRow.listener_id) {
     return res.status(401).json({ error: 'Authentication required' });
   }
@@ -233,7 +234,7 @@ router.get('/status', (req, res) => {
 // GET /api/payment/checkout-url
 // Public — no auth required. Returns a Stripe checkout URL for the subscriber tier.
 // Used by the web player when a free listener hits a supporters_only item.
-router.get('/checkout-url', async (req, res) => {
+router.get('/checkout-url', paymentLimiter, async (req, res) => {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeKey) {
     return res.status(503).json({ error: 'Stripe not configured on this server' });
@@ -325,6 +326,7 @@ router.get('/web-success', async (req, res) => {
       // Set auth cookie — httpOnly, 1-year expiry
       res.cookie('pw_token', tokenRow.token, {
         httpOnly: true,
+        secure:   config.https,
         sameSite: 'lax',
         maxAge:   365 * 24 * 60 * 60 * 1000,
       });
@@ -344,7 +346,8 @@ router.get('/tip-config', (req, res) => {
     return res.json({ enabled: false, amounts: [], customEnabled: false });
   }
   const row = getDb().prepare('SELECT amounts, custom_enabled FROM tip_config WHERE id = 1').get();
-  const amounts      = row ? JSON.parse(row.amounts) : [300, 500, 1000];
+  let amounts = [300, 500, 1000];
+  try { if (row) amounts = JSON.parse(row.amounts); } catch {}
   const customEnabled = row ? row.custom_enabled === 1 : true;
   res.json({ enabled: true, amounts, customEnabled });
 });
@@ -353,7 +356,7 @@ router.get('/tip-config', (req, res) => {
 // Public — no auth. Body: { amountCents: number }
 // Creates a Stripe Checkout session (mode: 'payment') for a one-time tip.
 // Does NOT create listener accounts, subscriptions, or change any tiers.
-router.post('/tip', async (req, res) => {
+router.post('/tip', paymentLimiter, async (req, res) => {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeKey) return res.status(503).json({ error: 'Stripe not configured on this server' });
 

@@ -1,13 +1,17 @@
 const router = require('express').Router();
 const { validateToken } = require('../auth');
+const config = require('../config');
 
 const COOKIE_NAME = 'pw_token';
-const COOKIE_OPTS = {
-  httpOnly: true,
-  secure: false,      // flip to true when served behind nginx + TLS
-  sameSite: 'Strict',
-  maxAge: 365 * 24 * 60 * 60 * 1000,  // 1 year
-};
+
+function cookieOpts() {
+  return {
+    httpOnly: true,
+    secure: config.https,
+    sameSite: 'Strict',
+    maxAge: 365 * 24 * 60 * 60 * 1000,
+  };
+}
 
 // POST /api/tokens/redeem
 // Body: { token: string }
@@ -23,7 +27,7 @@ router.post('/redeem', (req, res) => {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
-  res.cookie(COOKIE_NAME, token.trim(), COOKIE_OPTS);
+  res.cookie(COOKIE_NAME, token.trim(), cookieOpts());
   res.json({ tier: row.tier });
 });
 

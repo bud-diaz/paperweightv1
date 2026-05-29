@@ -18,6 +18,15 @@ router.use(requireDashboard);
 const VALID_CATEGORIES  = new Set(['music', 'beats', 'podcasts', 'videos', 'drafts', 'live_sessions']);
 const VALID_VISIBILITY  = new Set(['public', 'supporters_only', 'private']);
 
+// MIME types accepted for vault uploads — audio and video only.
+const ALLOWED_MIMES = new Set([
+  'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/aiff',
+  'audio/x-aiff', 'audio/flac', 'audio/x-flac', 'audio/aac', 'audio/ogg',
+  'audio/mp4', 'audio/m4a', 'audio/x-m4a',
+  'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska',
+  'video/webm', 'video/mpeg',
+]);
+
 const storage = multer.diskStorage({
   destination(req, file, cb) {
     const category = VALID_CATEGORIES.has(req.body.category)
@@ -37,6 +46,13 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2GB
+  fileFilter(req, file, cb) {
+    if (ALLOWED_MIMES.has(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type: ${file.mimetype}. Only audio and video files are accepted.`));
+    }
+  },
 });
 
 // ─── Vault stats ─────────────────────────────────────────────────────────────
@@ -141,7 +157,8 @@ router.patch('/media/:id', (req, res) => {
 // GET /api/dashboard/tip-config
 router.get('/tip-config', (req, res) => {
   const row = getDb().prepare('SELECT amounts, custom_enabled FROM tip_config WHERE id = 1').get();
-  const amounts       = row ? JSON.parse(row.amounts) : [300, 500, 1000];
+  let amounts = [300, 500, 1000];
+  try { if (row) amounts = JSON.parse(row.amounts); } catch {}
   const customEnabled = row ? row.custom_enabled === 1 : true;
   res.json({ amounts, customEnabled });
 });
