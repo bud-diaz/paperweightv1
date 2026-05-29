@@ -90,7 +90,14 @@ const config = {
 
   auth: {
     dashboardToken: process.env.DASHBOARD_TOKEN || '',
+    // Separate secret for HMAC-signed download URLs. Falls back to a random
+    // value generated at startup so it never shares entropy with DASHBOARD_TOKEN.
+    // Set DOWNLOAD_SIGNING_SECRET in .env to make signed URLs survive restarts.
+    downloadSigningSecret: process.env.DOWNLOAD_SIGNING_SECRET || crypto.randomBytes(32).toString('hex'),
   },
+
+  // true when the server is behind TLS (enables secure cookies, HTTPS redirects)
+  https: process.env.HTTPS === 'true',
 };
 
 module.exports = config;

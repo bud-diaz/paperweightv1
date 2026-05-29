@@ -1,9 +1,11 @@
 const router = require('express').Router();
 const { attachTier } = require('../auth/middleware');
+const { generalLimiter } = require('../middleware/rateLimiter');
 const config = require('../config');
 
-// Attach tier to every API request
+// Attach tier and general rate limit to every API request
 router.use(attachTier);
+router.use(generalLimiter);
 
 // Health check
 router.get('/health', (req, res) => {
