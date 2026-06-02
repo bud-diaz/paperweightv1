@@ -70,18 +70,14 @@ function requireAllAccess(req, res, next) {
   next();
 }
 
-// Protects dashboard routes.
-// Allows: localhost OR a valid X-Dashboard-Token header.
+// Protects dashboard routes. Always requires a valid X-Dashboard-Token header.
 function requireDashboard(req, res, next) {
-  const LOCAL_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
-  const isLocal = LOCAL_IPS.has(req.ip) || LOCAL_IPS.has(req.socket?.remoteAddress);
-
   const headerToken = req.headers['x-dashboard-token'];
   const hasValidToken =
     config.auth.dashboardToken &&
     headerToken === config.auth.dashboardToken;
 
-  if (isLocal || hasValidToken) return next();
+  if (hasValidToken) return next();
 
   res.status(401).json({ error: 'Dashboard access denied' });
 }

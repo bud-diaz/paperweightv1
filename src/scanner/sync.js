@@ -31,7 +31,7 @@ function needsProbe(filepath) {
   const db = getDb();
   const row = db.prepare(
     "SELECT updated_at FROM media WHERE filepath = ? AND is_active = 1"
-  ).get(filepath);
+  ).get(path.resolve(filepath));
 
   if (!row) return true;
 
@@ -47,7 +47,7 @@ function needsProbe(filepath) {
 function upsert(filepath, category, probeData) {
   const db = getDb();
   db.prepare(upsertStmt).run({
-    filepath,
+    filepath: path.resolve(filepath),
     filename: path.basename(filepath),
     category,
     title: probeData.title || null,
@@ -65,7 +65,7 @@ function markInactive(filepath) {
   const db = getDb();
   db.prepare(
     "UPDATE media SET is_active = 0, updated_at = datetime('now') WHERE filepath = ?"
-  ).run(filepath);
+  ).run(path.resolve(filepath));
   log('info', 'scanner', `Marked inactive: ${path.basename(filepath)}`);
 }
 

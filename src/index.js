@@ -50,12 +50,17 @@ function createApp() {
   // which lives inside the pkg snapshot when running as a packaged exe)
   app.use(express.static(path.join(config.paths.app, 'client')));
 
-  // SPA fallback — serve index.html for any unmatched GET
+  // Marketing/about page accessible at /landing
+  app.get('/landing', (req, res) => {
+    res.sendFile(path.join(config.paths.app, 'client', 'index.html'));
+  });
+
+  // SPA fallback — serve creator.html (player) for any unmatched GET
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/hls')) {
       return res.status(404).json({ error: 'Not found' });
     }
-    res.sendFile(path.join(config.paths.app, 'client', 'index.html'));
+    res.sendFile(path.join(config.paths.app, 'client', 'creator.html'));
   });
 
   // Express error handler — catches sync throws and next(err) calls

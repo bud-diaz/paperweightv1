@@ -36,7 +36,7 @@
     <div class="nav-links" id="nav-links">
       <a href="#player"    class="nav-link" data-page="player">Station</a>
       <a href="#library"   class="nav-link" data-page="library">Library</a>
-      <a href="#dashboard" class="nav-link" data-page="dashboard">Dashboard</a>
+      <a href="#dashboard" class="nav-link" data-page="dashboard" id="nav-dashboard-link" style="display:none">Dashboard</a>
     </div>
     <a href="#library" class="nav-support">Explore Archive</a>
   </nav>
@@ -130,6 +130,7 @@
 
     </section>
     <audio id="audio-el" hidden></audio>
+    <video id="video-el" hidden playsinline controls style="max-width:100%;border-radius:8px;margin-top:12px"></video>
   </div>
 
   <!-- ════════════════════════════════════════════
@@ -311,6 +312,19 @@
               <input type="text" id="sched-label" placeholder="Morning Beats" />
             </div>
             <div class="form-group">
+              <label>Day</label>
+              <select id="sched-day">
+                <option value="">Every day</option>
+                <option value="0">Sunday</option>
+                <option value="1">Monday</option>
+                <option value="2">Tuesday</option>
+                <option value="3">Wednesday</option>
+                <option value="4">Thursday</option>
+                <option value="5">Friday</option>
+                <option value="6">Saturday</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label>Start</label>
               <input type="time" id="sched-start" value="08:00" />
             </div>
@@ -344,6 +358,12 @@
       <div class="dash-section">
         <h2>Analytics</h2>
         <div class="stats-row" id="analytics-stats"></div>
+      </div>
+
+      <!-- Payments / Stripe -->
+      <div class="dash-section">
+        <h2>Payments</h2>
+        <div id="payment-config-status"></div>
       </div>
 
       <!-- Tip Button Config -->
@@ -400,7 +420,7 @@
   <div class="footer-links">
     <a href="#player">Station</a>
     <a href="#library">Library</a>
-    <a href="#dashboard">Dashboard</a>
+    <a href="#dashboard" id="footer-dashboard-link" style="display:none">Dashboard</a>
   </div>
 </footer>
 
@@ -422,9 +442,10 @@
 
   // ── Volume slider ──────────────────────────────────────────────────────────
   const volumeSlider = document.getElementById('volume-slider');
-  const audioEl      = document.getElementById('audio-el');
   volumeSlider.addEventListener('input', () => {
-    audioEl.volume = volumeSlider.value / 100;
+    const vol = volumeSlider.value / 100;
+    document.getElementById('audio-el').volume = vol;
+    document.getElementById('video-el').volume = vol;
   });
 
   // ── Schedule day label ─────────────────────────────────────────────────────
