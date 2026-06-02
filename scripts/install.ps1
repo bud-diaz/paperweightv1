@@ -24,53 +24,53 @@ if (-NOT (Get-Command winget -ErrorAction SilentlyContinue)) {
 $ROOT = Split-Path -Parent $PSScriptRoot
 
 Write-Host ""
-Write-Host "╔══════════════════════════════════════╗"
-Write-Host "║      PAPERWEIGHT INSTALLER           ║"
-Write-Host "╚══════════════════════════════════════╝"
+Write-Host "+--------------------------------------+"
+Write-Host "|      PAPERWEIGHT INSTALLER           |"
+Write-Host "+--------------------------------------+"
 Write-Host ""
 
-# ── Node.js ───────────────────────────────────────────────────────────────────
-Write-Host "── Node.js ──────────────────────────"
+# -- Node.js ------------------------------------------------------------------
+Write-Host "-- Node.js"
 winget install OpenJS.NodeJS.LTS --silent --accept-source-agreements --accept-package-agreements
-Write-Host "  ✓ Node.js installed"
+Write-Host "  OK Node.js installed"
 
 # Refresh PATH so npm is available in this session
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-# ── FFmpeg ────────────────────────────────────────────────────────────────────
-Write-Host "── FFmpeg ───────────────────────────"
+# -- FFmpeg -------------------------------------------------------------------
+Write-Host "-- FFmpeg"
 winget install Gyan.FFmpeg --silent --accept-source-agreements --accept-package-agreements
-Write-Host "  ✓ FFmpeg installed"
+Write-Host "  OK FFmpeg installed"
 
-# ── cloudflared ───────────────────────────────────────────────────────────────
-Write-Host "── cloudflared ──────────────────────"
+# -- cloudflared --------------------------------------------------------------
+Write-Host "-- cloudflared"
 winget install Cloudflare.cloudflared --silent --accept-source-agreements --accept-package-agreements
-Write-Host "  ✓ cloudflared installed"
+Write-Host "  OK cloudflared installed"
 
-# ── PM2 ───────────────────────────────────────────────────────────────────────
-Write-Host "── PM2 ──────────────────────────────"
+# -- PM2 ----------------------------------------------------------------------
+Write-Host "-- PM2"
 npm install -g pm2 pm2-windows-startup
-Write-Host "  ✓ PM2 installed"
+Write-Host "  OK PM2 installed"
 
-# ── npm packages ──────────────────────────────────────────────────────────────
-Write-Host "── npm packages ─────────────────────"
+# -- npm packages -------------------------------------------------------------
+Write-Host "-- npm packages"
 Set-Location $ROOT
 npm install
-Write-Host "  ✓ npm packages installed"
+Write-Host "  OK npm packages installed"
 
-# ── Firewall rule ─────────────────────────────────────────────────────────────
-Write-Host "── Firewall ─────────────────────────"
+# -- Firewall rule ------------------------------------------------------------
+Write-Host "-- Firewall"
 $existing = Get-NetFirewallRule -DisplayName "Paperweight" -ErrorAction SilentlyContinue
 if ($existing) {
-    Write-Host "  ✓ Firewall rule already exists"
+    Write-Host "  OK Firewall rule already exists"
 } else {
     New-NetFirewallRule -DisplayName "Paperweight" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow | Out-Null
-    Write-Host "  ✓ Firewall rule added (port 3000)"
+    Write-Host "  OK Firewall rule added (port 3000)"
 }
 
-# ── Done ──────────────────────────────────────────────────────────────────────
+# -- Done ---------------------------------------------------------------------
 Write-Host ""
-Write-Host "  ✓ Installation complete." -ForegroundColor Green
+Write-Host "  OK Installation complete." -ForegroundColor Green
 Write-Host ""
 Write-Host "  Close this window, open Git Bash, navigate to your paperweight folder, and run:"
 Write-Host "    bash scripts/setup.sh"
