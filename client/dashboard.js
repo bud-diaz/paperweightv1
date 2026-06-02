@@ -28,6 +28,7 @@ function showAuthOverlay() {
     sessionStorage.setItem(SESSION_KEY, token);
     const ok = await tryAuth();
     if (ok) {
+      revealDashboardNav();
       el('dash-auth').hidden    = true;
       el('dash-content').hidden = false;
       loadDashboard();
@@ -279,15 +280,18 @@ async function loadSchedule() {
   const blocks = await res.json();
 
   el('schedule-list').innerHTML = blocks.length
-    ? blocks.map(b => `
+    ? blocks.map(b => {
+        const dayLabel = b.day_of_week != null ? DAY_NAMES[b.day_of_week] : 'Daily';
+        return `
         <div class="block-row">
           <span class="block-label">${esc(b.label || '—')}</span>
+          <span class="badge">${dayLabel}</span>
           <span class="block-time">${b.start_time}–${b.end_time}</span>
           <span class="badge">${b.category || 'any'}</span>
           <span class="badge">${b.mode}</span>
           <button class="btn btn-sm btn-danger" data-del-block="${b.id}">Delete</button>
-        </div>
-      `).join('')
+        </div>`;
+      }).join('')
     : '<div class="empty">No schedule blocks. Station runs in shuffle mode.</div>';
 
   el('schedule-list').querySelectorAll('[data-del-block]').forEach(btn => {
@@ -298,14 +302,18 @@ async function loadSchedule() {
   });
 }
 
+const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
 function setupScheduleCreate() {
   el('btn-add-block').addEventListener('click', async () => {
+    const dayVal = el('sched-day').value;
     const body = {
-      label:      el('sched-label').value.trim() || null,
-      start_time: el('sched-start').value,
-      end_time:   el('sched-end').value,
-      category:   el('sched-category').value || null,
-      mode:       el('sched-mode').value,
+      label:        el('sched-label').value.trim() || null,
+      day_of_week:  dayVal !== '' ? parseInt(dayVal, 10) : null,
+      start_time:   el('sched-start').value,
+      end_time:     el('sched-end').value,
+      category:     el('sched-category').value || null,
+      mode:         el('sched-mode').value,
     };
     if (!body.start_time || !body.end_time) return;
     await dashFetch('/api/schedule/blocks', {
@@ -397,6 +405,53 @@ async function loadAnalytics() {
   `;
 }
 
+// ── Payment Config ────────────────────────────────────────────────────────────
+
+async function loadPaymentConfig() {
+  const res  = await dashFetch('/api/dashboard/payment-config');
+  if (!res.ok) return;
+  const d = await res.json();
+  const box = el('payment-config-status');
+
+  const check = ok => ok
+    ? '<span style="color:var(--green)">✓</span>'
+    : '<span style="color:#e84040">✗ missing</span>';
+
+  const stripeSetup = !d.stripe.connected ? `
+    <div class="setup-notice">
+      <strong>Stripe not configured.</strong> Add these to your <code>.env</code> to enable subscriptions and tips:
+      <pre style="margin:8px 0 0;font-size:11px;color:var(--muted)">STRIPE_SECRET_KEY=sk_live_...        # Stripe Dashboard → Developers → API keys
+STRIPE_WEBHOOK_SECRET=whsec_...     # Stripe Dashboard → Developers → Webhooks
+STRIPE_PRICE_SUBSCRIBER=price_...   # Stripe Dashboard → Products (create a recurring price)
+STRIPE_PRICE_PRO=price_...
+STRIPE_PRICE_ALL_ACCESS=price_...</pre>
+    </div>` : '';
+
+  box.innerHTML = `
+    <div class="payment-status-grid">
+      <div class="stat-card">
+        <div class="stat-label">Stripe</div>
+        <div style="font-size:13px;margin-top:6px;line-height:1.8">
+          Secret key ${check(d.stripe.connected)}<br>
+          Webhook secret ${check(d.stripe.webhookConfigured)}<br>
+          Subscriber price ${check(d.stripe.prices.subscriber)}<br>
+          Pro price ${check(d.stripe.prices.pro)}<br>
+          All-Access price ${check(d.stripe.prices.allAccess)}
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">PayPal</div>
+        <div style="font-size:13px;margin-top:6px;line-height:1.8">
+          Credentials ${check(d.paypal.connected)}<br>
+          Pro plan ${check(d.paypal.plans.pro)}<br>
+          All-Access plan ${check(d.paypal.plans.allAccess)}
+        </div>
+      </div>
+    </div>
+    ${stripeSetup}
+  `;
+}
+
 // ── Tip Config ────────────────────────────────────────────────────────────────
 
 async function loadTipConfig() {
@@ -453,8 +508,16 @@ async function loadDashboard() {
     loadTokens(),
     loadSchedule(),
     loadAnalytics(),
+    loadPaymentConfig(),
     loadTipConfig(),
   ]);
+}
+
+function revealDashboardNav() {
+  const navLink    = document.getElementById('nav-dashboard-link');
+  const footerLink = document.getElementById('footer-dashboard-link');
+  if (navLink)    navLink.style.display    = '';
+  if (footerLink) footerLink.style.display = '';
 }
 
 export async function initDashboard() {
@@ -464,6 +527,7 @@ export async function initDashboard() {
     return;
   }
 
+  revealDashboardNav();
   el('dash-auth').hidden    = true;
   el('dash-content').hidden = false;
 

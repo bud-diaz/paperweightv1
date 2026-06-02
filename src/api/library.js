@@ -72,6 +72,7 @@ function buildMediaQuery({ category, search, tier }) {
 }
 
 function formatItem(row, tier) {
+  const isVideo = !!(row.mime_type && row.mime_type.startsWith('video/'));
   const base = {
     id: row.id,
     title: row.title || row.filename,
@@ -82,6 +83,8 @@ function formatItem(row, tier) {
     bpm: row.bpm || null,
     tags: row.tags ? JSON.parse(row.tags) : [],
     visibility: row.visibility,
+    mimeType: row.mime_type || null,
+    isVideo,
     previewUrl: `/api/library/${row.id}/preview`,
     indexedAt: row.indexed_at,
   };
@@ -142,7 +145,9 @@ router.get('/:id', (req, res) => {
 });
 
 // GET /api/library/:id/preview
-// Generates a 60-second AAC clip on first request, serves cached file after.
+// For audio files: generates a 60-second AAC clip (.m4a).
+// For video files: generates a 60-second H.264/AAC clip (.mp4).
+// Caches the result; serves cached file on subsequent requests.
 // Intentional: supporters_only items return a preview for free-tier listeners.
 // The teaser is the conversion mechanic — hearing 60 seconds drives upgrade clicks.
 // Private items are excluded by the visibility != 'private' filter.
@@ -153,24 +158,51 @@ router.get('/:id/preview', (req, res) => {
 
   if (!row) return res.status(404).json({ error: 'Not found' });
 
-  const previewPath = path.join(PREVIEW_DIR, `${row.id}.m4a`);
+  const isVideo = row.mime_type && row.mime_type.startsWith('video/');
+  const previewExt  = isVideo ? 'mp4' : 'm4a';
+  const previewPath = path.join(PREVIEW_DIR, `${row.id}.${previewExt}`);
+
+  // Also check for the other extension (in case mime_type changed after re-index)
+  const altExt  = isVideo ? 'm4a' : 'mp4';
+  const altPath = path.join(PREVIEW_DIR, `${row.id}.${altExt}`);
+  if (fs.existsSync(altPath)) fs.unlinkSync(altPath);
 
   // Serve cached preview if it exists
   if (fs.existsSync(previewPath)) {
     return res.sendFile(previewPath);
   }
 
-  // Generate preview with FFmpeg
-  const args = [
-    '-y',
-    '-i', row.filepath,
-    '-t', String(PREVIEW_DURATION),
-    '-vn',
-    '-c:a', 'aac',
-    '-b:a', '96k',
-    '-ac', '2',
-    previewPath,
-  ];
+  fs.mkdirSync(PREVIEW_DIR, { recursive: true });
+
+  // Build FFmpeg args depending on source type
+  let args;
+  if (isVideo) {
+    args = [
+      '-y',
+      '-i', row.filepath,
+      '-t', String(PREVIEW_DURATION),
+      '-c:v', 'libx264',
+      '-crf', '23',
+      '-preset', 'fast',
+      '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-ac', '2',
+      '-movflags', '+faststart',
+      previewPath,
+    ];
+  } else {
+    args = [
+      '-y',
+      '-i', row.filepath,
+      '-t', String(PREVIEW_DURATION),
+      '-vn',
+      '-c:a', 'aac',
+      '-b:a', '96k',
+      '-ac', '2',
+      previewPath,
+    ];
+  }
 
   const proc = spawn('ffmpeg', args, { stdio: 'ignore', windowsHide: true });
 

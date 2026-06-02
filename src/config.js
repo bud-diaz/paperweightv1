@@ -89,7 +89,14 @@ const config = {
   },
 
   auth: {
-    dashboardToken: process.env.DASHBOARD_TOKEN || '',
+    dashboardToken: (() => {
+      if (process.env.DASHBOARD_TOKEN) return process.env.DASHBOARD_TOKEN;
+      const generated = crypto.randomBytes(16).toString('hex');
+      console.log('\n[Paperweight] DASHBOARD_TOKEN not set — using temporary token for this session:');
+      console.log(`  ${generated}`);
+      console.log('  Add DASHBOARD_TOKEN=<value> to your .env to make it permanent.\n');
+      return generated;
+    })(),
     // Separate secret for HMAC-signed download URLs. Falls back to a random
     // value generated at startup so it never shares entropy with DASHBOARD_TOKEN.
     // Set DOWNLOAD_SIGNING_SECRET in .env to make signed URLs survive restarts.

@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config');
 const { log } = require('../db');
-const { buildShuffleBatch, buildSequentialBatch } = require('./playlist');
+const { buildShuffleBatch, buildSequentialBatch, homogenizeBatch, isVideoTrack } = require('./playlist');
 const { resolveCurrentBlock } = require('./scheduler');
 const { writeConcatManifest } = require('./concat');
 
@@ -31,9 +31,12 @@ function writeStateFile(overrides = {}) {
     ? new Date(state.batchStartedAt.getTime() + (state.trackOffsets[state.nowPlayingIndex] || 0) * 1000)
     : null;
 
+  const hasVideo = state.currentBatch.some(t => isVideoTrack(t));
+
   const payload = {
     isLive: state.isRunning,
     mode: state.mode,
+    isVideo: hasVideo,
     nowPlaying: track ? {
       id: track.id,
       title: track.title || path.basename(track.filepath),
@@ -90,31 +93,47 @@ function resolveBatch() {
   if (state.mode === 'scheduled') {
     const block = resolveCurrentBlock();
     if (block) {
-      const tracks = block.mode === 'sequential'
+      const raw = block.mode === 'sequential'
         ? buildSequentialBatch({ blockId: block.id })
         : buildShuffleBatch({ category: block.category || null });
+      const tracks = homogenizeBatch(raw);
       if (tracks.length > 0) return { tracks, source: `block:${block.id}` };
     }
     // No active block — fall through to global shuffle
   }
-  const tracks = buildShuffleBatch();
+  const tracks = homogenizeBatch(buildShuffleBatch());
   return { tracks, source: 'shuffle' };
 }
 
 // ─── FFmpeg ──────────────────────────────────────────────────────────────────
 
-function buildFFmpegArgs(concatPath) {
+function buildFFmpegArgs(concatPath, hasVideo = false) {
+  const videoArgs = hasVideo
+    ? [
+        '-c:v', 'libx264',
+        '-crf', '28',
+        '-preset', 'veryfast',
+        '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-ac', '2',
+        '-ar', '44100',
+      ]
+    : [
+        // Audio-only output — minimal CPU load
+        '-vn',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-ac', '2',
+        '-ar', '44100',
+      ];
+
   return [
     '-re',
     '-f', 'concat',
     '-safe', '0',
     '-i', concatPath,
-    // Audio output only (strip video — keeps Pi CPU load minimal)
-    '-vn',
-    '-c:a', 'aac',
-    '-b:a', '128k',
-    '-ac', '2',
-    '-ar', '44100',
+    ...videoArgs,
     // HLS output
     '-f', 'hls',
     '-hls_time', '6',
@@ -128,8 +147,9 @@ function buildFFmpegArgs(concatPath) {
 
 function runFFmpeg(batch) {
   return new Promise((resolve, reject) => {
+    const hasVideo = batch.some(t => isVideoTrack(t));
     const concatPath = writeConcatManifest(batch);
-    const args = buildFFmpegArgs(concatPath);
+    const args = buildFFmpegArgs(concatPath, hasVideo);
 
     const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
     state.ffmpegProc = proc;

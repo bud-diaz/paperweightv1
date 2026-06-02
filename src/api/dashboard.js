@@ -105,11 +105,13 @@ router.post('/upload', (req, res) => {
 
     // Stamp visibility immediately so the scanner's later upsert (which doesn't
     // touch the visibility column) preserves the creator's chosen value.
+    // Use path.resolve() so this matches the absolute path the watcher emits.
+    const absFilepath = path.resolve(req.file.path);
     getDb().prepare(`
       INSERT INTO media (filepath, filename, category, visibility, indexed_at, updated_at)
       VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
       ON CONFLICT(filepath) DO UPDATE SET visibility = excluded.visibility
-    `).run(req.file.path, req.file.filename, category, visibility);
+    `).run(absFilepath, req.file.filename, category, visibility);
 
     log('info', 'dashboard', `Uploaded: ${req.file.filename} → ${req.file.destination} [${visibility}]`);
     res.status(201).json({
@@ -344,6 +346,39 @@ function updateEnvKey(key, value) {
     : content.trimEnd() + `\n${key}=${value}\n`;
   fs.writeFileSync(envPath, content, 'utf8');
 }
+
+// GET /api/dashboard/payment-config
+// Returns which payment env vars are configured (never exposes the values themselves).
+router.get('/payment-config', (req, res) => {
+  const has = key => !!(process.env[key] && process.env[key].trim());
+  const tipRow = getDb().prepare('SELECT amounts, custom_enabled FROM tip_config WHERE id = 1').get();
+  let tipAmounts = [300, 500, 1000];
+  try { if (tipRow) tipAmounts = JSON.parse(tipRow.amounts); } catch {}
+
+  res.json({
+    stripe: {
+      connected:        has('STRIPE_SECRET_KEY'),
+      webhookConfigured: has('STRIPE_WEBHOOK_SECRET'),
+      prices: {
+        subscriber:  has('STRIPE_PRICE_SUBSCRIBER'),
+        pro:         has('STRIPE_PRICE_PRO'),
+        allAccess:   has('STRIPE_PRICE_ALL_ACCESS'),
+      },
+    },
+    paypal: {
+      connected: has('PAYPAL_CLIENT_ID') && has('PAYPAL_CLIENT_SECRET'),
+      plans: {
+        pro:       has('PAYPAL_PLAN_PRO'),
+        allAccess: has('PAYPAL_PLAN_ALL_ACCESS'),
+      },
+    },
+    tips: {
+      enabled:       !!(tipRow),
+      amounts:       tipAmounts,
+      customEnabled: tipRow ? tipRow.custom_enabled === 1 : true,
+    },
+  });
+});
 
 // GET /api/dashboard/webhook-log?limit=50&provider=stripe
 // Returns recent webhook events for production debugging.

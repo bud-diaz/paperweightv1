@@ -3,6 +3,7 @@ let statusInterval = null;
 let pingInterval = null;
 let initialized = false;
 let selectedTipCents = null;
+let currentIsVideo = false;
 
 const HLS_URL = '/hls/stream/index.m3u8';
 const STATUS_INTERVAL_MS = 10_000;
@@ -26,6 +27,25 @@ function setNowPlaying(status) {
     listenerEl.textContent = status.listenerCount === 1
       ? '1 listening now'
       : `${status.listenerCount} listening now`;
+  }
+
+  // Switch media element if stream type changed
+  const wasVideo = currentIsVideo;
+  currentIsVideo = !!status.isVideo;
+  if (wasVideo !== currentIsVideo && hls) {
+    // Detach and reattach to the correct element
+    hls.destroy();
+    hls = null;
+    const oldEl = wasVideo ? el('video-el') : el('audio-el');
+    const newEl = currentIsVideo ? el('video-el') : el('audio-el');
+    const wasPlaying = !oldEl.paused;
+    oldEl.pause();
+    oldEl.hidden = true;
+    if (wasPlaying) {
+      setupHls(newEl);
+      newEl.hidden = currentIsVideo ? false : true;
+      newEl.play().catch(() => {});
+    }
   }
 }
 
@@ -59,13 +79,23 @@ function setupHls(audio) {
   }
 }
 
+function activeMediaEl() {
+  return currentIsVideo ? el('video-el') : el('audio-el');
+}
+
 function togglePlay() {
-  const audio = el('audio-el');
+  const media = activeMediaEl();
   const hint  = el('player-hint');
 
-  if (audio.paused) {
-    if (!hls && !audio.src) setupHls(audio);
-    audio.play().then(() => {
+  if (media.paused) {
+    if (!hls && !media.src) {
+      setupHls(media);
+      if (currentIsVideo) {
+        media.hidden = false;
+        el('audio-el').hidden = true;
+      }
+    }
+    media.play().then(() => {
       el('icon-play').hidden  = true;
       el('icon-pause').hidden = false;
       hint.textContent = '';
@@ -76,7 +106,7 @@ function togglePlay() {
       hint.textContent = 'Playback blocked — tap again';
     });
   } else {
-    audio.pause();
+    media.pause();
     el('icon-play').hidden  = false;
     el('icon-pause').hidden = true;
     hint.textContent = 'Paused';
@@ -213,13 +243,16 @@ export function destroyPlayer() {
   pingInterval   = null;
   initialized    = false;
 
-  const audio = el('audio-el');
-  audio.pause();
+  el('audio-el').pause();
+  el('video-el').pause();
+  el('video-el').hidden = true;
 
   if (hls) {
     hls.destroy();
     hls = null;
   }
+
+  currentIsVideo = false;
 
   el('icon-play').hidden  = false;
   el('icon-pause').hidden = true;
