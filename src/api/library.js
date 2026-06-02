@@ -172,7 +172,7 @@ router.get('/:id/preview', (req, res) => {
     previewPath,
   ];
 
-  const proc = spawn('ffmpeg', args, { stdio: 'ignore' });
+  const proc = spawn('ffmpeg', args, { stdio: 'ignore', windowsHide: true });
 
   proc.on('error', err => {
     if (!res.headersSent) {

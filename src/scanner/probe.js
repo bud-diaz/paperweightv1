@@ -61,7 +61,7 @@ function probe(filepath) {
       filepath,
     ];
 
-    const proc = spawn('ffprobe', args);
+    const proc = spawn('ffprobe', args, { windowsHide: true });
     let stdout = '';
     let stderr = '';
 

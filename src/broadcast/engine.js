@@ -131,7 +131,7 @@ function runFFmpeg(batch) {
     const concatPath = writeConcatManifest(batch);
     const args = buildFFmpegArgs(concatPath);
 
-    const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
     state.ffmpegProc = proc;
     state.currentBatch = batch;
     state.batchStartedAt = new Date();
