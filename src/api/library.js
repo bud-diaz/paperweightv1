@@ -153,7 +153,7 @@ router.get('/:id/preview', (req, res) => {
 
   if (!row) return res.status(404).json({ error: 'Not found' });
 
-  const previewPath = path.join(PREVIEW_DIR, `${row.id}.mp3`);
+  const previewPath = path.join(PREVIEW_DIR, `${row.id}.m4a`);
 
   // Serve cached preview if it exists
   if (fs.existsSync(previewPath)) {
@@ -172,7 +172,7 @@ router.get('/:id/preview', (req, res) => {
     previewPath,
   ];
 
-  const proc = spawn('ffmpeg', args, { stdio: 'ignore' });
+  const proc = spawn('ffmpeg', args, { stdio: 'ignore', windowsHide: true });
 
   proc.on('error', err => {
     if (!res.headersSent) {
@@ -183,8 +183,11 @@ router.get('/:id/preview', (req, res) => {
   proc.on('close', code => {
     if (code === 0 && fs.existsSync(previewPath)) {
       res.sendFile(previewPath);
-    } else if (!res.headersSent) {
-      res.status(500).json({ error: 'Preview generation failed' });
+    } else {
+      if (fs.existsSync(previewPath)) fs.unlinkSync(previewPath);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Preview generation failed' });
+      }
     }
   });
 });
