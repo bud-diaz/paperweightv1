@@ -148,6 +148,16 @@ async function loadBroadcast() {
   el('dash-now-playing').textContent = np ? `${np.title}${np.artist ? ' — ' + np.artist : ''}` : 'Nothing playing';
   el('dash-mode').textContent        = `Mode: ${data.mode}`;
 
+  // Lock/unlock schedule section based on mode
+  const isScheduled = data.mode === 'scheduled';
+  const schedControls = el('schedule-controls');
+  const schedNotice   = el('schedule-locked-notice');
+  if (schedControls) {
+    schedControls.style.opacity        = isScheduled ? '' : '0.4';
+    schedControls.style.pointerEvents  = isScheduled ? '' : 'none';
+  }
+  if (schedNotice) schedNotice.hidden = isScheduled;
+
   const modeBtn = el('btn-toggle-mode');
   modeBtn.textContent = data.mode === 'shuffle' ? 'Switch to Scheduled' : 'Switch to Shuffle';
   modeBtn.onclick = async () => {

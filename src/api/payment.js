@@ -109,7 +109,7 @@ async function handleStripeCheckout(req, res, tier) {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${config.station.publicUrl || req.headers.origin || ''}/payment/success?session_id={CHECKOUT_SESSION_ID}&tier=${tier}`,
+      success_url: `${config.station.publicUrl || req.headers.origin || `${req.protocol}://${req.get('host')}`}/payment/success?session_id={CHECKOUT_SESSION_ID}&tier=${tier}`,
       cancel_url: `paperweightplay://payment/cancel`,
       metadata: {
         listener_id: String(req.tokenRow.listener_id),
@@ -376,7 +376,8 @@ router.post('/tip', paymentLimiter, async (req, res) => {
 
   try {
     const stripe      = require('stripe')(stripeKey);
-    const base        = config.station.publicUrl || `http://localhost:${process.env.PORT || 3000}`;
+    const base        = config.station.publicUrl
+      || `${req.protocol}://${req.get('host')}`;
     const stationName = config.station.name || 'the station';
 
     const session = await stripe.checkout.sessions.create({
@@ -390,7 +391,7 @@ router.post('/tip', paymentLimiter, async (req, res) => {
         quantity: 1,
       }],
       success_url:          `${base}/api/payment/tip-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:           `${base}/creator.html#player`,
+      cancel_url:           `${base}/#player`,
       // Tag both the session and the payment intent so webhook handlers can
       // distinguish tip payments from subscription payments unambiguously.
       metadata:             { type: 'tip' },
@@ -398,8 +399,9 @@ router.post('/tip', paymentLimiter, async (req, res) => {
     });
 
     res.json({ checkoutUrl: session.url });
-  } catch {
-    res.status(500).json({ error: 'Failed to create tip checkout' });
+  } catch (err) {
+    log('error', 'payment', `Tip checkout failed: ${err.message}`);
+    res.status(500).json({ error: err.message || 'Failed to create tip checkout' });
   }
 });
 
