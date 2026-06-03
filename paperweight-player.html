@@ -811,6 +811,19 @@
 
           <div class="dash-divider"></div>
 
+          <!-- Subscriber Tokens -->
+          <div class="dash-section">
+            <div class="dash-section-label">SUBSCRIBER TOKENS</div>
+            <div id="dash-token-list"></div>
+            <div class="dash-form-row" style="margin-top:10px;padding:0 14px;">
+              <input type="text" class="dash-input dash-input-sm" id="new-token-label" placeholder="Label (e.g. Maria)" style="flex:1;min-width:100px;"/>
+              <button class="mgmt-btn" id="btn-create-token">CREATE</button>
+            </div>
+            <div id="new-token-result" style="padding:0 14px;margin-top:6px;"></div>
+          </div>
+
+          <div class="dash-divider"></div>
+
           <!-- Tip Config -->
           <div class="dash-section" style="padding-bottom:24px;">
             <div class="dash-section-label">TIP BUTTON</div>
@@ -1548,6 +1561,7 @@ function loadDashboard() {
   loadDashBroadcast();
   loadDashSchedule();
   loadDashMedia();
+  loadDashTokens();
   loadDashAnalytics();
   loadDashTipConfig();
 }
@@ -1726,6 +1740,51 @@ el('dash-upload-submit').addEventListener('click', async () => {
   uploadFiles = [];
   el('dash-upload-form').hidden = true;
   setTimeout(() => { loadDashVaultStats(); loadDashMedia(); loadLibrary(); }, 1500);
+});
+
+async function loadDashTokens() {
+  try {
+    const tokens = await dashFetch('/api/dashboard/tokens').then(r => r.json());
+    const list   = el('dash-token-list');
+    list.innerHTML = tokens.length
+      ? tokens.map(t => `<div class="mgmt-row">
+          <div class="mgmt-info">
+            <div class="mgmt-title">${esc(t.label || '—')}</div>
+            <div class="mgmt-meta">${t.tier} · ${t.last_used ? 'used ' + t.last_used.slice(0,10) : 'never used'}</div>
+          </div>
+          <button class="mgmt-btn${t.is_active ? ' danger' : ''}" data-revoke="${t.id}" ${!t.is_active ? 'disabled' : ''}>
+            ${t.is_active ? 'REVOKE' : 'REVOKED'}
+          </button>
+        </div>`).join('')
+      : '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No tokens yet.</div>';
+
+    list.querySelectorAll('[data-revoke]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await dashFetch(`/api/dashboard/tokens/${btn.dataset.revoke}`, { method: 'DELETE' });
+        loadDashTokens();
+      });
+    });
+  } catch {}
+}
+
+el('btn-create-token').addEventListener('click', async () => {
+  const label = el('new-token-label').value.trim();
+  if (!label) return;
+  try {
+    const res  = await dashFetch('/api/dashboard/tokens', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ label }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    el('new-token-result').innerHTML = `
+      <div class="dash-success-msg">Token created — share once, won't be shown again:</div>
+      <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:8px 10px;margin-top:6px;font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,.7);word-break:break-all;">${esc(data.token)}</div>`;
+    el('new-token-label').value = '';
+    loadDashTokens();
+  } catch (err) {
+    el('new-token-result').innerHTML = `<div class="dash-error-msg">${esc(err.message)}</div>`;
+  }
 });
 
 async function loadDashAnalytics() {
