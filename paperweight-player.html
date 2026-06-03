@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Paperweight Player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { height: 100%; }
+    body {
+      width: 100%; height: 100%; min-height: 100dvh;
+      background: #080808;
+      display: flex; flex-direction: column;
+      align-items: stretch;
+      font-family: 'Space Mono', monospace;
+      overflow-x: hidden;
+    }
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+
+    @keyframes pulse-ring {
+      0%   { transform: translate(-50%,-50%) scale(1);    opacity: .55; }
+      100% { transform: translate(-50%,-50%) scale(1.45); opacity: 0;   }
+    }
+    @keyframes live-dot  { 0%,100%{opacity:1} 50%{opacity:.3} }
+    @keyframes tipPulse  {
+      0%,100%{ transform:translate(-50%,-50%) scale(1);    }
+      50%    { transform:translate(-50%,-50%) scale(1.18); }
+    }
+
+    /* ── layout shell ── */
+    #layout {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 16px 16px 0;
+      min-height: 0;
+    }
+
+    /* ── card ── */
+    #player-wrap {
+      width: 100%; max-width: 560px;
+      display: flex; flex-direction: column;
+      flex: 1; min-height: 0;
+    }
+    #player-card {
+      background: linear-gradient(160deg,#141414 0%,#0d0d0d 100%);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px; overflow: hidden;
+      box-shadow: 0 32px 80px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.04), inset 0 1px 0 rgba(255,255,255,.07);
+      display: flex; flex-direction: column;
+      flex: 1; min-height: 0;
+    }
+
+    /* ── top bar ── */
+    #topbar { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 0; flex-shrink:0; }
+    .pw-wordmark { font-family:'DM Serif Display',serif; font-size:16px; color:#fff; letter-spacing:-.02em; }
+    .pw-sub      { font-size:9px; color:rgba(255,255,255,.25); letter-spacing:.08em; }
+    #topbar-right { display:flex; align-items:center; gap:8px; }
+    #back-live-btn {
+      display:none; background:none; border:1px solid rgba(255,255,255,.12); border-radius:5px; cursor:pointer;
+      color:rgba(255,255,255,.4); font-family:'Space Mono',monospace; font-size:8px; letter-spacing:.1em; padding:3px 8px;
+    }
+    #back-live-btn:hover { color:#fff; }
+    .type-badge {
+      font-size:9px; font-family:'Space Mono',monospace; letter-spacing:.12em;
+      color:#000; border-radius:3px; padding:2px 6px; font-weight:700;
+      display:flex; align-items:center; gap:4px;
+    }
+    .live-dot-badge {
+      width:5px; height:5px; border-radius:50%; background:#000; display:inline-block;
+    }
+
+    /* ── art zone ── */
+    #art-wrap { padding: 16px 16px 0; flex-shrink: 0; }
+    #art-box {
+      width:100%; aspect-ratio:16/7; border-radius:12px; overflow:hidden;
+      position:relative; display:flex; align-items:center; justify-content:center;
+    }
+    /* on very short screens shrink art */
+    @media (max-height: 600px) {
+      #art-box { aspect-ratio: 16/5; }
+    }
+    #art-svg  { position:absolute; inset:0; width:100%; height:100%; }
+    .pulse-ring {
+      position:absolute; top:50%; left:50%;
+      width:64px; height:64px; border-radius:50%;
+      border:2px solid var(--color);
+      animation: pulse-ring 1.4s ease-out infinite;
+      display:none;
+    }
+    #pr2 { animation-delay:.5s; }
+    #on-air-badge {
+      position:absolute; top:10px; right:12px;
+      display:flex; align-items:center; gap:5px;
+      background:rgba(0,0,0,.55); border-radius:5px; padding:3px 8px;
+    }
+    #on-air-dot { width:6px; height:6px; border-radius:50%; animation:live-dot 1.2s ease-in-out infinite; }
+    #on-air-text { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.1em; }
+    #art-meta {
+      position:absolute; bottom:0; left:0; right:0;
+      padding:24px 16px 14px;
+      background:linear-gradient(to top,rgba(0,0,0,.72) 0%,transparent 100%);
+    }
+    #track-title   { font-family:'DM Serif Display',serif; font-size:22px; color:#fff; line-height:1.1; letter-spacing:-.02em; }
+    #track-creator { font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,.45); margin-top:3px; letter-spacing:.06em; }
+
+    /* ── waveform ── */
+    #waveform-section { padding: 12px 16px 0; flex-shrink: 0; }
+    #waveform {
+      display:flex; align-items:center; gap:1.5px; height:44px;
+      cursor:pointer; padding:0 2px; transition:opacity .3s;
+    }
+    #waveform.disabled { opacity:.35; cursor:default; }
+    .wbar { flex:0 0 auto; width:3px; border-radius:2px; transition:background .08s; }
+    #time-row { display:flex; justify-content:space-between; margin-top:4px; font-size:10px; color:rgba(255,255,255,.3); }
+    #time-elapsed { }
+    #time-remain  { }
+
+    /* ── controls ── */
+    #controls { display:flex; align-items:center; justify-content:space-between; padding:12px 16px 14px; flex-shrink:0; }
+    .drawer-btn {
+      background:none; border:1px solid transparent; border-radius:6px; cursor:pointer;
+      color:rgba(255,255,255,.35); font-size:13px; padding:5px 8px; line-height:1;
+      transition:all .15s;
+    }
+    .drawer-btn.active { }
+    #controls-center { display:flex; align-items:center; gap:14px; }
+    .skip-btn {
+      background:none; border:none; cursor:pointer; color:rgba(255,255,255,.5);
+      font-size:18px; line-height:1; transition:color .12s;
+    }
+    .skip-btn:hover { color:#fff; }
+    .skip-btn.hidden { display:none; }
+    #play-btn {
+      width:56px; height:56px; border-radius:50%; border:none; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+      transition:transform .12s;
+    }
+    #play-btn:hover { transform:scale(1.08); }
+
+    /* ── drawers ── */
+    .drawer { max-height:0; overflow:hidden; transition:max-height .32s cubic-bezier(.4,0,.2,1); flex-shrink:0; }
+    .drawer-inner { border-top:1px solid rgba(255,255,255,.06); padding:8px 6px 10px; }
+    .drawer-label {
+      font-size:9px; letter-spacing:.14em; color:rgba(255,255,255,.25);
+      padding:4px 14px 6px; font-family:'Space Mono',monospace;
+    }
+    .drawer-scroll { overflow-y:auto; max-height:160px; }
+    .lib-row {
+      display:flex; align-items:center; gap:10px;
+      padding:9px 14px; border-radius:8px; cursor:pointer;
+      background:transparent; border-left:2px solid transparent;
+      transition:background .13s;
+    }
+    .lib-row:hover { background:rgba(255,255,255,.04); }
+    .lib-row.active { background:rgba(255,255,255,.07); }
+    .lib-thumb {
+      width:30px; height:30px; border-radius:6px; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center; font-size:12px;
+    }
+    .lib-info { flex:1; min-width:0; }
+    .lib-title { font-family:'DM Serif Display',serif; font-size:13px; color:rgba(255,255,255,.7); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .lib-title.active { color:#fff; }
+    .lib-meta  { font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,.3); margin-top:1px; }
+
+    /* queue */
+    #queue-header { display:flex; align-items:center; justify-content:space-between; padding:4px 14px 6px; }
+    .lock-badge {
+      font-size:9px; letter-spacing:.1em; color:rgba(255,255,255,.18);
+      font-family:'Space Mono',monospace; border:1px solid rgba(255,255,255,.1); border-radius:3px; padding:1px 5px;
+    }
+    .q-row { display:flex; align-items:center; justify-content:space-between; padding:8px 14px; opacity:.45; }
+    .q-title { font-family:'DM Serif Display',serif; font-size:13px; color:rgba(255,255,255,.6); }
+    .q-time  { font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,.3); }
+
+    /* share */
+    #share-drawer .drawer-inner { padding:14px 20px 16px; }
+    #share-options { display:flex; gap:8px; margin-top:10px; }
+    .share-opt {
+      flex:1; padding:9px 4px; background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08); border-radius:9px; cursor:pointer;
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+      transition:border-color .15s, background .15s;
+    }
+    .share-opt-icon { font-size:13px; color:rgba(255,255,255,.6); line-height:1; transition:color .2s; }
+    .share-opt-icon.embed { font-size:9px; font-family:'Space Mono',monospace; letter-spacing:-.03em; }
+    .share-opt-label { font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.3); letter-spacing:.06em; transition:color .2s; }
+    .share-opt.copied .share-opt-icon, .share-opt.copied .share-opt-label { color:#39ff14; }
+
+    /* ── spacer pushes share tab to card bottom ── */
+    #card-spacer { flex: 1; min-height: 0; }
+
+    /* share tab strip */
+    #share-tab {
+      display:flex; align-items:center; justify-content:center; gap:6px;
+      padding:9px 20px; border-top:1px solid rgba(255,255,255,.05);
+      cursor:pointer; transition:background .15s; user-select:none;
+      flex-shrink: 0;
+    }
+    #share-tab:hover { background:rgba(255,255,255,.03); }
+    #share-tab.locked { cursor:default; opacity:.3; pointer-events:none; }
+    #share-tab-label { font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.25); letter-spacing:.12em; transition:color .15s; }
+    #share-chevron { transition:transform .25s; }
+
+    /* bottom accent */
+    #bottom-accent { height:2px; opacity:.55; transition:background .5s; }
+
+    /* credit footer */
+    #credit {
+      text-align:center; padding: 10px 0 12px;
+      font-size:9px; color:rgba(255,255,255,.18); letter-spacing:.1em;
+      flex-shrink: 0;
+    }
+
+    /* ambient */
+    #ambient {
+      position:fixed; top:40%; left:50%; transform:translate(-50%,-50%);
+      width:400px; height:400px; border-radius:50%;
+      pointer-events:none; filter:blur(60px); transition:background .6s; z-index:0;
+    }
+
+    /* floating tip */
+    #floating-tip {
+      position:fixed; z-index:50; cursor:pointer; user-select:none; -webkit-user-select:none;
+      font-family:'DM Serif Display',serif; font-size:26px; line-height:1; color:#39ff14;
+      filter:drop-shadow(0 0 6px #39ff14bb); transition:filter .3s;
+      transform:translate(-50%,-50%);
+    }
+    #floating-tip.paused {
+      filter:drop-shadow(0 0 14px #39ff14) drop-shadow(0 0 28px #39ff1466);
+      animation:tipPulse 1s ease-in-out infinite;
+    }
+
+    /* modal backdrop */
+    #modal-backdrop {
+      display:none; position:fixed; inset:0; z-index:100;
+      align-items:center; justify-content:center;
+      background:rgba(0,0,0,.75); backdrop-filter:blur(6px);
+    }
+    #modal-backdrop.open { display:flex; }
+    #modal {
+      width: min(340px, calc(100vw - 32px));
+      max-height: calc(100dvh - 48px);
+      overflow-y: auto;
+      border-radius:18px;
+      background:linear-gradient(160deg,#161616,#0e0e0e);
+      border:1px solid rgba(255,255,255,.1);
+      box-shadow:0 0 60px rgba(57,255,20,.08),0 32px 64px rgba(0,0,0,.8);
+    }
+    #modal-header { padding:20px 20px 0; display:flex; align-items:center; justify-content:space-between; }
+    #modal-creator-name { font-family:'DM Serif Display',serif; font-size:18px; color:#fff; }
+    #modal-creator-show { font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,.3); margin-top:2px; letter-spacing:.06em; }
+    #modal-close { background:none; border:none; cursor:pointer; color:rgba(255,255,255,.3); font-size:18px; line-height:1; }
+    #modal-tabs { display:flex; gap:6px; padding:16px 20px 0; }
+    .modal-tab {
+      flex:1; padding:7px 4px; background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08); border-radius:8px; cursor:pointer;
+      color:rgba(255,255,255,.4); font-family:'Space Mono',monospace; font-size:9px;
+      letter-spacing:.08em; transition:all .15s;
+      display:flex; flex-direction:column; align-items:center; gap:3px;
+    }
+    .modal-tab .tab-icon { font-size:14px; }
+    .modal-tab.active { background:rgba(57,255,20,.12); border-color:rgba(57,255,20,.4); color:#39ff14; }
+    #modal-body { padding:20px 20px 24px; }
+    .tab-pane { display:none; }
+    .tab-pane.active { display:block; }
+    #tip-label { font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,.4); margin-bottom:10px; }
+    #tip-input-wrap {
+      display:flex; align-items:center; gap:8px;
+      background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+      border-radius:10px; padding:10px 14px;
+    }
+    #tip-dollar { font-family:'DM Serif Display',serif; font-size:22px; color:#39ff14; filter:drop-shadow(0 0 6px #39ff14); }
+    #tip-amount { background:none; border:none; outline:none; font-family:'DM Serif Display',serif; font-size:22px; color:#fff; width:100%; }
+    #tip-presets { display:flex; gap:6px; margin-top:10px; }
+    .tip-preset {
+      flex:1; padding:6px; background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08); border-radius:7px; cursor:pointer;
+      color:rgba(255,255,255,.45); font-family:'Space Mono',monospace; font-size:10px; transition:all .12s;
+    }
+    .tip-preset.active { border-color:rgba(57,255,20,.4); color:#39ff14; }
+    .fixed-pane { text-align:center; padding:8px 0; }
+    .fixed-price { font-family:'DM Serif Display',serif; font-size:36px; color:#fff; }
+    .fixed-price-dollar { color:#39ff14; filter:drop-shadow(0 0 8px #39ff14); }
+    .fixed-period { font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,.3); letter-spacing:.1em; margin-top:4px; }
+    .fixed-perks { margin-top:14px; font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,.4); line-height:1.7; }
+    #modal-cta {
+      margin-top:18px; width:100%; padding:13px;
+      background:linear-gradient(135deg,#39ff14,#20c010);
+      border:none; border-radius:10px; cursor:pointer;
+      color:#000; font-family:'Space Mono',monospace; font-weight:700; font-size:11px; letter-spacing:.1em;
+      box-shadow:0 0 20px rgba(57,255,20,.3); transition:all .2s;
+    }
+    #modal-cta:disabled { opacity:.4; cursor:not-allowed; box-shadow:none; }
+    #modal-cta.processing { background:rgba(57,255,20,.15); border:1px solid #39ff1455; color:#39ff14; box-shadow:none; }
+    #modal-stripe-note { margin-top:10px; text-align:center; font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.2); letter-spacing:.08em; }
+    #modal-done { display:none; padding:48px 32px; text-align:center; }
+    #modal-done-icon { font-size:40px; margin-bottom:12px; filter:drop-shadow(0 0 12px #39ff14); }
+    #modal-done-title { font-family:'DM Serif Display',serif; font-size:22px; color:#fff; margin-bottom:8px; }
+    #modal-done-msg   { font-family:'Space Mono',monospace; font-size:11px; color:rgba(255,255,255,.4); line-height:1.6; }
+    #modal-done-close {
+      margin-top:24px; background:none; border:1px solid rgba(255,255,255,.15);
+      border-radius:8px; color:rgba(255,255,255,.5); font-family:'Space Mono',monospace;
+      font-size:10px; letter-spacing:.1em; padding:8px 20px; cursor:pointer;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Ambient glow -->
+<div id="ambient"></div>
+
+<!-- Floating tip $ -->
+<div id="floating-tip">$</div>
+
+<!-- Support modal -->
+<div id="modal-backdrop">
+  <div id="modal">
+    <div id="modal-done">
+      <div id="modal-done-icon">✦</div>
+      <div id="modal-done-title">Thank you.</div>
+      <div id="modal-done-msg"></div>
+      <button id="modal-done-close">CLOSE</button>
+    </div>
+    <div id="modal-main">
+      <div id="modal-header">
+        <div>
+          <div id="modal-creator-name"></div>
+          <div id="modal-creator-show"></div>
+        </div>
+        <button id="modal-close">×</button>
+      </div>
+      <div id="modal-tabs">
+        <button class="modal-tab active" data-tab="tip">
+          <span class="tab-icon">✦</span>TIP
+        </button>
+        <button class="modal-tab" data-tab="subscribe">
+          <span class="tab-icon">◎</span>SUBSCRIBE
+        </button>
+        <button class="modal-tab" data-tab="all-access">
+          <span class="tab-icon">⬡</span>ALL-ACCESS
+        </button>
+      </div>
+      <div id="modal-body">
+        <!-- tip pane -->
+        <div class="tab-pane active" data-pane="tip">
+          <div id="tip-label">Enter any amount</div>
+          <div id="tip-input-wrap">
+            <span id="tip-dollar">$</span>
+            <input id="tip-amount" type="number" min="1" placeholder="5.00"/>
+          </div>
+          <div id="tip-presets">
+            <button class="tip-preset" data-val="3">$3</button>
+            <button class="tip-preset" data-val="5">$5</button>
+            <button class="tip-preset" data-val="10">$10</button>
+          </div>
+        </div>
+        <!-- subscribe pane -->
+        <div class="tab-pane" data-pane="subscribe">
+          <div class="fixed-pane">
+            <div class="fixed-price"><span class="fixed-price-dollar">$</span><span id="sub-price"></span></div>
+            <div class="fixed-period">PER MONTH</div>
+            <div class="fixed-perks">Early access to episodes<br>Ad-free listening<br>Member-only feed</div>
+          </div>
+        </div>
+        <!-- all-access pane -->
+        <div class="tab-pane" data-pane="all-access">
+          <div class="fixed-pane">
+            <div class="fixed-price"><span class="fixed-price-dollar">$</span><span id="access-price"></span></div>
+            <div class="fixed-period">PER MONTH</div>
+            <div class="fixed-perks">Everything in Subscribe<br>Full archive access<br>Private Discord + live chat<br>Exclusive video content</div>
+          </div>
+        </div>
+
+        <button id="modal-cta">SEND TIP</button>
+        <div id="modal-stripe-note">POWERED BY STRIPE · CANCEL ANYTIME</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Player -->
+<div id="layout">
+<div id="player-wrap">
+  <div id="player-card">
+
+    <!-- Top bar -->
+    <div id="topbar">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="pw-wordmark">Paperweight</span>
+        <span class="pw-sub">/ PLAYER</span>
+      </div>
+      <div id="topbar-right">
+        <button id="back-live-btn">↩ LIVE</button>
+        <span id="type-badge" class="type-badge"></span>
+      </div>
+    </div>
+
+    <!-- Art zone -->
+    <div id="art-wrap">
+      <div id="art-box">
+        <svg id="art-svg" viewBox="0 0 480 210" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <radialGradient id="rg1" cx="30%" cy="40%">
+              <stop offset="0%" stop-color="var(--color)" stop-opacity=".28"/>
+              <stop offset="100%" stop-color="var(--color)" stop-opacity="0"/>
+            </radialGradient>
+            <radialGradient id="rg2" cx="75%" cy="65%">
+              <stop offset="0%" stop-color="var(--color)" stop-opacity=".13"/>
+              <stop offset="100%" stop-color="var(--color)" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <rect width="480" height="210" fill="url(#rg1)"/>
+          <rect width="480" height="210" fill="url(#rg2)"/>
+          <ellipse cx="60"  cy="90"  rx="20" ry="60"  fill="none" stroke="var(--color)" stroke-opacity=".05"  stroke-width="1" transform="rotate(5 60 105)"/>
+          <ellipse cx="150" cy="118" rx="28" ry="72"  fill="none" stroke="var(--color)" stroke-opacity=".075" stroke-width="1" transform="rotate(23 150 105)"/>
+          <ellipse cx="240" cy="82"  rx="36" ry="80"  fill="none" stroke="var(--color)" stroke-opacity=".1"   stroke-width="1" transform="rotate(41 240 105)"/>
+          <ellipse cx="330" cy="125" rx="44" ry="64"  fill="none" stroke="var(--color)" stroke-opacity=".125" stroke-width="1" transform="rotate(59 330 105)"/>
+          <ellipse cx="420" cy="95"  rx="52" ry="72"  fill="none" stroke="var(--color)" stroke-opacity=".15"  stroke-width="1" transform="rotate(77 420 105)"/>
+        </svg>
+        <div class="pulse-ring" id="pr1"></div>
+        <div class="pulse-ring" id="pr2"></div>
+        <div id="on-air-badge">
+          <div id="on-air-dot"></div>
+          <span id="on-air-text">ON AIR</span>
+        </div>
+        <div id="art-meta">
+          <div id="track-title"></div>
+          <div id="track-creator"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Waveform -->
+    <div id="waveform-section">
+      <div id="waveform"></div>
+      <div id="time-row">
+        <span id="time-elapsed">0:00</span>
+        <span id="time-remain">∞</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls">
+      <button class="drawer-btn" id="lib-btn" title="Library">≡</button>
+      <div id="controls-center">
+        <button class="skip-btn hidden" id="skip-prev" title="Previous">⏮</button>
+        <button id="play-btn" title="Play/Pause">
+          <svg id="play-icon" width="18" height="18" viewBox="0 0 18 18" fill="#000"><path d="M5 2.5l11 6.5-11 6.5V2.5z"/></svg>
+          <svg id="pause-icon" width="18" height="18" viewBox="0 0 18 18" fill="#000" style="display:none"><rect x="3" y="2" width="4" height="14" rx="1.5"/><rect x="11" y="2" width="4" height="14" rx="1.5"/></svg>
+        </button>
+        <button class="skip-btn hidden" id="skip-next" title="Next">⏭</button>
+      </div>
+      <button class="drawer-btn" id="queue-btn" title="Schedule">≡</button>
+    </div>
+
+    <!-- Library drawer -->
+    <div class="drawer" id="lib-drawer">
+      <div class="drawer-inner">
+        <div class="drawer-label">UPLOADED CONTENT</div>
+        <div class="drawer-scroll" id="lib-list"></div>
+      </div>
+    </div>
+
+    <!-- Queue drawer -->
+    <div class="drawer" id="queue-drawer">
+      <div class="drawer-inner">
+        <div id="queue-header">
+          <span class="drawer-label" style="padding:0">SCHEDULED NEXT</span>
+          <span class="lock-badge">🔒 LIVE ONLY</span>
+        </div>
+        <div id="queue-list"></div>
+      </div>
+    </div>
+
+    <!-- Share drawer -->
+    <div class="drawer" id="share-drawer">
+      <div class="drawer-inner">
+        <div class="drawer-label">SHARE</div>
+        <div id="share-options">
+          <button class="share-opt" data-share="link">
+            <span class="share-opt-icon">⌗</span>
+            <span class="share-opt-label">COPY LINK</span>
+          </button>
+          <button class="share-opt" data-share="twitter">
+            <span class="share-opt-icon">𝕏</span>
+            <span class="share-opt-label">X / TWITTER</span>
+          </button>
+          <button class="share-opt" data-share="embed">
+            <span class="share-opt-icon embed">&lt;/&gt;</span>
+            <span class="share-opt-label">EMBED</span>
+          </button>
+          <button class="share-opt" data-share="rss">
+            <span class="share-opt-icon">◉</span>
+            <span class="share-opt-label">RSS FEED</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spacer pushes share tab to card bottom -->
+    <div id="card-spacer"></div>
+
+    <!-- Bottom accent -->
+    <div id="bottom-accent"></div>
+
+    <!-- Share tab strip -->
+    <div id="share-tab">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <circle cx="10" cy="2"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+        <circle cx="2"  cy="6"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+        <circle cx="10" cy="10" r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+        <line x1="3.3" y1="5.2" x2="8.7" y2="2.8"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
+        <line x1="3.3" y1="6.8" x2="8.7" y2="9.2"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
+      </svg>
+      <span id="share-tab-label">SHARE</span>
+      <svg id="share-chevron" width="8" height="8" viewBox="0 0 8 8">
+        <path d="M1 3l3 3 3-3" stroke="rgba(255,255,255,.25)" stroke-width="1.2" fill="none"/>
+      </svg>
+    </div>
+
+  </div><!-- /player-card -->
+</div><!-- /player-wrap -->
+</div><!-- /layout -->
+<div id="credit">PAPERWEIGHT SYSTEMS LLC</div>
+
+<script>
+// ─── Data ─────────────────────────────────────────────────────────────────────
+
+const CREATOR = { name:"Asha Kol", show:"Signal & Noise", sub:9.99, access:19.99 };
+
+const LIVE = {
+  id:0, type:"audio", title:"Signal & Noise — LIVE",
+  creator:"Asha Kol", show:"Signal & Noise", isLive:true, color:"#00F5D4",
+  queue:[
+    { title:"Deep Cuts Vol. 12",              time:"9:00 PM"  },
+    { title:"Late Night Static",              time:"10:30 PM" },
+    { title:"Frequency Drift (Rebroadcast)",  time:"12:00 AM" },
+  ]
+};
+
+const LIBRARY = [
+  { id:1, type:"audio", title:"Frequency Drift",    duration:3621, date:"Jun 1",  color:"#F9C74F" },
+  { id:2, type:"video", title:"Inside the Session", duration:1832, date:"May 28", color:"#FF3CAC" },
+  { id:3, type:"audio", title:"Heavy Rotation",     duration:2470, date:"May 22", color:"#00F5D4" },
+  { id:4, type:"video", title:"Studio Dispatch #4", duration:2944, date:"May 15", color:"#F9C74F" },
+  { id:5, type:"audio", title:"Late Night Static",  duration:5102, date:"May 10", color:"#FF3CAC" },
+];
+
+// generate waveform data per track
+LIBRARY.forEach(t => {
+  t.waveform = Array.from({length:80}, (_,i) =>
+    0.15 + Math.abs(Math.sin(i*(0.3+t.id*0.07)+t.id))*0.82
+  );
+  t.creator = CREATOR.name;
+  t.show    = CREATOR.show;
+  t.isLive  = false;
+});
+
+// ─── State ────────────────────────────────────────────────────────────────────
+
+let state = {
+  isLive:   true,
+  track:    null,       // null = live
+  playing:  false,
+  progress: 0,
+  elapsed:  0,
+  showLib:  false,
+  showQueue:false,
+  showShare:false,
+};
+
+let ticker = null;
+
+function activeTrack() { return state.track || LIVE; }
+function duration()    { return state.track ? state.track.duration : 0; }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmt(s) {
+  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=Math.floor(s%60);
+  if(h>0) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+function setColor(c) {
+  document.documentElement.style.setProperty('--color', c);
+  document.querySelector('#ambient').style.background =
+    `radial-gradient(circle, ${c}12 0%, transparent 70%)`;
+  document.querySelector('#bottom-accent').style.background =
+    `linear-gradient(to right, transparent, ${c}, transparent)`;
+  document.querySelector('#on-air-dot').style.background  = c;
+  document.querySelector('#on-air-dot').style.boxShadow   = `0 0 6px ${c}`;
+  document.querySelector('#on-air-text').style.color      = c;
+  // art-box border
+  document.querySelector('#art-box').style.border = `1px solid ${c}22`;
+  document.querySelector('#art-box').style.background =
+    `linear-gradient(135deg, ${c}18 0%, #0a0a0a 60%)`;
+  // pulse rings
+  document.querySelectorAll('.pulse-ring').forEach(r => r.style.borderColor = c);
+  // active drawer btns
+  ['lib-btn','queue-btn'].forEach(id => {
+    const btn = document.getElementById(id);
+    const active = (id==='lib-btn' && state.showLib) || (id==='queue-btn' && state.showQueue);
+    btn.style.color  = active ? c : 'rgba(255,255,255,.35)';
+    btn.style.background = active ? `${c}22` : 'none';
+    btn.style.border = active ? `1px solid ${c}44` : '1px solid transparent';
+  });
+  // share tab label color
+  document.getElementById('share-tab-label').style.color =
+    state.showShare ? c : 'rgba(255,255,255,.25)';
+  // share opt hover color stored as CSS var
+  document.documentElement.style.setProperty('--color', c);
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+
+function render() {
+  const t = activeTrack();
+  setColor(t.color);
+
+  // type badge
+  const badge = document.getElementById('type-badge');
+  badge.style.background = t.color;
+  if (state.isLive) {
+    badge.innerHTML = `<span class="live-dot-badge"></span>LIVE`;
+  } else {
+    badge.textContent = t.type === 'video' ? '● VIDEO' : '◉ AUDIO';
+  }
+
+  // back-live btn
+  document.getElementById('back-live-btn').style.display = state.isLive ? 'none' : 'inline-block';
+
+  // titles
+  document.getElementById('track-title').textContent   = t.title;
+  document.getElementById('track-creator').textContent =
+    `${t.creator.toUpperCase()} — ${t.show.toUpperCase()}`;
+
+  // on-air badge
+  document.getElementById('on-air-badge').style.display = state.isLive ? 'flex' : 'none';
+
+  // pulse rings
+  document.getElementById('pr1').style.display = state.playing ? 'block' : 'none';
+  document.getElementById('pr2').style.display = state.playing ? 'block' : 'none';
+
+  // play/pause icons
+  document.getElementById('play-icon').style.display  = state.playing ? 'none'  : 'block';
+  document.getElementById('pause-icon').style.display = state.playing ? 'block' : 'none';
+
+  // play button color
+  const pb = document.getElementById('play-btn');
+  pb.style.background = `conic-gradient(from 180deg, ${t.color}, ${t.color}99, ${t.color})`;
+  pb.style.boxShadow  = `0 0 24px ${t.color}66, 0 4px 16px rgba(0,0,0,.5)`;
+
+  // skip buttons - only in VOD
+  document.getElementById('skip-prev').classList.toggle('hidden', state.isLive);
+  document.getElementById('skip-next').classList.toggle('hidden', state.isLive);
+
+  // waveform
+  renderWaveform();
+
+  // time row
+  const elapsed = document.getElementById('time-elapsed');
+  const remain  = document.getElementById('time-remain');
+  if (state.isLive) {
+    elapsed.textContent = '● LIVE';
+    elapsed.style.color = t.color;
+    elapsed.style.opacity = '.7';
+    remain.textContent  = '∞';
+  } else {
+    elapsed.textContent = fmt(state.elapsed);
+    elapsed.style.color = 'rgba(255,255,255,.3)';
+    elapsed.style.opacity = '1';
+    remain.textContent  = `-${fmt(duration() - state.elapsed)}`;
+  }
+
+  // waveform disabled state
+  document.getElementById('waveform').classList.toggle('disabled', state.isLive);
+
+  // drawers
+  setDrawer('lib-drawer',   state.showLib);
+  setDrawer('queue-drawer', state.showQueue && state.isLive);
+  const shareOpen = state.showShare && !state.showLib && !state.showQueue;
+  setDrawer('share-drawer', shareOpen);
+
+  // share tab
+  const shareUnlocked = !state.showLib && !state.showQueue;
+  const shareTab = document.getElementById('share-tab');
+  shareTab.classList.toggle('locked', !shareUnlocked);
+  document.getElementById('share-tab-label').textContent =
+    !shareUnlocked ? 'CLOSE DRAWERS TO SHARE' : (state.showShare ? 'CLOSE' : 'SHARE');
+  document.getElementById('share-chevron').style.transform =
+    state.showShare && shareUnlocked ? 'rotate(180deg)' : 'none';
+
+  // drawer btn states
+  setColor(t.color); // re-apply active states
+}
+
+function setDrawer(id, open) {
+  const el = document.getElementById(id);
+  el.style.maxHeight = open ? '300px' : '0';
+}
+
+function renderWaveform() {
+  const t = activeTrack();
+  const data = t.waveform || LIBRARY[0].waveform;
+  const wf = document.getElementById('waveform');
+  wf.innerHTML = '';
+  data.forEach((h, i) => {
+    const pct = i / data.length;
+    const played   = !state.isLive && pct < state.progress;
+    const isCursor = !state.isLive && Math.abs(pct - state.progress) < 0.015;
+    const bar = document.createElement('div');
+    bar.className = 'wbar';
+    bar.style.height = `${Math.max(4, h*48)}px`;
+    bar.style.background = isCursor ? '#fff' : played ? t.color : 'rgba(255,255,255,.13)';
+    if (played) bar.style.boxShadow = `0 0 5px ${t.color}77`;
+    wf.appendChild(bar);
+  });
+}
+
+// ─── Library ──────────────────────────────────────────────────────────────────
+
+function buildLibrary() {
+  const list = document.getElementById('lib-list');
+  list.innerHTML = '';
+  LIBRARY.forEach(t => {
+    const row = document.createElement('div');
+    row.className = 'lib-row';
+    if (state.track && state.track.id === t.id) { row.classList.add('active'); row.style.borderLeftColor = t.color; }
+    row.innerHTML = `
+      <div class="lib-thumb" style="background:linear-gradient(135deg,${t.color}44,${t.color}11);border:1px solid ${t.color}33;">
+        ${t.type==='video'?'▶':'♪'}
+      </div>
+      <div class="lib-info">
+        <div class="lib-title${state.track&&state.track.id===t.id?' active':''}">${t.title}</div>
+        <div class="lib-meta">${t.date} · ${fmt(t.duration)}</div>
+      </div>
+      <span class="type-badge" style="background:${t.color};font-size:9px;padding:2px 6px;">${t.type==='video'?'● VIDEO':'◉ AUDIO'}</span>
+    `;
+    row.addEventListener('click', () => selectVOD(t));
+    list.appendChild(row);
+  });
+}
+
+function buildQueue() {
+  const list = document.getElementById('queue-list');
+  list.innerHTML = '';
+  LIVE.queue.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'q-row';
+    row.innerHTML = `<span class="q-title">${item.title}</span><span class="q-time">${item.time}</span>`;
+    list.appendChild(row);
+  });
+}
+
+// ─── Actions ──────────────────────────────────────────────────────────────────
+
+function selectVOD(t) {
+  clearInterval(ticker);
+  state = { ...state, track:t, isLive:false, playing:false, progress:0, elapsed:0, showLib:false };
+  buildLibrary();
+  render();
+}
+
+function goLive() {
+  clearInterval(ticker);
+  state = { ...state, track:null, isLive:true, playing:false, progress:0, elapsed:0 };
+  render();
+}
+
+function togglePlay() {
+  state.playing = !state.playing;
+  if (state.playing && !state.isLive) {
+    ticker = setInterval(() => {
+      state.elapsed++;
+      if (state.elapsed >= duration()) { state.elapsed=0; state.progress=0; state.playing=false; clearInterval(ticker); }
+      else { state.progress = state.elapsed / duration(); }
+      renderWaveform();
+      document.getElementById('time-elapsed').textContent = fmt(state.elapsed);
+      document.getElementById('time-remain').textContent  = `-${fmt(duration()-state.elapsed)}`;
+      document.getElementById('play-icon').style.display  = state.playing ? 'none'  : 'block';
+      document.getElementById('pause-icon').style.display = state.playing ? 'block' : 'none';
+      document.getElementById('pr1').style.display = state.playing ? 'block' : 'none';
+      document.getElementById('pr2').style.display = state.playing ? 'block' : 'none';
+    }, 1000);
+  } else {
+    clearInterval(ticker);
+  }
+  render();
+}
+
+function skipTrack(dir) {
+  if (state.isLive) return;
+  const idx = LIBRARY.findIndex(t => t.id === state.track?.id);
+  selectVOD(LIBRARY[(idx+dir+LIBRARY.length)%LIBRARY.length]);
+}
+
+function seekWaveform(e) {
+  if (state.isLive) return;
+  const rect = document.getElementById('waveform').getBoundingClientRect();
+  const pct  = (e.clientX - rect.left) / rect.width;
+  state.elapsed  = Math.floor(pct * duration());
+  state.progress = pct;
+  render();
+}
+
+function toggleDrawer(which) {
+  if (which === 'lib') {
+    state.showLib   = !state.showLib;
+    state.showQueue = false;
+    if (state.showLib) state.showShare = false;
+  } else {
+    state.showQueue = !state.showQueue;
+    state.showLib   = false;
+    if (state.showQueue) state.showShare = false;
+  }
+  render();
+}
+
+function toggleShare() {
+  if (state.showLib || state.showQueue) return;
+  state.showShare = !state.showShare;
+  render();
+}
+
+// ─── Share ────────────────────────────────────────────────────────────────────
+
+document.querySelectorAll('.share-opt').forEach(btn => {
+  btn.addEventListener('mouseenter', () => {
+    const c = activeTrack().color;
+    btn.style.background   = `${c}18`;
+    btn.style.borderColor  = `${c}44`;
+  });
+  btn.addEventListener('mouseleave', () => {
+    if (btn.classList.contains('copied')) return;
+    btn.style.background  = 'rgba(255,255,255,.04)';
+    btn.style.borderColor = 'rgba(255,255,255,.08)';
+  });
+  btn.addEventListener('click', () => {
+    if (btn.dataset.share === 'link') {
+      navigator.clipboard?.writeText(window.location.href).catch(()=>{});
+      const icon  = btn.querySelector('.share-opt-icon');
+      const label = btn.querySelector('.share-opt-label');
+      btn.classList.add('copied');
+      icon.textContent  = '✓';
+      label.textContent = 'COPIED';
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        icon.textContent  = '⌗';
+        label.textContent = 'COPY LINK';
+        btn.style.background  = 'rgba(255,255,255,.04)';
+        btn.style.borderColor = 'rgba(255,255,255,.08)';
+      }, 2000);
+    }
+    // wire twitter/embed/rss in coding session
+  });
+});
+
+// ─── Modal ────────────────────────────────────────────────────────────────────
+
+function openModal() {
+  document.getElementById('modal-creator-name').textContent = `Support ${CREATOR.name}`;
+  document.getElementById('modal-creator-show').textContent = CREATOR.show.toUpperCase();
+  document.getElementById('sub-price').textContent    = CREATOR.sub.toFixed(2);
+  document.getElementById('access-price').textContent = CREATOR.access.toFixed(2);
+  document.getElementById('modal-backdrop').classList.add('open');
+  setModalTab('tip');
+}
+
+function closeModal() {
+  document.getElementById('modal-backdrop').classList.remove('open');
+  document.getElementById('modal-done').style.display = 'none';
+  document.getElementById('modal-main').style.display = '';
+  document.getElementById('tip-amount').value = '';
+  document.querySelectorAll('.tip-preset').forEach(p => p.classList.remove('active'));
+  updateCTA();
+}
+
+function setModalTab(id) {
+  document.querySelectorAll('.modal-tab').forEach(t => t.classList.toggle('active', t.dataset.tab===id));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane===id));
+  updateCTA();
+}
+
+function updateCTA() {
+  const cta  = document.getElementById('modal-cta');
+  const tab  = document.querySelector('.modal-tab.active')?.dataset.tab || 'tip';
+  const amt  = document.getElementById('tip-amount').value;
+  cta.classList.remove('processing');
+  if (tab==='tip') {
+    cta.textContent = `SEND $${amt||'—'} TIP`;
+    cta.disabled    = !amt;
+  } else if (tab==='subscribe') {
+    cta.textContent = `SUBSCRIBE — $${CREATOR.sub}/MO`;
+    cta.disabled    = false;
+  } else {
+    cta.textContent = `ALL-ACCESS — $${CREATOR.access}/MO`;
+    cta.disabled    = false;
+  }
+}
+
+document.querySelectorAll('.modal-tab').forEach(btn =>
+  btn.addEventListener('click', () => setModalTab(btn.dataset.tab))
+);
+document.querySelectorAll('.tip-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tip-preset').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tip-amount').value = btn.dataset.val;
+    updateCTA();
+  });
+});
+document.getElementById('tip-amount').addEventListener('input', updateCTA);
+document.getElementById('modal-close').addEventListener('click', closeModal);
+document.getElementById('modal-backdrop').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+document.getElementById('modal-done-close').addEventListener('click', closeModal);
+
+document.getElementById('modal-cta').addEventListener('click', () => {
+  const cta = document.getElementById('modal-cta');
+  cta.classList.add('processing');
+  cta.textContent = 'CONNECTING TO STRIPE...';
+  setTimeout(() => {
+    document.getElementById('modal-main').style.display = 'none';
+    document.getElementById('modal-done').style.display = 'block';
+    document.getElementById('modal-done-msg').textContent =
+      `Your support keeps ${CREATOR.name} independent.`;
+  }, 1800);
+});
+
+// ─── Player event bindings ────────────────────────────────────────────────────
+
+document.getElementById('play-btn').addEventListener('click', togglePlay);
+document.getElementById('skip-prev').addEventListener('click', () => skipTrack(-1));
+document.getElementById('skip-next').addEventListener('click', () => skipTrack(1));
+document.getElementById('back-live-btn').addEventListener('click', goLive);
+document.getElementById('lib-btn').addEventListener('click', () => toggleDrawer('lib'));
+document.getElementById('queue-btn').addEventListener('click', () => toggleDrawer('queue'));
+document.getElementById('share-tab').addEventListener('click', toggleShare);
+document.getElementById('waveform').addEventListener('click', seekWaveform);
+
+// ─── Floating Tip ─────────────────────────────────────────────────────────────
+
+(function() {
+  const el      = document.getElementById('floating-tip');
+  let pos       = { x:0, y:0 };
+  let target    = { x:0, y:0 };
+  let paused    = false;
+  let tapCount  = 0;
+  let pauseTimer, raf;
+  const isMobile = window.matchMedia('(pointer:coarse)').matches;
+
+  function newTarget() {
+    const p = 48;
+    target = { x: p + Math.random()*(window.innerWidth-p*2), y: p + Math.random()*(window.innerHeight-p*2) };
+  }
+
+  function setPaused(v, ms) {
+    paused = v;
+    el.classList.toggle('paused', v);
+    if (v && ms) {
+      clearTimeout(pauseTimer);
+      pauseTimer = setTimeout(() => { paused=false; el.classList.remove('paused'); tapCount=0; }, ms);
+    }
+  }
+
+  // seed
+  pos = { x:80+Math.random()*(window.innerWidth-160), y:80+Math.random()*(window.innerHeight-160) };
+  el.style.left = pos.x+'px'; el.style.top = pos.y+'px';
+  newTarget();
+
+  function loop() {
+    if (!paused) {
+      const dx=target.x-pos.x, dy=target.y-pos.y;
+      if (Math.sqrt(dx*dx+dy*dy)<30) { newTarget(); }
+      else { pos.x+=dx*0.008; pos.y+=dy*0.008; el.style.left=pos.x+'px'; el.style.top=pos.y+'px'; }
+    }
+    raf = requestAnimationFrame(loop);
+  }
+  raf = requestAnimationFrame(loop);
+
+  if (!isMobile) {
+    el.addEventListener('mouseenter', () => { clearTimeout(pauseTimer); setPaused(true); });
+    el.addEventListener('mouseleave', () => setPaused(false));
+    el.addEventListener('click', openModal);
+  } else {
+    el.addEventListener('touchend', e => {
+      e.preventDefault();
+      tapCount++;
+      if (tapCount===1) { setPaused(true, 4000); }
+      else { clearTimeout(pauseTimer); setPaused(false); tapCount=0; openModal(); }
+    });
+  }
+})();
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+buildLibrary();
+buildQueue();
+render();
+</script>
+</body>
+</html>
