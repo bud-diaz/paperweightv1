@@ -709,6 +709,30 @@
         <!-- Dashboard content (shown after auth) -->
         <div id="dash-content" hidden>
 
+          <!-- Station -->
+          <div class="dash-section">
+            <div class="dash-section-label">STATION</div>
+            <div id="station-unclaimed" hidden style="font-size:9px;color:rgba(255,255,255,.3);font-family:'Space Mono',monospace;padding:0 14px 8px;">No public URL registered yet.</div>
+            <div id="station-reg-content">
+              <div style="display:flex;align-items:center;gap:8px;padding:0 14px;margin-bottom:8px;">
+                <span id="station-public-url" style="font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,.5);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+                <button class="mgmt-btn" id="btn-copy-url">COPY</button>
+              </div>
+              <div style="display:flex;align-items:center;gap:7px;padding:0 14px;margin-bottom:10px;">
+                <div id="health-dot" style="width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.2);flex-shrink:0;"></div>
+                <span id="health-status" style="font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,.3);flex:1;"></span>
+                <button class="mgmt-btn" id="btn-recheck-health">RE-CHECK</button>
+              </div>
+            </div>
+            <div style="padding:0 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input type="url" class="dash-input dash-input-sm" id="station-url-input" placeholder="https://radio.yoursite.com" style="flex:1;min-width:160px;"/>
+              <button class="mgmt-btn" id="btn-update-url">UPDATE</button>
+            </div>
+            <div id="station-url-msg" style="padding:4px 14px 0;font-size:9px;font-family:'Space Mono',monospace;"></div>
+          </div>
+
+          <div class="dash-divider"></div>
+
           <!-- Vault Stats -->
           <div class="dash-section">
             <div class="dash-section-label">VAULT</div>
@@ -820,6 +844,14 @@
               <button class="mgmt-btn" id="btn-create-token">CREATE</button>
             </div>
             <div id="new-token-result" style="padding:0 14px;margin-top:6px;"></div>
+          </div>
+
+          <div class="dash-divider"></div>
+
+          <!-- Payments -->
+          <div class="dash-section">
+            <div class="dash-section-label">PAYMENTS</div>
+            <div id="dash-payment-status"></div>
           </div>
 
           <div class="dash-divider"></div>
@@ -1557,13 +1589,129 @@ el('dash-token-btn').addEventListener('click', async () => {
 el('dash-token-input').addEventListener('keydown', e => { if (e.key === 'Enter') el('dash-token-btn').click(); });
 
 function loadDashboard() {
+  loadDashStation();
   loadDashVaultStats();
   loadDashBroadcast();
   loadDashSchedule();
   loadDashMedia();
   loadDashTokens();
   loadDashAnalytics();
+  loadDashPaymentConfig();
   loadDashTipConfig();
+}
+
+async function loadDashStation() {
+  try {
+    const data = await dashFetch('/api/dashboard/station').then(r => r.json());
+    if (!data.slug) {
+      el('station-unclaimed').hidden   = false;
+      el('station-reg-content').hidden = true;
+      return;
+    }
+    el('station-unclaimed').hidden   = true;
+    el('station-reg-content').hidden = false;
+    el('station-public-url').textContent    = data.url || '';
+    el('station-url-input').placeholder     = data.url || 'https://radio.yoursite.com';
+
+    el('btn-copy-url').onclick = () => {
+      navigator.clipboard?.writeText(data.url).catch(() => {});
+      el('btn-copy-url').textContent = 'COPIED';
+      setTimeout(() => { el('btn-copy-url').textContent = 'COPY'; }, 2000);
+    };
+
+    checkStationHealth();
+  } catch {}
+}
+
+async function checkStationHealth() {
+  const dot    = el('health-dot');
+  const status = el('health-status');
+  dot.style.background    = 'rgba(255,255,255,.25)';
+  status.textContent      = 'Checking…';
+  status.style.color      = 'rgba(255,255,255,.3)';
+  try {
+    const res  = await dashFetch('/api/dashboard/station/health').then(r => r.json());
+    if (res.reachable === true) {
+      dot.style.background = '#39ff14';
+      status.textContent   = `Reachable · ${res.latencyMs}ms`;
+      status.style.color   = '#39ff14';
+    } else {
+      dot.style.background = '#ff4466';
+      status.textContent   = res.error ? `Unreachable — ${res.error}` : 'Unreachable';
+      status.style.color   = '#ff4466';
+    }
+  } catch {
+    dot.style.background = 'rgba(255,255,255,.2)';
+    status.textContent   = 'Check failed';
+  }
+}
+
+el('btn-recheck-health').addEventListener('click', checkStationHealth);
+
+el('btn-update-url').addEventListener('click', async () => {
+  const url = el('station-url-input').value.trim();
+  const msg = el('station-url-msg');
+  if (!url) return;
+  const res  = await dashFetch('/api/dashboard/station/url', {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ url }),
+  });
+  const data = await res.json();
+  if (res.ok) {
+    msg.className   = 'dash-success-msg';
+    msg.textContent = 'URL updated.';
+    el('station-public-url').textContent = url;
+    setTimeout(() => { msg.textContent = ''; }, 3000);
+    checkStationHealth();
+  } else {
+    msg.className   = 'dash-error-msg';
+    msg.textContent = data.error || 'Update failed';
+  }
+});
+
+async function loadDashPaymentConfig() {
+  try {
+    const res = await dashFetch('/api/dashboard/payment-config');
+    if (!res.ok) return;
+    const d = await res.json();
+
+    const check = ok => ok
+      ? '<span style="color:#39ff14;">✓</span>'
+      : '<span style="color:#ff4466;">✗</span>';
+
+    const stripeNotice = !d.stripe.connected ? `
+      <div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.1);border-radius:8px;font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.3);line-height:1.9;letter-spacing:.03em;">
+        Add to <strong style="color:rgba(255,255,255,.5);">.env</strong> to enable payments:<br>
+        STRIPE_SECRET_KEY=sk_live_…<br>
+        STRIPE_WEBHOOK_SECRET=whsec_…<br>
+        STRIPE_PRICE_SUBSCRIBER=price_…<br>
+        STRIPE_PRICE_PRO=price_…<br>
+        STRIPE_PRICE_ALL_ACCESS=price_…
+      </div>` : '';
+
+    el('dash-payment-status').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px;">
+        <div class="stat-card" style="text-align:left;">
+          <div class="stat-key" style="margin-bottom:8px;">STRIPE</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,.45);line-height:2;">
+            Secret key ${check(d.stripe.connected)}<br>
+            Webhook ${check(d.stripe.webhookConfigured)}<br>
+            Subscriber price ${check(d.stripe.prices.subscriber)}<br>
+            Pro price ${check(d.stripe.prices.pro)}<br>
+            All-Access price ${check(d.stripe.prices.allAccess)}
+          </div>
+        </div>
+        <div class="stat-card" style="text-align:left;">
+          <div class="stat-key" style="margin-bottom:8px;">PAYPAL</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,.45);line-height:2;">
+            Credentials ${check(d.paypal.connected)}<br>
+            Pro plan ${check(d.paypal.plans.pro)}<br>
+            All-Access plan ${check(d.paypal.plans.allAccess)}
+          </div>
+        </div>
+      </div>
+      ${stripeNotice}`;
+  } catch {}
 }
 
 async function loadDashVaultStats() {
