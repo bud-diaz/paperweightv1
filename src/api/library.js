@@ -9,7 +9,7 @@ const { canAccessVaultContent } = require('../auth/vault');
 const config = require('../config');
 
 const PREVIEW_DIR = path.join(config.paths.hlsOutput, 'previews');
-const PREVIEW_DURATION = 60;
+const PREVIEW_DURATION = 30;
 
 // Tiers that may access supporters_only content
 const SUBSCRIBER_TIERS = new Set(['subscriber', 'pro', 'all_access']);

@@ -543,6 +543,14 @@
     .lib-lock {
       font-size:10px;color:rgba(255,255,255,.3);margin-left:4px;flex-shrink:0;
     }
+    .lib-dollar-btn {
+      flex-shrink:0;width:22px;height:22px;border-radius:50%;
+      background:#fff;color:#000;border:none;cursor:pointer;
+      font-family:'Space Mono',monospace;font-size:11px;font-weight:700;
+      display:flex;align-items:center;justify-content:center;
+      opacity:.85;transition:opacity .15s,transform .15s;line-height:1;
+    }
+    .lib-dollar-btn:hover { opacity:1;transform:scale(1.1); }
     /* ── player library project groups ── */
     .lib-project-header {
       display:flex;align-items:center;gap:7px;padding:7px 14px;
@@ -1031,6 +1039,11 @@ let LIBRARY_STRUCTURE = { projects: [], standalone: [] };
 let tipAmounts     = [];
 let selectedTipCents = null;
 
+let previewAudio   = null;
+let previewTimer   = null;
+let previewTickInt = null;
+const PREVIEW_SECS = 30;
+
 let state = {
   track:      null,    // null = showing live
   playing:    false,
@@ -1041,6 +1054,7 @@ let state = {
   showShare:  false,
   nowPlaying: null,    // { title, artist } from stream status
   listenerCount: 0,
+  isPreview:  false,
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -1144,6 +1158,7 @@ async function ping() {
 }
 
 function togglePlay() {
+  if (previewAudio) { stopPreview(); goLive(); return; }
   const media = activeMediaEl();
   if (media.paused) {
     if (!hls && !media.src) {
@@ -1219,6 +1234,8 @@ function render() {
   badge.style.background = t.color;
   if (!state.track) {
     badge.innerHTML = `<span class="live-dot-badge"></span>LIVE`;
+  } else if (state.isPreview) {
+    badge.textContent = '◈ PREVIEW';
   } else {
     badge.textContent = t.type === 'video' ? '● VIDEO' : '◉ AUDIO';
   }
@@ -1271,8 +1288,8 @@ function render() {
     remain.textContent   = duration() > 0 ? `-${fmt(duration() - state.elapsed)}` : '∞';
   }
 
-  // waveform disabled when on live (no seek)
-  el('waveform').classList.toggle('disabled', !state.track);
+  // waveform disabled on live or preview (no seek)
+  el('waveform').classList.toggle('disabled', !state.track || state.isPreview);
 
   // drawers
   setDrawer('lib-drawer',   state.showLib);
@@ -1345,8 +1362,17 @@ function buildLibRow(t) {
       </div>
       <div class="lib-meta">${t.date}${t.date&&t.duration?' · ':''}${t.duration?fmt(t.duration):''}</div>
     </div>
-    <span class="type-badge" style="background:${t.color};font-size:9px;padding:2px 6px;">${t.type==='video'?'● VIDEO':'◉ AUDIO'}</span>
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+      <span class="type-badge" style="background:${t.color};font-size:9px;padding:2px 6px;">${t.type==='video'?'● VIDEO':'◉ AUDIO'}</span>
+      ${isGated ? '<button class="lib-dollar-btn" title="Support to unlock">$</button>' : ''}
+    </div>
   `;
+  if (isGated) {
+    row.querySelector('.lib-dollar-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      openModal(); setModalTab('subscribe');
+    });
+  }
   row.addEventListener('click', () => selectVOD(t));
   return row;
 }
@@ -1415,17 +1441,52 @@ async function loadQueue() {
 // ─── VOD selection (shows track info; live stream continues) ───────────────────
 async function selectVOD(t) {
   if (t.visibility === 'supporters_only' || t.visibility === 'vault') {
-    const gated = await checkVaultGate(t);
-    if (gated) return;
+    await startGatedPreview(t);
+    return;
   }
-  state = { ...state, track: t, progress: 0, elapsed: 0, showLib: false };
+  state = { ...state, track: t, progress: 0, elapsed: 0, isPreview: false, showLib: false };
   buildLibrary();
   render();
 }
 
 function goLive() {
-  state = { ...state, track: null, progress: 0, elapsed: 0 };
+  stopPreview();
+  state = { ...state, track: null, progress: 0, elapsed: 0, isPreview: false };
   render();
+}
+
+function stopPreview() {
+  if (previewAudio) { previewAudio.pause(); previewAudio = null; }
+  clearTimeout(previewTimer);    previewTimer   = null;
+  clearInterval(previewTickInt); previewTickInt = null;
+}
+
+function playPreview(t) {
+  stopPreview();
+  state = { ...state, track: { ...t, isPreview: true }, progress: 0, elapsed: 0, isPreview: true, showLib: false };
+  render();
+  previewAudio = new Audio(`/api/library/${t.id}/preview`);
+  previewAudio.play().catch(() => {});
+  let ticks = 0;
+  previewTickInt = setInterval(() => {
+    ticks += 0.25;
+    state.elapsed   = Math.min(Math.floor(ticks), PREVIEW_SECS);
+    state.progress  = Math.min(ticks / PREVIEW_SECS, 1);
+    render();
+  }, 250);
+  previewTimer = setTimeout(() => {
+    stopPreview();
+    goLive();
+  }, PREVIEW_SECS * 1000);
+}
+
+async function startGatedPreview(t) {
+  playPreview(t);
+  if (t.visibility === 'vault') {
+    await checkVaultGate(t);
+  } else if (t.visibility === 'supporters_only') {
+    openModal(); setModalTab('subscribe');
+  }
 }
 
 function skipTrack(dir) {
