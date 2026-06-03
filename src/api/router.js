@@ -24,6 +24,13 @@ router.use('/analytics', require('./analytics'));
 router.use('/listener',  require('./listener'));
 router.use('/payment',   require('./payment'));
 
+// v2: vault pricing
+// Listener routes: /api/vault/*
+// Creator routes:  /api/dashboard/vault/* (requireDashboard applied inside dashRouter)
+const vaultModule = require('./vault');
+router.use('/vault',           vaultModule);
+router.use('/dashboard/vault', vaultModule.dashRouter);
+
 // downloads.js defines two routes:
 //   GET /library/:id/signed-url  (mounted at / so becomes /api/library/:id/signed-url)
 //   GET /download/:token         (mounted at / so becomes /api/download/:token)

@@ -3,6 +3,12 @@ const { getDb, log } = require('../db');
 const config = require('../config');
 const { paymentLimiter } = require('../middleware/rateLimiter');
 
+// Lazy-loaded to avoid circular dependency at module init time
+// (vault.js → router.js → payment.js, and payment.js → vault.js)
+function getCreateVaultUnlock() {
+  return require('./vault').createVaultUnlock;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 // Updates the listener's token tier and upserts the subscription record.
@@ -545,6 +551,30 @@ async function stripeWebhookHandler(req, res) {
         logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'skipped' });
         break;
       }
+
+      // One-time vault unlock (mode: payment with vault metadata)
+      if (session.metadata?.vault_unlock_type && session.metadata?.vault_payment_type === 'one_time') {
+        try {
+          const meta = session.metadata;
+          const pi = session.payment_intent
+            ? (typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent.id)
+            : null;
+          getCreateVaultUnlock()(db, {
+            listenerId:      parseInt(meta.vault_listener_id, 10),
+            unlockType:      meta.vault_unlock_type,
+            targetId:        meta.vault_target_id ? parseInt(meta.vault_target_id, 10) : null,
+            paymentType:     'one_time',
+            amountPaid:      session.amount_total || 0,
+            stripePaymentId: pi,
+            expiresAt:       null,
+          });
+          logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'ok' });
+        } catch (err) {
+          logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'error', errorMsg: err.message });
+        }
+        break;
+      }
+
       const email = session.customer_details?.email || session.customer_email;
       if (!email || !session.subscription) {
         logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'skipped' });
@@ -569,6 +599,20 @@ async function stripeWebhookHandler(req, res) {
           listenerIdOrEmail: account.id,
         });
 
+        // Also handle vault unlock if metadata present (vault recurring checkout)
+        if (session.metadata?.vault_unlock_type && session.metadata?.vault_listener_id) {
+          const meta = session.metadata;
+          getCreateVaultUnlock()(db, {
+            listenerId:      parseInt(meta.vault_listener_id, 10),
+            unlockType:      meta.vault_unlock_type,
+            targetId:        meta.vault_target_id ? parseInt(meta.vault_target_id, 10) : null,
+            paymentType:     meta.vault_payment_type || 'recurring',
+            amountPaid:      session.amount_total || 0,
+            stripePaymentId: sub.id,
+            expiresAt:       new Date(sub.current_period_end * 1000).toISOString(),
+          });
+        }
+
         logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'ok' });
       } catch (err) {
         logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'error', errorMsg: err.message });
@@ -582,6 +626,8 @@ async function stripeWebhookHandler(req, res) {
     case 'customer.subscription.updated': {
       const sub = event.data.object;
       const tier = sub.metadata?.tier;
+      const vaultUnlockType = sub.metadata?.vault_unlock_type;
+
       if (tier && sub.status === 'active') {
         activateSubscription(db, {
           providerSubscriptionId: sub.id,
@@ -591,6 +637,34 @@ async function stripeWebhookHandler(req, res) {
           listenerIdOrEmail: parseInt(sub.metadata?.listener_id, 10),
         });
         logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'ok' });
+      } else if (vaultUnlockType && sub.metadata?.vault_listener_id) {
+        // Recurring vault unlock subscription
+        const meta = sub.metadata;
+        const expiresAt = sub.current_period_end
+          ? new Date(sub.current_period_end * 1000).toISOString()
+          : null;
+
+        // Update existing vault_unlock or create new one
+        const existing = db.prepare(
+          'SELECT id FROM vault_unlocks WHERE stripe_payment_id = ?'
+        ).get(sub.id);
+
+        if (existing) {
+          db.prepare(
+            "UPDATE vault_unlocks SET active = ?, expires_at = ? WHERE id = ?"
+          ).run(sub.status === 'active' ? 1 : 0, expiresAt, existing.id);
+        } else {
+          getCreateVaultUnlock()(db, {
+            listenerId:      parseInt(meta.vault_listener_id, 10),
+            unlockType:      vaultUnlockType,
+            targetId:        meta.vault_target_id ? parseInt(meta.vault_target_id, 10) : null,
+            paymentType:     'recurring',
+            amountPaid:      0,
+            stripePaymentId: sub.id,
+            expiresAt,
+          });
+        }
+        logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'ok' });
       } else {
         logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'skipped' });
       }
@@ -598,7 +672,10 @@ async function stripeWebhookHandler(req, res) {
     }
 
     case 'customer.subscription.deleted': {
-      cancelSubscription(db, { providerSubscriptionId: event.data.object.id });
+      const subId = event.data.object.id;
+      cancelSubscription(db, { providerSubscriptionId: subId });
+      // Also deactivate any vault unlock tied to this subscription
+      db.prepare("UPDATE vault_unlocks SET active = 0 WHERE stripe_payment_id = ?").run(subId);
       logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'ok' });
       break;
     }
@@ -638,6 +715,8 @@ async function stripeWebhookHandler(req, res) {
       const subscriptionId = event.data.object.subscription;
       if (subscriptionId) {
         cancelSubscription(db, { providerSubscriptionId: subscriptionId });
+        // Also deactivate any vault unlock tied to this subscription
+        db.prepare("UPDATE vault_unlocks SET active = 0 WHERE stripe_payment_id = ?").run(subscriptionId);
         logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'ok' });
       } else {
         logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'skipped' });

@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { getDb } = require('../db');
 const { requireSubscriber } = require('../auth/middleware');
+const { canAccessVaultContent } = require('../auth/vault');
 const config = require('../config');
 
 const PREVIEW_DIR = path.join(config.paths.hlsOutput, 'previews');
@@ -51,11 +52,13 @@ function buildMediaQuery({ category, search, tier }) {
   const conditions = ['m.is_active = 1'];
   const params = {};
 
-  // Free tier sees only public media; any subscriber tier sees public + supporters_only
+  // Vault items are always discoverable (shown with lock UI) — included for all tiers.
+  // Free tier: public + vault. Subscriber tiers: public + supporters_only + vault.
+  // Private items are never shown in listings.
   if (SUBSCRIBER_TIERS.has(tier)) {
-    conditions.push("m.visibility IN ('public', 'supporters_only')");
+    conditions.push("m.visibility IN ('public', 'supporters_only', 'vault')");
   } else {
-    conditions.push("m.visibility = 'public'");
+    conditions.push("m.visibility IN ('public', 'vault')");
   }
 
   if (category) {
@@ -73,6 +76,7 @@ function buildMediaQuery({ category, search, tier }) {
 
 function formatItem(row, tier) {
   const isVideo = !!(row.mime_type && row.mime_type.startsWith('video/'));
+  const isVault = row.visibility === 'vault';
   const base = {
     id: row.id,
     title: row.title || row.filename,
@@ -85,6 +89,7 @@ function formatItem(row, tier) {
     visibility: row.visibility,
     mimeType: row.mime_type || null,
     isVideo,
+    isVault,
     previewUrl: `/api/library/${row.id}/preview`,
     indexedAt: row.indexed_at,
   };
@@ -139,6 +144,15 @@ router.get('/:id', (req, res) => {
   // supporters_only — requires any subscriber tier
   if (row.visibility === 'supporters_only' && !SUBSCRIBER_TIERS.has(req.tier)) {
     return res.status(403).json({ error: 'Supporter access required' });
+  }
+
+  // vault — requires vault unlock (or all_access bypass if creator enabled it)
+  if (row.visibility === 'vault') {
+    const listenerId = req.tokenRow?.listener_id || null;
+    const result = canAccessVaultContent(listenerId, row.id);
+    if (!result.allowed) {
+      return res.status(403).json({ error: 'Vault access required', unlockOptions: result.unlockOptions });
+    }
   }
 
   res.json(formatItem(row, req.tier));
@@ -224,18 +238,31 @@ router.get('/:id/preview', (req, res) => {
   });
 });
 
-// GET /api/library/:id/download  (subscribers only)
+// GET /api/library/:id/download
 // Returns a signed URL — never serves the raw file directly.
-router.get('/:id/download', requireSubscriber, (req, res) => {
+// Vault items use canAccessVaultContent(); all others use requireSubscriber gate.
+router.get('/:id/download', (req, res) => {
   const row = getDb().prepare(
     'SELECT * FROM media WHERE id = ? AND is_active = 1'
   ).get(req.params.id);
 
   if (!row) return res.status(404).json({ error: 'Not found' });
 
-  // private content is blocked for all listener requests
   if (row.visibility === 'private') {
     return res.status(403).json({ error: 'Access denied' });
+  }
+
+  if (row.visibility === 'vault') {
+    const listenerId = req.tokenRow?.listener_id || null;
+    const result = canAccessVaultContent(listenerId, row.id);
+    if (!result.allowed) {
+      return res.status(403).json({ error: 'Vault access required', unlockOptions: result.unlockOptions });
+    }
+  } else {
+    // Non-vault content: subscriber tier required
+    if (!SUBSCRIBER_TIERS.has(req.tier)) {
+      return res.status(403).json({ error: 'Subscriber access required' });
+    }
   }
 
   if (!fs.existsSync(row.filepath)) {
