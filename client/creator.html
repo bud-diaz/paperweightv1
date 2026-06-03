@@ -214,10 +214,12 @@
 
     /* ── view toggle in topbar ── */
     #view-toggle {
-      display:flex; align-items:center;
+      display:none; align-items:center;
       background:rgba(255,255,255,.06); border-radius:6px;
       border:1px solid rgba(255,255,255,.08); overflow:hidden;
     }
+    body.creator-mode #view-toggle { display:flex; }
+    body.creator-mode #floating-tip { display:none !important; pointer-events:none; }
     .view-tab {
       background:none; border:none; cursor:pointer;
       font-family:'Space Mono',monospace; font-size:8px;
@@ -969,6 +971,16 @@ const HLS_URL            = '/hls/stream/index.m3u8';
 const STATUS_INTERVAL_MS = 10_000;
 const PING_INTERVAL_MS   = 30_000;
 const SESSION_KEY        = 'pw_dash_token';
+let   dashboardLoaded    = false;
+
+function enterDashboard() {
+  document.querySelectorAll('.view-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === 'dashboard'));
+  el('player-card').classList.add('dash-active');
+  el('topbar-right').style.opacity      = '0';
+  el('topbar-right').style.pointerEvents = 'none';
+  initDashboard();
+}
 const PALETTE            = ['#F9C74F','#FF3CAC','#00F5D4','#4CC9F0','#A78BFA'];
 
 // ─── Runtime ───────────────────────────────────────────────────────────────────
@@ -1667,6 +1679,23 @@ document.querySelectorAll('.view-tab').forEach(btn => {
   });
 });
 
+// ─── Wordmark long-press → creator dashboard ────────────────────────────────────
+(function() {
+  const wordmark = el('pw-wordmark-text');
+  let timer = null;
+  function start(e) {
+    e.preventDefault();
+    timer = setTimeout(() => { timer = null; enterDashboard(); }, 600);
+  }
+  function cancel() { if (timer) { clearTimeout(timer); timer = null; } }
+  wordmark.addEventListener('mousedown',   start);
+  wordmark.addEventListener('touchstart',  start, { passive: false });
+  wordmark.addEventListener('mouseup',     cancel);
+  wordmark.addEventListener('mouseleave',  cancel);
+  wordmark.addEventListener('touchend',    cancel);
+  wordmark.addEventListener('touchcancel', cancel);
+})();
+
 // ─── Floating Tip ──────────────────────────────────────────────────────────────
 (function() {
   const tipEl    = el('floating-tip');
@@ -1741,13 +1770,18 @@ function showDashAuthGate() {
 function showDashContent() {
   el('dash-auth-gate').hidden = true;
   el('dash-content').hidden   = false;
+  document.body.classList.add('creator-mode');
+  if (!dashboardLoaded) { dashboardLoaded = true; loadDashboard(); }
 }
 
+let dashboardInitialized = false;
 async function initDashboard() {
+  if (dashboardInitialized) return;
+  dashboardInitialized = true;
   const token = sessionStorage.getItem(SESSION_KEY);
   if (token) {
     const ok = await tryDashAuth();
-    if (ok) { showDashContent(); loadDashboard(); return; }
+    if (ok) { showDashContent(); return; }
     sessionStorage.removeItem(SESSION_KEY);
   }
   showDashAuthGate();
@@ -2191,8 +2225,14 @@ async function init() {
   // Tip presets for modal
   loadTipConfig();
 
-  // Dashboard auth
-  initDashboard();
+  // Silently restore creator session — reveals toggle, hides tip button, no navigation
+  (async () => {
+    const stored = sessionStorage.getItem(SESSION_KEY);
+    if (!stored) return;
+    const ok = await tryDashAuth();
+    if (ok) { showDashContent(); }
+    else    { sessionStorage.removeItem(SESSION_KEY); }
+  })();
 
   // Initial render
   render();
