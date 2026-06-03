@@ -38,7 +38,7 @@
       <a href="#library"   class="nav-link" data-page="library">Library</a>
       <a href="#dashboard" class="nav-link" data-page="dashboard" id="nav-dashboard-link" style="display:none">Dashboard</a>
     </div>
-    <a href="#library" class="nav-support">Explore Archive</a>
+    <a href="#dashboard" class="nav-support">Dashboard</a>
   </nav>
 
   <!-- ════════════════════════════════════════════
@@ -49,6 +49,10 @@
 
       <!-- Left: Broadcast panel -->
       <div class="broadcast-panel">
+
+        <!-- Video player — shown only when broadcast contains video -->
+        <video id="video-el" hidden playsinline controls
+          style="width:100%;border-radius:8px;margin-bottom:16px;background:#000;aspect-ratio:16/9"></video>
 
         <div class="station-header">
           <div class="live-indicator">
@@ -130,7 +134,6 @@
 
     </section>
     <audio id="audio-el" hidden></audio>
-    <video id="video-el" hidden playsinline controls style="max-width:100%;border-radius:8px;margin-top:12px"></video>
   </div>
 
   <!-- ════════════════════════════════════════════
@@ -234,6 +237,66 @@
         </div>
       </div>
 
+      <!-- Schedule (immediately below Broadcast) -->
+      <div class="dash-section" id="schedule-section">
+        <h2>Schedule</h2>
+        <div id="schedule-locked-notice" hidden
+          style="color:var(--dim);font-size:13px;margin-bottom:12px;padding:10px 14px;background:var(--surface2);border-radius:6px">
+          Switch to <strong>Scheduled</strong> mode above to manage schedule blocks.
+        </div>
+        <div id="schedule-controls">
+          <div class="schedule-list" id="schedule-list"></div>
+          <details>
+            <summary style="cursor:pointer;font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--dim);margin-bottom:10px">+ Add block</summary>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Label</label>
+                <input type="text" id="sched-label" placeholder="Morning Beats" />
+              </div>
+              <div class="form-group">
+                <label>Day</label>
+                <select id="sched-day">
+                  <option value="">Every day</option>
+                  <option value="0">Sunday</option>
+                  <option value="1">Monday</option>
+                  <option value="2">Tuesday</option>
+                  <option value="3">Wednesday</option>
+                  <option value="4">Thursday</option>
+                  <option value="5">Friday</option>
+                  <option value="6">Saturday</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Start</label>
+                <input type="time" id="sched-start" value="08:00" />
+              </div>
+              <div class="form-group">
+                <label>End</label>
+                <input type="time" id="sched-end" value="12:00" />
+              </div>
+              <div class="form-group">
+                <label>Category</label>
+                <select id="sched-category">
+                  <option value="">Any</option>
+                  <option value="music">Music</option>
+                  <option value="beats">Beats</option>
+                  <option value="podcasts">Podcasts</option>
+                  <option value="videos">Videos</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Mode</label>
+                <select id="sched-mode">
+                  <option value="shuffle">Shuffle</option>
+                  <option value="sequential">Sequential</option>
+                </select>
+              </div>
+              <button class="btn btn-primary btn-sm" id="btn-add-block" style="align-self:flex-end">Add</button>
+            </div>
+          </details>
+        </div>
+      </div>
+
       <!-- Vault -->
       <div class="dash-section">
         <h2>Vault</h2>
@@ -298,60 +361,6 @@
           <button class="btn btn-primary btn-sm" id="btn-create-token">Create Token</button>
         </div>
         <div id="new-token-result"></div>
-      </div>
-
-      <!-- Schedule -->
-      <div class="dash-section">
-        <h2>Schedule</h2>
-        <div class="schedule-list" id="schedule-list"></div>
-        <details>
-          <summary style="cursor:pointer;font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--dim);margin-bottom:10px">+ Add block</summary>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Label</label>
-              <input type="text" id="sched-label" placeholder="Morning Beats" />
-            </div>
-            <div class="form-group">
-              <label>Day</label>
-              <select id="sched-day">
-                <option value="">Every day</option>
-                <option value="0">Sunday</option>
-                <option value="1">Monday</option>
-                <option value="2">Tuesday</option>
-                <option value="3">Wednesday</option>
-                <option value="4">Thursday</option>
-                <option value="5">Friday</option>
-                <option value="6">Saturday</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Start</label>
-              <input type="time" id="sched-start" value="08:00" />
-            </div>
-            <div class="form-group">
-              <label>End</label>
-              <input type="time" id="sched-end" value="12:00" />
-            </div>
-            <div class="form-group">
-              <label>Category</label>
-              <select id="sched-category">
-                <option value="">Any</option>
-                <option value="music">Music</option>
-                <option value="beats">Beats</option>
-                <option value="podcasts">Podcasts</option>
-                <option value="videos">Videos</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Mode</label>
-              <select id="sched-mode">
-                <option value="shuffle">Shuffle</option>
-                <option value="sequential">Sequential</option>
-              </select>
-            </div>
-            <button class="btn btn-primary btn-sm" id="btn-add-block" style="align-self:flex-end">Add</button>
-          </div>
-        </details>
       </div>
 
       <!-- Analytics -->
