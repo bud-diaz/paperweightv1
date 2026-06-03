@@ -474,6 +474,62 @@
       border-radius:8px; color:rgba(255,255,255,.5); font-family:'Space Mono',monospace;
       font-size:10px; letter-spacing:.1em; padding:8px 20px; cursor:pointer;
     }
+    /* ── vault gate ── */
+    #vault-gate-backdrop {
+      position:fixed;inset:0;z-index:1100;
+      background:rgba(0,0,0,.85);backdrop-filter:blur(12px);
+      display:flex;align-items:center;justify-content:center;
+      opacity:0;pointer-events:none;transition:opacity .25s;
+    }
+    #vault-gate-backdrop.open { opacity:1;pointer-events:auto; }
+    #vault-gate {
+      background:#111;border:1px solid rgba(255,255,255,.1);border-radius:18px;
+      width:90%;max-width:360px;padding:28px 24px 24px;position:relative;
+    }
+    #vg-close {
+      position:absolute;top:14px;right:16px;background:none;border:none;
+      color:rgba(255,255,255,.4);font-size:20px;cursor:pointer;line-height:1;
+    }
+    #vg-lock { font-size:26px;text-align:center;margin-bottom:8px; }
+    #vg-title {
+      font-family:'DM Serif Display',serif;font-size:17px;color:#fff;
+      text-align:center;margin-bottom:2px;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    }
+    #vg-subtitle {
+      font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.1em;
+      color:rgba(255,255,255,.25);text-align:center;margin-bottom:18px;
+    }
+    #vg-options { display:flex;flex-direction:column;gap:8px; }
+    .vg-option {
+      display:flex;justify-content:space-between;align-items:center;gap:10px;
+      border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:11px 13px;
+    }
+    .vg-option-label {
+      font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.06em;
+      color:rgba(255,255,255,.4);margin-bottom:3px;
+    }
+    .vg-option-price {
+      font-family:'DM Serif Display',serif;font-size:14px;color:#fff;
+    }
+    .vg-option-sub {
+      font-family:'Space Mono',monospace;font-size:7.5px;
+      color:rgba(255,255,255,.22);margin-top:2px;
+    }
+    .vg-btn {
+      flex-shrink:0;background:linear-gradient(135deg,#39ff14,#20c010);
+      border:none;border-radius:8px;color:#000;
+      font-family:'Space Mono',monospace;font-weight:700;
+      font-size:9px;letter-spacing:.08em;padding:8px 12px;cursor:pointer;
+    }
+    .vg-btn:disabled,.vg-btn.processing { opacity:.45;pointer-events:none; }
+    .vg-btn.secondary {
+      background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);
+      color:rgba(255,255,255,.55);
+    }
+    .lib-lock {
+      font-size:10px;color:rgba(255,255,255,.3);margin-left:4px;flex-shrink:0;
+    }
   </style>
 </head>
 <body>
@@ -540,6 +596,17 @@
         <div id="modal-stripe-note">POWERED BY STRIPE · CANCEL ANYTIME</div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Vault gate overlay -->
+<div id="vault-gate-backdrop">
+  <div id="vault-gate">
+    <button id="vg-close">×</button>
+    <div id="vg-lock">⬡</div>
+    <div id="vg-title"></div>
+    <div id="vg-subtitle">MEMBERS ONLY</div>
+    <div id="vg-options"></div>
   </div>
 </div>
 
@@ -982,17 +1049,18 @@ async function loadLibrary() {
   try {
     const data = await fetch('/api/library?limit=20').then(r => r.json());
     LIBRARY = (data.items || []).map(item => ({
-      id:       item.id,
-      type:     item.isVideo ? 'video' : 'audio',
-      title:    item.title || item.filename || 'Untitled',
-      duration: item.duration || 0,
-      date:     item.indexedAt
-                  ? new Date(item.indexedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'})
-                  : '',
-      color:    trackColor(item.id),
-      creator:  item.artist || '',
-      isLive:   false,
-      waveform: generateWaveform(item.id),
+      id:         item.id,
+      type:       item.isVideo ? 'video' : 'audio',
+      title:      item.title || item.filename || 'Untitled',
+      duration:   item.duration || 0,
+      date:       item.indexedAt
+                    ? new Date(item.indexedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'})
+                    : '',
+      color:      trackColor(item.id),
+      creator:    item.artist || '',
+      visibility: item.visibility || 'public',
+      isLive:     false,
+      waveform:   generateWaveform(item.id),
     }));
     buildLibrary();
   } catch {}
@@ -1218,10 +1286,13 @@ function buildLibrary() {
     row.className = 'lib-row';
     const isActive = state.track && state.track.id === t.id;
     if (isActive) { row.classList.add('active'); row.style.borderLeftColor = t.color; }
+    const isGated = t.visibility === 'supporters_only' || t.visibility === 'vault';
     row.innerHTML = `
       <div class="lib-thumb" style="background:linear-gradient(135deg,${t.color}44,${t.color}11);border:1px solid ${t.color}33;">${t.type==='video'?'▶':'♪'}</div>
       <div class="lib-info">
-        <div class="lib-title${isActive?' active':''}">${esc(t.title)}</div>
+        <div class="lib-title${isActive?' active':''}">
+          ${esc(t.title)}${isGated ? '<span class="lib-lock">⬡</span>' : ''}
+        </div>
         <div class="lib-meta">${t.date}${t.date&&t.duration?' · ':''}${t.duration?fmt(t.duration):''}</div>
       </div>
       <span class="type-badge" style="background:${t.color};font-size:9px;padding:2px 6px;">${t.type==='video'?'● VIDEO':'◉ AUDIO'}</span>
@@ -1250,7 +1321,11 @@ async function loadQueue() {
 }
 
 // ─── VOD selection (shows track info; live stream continues) ───────────────────
-function selectVOD(t) {
+async function selectVOD(t) {
+  if (t.visibility === 'supporters_only' || t.visibility === 'vault') {
+    const gated = await checkVaultGate(t);
+    if (gated) return;
+  }
   state = { ...state, track: t, progress: 0, elapsed: 0, showLib: false };
   buildLibrary();
   render();
@@ -1441,12 +1516,18 @@ el('modal-cta').addEventListener('click', async () => {
       setTimeout(() => errEl.remove(), 4000);
     }
   } else {
-    // subscribe / all-access — direct users to contact creator
-    el('modal-main').style.display = 'none';
-    el('modal-done').style.display = 'block';
-    el('modal-done-icon').textContent  = '◎';
-    el('modal-done-title').textContent = 'Contact the station';
-    el('modal-done-msg').textContent   = 'Subscription sign-up is managed by the station owner. Reach out directly to get access.';
+    const tier = tab === 'all-access' ? 'all_access' : 'subscriber';
+    cta.classList.add('processing');
+    cta.textContent = 'CONNECTING TO STRIPE…';
+    try {
+      const res  = await fetch(`/api/payment/checkout-url?tier=${tier}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      window.location.href = data.checkoutUrl;
+    } catch {
+      cta.classList.remove('processing');
+      updateCTA();
+    }
   }
 });
 
@@ -1465,6 +1546,105 @@ function handleTippedParam() {
   el('modal-backdrop').classList.add('open');
   setTimeout(closeModal, 5000);
 }
+
+// ─── Vault gate ────────────────────────────────────────────────────────────────
+async function checkVaultGate(t) {
+  try {
+    const res = await fetch(`/api/vault/unlock-options/${t.id}`);
+    const d   = await res.json();
+    if (!d.isVault || d.alreadyUnlocked) return false;
+    showVaultGate(t, d.unlockOptions || {});
+    return true;
+  } catch { return false; }
+}
+
+function showVaultGate(t, opts) {
+  el('vg-title').textContent = t.title;
+  const container = el('vg-options');
+  container.innerHTML = '';
+
+  function makeOption(labelText, priceText, subText, onClick) {
+    const div = document.createElement('div');
+    div.className = 'vg-option';
+    div.innerHTML = `
+      <div>
+        <div class="vg-option-label">${labelText}</div>
+        <div class="vg-option-price">${priceText}</div>
+        ${subText ? `<div class="vg-option-sub">${subText}</div>` : ''}
+      </div>
+      <button class="vg-btn">UNLOCK</button>`;
+    div.querySelector('.vg-btn').addEventListener('click', onClick);
+    container.appendChild(div);
+  }
+
+  if (opts.track) {
+    const p     = opts.track;
+    const price = p.allowFree ? 'FREE' : `$${(p.minimumPrice / 100).toFixed(2)}`;
+    const sub   = p.paymentType === 'recurring' ? `per ${p.recurringInterval || 'month'}` : 'one-time';
+    makeOption('THIS TRACK', price, sub,
+      () => startVaultUnlock('track', t.id, p.minimumPrice, p.paymentType, p.recurringInterval));
+  }
+
+  if (opts.project) {
+    const p     = opts.project;
+    const price = p.allowFree ? 'FREE' : `$${(p.minimumPrice / 100).toFixed(2)}`;
+    const sub   = `${esc(p.name)} · ${p.paymentType === 'recurring' ? `per ${p.recurringInterval || 'month'}` : 'one-time'}`;
+    makeOption('FULL PROJECT', price, sub,
+      () => startVaultUnlock('project', p.id, p.minimumPrice, p.paymentType, p.recurringInterval));
+  }
+
+  if (opts.allAccess) {
+    const p     = opts.allAccess;
+    const price = p.allowFree ? 'FREE' : `$${(p.minimumPrice / 100).toFixed(2)}`;
+    const sub   = p.paymentType === 'recurring' ? `per ${p.recurringInterval || 'month'}` : 'one-time';
+    makeOption('ALL-ACCESS PASS', price, sub,
+      () => startVaultUnlock('all_access', null, p.minimumPrice, p.paymentType, p.recurringInterval));
+  }
+
+  // Always offer subscription as an alternative
+  const subDiv = document.createElement('div');
+  subDiv.className = 'vg-option';
+  subDiv.innerHTML = `
+    <div>
+      <div class="vg-option-label">SUBSCRIBER</div>
+      <div class="vg-option-price">Support the station</div>
+      <div class="vg-option-sub">Unlocks all supporters content</div>
+    </div>
+    <button class="vg-btn secondary">SUBSCRIBE</button>`;
+  subDiv.querySelector('.vg-btn').addEventListener('click', async function() {
+    this.classList.add('processing'); this.textContent = '…';
+    try {
+      const res = await fetch('/api/payment/checkout-url');
+      const d   = await res.json();
+      if (d.checkoutUrl) { window.location.href = d.checkoutUrl; return; }
+    } catch {}
+    this.classList.remove('processing'); this.textContent = 'SUBSCRIBE';
+  });
+  container.appendChild(subDiv);
+
+  el('vault-gate-backdrop').classList.add('open');
+}
+
+async function startVaultUnlock(unlockType, targetId, amount, paymentType, recurringInterval) {
+  const body = { unlock_type: unlockType, amount, payment_type: paymentType };
+  if (targetId)          body.target_id          = targetId;
+  if (recurringInterval) body.recurring_interval  = recurringInterval;
+  try {
+    const res = await fetch('/api/vault/unlock', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await res.json();
+    if (d.checkoutUrl) window.location.href = d.checkoutUrl;
+  } catch {}
+}
+
+function closeVaultGate() {
+  el('vault-gate-backdrop').classList.remove('open');
+}
+
+el('vg-close').addEventListener('click', closeVaultGate);
+el('vault-gate-backdrop').addEventListener('click', e => { if (e.target === e.currentTarget) closeVaultGate(); });
 
 // ─── Player event bindings ─────────────────────────────────────────────────────
 el('play-btn').addEventListener('click', togglePlay);
