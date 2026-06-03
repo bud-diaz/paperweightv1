@@ -55,6 +55,41 @@ function createApp() {
     res.sendFile(path.join(config.paths.app, 'client', 'index.html'));
   });
 
+  // PWA manifest — dynamic so it picks up the configured station name
+  app.get('/manifest.json', (req, res) => {
+    const name = config.station.name || 'Paperweight';
+    res.json({
+      name,
+      short_name: name.length > 12 ? name.slice(0, 12) : name,
+      description: config.station.creatorDesc || '',
+      start_url: '/',
+      display: 'standalone',
+      background_color: '#0a0a0a',
+      theme_color: '#0a0a0a',
+      orientation: 'portrait-primary',
+      icons: [
+        { src: '/icon.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+        { src: '/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+      ],
+    });
+  });
+
+  // PWA icon — generated SVG served as PNG-compatible (place a real icon.png in client/ to override)
+  app.get('/icon.png', (req, res) => {
+    if (!res.headersSent) {
+      const name  = config.station.name || 'P';
+      const letter = name.trim()[0]?.toUpperCase() || 'P';
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+        <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
+        <circle cx="256" cy="256" r="190" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+        <text x="256" y="310" text-anchor="middle" font-family="Georgia,serif" font-size="220" fill="#ffffff">${letter}</text>
+      </svg>`;
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.send(svg);
+    }
+  });
+
   // SPA fallback — serve creator.html (player) for any unmatched GET
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/hls')) {

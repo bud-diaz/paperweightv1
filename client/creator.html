@@ -3,7 +3,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="theme-color" content="#0a0a0a"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <link rel="manifest" href="/manifest.json"/>
+  <link rel="apple-touch-icon" href="/icon.png"/>
   <title>Paperweight Player</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
@@ -58,9 +64,14 @@
 
     /* ── top bar ── */
     #topbar { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 0; flex-shrink:0; }
-    .pw-wordmark { font-family:'DM Serif Display',serif; font-size:16px; color:#fff; letter-spacing:-.02em; }
+    #topbar > div:first-child { min-width:0; flex-shrink:1; }
+    .pw-wordmark { font-family:'DM Serif Display',serif; font-size:16px; color:#fff; letter-spacing:-.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px; cursor:default; user-select:none; -webkit-user-select:none; }
     .pw-sub      { font-size:9px; color:rgba(255,255,255,.25); letter-spacing:.08em; }
-    #topbar-right { display:flex; align-items:center; gap:8px; }
+    #topbar-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    @media (max-width:380px) {
+      .view-tab { padding:4px 7px; font-size:7px; letter-spacing:.05em; }
+      .pw-wordmark { max-width:100px; }
+    }
     #back-live-btn {
       display:none; background:none; border:1px solid rgba(255,255,255,.12); border-radius:5px; cursor:pointer;
       color:rgba(255,255,255,.4); font-family:'Space Mono',monospace; font-size:8px; letter-spacing:.1em; padding:3px 8px;
@@ -1768,7 +1779,16 @@ function showDashAuthGate() {
 }
 
 function showDashContent() {
-  el('dash-auth-gate').hidden = true;
+  const input = el('dash-token-input');
+  const btn   = el('dash-token-btn');
+  input.disabled    = true;
+  input.style.opacity = '.3';
+  btn.textContent   = stationName ? `Welcome back, ${stationName}` : 'Welcome back';
+  btn.style.cursor  = 'default';
+  btn.style.background = 'rgba(57,255,20,.07)';
+  btn.style.borderColor = 'rgba(57,255,20,.25)';
+  btn.style.color = '#39ff14';
+  el('dash-auth-msg').textContent = '';
   el('dash-content').hidden   = false;
   document.body.classList.add('creator-mode');
   if (!dashboardLoaded) { dashboardLoaded = true; loadDashboard(); }

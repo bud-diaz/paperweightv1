@@ -1,6 +1,7 @@
 const config = require('../config');
 const { log } = require('../db');
 const { startWatcher, stopWatcher } = require('./watcher');
+const { reconcileInactive } = require('./sync');
 
 const FolderVaultAdapter = require('./adapters/folder');
 const MetadataVaultAdapter = require('./adapters/metadata');
@@ -20,6 +21,7 @@ function startScanner() {
   log('info', 'scanner', `Vault mode: ${mode}`);
 
   const adapter = loadAdapter(mode, vaultPath);
+  reconcileInactive();
   startWatcher(vaultPath, adapter);
 }
 
