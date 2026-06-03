@@ -543,6 +543,29 @@
     .lib-lock {
       font-size:10px;color:rgba(255,255,255,.3);margin-left:4px;flex-shrink:0;
     }
+    /* ── player library project groups ── */
+    .lib-project-header {
+      display:flex;align-items:center;gap:7px;padding:7px 14px;
+      cursor:pointer;border-left:2px solid rgba(255,255,255,.08);
+      transition:background .12s,border-color .12s;
+    }
+    .lib-project-header:hover { background:rgba(255,255,255,.03); }
+    .lib-project.open .lib-project-header { border-left-color:rgba(255,255,255,.25); }
+    .lib-project-name { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.05em;color:rgba(255,255,255,.55);flex:1; }
+    .lib-project-count { font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.2); }
+    .lib-project-chev { font-size:11px;color:rgba(255,255,255,.2);transition:transform .18s; }
+    .lib-project.open .lib-project-chev { transform:rotate(90deg); }
+    .lib-project-tracks { overflow:hidden;max-height:0;transition:max-height .22s ease; }
+    .lib-project.open .lib-project-tracks { max-height:600px; }
+    .lib-project-tracks .lib-row { padding-left:22px; }
+    .lib-sep { padding:7px 14px 3px;font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.18);letter-spacing:.1em; }
+    /* ── dashboard library ── */
+    .dash-lib-project { margin-bottom:2px; }
+    .dash-lib-proj-header { display:flex;align-items:center;gap:8px;padding:9px 14px;border-left:2px solid rgba(255,255,255,.1); }
+    .dash-lib-proj-name { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.05em;color:rgba(255,255,255,.6);flex:1; }
+    .dash-lib-nested .mgmt-row { padding-left:28px;border-left:2px solid rgba(255,255,255,.04); }
+    .dash-tok-panel { background:rgba(255,255,255,.02);border-top:1px solid rgba(255,255,255,.06);padding-bottom:6px; }
+    .dash-tok-panel-token { display:flex;align-items:center;gap:6px;padding:3px 14px;font-family:'Space Mono',monospace;font-size:8px; }
   </style>
 </head>
 <body>
@@ -867,10 +890,10 @@
 
           <div class="dash-divider"></div>
 
-          <!-- Media Management -->
+          <!-- Library -->
           <div class="dash-section">
-            <div class="dash-section-label">MEDIA</div>
-            <div id="dash-media-list"></div>
+            <div class="dash-section-label">LIBRARY</div>
+            <div id="dash-lib-list"></div>
           </div>
 
           <div class="dash-divider"></div>
@@ -1003,7 +1026,8 @@ let statusInterval = null;
 let pingInterval   = null;
 let currentIsVideo = false;
 let stationName    = '';
-let LIBRARY        = [];
+let LIBRARY          = [];
+let LIBRARY_STRUCTURE = { projects: [], standalone: [] };
 let tipAmounts     = [];
 let selectedTipCents = null;
 
@@ -1073,21 +1097,11 @@ async function fetchStreamStatus() {
 // ─── Library ───────────────────────────────────────────────────────────────────
 async function loadLibrary() {
   try {
-    const data = await fetch('/api/library?limit=20').then(r => r.json());
-    LIBRARY = (data.items || []).map(item => ({
-      id:         item.id,
-      type:       item.isVideo ? 'video' : 'audio',
-      title:      item.title || item.filename || 'Untitled',
-      duration:   item.duration || 0,
-      date:       item.indexedAt
-                    ? new Date(item.indexedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'})
-                    : '',
-      color:      trackColor(item.id),
-      creator:    item.artist || '',
-      visibility: item.visibility || 'public',
-      isLive:     false,
-      waveform:   generateWaveform(item.id),
-    }));
+    const data = await fetch('/api/library/structure').then(r => r.json());
+    LIBRARY_STRUCTURE = data;
+    LIBRARY = [];
+    for (const proj of (data.projects  || [])) proj.tracks.forEach(t => LIBRARY.push(normalizeTrack(t)));
+    for (const t    of (data.standalone || []))  LIBRARY.push(normalizeTrack(t));
     buildLibrary();
   } catch {}
 }
@@ -1300,32 +1314,84 @@ function renderWaveform() {
 }
 
 // ─── Library ───────────────────────────────────────────────────────────────────
+function normalizeTrack(item) {
+  return {
+    id:         item.id,
+    type:       item.isVideo ? 'video' : 'audio',
+    title:      item.title || 'Untitled',
+    duration:   item.duration || 0,
+    date:       item.indexedAt
+                  ? new Date(item.indexedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'})
+                  : '',
+    color:      trackColor(item.id),
+    creator:    item.artist || '',
+    visibility: item.visibility || 'public',
+    isLive:     false,
+    waveform:   generateWaveform(item.id),
+  };
+}
+
+function buildLibRow(t) {
+  const row = document.createElement('div');
+  row.className = 'lib-row';
+  const isActive = state.track && state.track.id === t.id;
+  if (isActive) { row.classList.add('active'); row.style.borderLeftColor = t.color; }
+  const isGated = t.visibility === 'supporters_only' || t.visibility === 'vault';
+  row.innerHTML = `
+    <div class="lib-thumb" style="background:linear-gradient(135deg,${t.color}44,${t.color}11);border:1px solid ${t.color}33;">${t.type==='video'?'▶':'♪'}</div>
+    <div class="lib-info">
+      <div class="lib-title${isActive?' active':''}">
+        ${esc(t.title)}${isGated ? '<span class="lib-lock">⬡</span>' : ''}
+      </div>
+      <div class="lib-meta">${t.date}${t.date&&t.duration?' · ':''}${t.duration?fmt(t.duration):''}</div>
+    </div>
+    <span class="type-badge" style="background:${t.color};font-size:9px;padding:2px 6px;">${t.type==='video'?'● VIDEO':'◉ AUDIO'}</span>
+  `;
+  row.addEventListener('click', () => selectVOD(t));
+  return row;
+}
+
 function buildLibrary() {
   const list = el('lib-list');
-  if (!LIBRARY.length) {
+  const { projects, standalone } = LIBRARY_STRUCTURE;
+
+  if (!projects.length && !standalone.length) {
     list.innerHTML = '<div style="padding:10px 14px;font-family:\'Space Mono\',monospace;font-size:9px;color:rgba(255,255,255,.25);letter-spacing:.06em;">NO UPLOADS YET</div>';
     return;
   }
   list.innerHTML = '';
-  LIBRARY.forEach(t => {
-    const row = document.createElement('div');
-    row.className = 'lib-row';
-    const isActive = state.track && state.track.id === t.id;
-    if (isActive) { row.classList.add('active'); row.style.borderLeftColor = t.color; }
-    const isGated = t.visibility === 'supporters_only' || t.visibility === 'vault';
-    row.innerHTML = `
-      <div class="lib-thumb" style="background:linear-gradient(135deg,${t.color}44,${t.color}11);border:1px solid ${t.color}33;">${t.type==='video'?'▶':'♪'}</div>
-      <div class="lib-info">
-        <div class="lib-title${isActive?' active':''}">
-          ${esc(t.title)}${isGated ? '<span class="lib-lock">⬡</span>' : ''}
-        </div>
-        <div class="lib-meta">${t.date}${t.date&&t.duration?' · ':''}${t.duration?fmt(t.duration):''}</div>
-      </div>
-      <span class="type-badge" style="background:${t.color};font-size:9px;padding:2px 6px;">${t.type==='video'?'● VIDEO':'◉ AUDIO'}</span>
-    `;
-    row.addEventListener('click', () => selectVOD(t));
-    list.appendChild(row);
-  });
+
+  for (const proj of projects) {
+    const section = document.createElement('div');
+    section.className = 'lib-project';
+
+    const header = document.createElement('div');
+    header.className = 'lib-project-header';
+    header.innerHTML = `
+      <span style="font-size:11px;color:rgba(255,255,255,.25);">⬡</span>
+      <span class="lib-project-name">${esc(proj.name)}</span>
+      <span class="lib-project-count">${proj.tracks.length}</span>
+      <span class="lib-project-chev">›</span>`;
+    header.addEventListener('click', () => section.classList.toggle('open'));
+
+    const tracksDiv = document.createElement('div');
+    tracksDiv.className = 'lib-project-tracks';
+    proj.tracks.forEach(t => tracksDiv.appendChild(buildLibRow(normalizeTrack(t))));
+
+    section.appendChild(header);
+    section.appendChild(tracksDiv);
+    list.appendChild(section);
+  }
+
+  if (standalone.length) {
+    if (projects.length) {
+      const sep = document.createElement('div');
+      sep.className = 'lib-sep';
+      sep.textContent = 'SINGLES';
+      list.appendChild(sep);
+    }
+    standalone.forEach(t => list.appendChild(buildLibRow(normalizeTrack(t))));
+  }
 }
 
 // ─── Queue ─────────────────────────────────────────────────────────────────────
@@ -1830,7 +1896,7 @@ function loadDashboard() {
   loadDashVaultStats();
   loadDashBroadcast();
   loadDashSchedule();
-  loadDashMedia();
+  loadDashLibrary();
   loadDashTokens();
   loadDashAnalytics();
   loadDashPaymentConfig();
@@ -2035,47 +2101,191 @@ el('btn-add-sched').addEventListener('click', async () => {
   loadDashSchedule();
 });
 
-async function loadDashMedia() {
-  try {
-    const items = await dashFetch('/api/dashboard/media').then(r => r.json());
-    const list  = el('dash-media-list');
-    if (!items.length) {
-      list.innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No media yet.</div>';
-      return;
-    }
-    list.innerHTML = items.map(item => {
-      const c = trackColor(item.id);
-      return `<div class="mgmt-row">
-        <div class="mgmt-thumb" style="background:linear-gradient(135deg,${c}44,${c}11);border:1px solid ${c}33;">${item.category==='videos'?'▶':'♪'}</div>
-        <div class="mgmt-info">
-          <div class="mgmt-title">${esc(item.title || item.filename)}</div>
-          <div class="mgmt-meta">${esc(item.category)}</div>
-        </div>
-        <div class="mgmt-actions">
-          <select class="dash-select" data-vis-id="${item.id}">
-            <option value="public"${item.visibility==='public'?' selected':''}>PUBLIC</option>
-            <option value="supporters_only"${item.visibility==='supporters_only'?' selected':''}>SUPPORTERS</option>
-            <option value="private"${item.visibility==='private'?' selected':''}>PRIVATE</option>
-          </select>
-          <button class="mgmt-btn" data-save-id="${item.id}">SAVE</button>
-        </div>
-      </div>`;
-    }).join('');
+// ─── Dashboard Library ─────────────────────────────────────────────────────────
+function buildDashLibItem(item, scopeType, scopeId, nested = false) {
+  const c    = trackColor(item.id);
+  const wrap = document.createElement('div');
+  if (nested) wrap.className = 'dash-lib-nested';
 
-    list.querySelectorAll('[data-save-id]').forEach(btn => {
+  const panelId  = `${scopeType}-${scopeId}`;
+  const tokListId   = `dtl-${panelId}`;
+  const tokLabelId  = `dtla-${panelId}`;
+  const tokResultId = `dtr-${panelId}`;
+  const tokPanelId  = `dtp-${panelId}`;
+
+  wrap.innerHTML = `
+    <div class="mgmt-row">
+      <div class="mgmt-thumb" style="background:linear-gradient(135deg,${c}44,${c}11);border:1px solid ${c}33;">${item.category==='videos'?'▶':'♪'}</div>
+      <div class="mgmt-info">
+        <div class="mgmt-title">${esc(item.title||item.filename)}</div>
+        <div class="mgmt-meta">${esc(item.category)}</div>
+      </div>
+      <div class="mgmt-actions">
+        <select class="dash-select" id="vis-${item.id}">
+          <option value="public"${item.visibility==='public'?' selected':''}>PUBLIC</option>
+          <option value="supporters_only"${item.visibility==='supporters_only'?' selected':''}>SUPPORTERS</option>
+          <option value="vault"${item.visibility==='vault'?' selected':''}>VAULT</option>
+          <option value="private"${item.visibility==='private'?' selected':''}>PRIVATE</option>
+        </select>
+        <button class="mgmt-btn" id="save-${item.id}">SAVE</button>
+        <button class="mgmt-btn" id="tok-tog-${panelId}" style="letter-spacing:.03em;">⬡ TOKEN</button>
+      </div>
+    </div>
+    <div class="dash-tok-panel" id="${tokPanelId}" hidden>
+      <div id="${tokListId}"></div>
+      <div class="dash-form-row" style="padding:6px 14px 0;gap:6px;">
+        <input type="text" class="dash-input dash-input-sm" id="${tokLabelId}" placeholder="Label…" style="flex:1;min-width:80px;"/>
+        <button class="mgmt-btn" id="tok-create-${panelId}">CREATE</button>
+      </div>
+      <div id="${tokResultId}" style="padding:3px 14px 4px;"></div>
+    </div>`;
+
+  const saveBtn = wrap.querySelector(`#save-${item.id}`);
+  saveBtn.addEventListener('click', async () => {
+    const vis = wrap.querySelector(`#vis-${item.id}`).value;
+    saveBtn.disabled = true;
+    await dashFetch(`/api/dashboard/media/${item.id}`, {
+      method: 'PATCH', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ visibility: vis }),
+    });
+    saveBtn.disabled = false;
+    saveBtn.textContent = '✓';
+    setTimeout(() => { saveBtn.textContent = 'SAVE'; }, 1500);
+  });
+
+  wrap.querySelector(`#tok-tog-${panelId}`).addEventListener('click', async () => {
+    const panel = document.getElementById(tokPanelId);
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) await refreshDashTokenList(tokListId, scopeType, scopeId);
+  });
+
+  wrap.querySelector(`#tok-create-${panelId}`).addEventListener('click', async () => {
+    const label = document.getElementById(tokLabelId).value.trim();
+    if (!label) return;
+    const res  = await dashFetch('/api/dashboard/tokens', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ label, tier: 'subscriber', scope_type: scopeType, scope_id: scopeId }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById(tokLabelId).value = '';
+      document.getElementById(tokResultId).innerHTML = `
+        <div class="dash-success-msg" style="font-size:8px;margin-bottom:4px;">Share once — won't be shown again:</div>
+        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.6);word-break:break-all;">${esc(data.token)}</div>`;
+      await refreshDashTokenList(tokListId, scopeType, scopeId);
+    }
+  });
+
+  return wrap;
+}
+
+function buildDashLibProject(proj, allItems) {
+  const tracks = (proj.items || [])
+    .map(pi => allItems.find(it => it.id === pi.content_id))
+    .filter(Boolean);
+
+  const wrap      = document.createElement('div');
+  wrap.className  = 'dash-lib-project';
+
+  const projPanelId  = `project-${proj.id}`;
+  const tokListId    = `dtl-${projPanelId}`;
+  const tokLabelId   = `dtla-${projPanelId}`;
+  const tokResultId  = `dtr-${projPanelId}`;
+  const tokPanelId   = `dtp-${projPanelId}`;
+
+  const header = document.createElement('div');
+  header.innerHTML = `
+    <div class="dash-lib-proj-header">
+      <span class="dash-lib-proj-name">${esc(proj.name)}</span>
+      <span style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.25);">${tracks.length} TRACKS</span>
+      <button class="mgmt-btn" id="tok-tog-${projPanelId}" style="letter-spacing:.03em;">⬡ PROJECT TOKEN</button>
+    </div>
+    <div class="dash-tok-panel" id="${tokPanelId}" hidden>
+      <div id="${tokListId}"></div>
+      <div class="dash-form-row" style="padding:6px 14px 0;gap:6px;">
+        <input type="text" class="dash-input dash-input-sm" id="${tokLabelId}" placeholder="Label…" style="flex:1;min-width:80px;"/>
+        <button class="mgmt-btn" id="tok-create-${projPanelId}">CREATE</button>
+      </div>
+      <div id="${tokResultId}" style="padding:3px 14px 4px;"></div>
+    </div>`;
+
+  header.querySelector(`#tok-tog-${projPanelId}`).addEventListener('click', async () => {
+    const panel = document.getElementById(tokPanelId);
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) await refreshDashTokenList(tokListId, 'project', proj.id);
+  });
+
+  header.querySelector(`#tok-create-${projPanelId}`).addEventListener('click', async () => {
+    const label = document.getElementById(tokLabelId).value.trim();
+    if (!label) return;
+    const res  = await dashFetch('/api/dashboard/tokens', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ label, tier: 'subscriber', scope_type: 'project', scope_id: proj.id }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById(tokLabelId).value = '';
+      document.getElementById(tokResultId).innerHTML = `
+        <div class="dash-success-msg" style="font-size:8px;margin-bottom:4px;">Share once — won't be shown again:</div>
+        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.6);word-break:break-all;">${esc(data.token)}</div>`;
+      await refreshDashTokenList(tokListId, 'project', proj.id);
+    }
+  });
+
+  wrap.appendChild(header);
+  tracks.forEach(item => wrap.appendChild(buildDashLibItem(item, 'track', item.id, true)));
+  return wrap;
+}
+
+async function refreshDashTokenList(listElId, scopeType, scopeId) {
+  try {
+    const tokens = await dashFetch(`/api/dashboard/tokens/for/${scopeType}/${scopeId}`).then(r => r.json());
+    const listEl = document.getElementById(listElId);
+    if (!listEl) return;
+    listEl.innerHTML = tokens.length
+      ? tokens.map(t => `
+          <div class="dash-tok-panel-token">
+            <span style="flex:1;color:rgba(255,255,255,.4);">${esc(t.label||'—')}</span>
+            <span style="color:rgba(255,255,255,.2);">${t.last_used?t.last_used.slice(0,10):'unused'}</span>
+            <button class="mgmt-btn${t.is_active?' danger':''}" data-revoke="${t.id}" ${!t.is_active?'disabled':''}>
+              ${t.is_active?'REVOKE':'REVOKED'}
+            </button>
+          </div>`).join('')
+      : '<div style="padding:4px 14px;font-family:\'Space Mono\',monospace;font-size:8px;color:rgba(255,255,255,.2);">No tokens yet.</div>';
+    listEl.querySelectorAll('[data-revoke]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const id  = btn.dataset.saveId;
-        const sel = list.querySelector(`[data-vis-id="${id}"]`);
-        btn.disabled = true;
-        await dashFetch(`/api/dashboard/media/${id}`, {
-          method: 'PATCH', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ visibility: sel.value }),
-        });
-        btn.disabled    = false;
-        btn.textContent = '✓';
-        setTimeout(() => { btn.textContent = 'SAVE'; }, 1500);
+        await dashFetch(`/api/dashboard/tokens/${btn.dataset.revoke}`, { method: 'DELETE' });
+        refreshDashTokenList(listElId, scopeType, scopeId);
       });
     });
+  } catch {}
+}
+
+async function loadDashLibrary() {
+  try {
+    const [items, pricing] = await Promise.all([
+      dashFetch('/api/dashboard/media').then(r => r.json()),
+      dashFetch('/api/dashboard/vault/pricing').then(r => r.json()),
+    ]);
+
+    const list = el('dash-lib-list');
+    const projectedIds = new Set(
+      (pricing.projects || []).flatMap(p => (p.items || []).map(i => i.content_id))
+    );
+    const standalone = items.filter(it => !projectedIds.has(it.id));
+
+    list.innerHTML = '';
+
+    for (const proj of (pricing.projects || [])) {
+      list.appendChild(buildDashLibProject(proj, items));
+    }
+    for (const item of standalone) {
+      list.appendChild(buildDashLibItem(item, 'track', item.id, false));
+    }
+
+    if (!items.length) {
+      list.innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No media yet.</div>';
+    }
   } catch {}
 }
 

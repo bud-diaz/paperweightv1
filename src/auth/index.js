@@ -7,12 +7,12 @@ function generateToken() {
 
 const VALID_TIERS = ['subscriber', 'pro', 'all_access'];
 
-function createToken(label, tier = 'subscriber') {
+function createToken(label, tier = 'subscriber', scopeType = null, scopeId = null) {
   const safeTier = VALID_TIERS.includes(tier) ? tier : 'subscriber';
   const token = generateToken();
   getDb().prepare(
-    'INSERT INTO tokens (token, label, tier) VALUES (?, ?, ?)'
-  ).run(token, label || null, safeTier);
+    'INSERT INTO tokens (token, label, tier, scope_type, scope_id) VALUES (?, ?, ?, ?, ?)'
+  ).run(token, label || null, safeTier, scopeType || null, scopeId != null ? Number(scopeId) : null);
   return token;
 }
 
@@ -21,6 +21,12 @@ function updateTokenTier(id, tier) {
   getDb().prepare(
     "UPDATE tokens SET tier = ?, updated_at = datetime('now') WHERE id = ? AND is_active = 1"
   ).run(tier, id);
+}
+
+function listTokensForScope(scopeType, scopeId) {
+  return getDb().prepare(
+    'SELECT id, label, tier, scope_type, scope_id, created_at, last_used, is_active FROM tokens WHERE scope_type = ? AND scope_id = ? ORDER BY created_at DESC'
+  ).all(scopeType, Number(scopeId));
 }
 
 // Returns the token row if valid and active, null otherwise.
@@ -47,4 +53,4 @@ function listTokens() {
   ).all();
 }
 
-module.exports = { createToken, validateToken, revokeToken, listTokens, updateTokenTier };
+module.exports = { createToken, validateToken, revokeToken, listTokens, updateTokenTier, listTokensForScope };

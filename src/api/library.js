@@ -101,7 +101,51 @@ function formatItem(row, tier) {
   return base;
 }
 
+// Returns true if the request carries a scoped token that grants access to
+// this specific media item (by track id or by its project id).
+function hasScopedVaultAccess(req, mediaId, projectId) {
+  const tok = req.tokenRow;
+  if (!tok || !tok.scope_type) return false;
+  if (tok.scope_type === 'track'   && Number(tok.scope_id) === Number(mediaId))   return true;
+  if (tok.scope_type === 'project' && Number(tok.scope_id) === Number(projectId)) return true;
+  return false;
+}
+
 // ─── Routes ──────────────────────────────────────────────────────────────────
+
+// GET /api/library/structure
+// Returns tracks organised into projects + a standalone list.
+// Must be defined before /:id so Express doesn't treat 'structure' as an id.
+router.get('/structure', (req, res) => {
+  const db = getDb();
+  const { conditions, params } = buildMediaQuery({ tier: req.tier });
+  const where = 'WHERE ' + conditions.join(' AND ');
+
+  const allTracks = db.prepare(
+    `SELECT m.* FROM media m ${where} ORDER BY m.indexed_at DESC`
+  ).all(params);
+
+  const projects  = db.prepare('SELECT id, name, description FROM vault_projects ORDER BY created_at ASC').all();
+  const projectItems = db.prepare('SELECT project_id, content_id FROM vault_project_items').all();
+
+  const trackToProject = new Map(projectItems.map(pi => [pi.content_id, pi.project_id]));
+  const projectMap     = new Map(projects.map(p => [p.id, { ...p, tracks: [] }]));
+  const standalone     = [];
+
+  for (const track of allTracks) {
+    const projId = trackToProject.get(track.id);
+    if (projId && projectMap.has(projId)) {
+      projectMap.get(projId).tracks.push(formatItem(track, req.tier));
+    } else {
+      standalone.push(formatItem(track, req.tier));
+    }
+  }
+
+  res.json({
+    projects:   [...projectMap.values()].filter(p => p.tracks.length > 0),
+    standalone,
+  });
+});
 
 // GET /api/library
 router.get('/', (req, res) => {
@@ -141,17 +185,27 @@ router.get('/:id', (req, res) => {
     return res.status(403).json({ error: 'Access denied' });
   }
 
-  // supporters_only — requires any subscriber tier
-  if (row.visibility === 'supporters_only' && !SUBSCRIBER_TIERS.has(req.tier)) {
-    return res.status(403).json({ error: 'Supporter access required' });
+  // Fetch project membership once — used by both access checks below
+  const projectMembership = getDb().prepare(
+    'SELECT project_id FROM vault_project_items WHERE content_id = ?'
+  ).get(row.id);
+  const projectId = projectMembership?.project_id ?? null;
+
+  // supporters_only — subscriber tier or a scoped token for this track/project
+  if (row.visibility === 'supporters_only') {
+    if (!SUBSCRIBER_TIERS.has(req.tier) && !hasScopedVaultAccess(req, row.id, projectId)) {
+      return res.status(403).json({ error: 'Supporter access required' });
+    }
   }
 
-  // vault — requires vault unlock (or all_access bypass if creator enabled it)
+  // vault — scoped token, vault unlock, or all_access bypass
   if (row.visibility === 'vault') {
-    const listenerId = req.tokenRow?.listener_id || null;
-    const result = canAccessVaultContent(listenerId, row.id);
-    if (!result.allowed) {
-      return res.status(403).json({ error: 'Vault access required', unlockOptions: result.unlockOptions });
+    if (!hasScopedVaultAccess(req, row.id, projectId)) {
+      const listenerId = req.tokenRow?.listener_id || null;
+      const result = canAccessVaultContent(listenerId, row.id);
+      if (!result.allowed) {
+        return res.status(403).json({ error: 'Vault access required', unlockOptions: result.unlockOptions });
+      }
     }
   }
 
