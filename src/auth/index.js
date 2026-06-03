@@ -5,12 +5,22 @@ function generateToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
-function createToken(label) {
+const VALID_TIERS = ['subscriber', 'pro', 'all_access'];
+
+function createToken(label, tier = 'subscriber') {
+  const safeTier = VALID_TIERS.includes(tier) ? tier : 'subscriber';
   const token = generateToken();
   getDb().prepare(
-    "INSERT INTO tokens (token, label, tier) VALUES (?, ?, 'subscriber')"
-  ).run(token, label || null);
+    'INSERT INTO tokens (token, label, tier) VALUES (?, ?, ?)'
+  ).run(token, label || null, safeTier);
   return token;
+}
+
+function updateTokenTier(id, tier) {
+  if (!VALID_TIERS.includes(tier)) throw new Error('Invalid tier');
+  getDb().prepare(
+    "UPDATE tokens SET tier = ?, updated_at = datetime('now') WHERE id = ? AND is_active = 1"
+  ).run(tier, id);
 }
 
 // Returns the token row if valid and active, null otherwise.
@@ -37,4 +47,4 @@ function listTokens() {
   ).all();
 }
 
-module.exports = { createToken, validateToken, revokeToken, listTokens };
+module.exports = { createToken, validateToken, revokeToken, listTokens, updateTokenTier };

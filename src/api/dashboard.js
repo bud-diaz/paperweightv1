@@ -7,7 +7,7 @@ const { URL: NodeURL } = require('url');
 const multer = require('multer');
 const { getDb, log } = require('../db');
 const { requireDashboard } = require('../auth/middleware');
-const { createToken, revokeToken, listTokens } = require('../auth');
+const { createToken, revokeToken, listTokens, updateTokenTier } = require('../auth');
 const broadcast = require('../broadcast');
 const config = require('../config');
 
@@ -223,14 +223,26 @@ router.get('/tokens', (req, res) => {
 });
 
 // POST /api/dashboard/tokens
-// Body: { label: string }
+// Body: { label: string, tier?: 'subscriber'|'pro'|'all_access' }
 router.post('/tokens', (req, res) => {
-  const { label } = req.body;
+  const { label, tier } = req.body;
   if (!label || typeof label !== 'string' || !label.trim()) {
     return res.status(400).json({ error: 'label is required' });
   }
-  const token = createToken(label.trim());
-  res.status(201).json({ token, label: label.trim() });
+  const token = createToken(label.trim(), tier);
+  res.status(201).json({ token, label: label.trim(), tier: tier || 'subscriber' });
+});
+
+// PATCH /api/dashboard/tokens/:id/tier
+// Body: { tier: 'subscriber'|'pro'|'all_access' }
+router.patch('/tokens/:id/tier', (req, res) => {
+  const { tier } = req.body;
+  try {
+    updateTokenTier(req.params.id, tier);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 // DELETE /api/dashboard/tokens/:id

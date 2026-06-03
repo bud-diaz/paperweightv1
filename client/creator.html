@@ -63,11 +63,11 @@
     }
 
     /* ── top bar ── */
-    #topbar { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 0; flex-shrink:0; }
-    #topbar > div:first-child { min-width:0; flex-shrink:1; }
+    #topbar { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:14px 16px 0; flex-shrink:0; }
+    #topbar > div:first-child { min-width:0; }
     .pw-wordmark { font-family:'DM Serif Display',serif; font-size:16px; color:#fff; letter-spacing:-.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px; cursor:default; user-select:none; -webkit-user-select:none; }
     .pw-sub      { font-size:9px; color:rgba(255,255,255,.25); letter-spacing:.08em; }
-    #topbar-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    #topbar-right { justify-self:end; display:flex; align-items:center; gap:8px; flex-shrink:0; }
     @media (max-width:380px) {
       .view-tab { padding:4px 7px; font-size:7px; letter-spacing:.05em; }
       .pw-wordmark { max-width:100px; }
@@ -630,12 +630,10 @@
 
     <!-- Top bar -->
     <div id="topbar">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span class="pw-wordmark" id="pw-wordmark-text"></span>
-        <div id="view-toggle">
-          <button class="view-tab active" data-view="player">PLAYER</button>
-          <button class="view-tab" data-view="dashboard">DASHBOARD</button>
-        </div>
+      <span class="pw-wordmark" id="pw-wordmark-text"></span>
+      <div id="view-toggle">
+        <button class="view-tab active" data-view="player">PLAYER</button>
+        <button class="view-tab" data-view="dashboard">DASHBOARD</button>
       </div>
       <div id="topbar-right">
         <button id="back-live-btn">↩ LIVE</button>
@@ -920,7 +918,12 @@
             <div class="dash-section-label">SUBSCRIBER TOKENS</div>
             <div id="dash-token-list"></div>
             <div class="dash-form-row" style="margin-top:10px;padding:0 14px;">
-              <input type="text" class="dash-input dash-input-sm" id="new-token-label" placeholder="Label (e.g. Maria)" style="flex:1;min-width:100px;"/>
+              <input type="text" class="dash-input dash-input-sm" id="new-token-label" placeholder="Label (e.g. Maria)" style="flex:1;min-width:80px;"/>
+              <select class="dash-select dash-input-sm" id="new-token-tier" style="width:auto;">
+                <option value="subscriber">Subscriber</option>
+                <option value="pro">Pro</option>
+                <option value="all_access">All-Access</option>
+              </select>
               <button class="mgmt-btn" id="btn-create-token">CREATE</button>
             </div>
             <div id="new-token-result" style="padding:0 14px;margin-top:6px;"></div>
@@ -2128,17 +2131,43 @@ async function loadDashTokens() {
   try {
     const tokens = await dashFetch('/api/dashboard/tokens').then(r => r.json());
     const list   = el('dash-token-list');
-    list.innerHTML = tokens.length
-      ? tokens.map(t => `<div class="mgmt-row">
-          <div class="mgmt-info">
-            <div class="mgmt-title">${esc(t.label || '—')}</div>
-            <div class="mgmt-meta">${t.tier} · ${t.last_used ? 'used ' + t.last_used.slice(0,10) : 'never used'}</div>
-          </div>
-          <button class="mgmt-btn${t.is_active ? ' danger' : ''}" data-revoke="${t.id}" ${!t.is_active ? 'disabled' : ''}>
-            ${t.is_active ? 'REVOKE' : 'REVOKED'}
-          </button>
-        </div>`).join('')
-      : '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No tokens yet.</div>';
+    if (!tokens.length) {
+      list.innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No tokens yet.</div>';
+      return;
+    }
+    list.innerHTML = tokens.map(t => `
+      <div class="mgmt-row" style="flex-wrap:wrap;gap:6px;">
+        <div class="mgmt-info" style="flex:1;min-width:120px;">
+          <div class="mgmt-title">${esc(t.label || '—')}</div>
+          <div class="mgmt-meta">${t.last_used ? 'used ' + t.last_used.slice(0,10) : 'never used'}</div>
+        </div>
+        ${t.is_active ? `
+          <select class="dash-select dash-input-sm" data-tier-select="${t.id}" style="width:auto;">
+            <option value="subscriber"${t.tier==='subscriber'?' selected':''}>Subscriber</option>
+            <option value="pro"${t.tier==='pro'?' selected':''}>Pro</option>
+            <option value="all_access"${t.tier==='all_access'?' selected':''}>All-Access</option>
+          </select>
+          <button class="mgmt-btn" data-update-tier="${t.id}">UPDATE</button>
+        ` : ''}
+        <button class="mgmt-btn${t.is_active ? ' danger' : ''}" data-revoke="${t.id}" ${!t.is_active ? 'disabled' : ''}>
+          ${t.is_active ? 'REVOKE' : 'REVOKED'}
+        </button>
+      </div>`).join('');
+
+    list.querySelectorAll('[data-update-tier]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id     = btn.dataset.updateTier;
+        const select = list.querySelector(`[data-tier-select="${id}"]`);
+        const tier   = select?.value;
+        if (!tier) return;
+        btn.textContent = '…';
+        await dashFetch(`/api/dashboard/tokens/${id}/tier`, {
+          method: 'PATCH', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ tier }),
+        });
+        loadDashTokens();
+      });
+    });
 
     list.querySelectorAll('[data-revoke]').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -2151,11 +2180,12 @@ async function loadDashTokens() {
 
 el('btn-create-token').addEventListener('click', async () => {
   const label = el('new-token-label').value.trim();
+  const tier  = el('new-token-tier').value;
   if (!label) return;
   try {
     const res  = await dashFetch('/api/dashboard/tokens', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ label }),
+      body: JSON.stringify({ label, tier }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
