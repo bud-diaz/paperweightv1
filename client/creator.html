@@ -1,526 +1,1821 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Paperweight Play</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css" />
-  <!--
-    hls.js — required for HLS playback in browsers that don't support it natively.
-    For offline / air-gapped use, download hls.min.js and replace this with:
-    <script src="/vendor/hls.min.js"></script>
-  -->
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Paperweight Player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { height: 100%; }
+    body {
+      width: 100%; height: 100%; min-height: 100dvh;
+      background: #080808;
+      display: flex; flex-direction: column;
+      align-items: stretch;
+      font-family: 'Space Mono', monospace;
+      overflow-x: hidden;
+    }
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+
+    @keyframes pulse-ring {
+      0%   { transform: translate(-50%,-50%) scale(1);    opacity: .55; }
+      100% { transform: translate(-50%,-50%) scale(1.45); opacity: 0;   }
+    }
+    @keyframes live-dot  { 0%,100%{opacity:1} 50%{opacity:.3} }
+    @keyframes tipPulse  {
+      0%,100%{ transform:translate(-50%,-50%) scale(1);    }
+      50%    { transform:translate(-50%,-50%) scale(1.18); }
+    }
+
+    /* ── layout shell ── */
+    #layout {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 16px 16px 0;
+      min-height: 0;
+    }
+
+    /* ── card ── */
+    #player-wrap {
+      width: 100%; max-width: 560px;
+      display: flex; flex-direction: column;
+      flex: 1; min-height: 0;
+    }
+    #player-card {
+      background: linear-gradient(160deg,#141414 0%,#0d0d0d 100%);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px; overflow: hidden;
+      box-shadow: 0 32px 80px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.04), inset 0 1px 0 rgba(255,255,255,.07);
+      display: flex; flex-direction: column;
+      flex: 1; min-height: 0;
+    }
+
+    /* ── top bar ── */
+    #topbar { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 0; flex-shrink:0; }
+    .pw-wordmark { font-family:'DM Serif Display',serif; font-size:16px; color:#fff; letter-spacing:-.02em; }
+    .pw-sub      { font-size:9px; color:rgba(255,255,255,.25); letter-spacing:.08em; }
+    #topbar-right { display:flex; align-items:center; gap:8px; }
+    #back-live-btn {
+      display:none; background:none; border:1px solid rgba(255,255,255,.12); border-radius:5px; cursor:pointer;
+      color:rgba(255,255,255,.4); font-family:'Space Mono',monospace; font-size:8px; letter-spacing:.1em; padding:3px 8px;
+    }
+    #back-live-btn:hover { color:#fff; }
+    .type-badge {
+      font-size:9px; font-family:'Space Mono',monospace; letter-spacing:.12em;
+      color:#000; border-radius:3px; padding:2px 6px; font-weight:700;
+      display:flex; align-items:center; gap:4px;
+    }
+    .live-dot-badge {
+      width:5px; height:5px; border-radius:50%; background:#000; display:inline-block;
+    }
+
+    /* ── art zone ── */
+    #art-wrap { padding: 16px 16px 0; flex-shrink: 0; }
+    #art-box {
+      width:100%; aspect-ratio:16/7; border-radius:12px; overflow:hidden;
+      position:relative; display:flex; align-items:center; justify-content:center;
+    }
+    @media (max-height: 600px) {
+      #art-box { aspect-ratio: 16/5; }
+    }
+    #art-svg  { position:absolute; inset:0; width:100%; height:100%; }
+    #video-el {
+      position:absolute; inset:0; width:100%; height:100%;
+      object-fit:cover; z-index:2; border-radius:12px;
+    }
+    .pulse-ring {
+      position:absolute; top:50%; left:50%;
+      width:64px; height:64px; border-radius:50%;
+      border:2px solid var(--color);
+      animation: pulse-ring 1.4s ease-out infinite;
+      display:none; z-index:3;
+    }
+    #pr2 { animation-delay:.5s; }
+    #on-air-badge {
+      position:absolute; top:10px; right:12px;
+      display:flex; align-items:center; gap:5px;
+      background:rgba(0,0,0,.55); border-radius:5px; padding:3px 8px;
+      z-index:4;
+    }
+    #on-air-dot { width:6px; height:6px; border-radius:50%; animation:live-dot 1.2s ease-in-out infinite; }
+    #on-air-text { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.1em; }
+    #art-meta {
+      position:absolute; bottom:0; left:0; right:0;
+      padding:24px 16px 14px;
+      background:linear-gradient(to top,rgba(0,0,0,.72) 0%,transparent 100%);
+      z-index:4;
+    }
+    #track-title   { font-family:'DM Serif Display',serif; font-size:22px; color:#fff; line-height:1.1; letter-spacing:-.02em; }
+    #track-creator { font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,.45); margin-top:3px; letter-spacing:.06em; }
+
+    /* ── waveform ── */
+    #waveform-section { padding: 12px 16px 0; flex-shrink: 0; }
+    #waveform {
+      display:flex; align-items:center; gap:1.5px; height:44px;
+      cursor:pointer; padding:0 2px; transition:opacity .3s;
+    }
+    #waveform.disabled { opacity:.35; cursor:default; }
+    .wbar { flex:0 0 auto; width:3px; border-radius:2px; transition:background .08s; }
+    #time-row { display:flex; justify-content:space-between; margin-top:4px; font-size:10px; color:rgba(255,255,255,.3); }
+
+    /* ── controls ── */
+    #controls { display:flex; align-items:center; justify-content:space-between; padding:12px 16px 14px; flex-shrink:0; }
+    .drawer-btn {
+      background:none; border:1px solid transparent; border-radius:6px; cursor:pointer;
+      color:rgba(255,255,255,.35); font-size:13px; padding:5px 8px; line-height:1;
+      transition:all .15s;
+    }
+    #controls-center { display:flex; align-items:center; gap:14px; }
+    .skip-btn {
+      background:none; border:none; cursor:pointer; color:rgba(255,255,255,.5);
+      font-size:18px; line-height:1; transition:color .12s;
+    }
+    .skip-btn:hover { color:#fff; }
+    .skip-btn.hidden { display:none; }
+    #play-btn {
+      width:56px; height:56px; border-radius:50%; border:none; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+      transition:transform .12s;
+    }
+    #play-btn:hover { transform:scale(1.08); }
+
+    /* ── drawers ── */
+    .drawer { max-height:0; overflow:hidden; transition:max-height .32s cubic-bezier(.4,0,.2,1); flex-shrink:0; }
+    .drawer-inner { border-top:1px solid rgba(255,255,255,.06); padding:8px 6px 10px; }
+    .drawer-label {
+      font-size:9px; letter-spacing:.14em; color:rgba(255,255,255,.25);
+      padding:4px 14px 6px; font-family:'Space Mono',monospace;
+    }
+    .drawer-scroll { overflow-y:auto; max-height:160px; }
+    .lib-row {
+      display:flex; align-items:center; gap:10px;
+      padding:9px 14px; border-radius:8px; cursor:pointer;
+      background:transparent; border-left:2px solid transparent;
+      transition:background .13s;
+    }
+    .lib-row:hover { background:rgba(255,255,255,.04); }
+    .lib-row.active { background:rgba(255,255,255,.07); }
+    .lib-thumb {
+      width:30px; height:30px; border-radius:6px; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center; font-size:12px;
+    }
+    .lib-info { flex:1; min-width:0; }
+    .lib-title { font-family:'DM Serif Display',serif; font-size:13px; color:rgba(255,255,255,.7); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .lib-title.active { color:#fff; }
+    .lib-meta  { font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,.3); margin-top:1px; }
+
+    /* queue */
+    #queue-header { display:flex; align-items:center; justify-content:space-between; padding:4px 14px 6px; }
+    .lock-badge {
+      font-size:9px; letter-spacing:.1em; color:rgba(255,255,255,.18);
+      font-family:'Space Mono',monospace; border:1px solid rgba(255,255,255,.1); border-radius:3px; padding:1px 5px;
+    }
+    .q-row { display:flex; align-items:center; justify-content:space-between; padding:8px 14px; opacity:.45; }
+    .q-title { font-family:'DM Serif Display',serif; font-size:13px; color:rgba(255,255,255,.6); }
+    .q-time  { font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,.3); }
+
+    /* share */
+    #share-drawer .drawer-inner { padding:14px 20px 16px; }
+    #share-options { display:flex; gap:8px; margin-top:10px; }
+    .share-opt {
+      flex:1; padding:9px 4px; background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08); border-radius:9px; cursor:pointer;
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+      transition:border-color .15s, background .15s;
+    }
+    .share-opt-icon { font-size:13px; color:rgba(255,255,255,.6); line-height:1; transition:color .2s; }
+    .share-opt-icon.embed { font-size:9px; font-family:'Space Mono',monospace; letter-spacing:-.03em; }
+    .share-opt-label { font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.3); letter-spacing:.06em; transition:color .2s; }
+    .share-opt.copied .share-opt-icon, .share-opt.copied .share-opt-label { color:#39ff14; }
+
+    /* ── spacer ── */
+    #card-spacer { flex: 1; min-height: 0; }
+
+    /* share tab strip */
+    #share-tab {
+      display:flex; align-items:center; justify-content:center; gap:6px;
+      padding:9px 20px; border-top:1px solid rgba(255,255,255,.05);
+      cursor:pointer; transition:background .15s; user-select:none;
+      flex-shrink: 0;
+    }
+    #share-tab:hover { background:rgba(255,255,255,.03); }
+    #share-tab.locked { cursor:default; opacity:.3; pointer-events:none; }
+    #share-tab-label { font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.25); letter-spacing:.12em; transition:color .15s; }
+    #share-chevron { transition:transform .25s; }
+
+    /* bottom accent */
+    #bottom-accent { height:2px; opacity:.55; transition:background .5s; flex-shrink:0; }
+
+    /* ── view toggle in topbar ── */
+    #view-toggle {
+      display:flex; align-items:center;
+      background:rgba(255,255,255,.06); border-radius:6px;
+      border:1px solid rgba(255,255,255,.08); overflow:hidden;
+    }
+    .view-tab {
+      background:none; border:none; cursor:pointer;
+      font-family:'Space Mono',monospace; font-size:8px;
+      letter-spacing:.1em; padding:4px 10px;
+      color:rgba(255,255,255,.3); transition:all .15s;
+    }
+    .view-tab.active { background:rgba(255,255,255,.1); color:#fff; }
+
+    /* ── slide panels ── */
+    #card-panels {
+      flex:1; min-height:0;
+      position:relative; overflow:hidden;
+    }
+    #panel-player, #panel-dashboard {
+      position:absolute; inset:0;
+      display:flex; flex-direction:column;
+      transition:transform .35s cubic-bezier(.4,0,.2,1);
+    }
+    #panel-player    { transform:translateX(0); }
+    #panel-dashboard { transform:translateX(100%); overflow-y:auto; }
+    #player-card.dash-active #panel-player    { transform:translateX(-100%); }
+    #player-card.dash-active #panel-dashboard { transform:translateX(0); }
+
+    /* ── dashboard internals ── */
+    .dash-section { padding:16px 16px 0; }
+    .dash-section-label {
+      font-size:9px; letter-spacing:.14em; color:rgba(255,255,255,.25);
+      font-family:'Space Mono',monospace; margin-bottom:10px;
+    }
+    .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .stat-card {
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
+      border-radius:10px; padding:12px 10px; text-align:center;
+    }
+    .stat-val { font-family:'DM Serif Display',serif; font-size:22px; color:#fff; line-height:1; }
+    .stat-key { font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.3); letter-spacing:.08em; margin-top:4px; }
+    .dash-divider { height:1px; background:rgba(255,255,255,.05); margin:14px 16px 0; }
+    .sched-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:9px 14px; border-radius:8px; border-left:2px solid transparent;
+      transition:background .13s;
+    }
+    .sched-row:hover { background:rgba(255,255,255,.04); }
+    .sched-row.live-now { border-left-color:var(--color); background:rgba(255,255,255,.03); }
+    .sched-info { display:flex; flex-direction:column; gap:2px; }
+    .sched-title { font-family:'DM Serif Display',serif; font-size:13px; color:rgba(255,255,255,.8); }
+    .sched-meta  { font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,.3); }
+    .sched-badge {
+      font-size:8px; font-family:'Space Mono',monospace; letter-spacing:.1em;
+      padding:2px 7px; border-radius:3px; font-weight:700;
+    }
+    .sched-badge.on { background:var(--color); color:#000; }
+    .sched-badge.up { background:rgba(255,255,255,.08); color:rgba(255,255,255,.4); }
+    .mgmt-row {
+      display:flex; align-items:center; gap:10px;
+      padding:9px 14px; border-radius:8px; transition:background .13s;
+    }
+    .mgmt-row:hover { background:rgba(255,255,255,.04); }
+    .mgmt-thumb {
+      width:28px; height:28px; border-radius:5px; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center; font-size:11px;
+    }
+    .mgmt-info { flex:1; min-width:0; }
+    .mgmt-title { font-family:'DM Serif Display',serif; font-size:12px; color:rgba(255,255,255,.7); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .mgmt-meta  { font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.3); margin-top:1px; }
+    .mgmt-actions { display:flex; gap:6px; flex-shrink:0; align-items:center; }
+    .mgmt-btn {
+      background:none; border:1px solid rgba(255,255,255,.1); border-radius:5px;
+      color:rgba(255,255,255,.35); cursor:pointer;
+      font-family:'Space Mono',monospace; font-size:8px; letter-spacing:.05em;
+      padding:3px 7px; transition:all .13s;
+    }
+    .mgmt-btn:hover { border-color:rgba(255,255,255,.3); color:#fff; }
+    .mgmt-btn.danger:hover { border-color:#ff4466; color:#ff4466; }
+
+    /* ── dashboard auth gate ── */
+    #dash-auth-gate {
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding:32px 24px; gap:10px; text-align:center; flex:1;
+    }
+    .dash-gate-title {
+      font-family:'DM Serif Display',serif; font-size:16px; color:rgba(255,255,255,.6); margin-bottom:4px;
+    }
+    .dash-gate-hint {
+      font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,.25);
+      letter-spacing:.08em; margin-bottom:6px;
+    }
+    .dash-unlock-btn {
+      background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15);
+      border-radius:8px; color:#fff; cursor:pointer;
+      font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.1em;
+      padding:8px 20px; transition:all .15s;
+    }
+    .dash-unlock-btn:hover { background:rgba(255,255,255,.12); }
+    .dash-error-msg   { font-family:'Space Mono',monospace; font-size:9px; color:#ff4466; letter-spacing:.04em; }
+    .dash-success-msg { font-family:'Space Mono',monospace; font-size:9px; color:#39ff14; letter-spacing:.04em; }
+
+    /* ── dashboard inputs ── */
+    .dash-input {
+      background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+      border-radius:7px; color:#fff; font-family:'Space Mono',monospace; font-size:10px;
+      outline:none; padding:7px 10px; transition:border-color .15s;
+    }
+    .dash-input:focus { border-color:rgba(255,255,255,.28); }
+    .dash-input-sm { font-size:9px; padding:5px 8px; }
+    .dash-select {
+      background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+      border-radius:6px; color:rgba(255,255,255,.6); font-family:'Space Mono',monospace;
+      font-size:8px; letter-spacing:.04em; padding:4px 7px; outline:none; cursor:pointer;
+    }
+    .dash-summary {
+      cursor:pointer; font-family:'Space Mono',monospace; font-size:9px;
+      letter-spacing:.1em; color:rgba(255,255,255,.3); padding:6px 0; list-style:none;
+      transition:color .13s;
+    }
+    .dash-summary:hover { color:rgba(255,255,255,.6); }
+
+    /* ── broadcast row ── */
+    .broadcast-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 14px; background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.06); border-radius:8px; margin:0 16px;
+    }
+    .broadcast-info { display:flex; flex-direction:column; gap:4px; min-width:0; flex:1; margin-right:10px; }
+    .broadcast-np {
+      font-family:'DM Serif Display',serif; font-size:13px; color:rgba(255,255,255,.75);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .broadcast-mode-badge {
+      font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.3); letter-spacing:.1em;
+    }
+    .broadcast-actions { display:flex; flex-direction:column; gap:5px; align-items:flex-end; flex-shrink:0; }
+
+    /* ── upload zone ── */
+    .dash-upload-zone {
+      border:1px dashed rgba(255,255,255,.14); border-radius:10px; padding:16px;
+      text-align:center; cursor:pointer; margin:0 16px;
+      transition:border-color .15s, background .15s;
+    }
+    .dash-upload-zone:hover, .dash-upload-zone.drag-over {
+      border-color:rgba(255,255,255,.3); background:rgba(255,255,255,.03);
+    }
+    .dash-upload-label {
+      font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,.3); letter-spacing:.08em;
+    }
+    .dash-upload-form { padding:10px 16px 0; }
+    .dash-file-item {
+      font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,.35); margin-top:4px;
+    }
+    .dash-form-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+    /* ── tip config ── */
+    .tip-cfg-row { display:flex; gap:10px; align-items:flex-end; padding:0 16px; flex-wrap:wrap; }
+    .tip-cfg-field { display:flex; flex-direction:column; gap:4px; }
+    .tip-cfg-label {
+      font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.3); letter-spacing:.06em;
+    }
+
+    /* credit footer */
+    #credit {
+      text-align:center; padding: 10px 0 12px;
+      font-size:9px; color:rgba(255,255,255,.18); letter-spacing:.1em;
+      flex-shrink: 0;
+    }
+
+    /* ambient */
+    #ambient {
+      position:fixed; top:40%; left:50%; transform:translate(-50%,-50%);
+      width:400px; height:400px; border-radius:50%;
+      pointer-events:none; filter:blur(60px); transition:background .6s; z-index:0;
+    }
+
+    /* floating tip */
+    #floating-tip {
+      position:fixed; z-index:50; cursor:pointer; user-select:none; -webkit-user-select:none;
+      font-family:'DM Serif Display',serif; font-size:26px; line-height:1; color:#39ff14;
+      filter:drop-shadow(0 0 6px #39ff14bb); transition:filter .3s;
+      transform:translate(-50%,-50%);
+    }
+    #floating-tip.paused {
+      filter:drop-shadow(0 0 14px #39ff14) drop-shadow(0 0 28px #39ff1466);
+      animation:tipPulse 1s ease-in-out infinite;
+    }
+
+    /* modal backdrop */
+    #modal-backdrop {
+      display:none; position:fixed; inset:0; z-index:100;
+      align-items:center; justify-content:center;
+      background:rgba(0,0,0,.75); backdrop-filter:blur(6px);
+    }
+    #modal-backdrop.open { display:flex; }
+    #modal {
+      width: min(340px, calc(100vw - 32px));
+      max-height: calc(100dvh - 48px);
+      overflow-y: auto;
+      border-radius:18px;
+      background:linear-gradient(160deg,#161616,#0e0e0e);
+      border:1px solid rgba(255,255,255,.1);
+      box-shadow:0 0 60px rgba(57,255,20,.08),0 32px 64px rgba(0,0,0,.8);
+    }
+    #modal-header { padding:20px 20px 0; display:flex; align-items:center; justify-content:space-between; }
+    #modal-creator-name { font-family:'DM Serif Display',serif; font-size:18px; color:#fff; }
+    #modal-creator-show { font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,.3); margin-top:2px; letter-spacing:.06em; }
+    #modal-close { background:none; border:none; cursor:pointer; color:rgba(255,255,255,.3); font-size:18px; line-height:1; }
+    #modal-tabs { display:flex; gap:6px; padding:16px 20px 0; }
+    .modal-tab {
+      flex:1; padding:7px 4px; background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08); border-radius:8px; cursor:pointer;
+      color:rgba(255,255,255,.4); font-family:'Space Mono',monospace; font-size:9px;
+      letter-spacing:.08em; transition:all .15s;
+      display:flex; flex-direction:column; align-items:center; gap:3px;
+    }
+    .modal-tab .tab-icon { font-size:14px; }
+    .modal-tab.active { background:rgba(57,255,20,.12); border-color:rgba(57,255,20,.4); color:#39ff14; }
+    #modal-body { padding:20px 20px 24px; }
+    .tab-pane { display:none; }
+    .tab-pane.active { display:block; }
+    #tip-label { font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,.4); margin-bottom:10px; }
+    #tip-input-wrap {
+      display:flex; align-items:center; gap:8px;
+      background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+      border-radius:10px; padding:10px 14px;
+    }
+    #tip-dollar { font-family:'DM Serif Display',serif; font-size:22px; color:#39ff14; filter:drop-shadow(0 0 6px #39ff14); }
+    #tip-amount { background:none; border:none; outline:none; font-family:'DM Serif Display',serif; font-size:22px; color:#fff; width:100%; }
+    #tip-presets { display:flex; gap:6px; margin-top:10px; }
+    .tip-preset {
+      flex:1; padding:6px; background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08); border-radius:7px; cursor:pointer;
+      color:rgba(255,255,255,.45); font-family:'Space Mono',monospace; font-size:10px; transition:all .12s;
+    }
+    .tip-preset.active { border-color:rgba(57,255,20,.4); color:#39ff14; }
+    .fixed-pane { text-align:center; padding:8px 0; }
+    .fixed-price { font-family:'DM Serif Display',serif; font-size:36px; color:#fff; }
+    .fixed-price-dollar { color:#39ff14; filter:drop-shadow(0 0 8px #39ff14); }
+    .fixed-period { font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,.3); letter-spacing:.1em; margin-top:4px; }
+    .fixed-perks { margin-top:14px; font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,.4); line-height:1.7; }
+    #modal-cta {
+      margin-top:18px; width:100%; padding:13px;
+      background:linear-gradient(135deg,#39ff14,#20c010);
+      border:none; border-radius:10px; cursor:pointer;
+      color:#000; font-family:'Space Mono',monospace; font-weight:700; font-size:11px; letter-spacing:.1em;
+      box-shadow:0 0 20px rgba(57,255,20,.3); transition:all .2s;
+    }
+    #modal-cta:disabled { opacity:.4; cursor:not-allowed; box-shadow:none; }
+    #modal-cta.processing { background:rgba(57,255,20,.15); border:1px solid #39ff1455; color:#39ff14; box-shadow:none; }
+    #modal-stripe-note { margin-top:10px; text-align:center; font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.2); letter-spacing:.08em; }
+    #modal-done { display:none; padding:48px 32px; text-align:center; }
+    #modal-done-icon { font-size:40px; margin-bottom:12px; filter:drop-shadow(0 0 12px #39ff14); }
+    #modal-done-title { font-family:'DM Serif Display',serif; font-size:22px; color:#fff; margin-bottom:8px; }
+    #modal-done-msg   { font-family:'Space Mono',monospace; font-size:11px; color:rgba(255,255,255,.4); line-height:1.6; }
+    #modal-done-close {
+      margin-top:24px; background:none; border:1px solid rgba(255,255,255,.15);
+      border-radius:8px; color:rgba(255,255,255,.5); font-family:'Space Mono',monospace;
+      font-size:10px; letter-spacing:.1em; padding:8px 20px; cursor:pointer;
+    }
+  </style>
 </head>
 <body>
-<div id="app">
 
-  <!-- ── Nav / Topbar ── -->
-  <nav>
-    <a href="/" class="nav-brand">
-      <svg class="nav-brand-mark" width="22" height="22" viewBox="0 0 52 52" fill="none">
-        <circle cx="26" cy="26" r="23" stroke="#F8F8F7" stroke-width="1.5" fill="none"/>
-        <circle cx="26" cy="26" r="16" fill="#F8F8F7"/>
-        <text x="26" y="27" text-anchor="middle" dominant-baseline="middle"
-          font-family="'JetBrains Mono','Courier New',monospace" font-weight="700" font-size="11"
-          fill="#0B0B0C">&lt;P/&gt;</text>
-      </svg>
-      Paperweight Play
-    </a>
-    <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
-    <div class="nav-links" id="nav-links">
-      <a href="#player"    class="nav-link" data-page="player">Station</a>
-      <a href="#library"   class="nav-link" data-page="library">Library</a>
-      <a href="#dashboard" class="nav-link" data-page="dashboard" id="nav-dashboard-link" style="display:none">Dashboard</a>
+<!-- Ambient glow -->
+<div id="ambient"></div>
+
+<!-- Floating tip $ -->
+<div id="floating-tip">$</div>
+
+<!-- Support modal -->
+<div id="modal-backdrop">
+  <div id="modal">
+    <div id="modal-done">
+      <div id="modal-done-icon">✦</div>
+      <div id="modal-done-title">Thank you.</div>
+      <div id="modal-done-msg"></div>
+      <button id="modal-done-close">CLOSE</button>
     </div>
-    <a href="#dashboard" class="nav-support">Dashboard</a>
-  </nav>
-
-  <!-- ════════════════════════════════════════════
-       PLAYER PAGE
-  ════════════════════════════════════════════ -->
-  <div id="page-player" class="page" hidden>
-    <section class="hero">
-
-      <!-- Left: Broadcast panel -->
-      <div class="broadcast-panel">
-
-        <!-- Video player — shown only when broadcast contains video -->
-        <video id="video-el" hidden playsinline controls
-          style="width:100%;border-radius:8px;margin-bottom:16px;background:#000;aspect-ratio:16/9"></video>
-
-        <div class="station-header">
-          <div class="live-indicator">
-            <div class="live-dot" id="live-dot"></div>
-            <span class="live-label">Live</span>
+    <div id="modal-main">
+      <div id="modal-header">
+        <div>
+          <div id="modal-creator-name"></div>
+          <div id="modal-creator-show"></div>
+        </div>
+        <button id="modal-close">×</button>
+      </div>
+      <div id="modal-tabs">
+        <button class="modal-tab active" data-tab="tip">
+          <span class="tab-icon">✦</span>TIP
+        </button>
+        <button class="modal-tab" data-tab="subscribe">
+          <span class="tab-icon">◎</span>SUBSCRIBE
+        </button>
+        <button class="modal-tab" data-tab="all-access">
+          <span class="tab-icon">⬡</span>ALL-ACCESS
+        </button>
+      </div>
+      <div id="modal-body">
+        <!-- tip pane -->
+        <div class="tab-pane active" data-pane="tip">
+          <div id="tip-label">Enter any amount</div>
+          <div id="tip-input-wrap">
+            <span id="tip-dollar">$</span>
+            <input id="tip-amount" type="number" min="1" placeholder="5.00"/>
           </div>
-          <h1 class="station-name" id="station-name">Paperweight</h1>
-          <p class="station-tagline">Self-hosted radio. Your vault, your signal.</p>
+          <div id="tip-presets"></div>
+        </div>
+        <!-- subscribe pane -->
+        <div class="tab-pane" data-pane="subscribe">
+          <div class="fixed-pane">
+            <div class="fixed-perks" style="margin-top:0;font-size:11px;color:rgba(255,255,255,.5)">Early access to episodes<br>Ad-free listening<br>Member-only feed</div>
+          </div>
+        </div>
+        <!-- all-access pane -->
+        <div class="tab-pane" data-pane="all-access">
+          <div class="fixed-pane">
+            <div class="fixed-perks" style="margin-top:0;font-size:11px;color:rgba(255,255,255,.5)">Everything in Subscribe<br>Full archive access<br>Private Discord + live chat<br>Exclusive video content</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:0 20px 24px;">
+        <button id="modal-cta">SEND TIP</button>
+        <div id="modal-stripe-note">POWERED BY STRIPE · CANCEL ANYTIME</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Player -->
+<div id="layout">
+<div id="player-wrap">
+  <div id="player-card">
+
+    <!-- Top bar -->
+    <div id="topbar">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="pw-wordmark" id="pw-wordmark-text">Paperweight</span>
+        <div id="view-toggle">
+          <button class="view-tab active" data-view="player">PLAYER</button>
+          <button class="view-tab" data-view="dashboard">DASHBOARD</button>
+        </div>
+      </div>
+      <div id="topbar-right">
+        <button id="back-live-btn">↩ LIVE</button>
+        <span id="type-badge" class="type-badge"></span>
+      </div>
+    </div>
+
+    <!-- Sliding panels wrapper -->
+    <div id="card-panels">
+
+      <!-- PANEL: Player -->
+      <div id="panel-player">
+
+        <!-- Art zone -->
+        <div id="art-wrap">
+          <div id="art-box">
+            <svg id="art-svg" viewBox="0 0 480 210" preserveAspectRatio="xMidYMid slice">
+              <defs>
+                <radialGradient id="rg1" cx="30%" cy="40%">
+                  <stop offset="0%" stop-color="var(--color)" stop-opacity=".28"/>
+                  <stop offset="100%" stop-color="var(--color)" stop-opacity="0"/>
+                </radialGradient>
+                <radialGradient id="rg2" cx="75%" cy="65%">
+                  <stop offset="0%" stop-color="var(--color)" stop-opacity=".13"/>
+                  <stop offset="100%" stop-color="var(--color)" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <rect width="480" height="210" fill="url(#rg1)"/>
+              <rect width="480" height="210" fill="url(#rg2)"/>
+              <ellipse cx="60"  cy="90"  rx="20" ry="60"  fill="none" stroke="var(--color)" stroke-opacity=".05"  stroke-width="1" transform="rotate(5 60 105)"/>
+              <ellipse cx="150" cy="118" rx="28" ry="72"  fill="none" stroke="var(--color)" stroke-opacity=".075" stroke-width="1" transform="rotate(23 150 105)"/>
+              <ellipse cx="240" cy="82"  rx="36" ry="80"  fill="none" stroke="var(--color)" stroke-opacity=".1"   stroke-width="1" transform="rotate(41 240 105)"/>
+              <ellipse cx="330" cy="125" rx="44" ry="64"  fill="none" stroke="var(--color)" stroke-opacity=".125" stroke-width="1" transform="rotate(59 330 105)"/>
+              <ellipse cx="420" cy="95"  rx="52" ry="72"  fill="none" stroke="var(--color)" stroke-opacity=".15"  stroke-width="1" transform="rotate(77 420 105)"/>
+            </svg>
+            <video id="video-el" hidden playsinline></video>
+            <div class="pulse-ring" id="pr1"></div>
+            <div class="pulse-ring" id="pr2"></div>
+            <div id="on-air-badge">
+              <div id="on-air-dot"></div>
+              <span id="on-air-text">ON AIR</span>
+            </div>
+            <div id="art-meta">
+              <div id="track-title"></div>
+              <div id="track-creator"></div>
+            </div>
+          </div>
         </div>
 
-        <div class="broadcast-bottom">
-        <div class="now-playing-block">
-          <p class="np-eyebrow">Now Playing</p>
-          <p class="np-title" id="now-playing-title">Loading…</p>
-          <p class="np-meta"  id="now-playing-artist"></p>
-
-          <div class="waveform" id="waveform">
-            <div class="wave-bar"></div><div class="wave-bar"></div>
-            <div class="wave-bar"></div><div class="wave-bar"></div>
-            <div class="wave-bar"></div><div class="wave-bar"></div>
-            <div class="wave-bar"></div><div class="wave-bar"></div>
-            <div class="wave-bar"></div><div class="wave-bar"></div>
-            <div class="wave-bar"></div><div class="wave-bar"></div>
-            <div class="wave-bar"></div><div class="wave-bar"></div>
-            <div class="wave-bar"></div><div class="wave-bar"></div>
+        <!-- Waveform -->
+        <div id="waveform-section">
+          <div id="waveform"></div>
+          <div id="time-row">
+            <span id="time-elapsed">0:00</span>
+            <span id="time-remain">∞</span>
           </div>
+        </div>
 
-          <div class="player-controls">
-            <button class="play-btn" id="play-btn" title="Play / Pause">
-              <svg id="icon-play"  viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M8 5v14l11-7z"/></svg>
-              <svg id="icon-pause" viewBox="0 0 24 24" fill="currentColor" width="20" height="20" hidden><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        <!-- Controls -->
+        <div id="controls">
+          <button class="drawer-btn" id="lib-btn" title="Library">≡</button>
+          <div id="controls-center">
+            <button class="skip-btn hidden" id="skip-prev" title="Previous">⏮</button>
+            <button id="play-btn" title="Play/Pause">
+              <svg id="play-icon" width="18" height="18" viewBox="0 0 18 18" fill="#000"><path d="M5 2.5l11 6.5-11 6.5V2.5z"/></svg>
+              <svg id="pause-icon" width="18" height="18" viewBox="0 0 18 18" fill="#000" style="display:none"><rect x="3" y="2" width="4" height="14" rx="1.5"/><rect x="11" y="2" width="4" height="14" rx="1.5"/></svg>
             </button>
-            <div class="player-meta">
-              <span class="player-hint" id="player-hint">Click to start stream</span>
+            <button class="skip-btn hidden" id="skip-next" title="Next">⏭</button>
+          </div>
+          <button class="drawer-btn" id="queue-btn" title="Schedule">≡</button>
+        </div>
+
+        <!-- Library drawer -->
+        <div class="drawer" id="lib-drawer">
+          <div class="drawer-inner">
+            <div class="drawer-label">UPLOADED CONTENT</div>
+            <div class="drawer-scroll" id="lib-list"></div>
+          </div>
+        </div>
+
+        <!-- Queue drawer -->
+        <div class="drawer" id="queue-drawer">
+          <div class="drawer-inner">
+            <div id="queue-header">
+              <span class="drawer-label" style="padding:0">SCHEDULED NEXT</span>
             </div>
-            <div class="volume-row">
-              <svg class="volume-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
-              </svg>
-              <input class="volume-slider" id="volume-slider" type="range" min="0" max="100" value="80">
+            <div id="queue-list"></div>
+          </div>
+        </div>
+
+        <!-- Share drawer -->
+        <div class="drawer" id="share-drawer">
+          <div class="drawer-inner">
+            <div class="drawer-label">SHARE</div>
+            <div id="share-options">
+              <button class="share-opt" data-share="link">
+                <span class="share-opt-icon">⌗</span>
+                <span class="share-opt-label">COPY LINK</span>
+              </button>
+              <button class="share-opt" data-share="twitter">
+                <span class="share-opt-icon">𝕏</span>
+                <span class="share-opt-label">X / TWITTER</span>
+              </button>
+              <button class="share-opt" data-share="embed">
+                <span class="share-opt-icon embed">&lt;/&gt;</span>
+                <span class="share-opt-label">EMBED</span>
+              </button>
+              <button class="share-opt" data-share="rss">
+                <span class="share-opt-icon">◉</span>
+                <span class="share-opt-label">RSS FEED</span>
+              </button>
             </div>
           </div>
         </div>
 
-        <!-- Tip panel — rendered by player.js after fetching tip-config -->
-        <div class="tip-panel" id="tip-panel" hidden>
-          <p class="tip-eyebrow">Support the station</p>
-          <div class="tip-presets" id="tip-presets"></div>
-          <div class="tip-custom-row" id="tip-custom-row" hidden>
-            <input type="number" id="tip-custom-input" min="1" step="1" placeholder="Custom ($)" class="tip-custom-input" />
+        <!-- Spacer pushes share tab to card bottom -->
+        <div id="card-spacer"></div>
+
+        <!-- Bottom accent -->
+        <div id="bottom-accent"></div>
+
+        <!-- Share tab strip -->
+        <div id="share-tab">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <circle cx="10" cy="2"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+            <circle cx="2"  cy="6"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+            <circle cx="10" cy="10" r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+            <line x1="3.3" y1="5.2" x2="8.7" y2="2.8"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
+            <line x1="3.3" y1="6.8" x2="8.7" y2="9.2"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
+          </svg>
+          <span id="share-tab-label">SHARE</span>
+          <svg id="share-chevron" width="8" height="8" viewBox="0 0 8 8">
+            <path d="M1 3l3 3 3-3" stroke="rgba(255,255,255,.25)" stroke-width="1.2" fill="none"/>
+          </svg>
+        </div>
+
+      </div><!-- /panel-player -->
+
+      <!-- PANEL: Dashboard (token gated) -->
+      <div id="panel-dashboard">
+
+        <!-- Auth gate -->
+        <div id="dash-auth-gate">
+          <div class="dash-gate-title">Dashboard</div>
+          <div class="dash-gate-hint">ENTER TOKEN TO CONTINUE</div>
+          <input type="password" class="dash-input" id="dash-token-input" placeholder="Dashboard token…" style="max-width:220px;text-align:center;"/>
+          <button class="dash-unlock-btn" id="dash-token-btn">UNLOCK</button>
+          <div id="dash-auth-msg"></div>
+        </div>
+
+        <!-- Dashboard content (shown after auth) -->
+        <div id="dash-content" hidden>
+
+          <!-- Vault Stats -->
+          <div class="dash-section">
+            <div class="dash-section-label">VAULT</div>
+            <div class="stat-grid" id="dash-vault-stats"></div>
           </div>
-          <button class="btn btn-primary tip-submit-btn" id="tip-submit">Send tip</button>
-          <div class="tip-msg" id="tip-msg"></div>
-        </div>
-        <div class="tip-thankyou" id="tip-thankyou" hidden>
-          <p>Thank you for supporting the station.</p>
-        </div>
-        </div><!-- /broadcast-bottom -->
 
-      </div>
+          <div class="dash-divider"></div>
 
-      <!-- Right: Schedule panel -->
-      <div class="schedule-panel">
-        <div class="schedule-header">
-          <span class="schedule-title">Today's Program</span>
-          <span class="schedule-day" id="schedule-day"></span>
-        </div>
-        <div class="schedule-items" id="station-schedule-list">
-          <div class="empty">Loading schedule…</div>
-        </div>
-        <div class="listener-strip">
-          <div class="listener-count">
-            <div class="listener-dot" id="listener-dot"></div>
-            <span id="listener-text">— listeners</span>
-          </div>
-          <a class="explore-link" href="#library">Explore the archive →</a>
-        </div>
-      </div>
-
-    </section>
-    <audio id="audio-el" hidden></audio>
-  </div>
-
-  <!-- ════════════════════════════════════════════
-       LIBRARY PAGE
-  ════════════════════════════════════════════ -->
-  <div id="page-library" class="page" hidden>
-
-    <div class="library-header">
-      <div>
-        <p class="library-eyebrow">Archive</p>
-        <h1>Public Library</h1>
-      </div>
-      <div class="library-header-right">
-        <input type="search" class="search-input" id="lib-search" placeholder="Search…" />
-      </div>
-    </div>
-
-    <div class="category-pills" id="category-pills"></div>
-    <div class="media-grid"     id="media-grid"></div>
-    <div class="pagination"     id="pagination" hidden></div>
-
-    <div class="subscriber-gate" id="subscriber-gate" hidden>
-      <div>
-        <h3>Unlock full access</h3>
-        <p>Enter your subscriber token to download tracks and access exclusive content.</p>
-      </div>
-      <div>
-        <div class="redeem-row">
-          <input type="text" id="token-input" placeholder="Paste your token…" style="max-width:280px" />
-          <button class="btn btn-primary" id="token-redeem-btn">Redeem</button>
-        </div>
-        <div id="token-msg"></div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ════════════════════════════════════════════
-       DASHBOARD PAGE
-  ════════════════════════════════════════════ -->
-  <div id="page-dashboard" class="page" hidden>
-
-    <!-- Auth overlay — shown when not authed -->
-    <div class="auth-overlay" id="dash-auth" hidden>
-      <h2>Dashboard access</h2>
-      <p>Enter your dashboard token to manage this station remotely.</p>
-      <input type="password" id="dash-token-input" placeholder="Dashboard token…" />
-      <button class="btn btn-primary" id="dash-token-btn">Unlock</button>
-      <div id="dash-auth-msg"></div>
-    </div>
-
-    <div id="dash-content" hidden>
-
-      <!-- Station URL / Registry -->
-      <div class="dash-section">
-        <h2>Station</h2>
-
-        <div id="station-unclaimed" hidden>
-          <p style="color:var(--dim);font-size:13px;margin-bottom:12px">
-            No public URL registered yet. Enter a URL below to make your station discoverable.
-          </p>
-        </div>
-
-        <div id="station-reg-content">
-          <div class="url-bar" style="margin-bottom:10px">
-            <span id="station-public-url"></span>
-            <button class="btn btn-sm" id="btn-copy-url">Copy</button>
-          </div>
-          <div class="health-row">
-            <div id="health-dot"></div>
-            <span id="health-status">Checking…</span>
-            <button class="btn btn-sm" id="btn-recheck-health" style="margin-left:8px">Re-check</button>
-          </div>
-        </div>
-
-        <div class="station-url-form">
-          <div class="form-group" style="max-width:420px">
-            <label>Public URL</label>
-            <input type="url" id="station-url-input" placeholder="https://radio.yoursite.com" />
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-primary btn-sm" id="btn-update-url">Update URL</button>
-            <span id="station-slug" style="font-family:var(--font-mono);font-size:11px;color:var(--dim)"></span>
-          </div>
-          <div id="station-url-msg"></div>
-        </div>
-      </div>
-
-      <!-- Broadcast -->
-      <div class="dash-section">
-        <h2>Broadcast</h2>
-        <div class="broadcast-bar">
-          <div class="broadcast-status">
-            <div id="dash-now-playing">—</div>
-            <div class="broadcast-mode" id="dash-mode">shuffle</div>
-          </div>
-          <div class="broadcast-actions">
-            <button class="btn btn-sm" id="btn-toggle-mode">Switch to Scheduled</button>
-            <button class="btn btn-sm" id="btn-restart">Restart</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Schedule (immediately below Broadcast) -->
-      <div class="dash-section" id="schedule-section">
-        <h2>Schedule</h2>
-        <div id="schedule-locked-notice" hidden
-          style="color:var(--dim);font-size:13px;margin-bottom:12px;padding:10px 14px;background:var(--surface2);border-radius:6px">
-          Switch to <strong>Scheduled</strong> mode above to manage schedule blocks.
-        </div>
-        <div id="schedule-controls">
-          <div class="schedule-list" id="schedule-list"></div>
-          <details>
-            <summary style="cursor:pointer;font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--dim);margin-bottom:10px">+ Add block</summary>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Label</label>
-                <input type="text" id="sched-label" placeholder="Morning Beats" />
+          <!-- Broadcast -->
+          <div class="dash-section">
+            <div class="dash-section-label">BROADCAST</div>
+            <div class="broadcast-row">
+              <div class="broadcast-info">
+                <div class="broadcast-np" id="dash-np">—</div>
+                <div class="broadcast-mode-badge" id="dash-mode">SHUFFLE</div>
               </div>
-              <div class="form-group">
-                <label>Day</label>
-                <select id="sched-day">
-                  <option value="">Every day</option>
-                  <option value="0">Sunday</option>
-                  <option value="1">Monday</option>
-                  <option value="2">Tuesday</option>
-                  <option value="3">Wednesday</option>
-                  <option value="4">Thursday</option>
-                  <option value="5">Friday</option>
-                  <option value="6">Saturday</option>
+              <div class="broadcast-actions">
+                <button class="mgmt-btn" id="btn-toggle-mode">SWITCH MODE</button>
+                <button class="mgmt-btn" id="btn-restart">RESTART</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="dash-divider"></div>
+
+          <!-- Schedule -->
+          <div class="dash-section">
+            <div class="dash-section-label">SCHEDULE</div>
+            <div id="dash-sched-list"></div>
+            <details style="margin:8px 14px 0;">
+              <summary class="dash-summary">+ ADD BLOCK</summary>
+              <div class="dash-form-row" style="margin-top:8px;">
+                <input type="text"  class="dash-input dash-input-sm" id="sched-label" placeholder="Label…" style="flex:2;min-width:80px;"/>
+                <select class="dash-select" id="sched-day">
+                  <option value="">Daily</option>
+                  <option value="0">Sun</option><option value="1">Mon</option><option value="2">Tue</option>
+                  <option value="3">Wed</option><option value="4">Thu</option><option value="5">Fri</option><option value="6">Sat</option>
                 </select>
-              </div>
-              <div class="form-group">
-                <label>Start</label>
-                <input type="time" id="sched-start" value="08:00" />
-              </div>
-              <div class="form-group">
-                <label>End</label>
-                <input type="time" id="sched-end" value="12:00" />
-              </div>
-              <div class="form-group">
-                <label>Category</label>
-                <select id="sched-category">
+                <input type="time" class="dash-input dash-input-sm" id="sched-start" value="08:00"/>
+                <input type="time" class="dash-input dash-input-sm" id="sched-end"   value="12:00"/>
+                <select class="dash-select" id="sched-category">
                   <option value="">Any</option>
+                  <option value="music">Music</option><option value="beats">Beats</option>
+                  <option value="podcasts">Podcasts</option><option value="videos">Videos</option>
+                </select>
+                <select class="dash-select" id="sched-mode">
+                  <option value="shuffle">Shuffle</option>
+                  <option value="sequential">Sequential</option>
+                </select>
+                <button class="mgmt-btn" id="btn-add-sched">ADD</button>
+              </div>
+            </details>
+          </div>
+
+          <div class="dash-divider"></div>
+
+          <!-- Media Management -->
+          <div class="dash-section">
+            <div class="dash-section-label">MEDIA</div>
+            <div id="dash-media-list"></div>
+          </div>
+
+          <div class="dash-divider"></div>
+
+          <!-- Upload -->
+          <div class="dash-section">
+            <div class="dash-section-label">UPLOAD</div>
+            <div class="dash-upload-zone" id="dash-upload-zone">
+              <div class="dash-upload-label">DROP FILES OR CLICK TO BROWSE</div>
+              <input type="file" id="dash-upload-input" style="display:none" multiple accept="audio/*,video/*"/>
+            </div>
+            <div class="dash-upload-form" id="dash-upload-form" hidden>
+              <div id="dash-upload-queue"></div>
+              <div class="dash-form-row" style="margin-top:8px;">
+                <select class="dash-select" id="dash-upload-cat">
                   <option value="music">Music</option>
                   <option value="beats">Beats</option>
                   <option value="podcasts">Podcasts</option>
                   <option value="videos">Videos</option>
+                  <option value="drafts">Drafts</option>
                 </select>
-              </div>
-              <div class="form-group">
-                <label>Mode</label>
-                <select id="sched-mode">
-                  <option value="shuffle">Shuffle</option>
-                  <option value="sequential">Sequential</option>
+                <select class="dash-select" id="dash-upload-vis">
+                  <option value="public">Public</option>
+                  <option value="supporters_only">Supporters Only</option>
+                  <option value="private">Private</option>
                 </select>
+                <button class="mgmt-btn" id="dash-upload-submit">UPLOAD</button>
               </div>
-              <button class="btn btn-primary btn-sm" id="btn-add-block" style="align-self:flex-end">Add</button>
-            </div>
-          </details>
-        </div>
-      </div>
-
-      <!-- Vault -->
-      <div class="dash-section">
-        <h2>Vault</h2>
-        <div class="stats-row" id="vault-stats"></div>
-      </div>
-
-      <!-- Upload -->
-      <div class="dash-section">
-        <h2>Upload</h2>
-        <div class="upload-zone" id="upload-zone">
-          <div class="upload-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="16 16 12 12 8 16"/>
-              <line x1="12" y1="12" x2="12" y2="21"/>
-              <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
-            </svg>
-          </div>
-          <strong>Drop files here</strong>
-          <p>or click to browse — audio &amp; video files accepted</p>
-          <input type="file" id="upload-input" style="display:none" multiple accept="audio/*,video/*" />
-        </div>
-        <div class="upload-form" id="upload-form" hidden>
-          <div class="upload-row">
-            <div class="form-group">
-              <label>Category</label>
-              <select id="upload-category">
-                <option value="music">Music</option>
-                <option value="beats">Beats</option>
-                <option value="podcasts">Podcasts</option>
-                <option value="videos">Videos</option>
-                <option value="drafts">Drafts</option>
-                <option value="live_sessions">Live Sessions</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Access</label>
-              <select id="upload-visibility">
-                <option value="public" selected>Public</option>
-                <option value="supporters_only">Supporters Only</option>
-                <option value="private">Private</option>
-              </select>
+              <div id="dash-upload-msg" style="margin-top:6px;font-size:9px;font-family:'Space Mono',monospace;"></div>
             </div>
           </div>
-          <div id="upload-queue"></div>
-          <button class="btn btn-primary" id="upload-submit">Upload</button>
-          <div id="upload-msg"></div>
-        </div>
-      </div>
 
-      <!-- Media -->
-      <div class="dash-section">
-        <h2>Media</h2>
-        <div class="media-list" id="media-list"></div>
-      </div>
+          <div class="dash-divider"></div>
 
-      <!-- Subscriber Tokens -->
-      <div class="dash-section">
-        <h2>Subscriber Tokens</h2>
-        <div class="token-list" id="token-list"></div>
-        <div class="form-row">
-          <input type="text" id="new-token-label" placeholder="Label (e.g. Maria)" style="max-width:220px" />
-          <button class="btn btn-primary btn-sm" id="btn-create-token">Create Token</button>
-        </div>
-        <div id="new-token-result"></div>
-      </div>
-
-      <!-- Analytics -->
-      <div class="dash-section">
-        <h2>Analytics</h2>
-        <div class="stats-row" id="analytics-stats"></div>
-      </div>
-
-      <!-- Payments / Stripe -->
-      <div class="dash-section">
-        <h2>Payments</h2>
-        <div id="payment-config-status"></div>
-      </div>
-
-      <!-- Tip Button Config -->
-      <div class="dash-section">
-        <h2>Tip Button</h2>
-        <p style="color:var(--dim);font-size:13px;margin-bottom:14px">Preset amounts shown to listeners on the station page. Requires Stripe to be configured.</p>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Amount 1 ($)</label>
-            <input type="number" id="tip-amount-1" min="1" step="1" value="3" style="max-width:90px" />
+          <!-- Analytics -->
+          <div class="dash-section">
+            <div class="dash-section-label">ANALYTICS</div>
+            <div class="stat-grid" id="dash-analytics"></div>
           </div>
-          <div class="form-group">
-            <label>Amount 2 ($)</label>
-            <input type="number" id="tip-amount-2" min="1" step="1" value="5" style="max-width:90px" />
+
+          <div class="dash-divider"></div>
+
+          <!-- Tip Config -->
+          <div class="dash-section" style="padding-bottom:24px;">
+            <div class="dash-section-label">TIP BUTTON</div>
+            <div class="tip-cfg-row">
+              <div class="tip-cfg-field">
+                <div class="tip-cfg-label">AMT 1 ($)</div>
+                <input type="number" class="dash-input" id="tip-cfg-1" min="1" step="1" value="3" style="width:64px;"/>
+              </div>
+              <div class="tip-cfg-field">
+                <div class="tip-cfg-label">AMT 2 ($)</div>
+                <input type="number" class="dash-input" id="tip-cfg-2" min="1" step="1" value="5" style="width:64px;"/>
+              </div>
+              <div class="tip-cfg-field">
+                <div class="tip-cfg-label">AMT 3 ($)</div>
+                <input type="number" class="dash-input" id="tip-cfg-3" min="1" step="1" value="10" style="width:64px;"/>
+              </div>
+              <div class="tip-cfg-field" style="flex-direction:row;align-items:center;gap:5px;align-self:flex-end;padding-bottom:2px;">
+                <input type="checkbox" id="tip-cfg-custom" checked/>
+                <div class="tip-cfg-label">CUSTOM</div>
+              </div>
+              <div style="align-self:flex-end;display:flex;align-items:center;gap:8px;">
+                <button class="mgmt-btn" id="btn-save-tip-cfg">SAVE</button>
+                <span id="tip-cfg-msg" style="font-size:9px;font-family:'Space Mono',monospace;"></span>
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Amount 3 ($)</label>
-            <input type="number" id="tip-amount-3" min="1" step="1" value="10" style="max-width:90px" />
-          </div>
-          <div class="form-group" style="align-self:flex-end;padding-bottom:2px">
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
-              <input type="checkbox" id="tip-custom-enabled" checked />
-              Allow custom amount
-            </label>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
-          <button class="btn btn-primary btn-sm" id="btn-save-tip-config">Save</button>
-          <span id="tip-config-msg" style="font-family:var(--font-mono);font-size:11px"></span>
-        </div>
-      </div>
 
-    </div><!-- /dash-content -->
-  </div><!-- /page-dashboard -->
+        </div><!-- /dash-content -->
+      </div><!-- /panel-dashboard -->
 
-</div><!-- /app -->
+    </div><!-- /card-panels -->
 
-<!-- ── Footer ── -->
-<footer>
-  <div class="footer-left">
-    <a class="footer-pw" href="/">
-      <svg width="16" height="16" viewBox="0 0 52 52" fill="none" style="opacity:0.5">
-        <circle cx="26" cy="26" r="23" stroke="#F8F8F7" stroke-width="1.5" fill="none"/>
-        <circle cx="26" cy="26" r="16" fill="#F8F8F7"/>
-        <text x="26" y="27" text-anchor="middle" dominant-baseline="middle"
-          font-family="'JetBrains Mono','Courier New',monospace" font-weight="700" font-size="11"
-          fill="#0B0B0C">&lt;P/&gt;</text>
-      </svg>
-      <span class="footer-pw-text">Paperweight</span>
-    </a>
-    <div class="footer-divider"></div>
-    <span class="footer-copy">Powered by Paperweight</span>
-  </div>
-  <div class="footer-links">
-    <a href="#player">Station</a>
-    <a href="#library">Library</a>
-    <a href="#dashboard" id="footer-dashboard-link" style="display:none">Dashboard</a>
-  </div>
-</footer>
+  </div><!-- /player-card -->
+</div><!-- /player-wrap -->
+</div><!-- /layout -->
 
-<script type="module" src="/main.js"></script>
+<audio id="audio-el" hidden></audio>
+
+<div id="credit">PAPERWEIGHT SYSTEMS LLC</div>
+
 <script>
-  // ── Mobile nav toggle ──────────────────────────────────────────────────────
-  const toggle   = document.getElementById('nav-toggle');
-  const navLinks = document.getElementById('nav-links');
-  toggle.addEventListener('click', () => {
-    const open = navLinks.classList.toggle('nav-open');
-    toggle.setAttribute('aria-expanded', open);
+// ─── Config ────────────────────────────────────────────────────────────────────
+const HLS_URL            = '/hls/stream/index.m3u8';
+const STATUS_INTERVAL_MS = 10_000;
+const PING_INTERVAL_MS   = 30_000;
+const SESSION_KEY        = 'pw_dash_token';
+const PALETTE            = ['#F9C74F','#FF3CAC','#00F5D4','#4CC9F0','#A78BFA'];
+
+// ─── Runtime ───────────────────────────────────────────────────────────────────
+let hls            = null;
+let statusInterval = null;
+let pingInterval   = null;
+let currentIsVideo = false;
+let stationName    = 'Paperweight';
+let LIBRARY        = [];
+let tipAmounts     = [];
+let selectedTipCents = null;
+
+let state = {
+  track:      null,    // null = showing live
+  playing:    false,
+  progress:   0,
+  elapsed:    0,
+  showLib:    false,
+  showQueue:  false,
+  showShare:  false,
+  nowPlaying: null,    // { title, artist } from stream status
+  listenerCount: 0,
+};
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+function el(id) { return document.getElementById(id); }
+
+function trackColor(id) {
+  return PALETTE[Math.abs(id || 0) % PALETTE.length];
+}
+
+function generateWaveform(id) {
+  const n = id || 0;
+  return Array.from({length:80}, (_,i) => 0.15 + Math.abs(Math.sin(i*(0.3+n*0.07)+n))*0.82);
+}
+
+function fmt(s) {
+  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=Math.floor(s%60);
+  if(h>0) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+function esc(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Stream status ─────────────────────────────────────────────────────────────
+async function fetchStreamStatus() {
+  try {
+    const data = await fetch('/api/stream/status').then(r => r.json());
+
+    // Handle audio ↔ video switch
+    const wasVideo = currentIsVideo;
+    currentIsVideo = !!data.isVideo;
+    if (wasVideo !== currentIsVideo && hls && state.playing) {
+      hls.destroy(); hls = null;
+      const oldEl = wasVideo ? el('video-el') : el('audio-el');
+      const newEl = currentIsVideo ? el('video-el') : el('audio-el');
+      oldEl.pause();
+      oldEl.hidden = true;
+      setupHls(newEl);
+      if (currentIsVideo) newEl.hidden = false;
+      newEl.play().catch(() => {});
+    }
+
+    if (data.station) {
+      stationName = data.station;
+      el('pw-wordmark-text').textContent = stationName;
+    }
+    state.nowPlaying    = data.nowPlaying || null;
+    state.listenerCount = data.listenerCount || 0;
+    render();
+  } catch {}
+}
+
+// ─── Library ───────────────────────────────────────────────────────────────────
+async function loadLibrary() {
+  try {
+    const data = await fetch('/api/library?limit=20').then(r => r.json());
+    LIBRARY = (data.items || []).map(item => ({
+      id:       item.id,
+      type:     item.isVideo ? 'video' : 'audio',
+      title:    item.title || item.filename || 'Untitled',
+      duration: item.duration || 0,
+      date:     item.indexedAt
+                  ? new Date(item.indexedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'})
+                  : '',
+      color:    trackColor(item.id),
+      creator:  stationName,
+      isLive:   false,
+      waveform: generateWaveform(item.id),
+    }));
+    buildLibrary();
+  } catch {}
+}
+
+// ─── Tip config ────────────────────────────────────────────────────────────────
+async function loadTipConfig() {
+  try {
+    const cfg = await fetch('/api/payment/tip-config').then(r => r.json());
+    if (cfg.enabled && cfg.amounts?.length) tipAmounts = cfg.amounts;
+    else tipAmounts = [300, 500, 1000];
+    buildTipPresets();
+  } catch {
+    tipAmounts = [300, 500, 1000];
+    buildTipPresets();
+  }
+}
+
+// ─── HLS player ────────────────────────────────────────────────────────────────
+function activeMediaEl() {
+  return currentIsVideo ? el('video-el') : el('audio-el');
+}
+
+function setupHls(mediaEl) {
+  if (window.Hls && Hls.isSupported()) {
+    hls = new Hls({ lowLatencyMode: false });
+    hls.loadSource(HLS_URL);
+    hls.attachMedia(mediaEl);
+    hls.on(Hls.Events.ERROR, (_, d) => {
+      if (d.fatal) {
+        el('track-creator').textContent = 'Stream unavailable — check server';
+      }
+    });
+  } else if (mediaEl.canPlayType('application/vnd.apple.mpegurl')) {
+    mediaEl.src = HLS_URL;
+  }
+}
+
+async function ping() {
+  try { await fetch('/api/stream/ping', { method: 'POST' }); } catch {}
+}
+
+function togglePlay() {
+  const media = activeMediaEl();
+  if (media.paused) {
+    if (!hls && !media.src) {
+      setupHls(media);
+      if (currentIsVideo) {
+        media.hidden = false;
+        el('audio-el').hidden = true;
+      }
+    }
+    media.play().then(() => {
+      state.playing = true;
+      render();
+      if (!pingInterval) pingInterval = setInterval(ping, PING_INTERVAL_MS);
+      ping();
+    }).catch(() => {
+      state.playing = false;
+      render();
+    });
+  } else {
+    media.pause();
+    state.playing = false;
+    clearInterval(pingInterval);
+    pingInterval = null;
+    render();
+  }
+}
+
+// ─── Render ────────────────────────────────────────────────────────────────────
+function activeTrack() {
+  if (state.track) return state.track;
+  const np = state.nowPlaying;
+  return {
+    id:      0,
+    type:    currentIsVideo ? 'video' : 'audio',
+    title:   np ? (np.title || 'On Air') : (state.playing ? 'On Air' : 'Off Air'),
+    creator: np?.artist || stationName,
+    isLive:  true,
+    color:   '#00F5D4',
+    waveform: generateWaveform(0),
+  };
+}
+
+function duration() { return state.track ? (state.track.duration || 0) : 0; }
+
+function setColor(c) {
+  document.documentElement.style.setProperty('--color', c);
+  el('ambient').style.background =
+    `radial-gradient(circle, ${c}12 0%, transparent 70%)`;
+  el('bottom-accent').style.background =
+    `linear-gradient(to right, transparent, ${c}, transparent)`;
+  el('on-air-dot').style.background = c;
+  el('on-air-dot').style.boxShadow  = `0 0 6px ${c}`;
+  el('on-air-text').style.color     = c;
+  el('art-box').style.border     = `1px solid ${c}22`;
+  el('art-box').style.background = `linear-gradient(135deg, ${c}18 0%, #0a0a0a 60%)`;
+  document.querySelectorAll('.pulse-ring').forEach(r => r.style.borderColor = c);
+  ['lib-btn','queue-btn'].forEach(id => {
+    const btn    = el(id);
+    const active = (id==='lib-btn' && state.showLib) || (id==='queue-btn' && state.showQueue);
+    btn.style.color      = active ? c : 'rgba(255,255,255,.35)';
+    btn.style.background = active ? `${c}22` : 'none';
+    btn.style.border     = active ? `1px solid ${c}44` : '1px solid transparent';
   });
-  navLinks.addEventListener('click', e => {
-    if (e.target.classList.contains('nav-link')) {
-      navLinks.classList.remove('nav-open');
-      toggle.setAttribute('aria-expanded', 'false');
+  el('share-tab-label').style.color = state.showShare ? c : 'rgba(255,255,255,.25)';
+}
+
+function render() {
+  const t = activeTrack();
+  setColor(t.color);
+
+  // type badge
+  const badge = el('type-badge');
+  badge.style.background = t.color;
+  if (!state.track) {
+    badge.innerHTML = `<span class="live-dot-badge"></span>LIVE`;
+  } else {
+    badge.textContent = t.type === 'video' ? '● VIDEO' : '◉ AUDIO';
+  }
+
+  // back-live btn
+  el('back-live-btn').style.display = state.track ? 'inline-block' : 'none';
+
+  // titles
+  el('track-title').textContent   = t.title;
+  el('track-creator').textContent = t.creator ? t.creator.toUpperCase() : '';
+
+  // on-air badge
+  el('on-air-badge').style.display = !state.track ? 'flex' : 'none';
+
+  // pulse rings
+  el('pr1').style.display = state.playing ? 'block' : 'none';
+  el('pr2').style.display = state.playing ? 'block' : 'none';
+
+  // play/pause icons
+  el('play-icon').style.display  = state.playing ? 'none'  : 'block';
+  el('pause-icon').style.display = state.playing ? 'block' : 'none';
+
+  // play button color
+  const pb = el('play-btn');
+  pb.style.background = `conic-gradient(from 180deg, ${t.color}, ${t.color}99, ${t.color})`;
+  pb.style.boxShadow  = `0 0 24px ${t.color}66, 0 4px 16px rgba(0,0,0,.5)`;
+
+  // skip buttons — only when a VOD track is selected
+  el('skip-prev').classList.toggle('hidden', !state.track);
+  el('skip-next').classList.toggle('hidden', !state.track);
+
+  // waveform
+  renderWaveform();
+
+  // time row
+  const elapsed = el('time-elapsed');
+  const remain  = el('time-remain');
+  if (!state.track) {
+    elapsed.textContent  = '● LIVE';
+    elapsed.style.color  = t.color;
+    elapsed.style.opacity = '.7';
+    const lc = state.listenerCount;
+    remain.textContent = lc > 0
+      ? `${lc} listening`
+      : '∞';
+  } else {
+    elapsed.textContent  = fmt(state.elapsed);
+    elapsed.style.color  = 'rgba(255,255,255,.3)';
+    elapsed.style.opacity = '1';
+    remain.textContent   = duration() > 0 ? `-${fmt(duration() - state.elapsed)}` : '∞';
+  }
+
+  // waveform disabled when on live (no seek)
+  el('waveform').classList.toggle('disabled', !state.track);
+
+  // drawers
+  setDrawer('lib-drawer',   state.showLib);
+  setDrawer('queue-drawer', state.showQueue && !state.track);
+  const shareOpen = state.showShare && !state.showLib && !state.showQueue;
+  setDrawer('share-drawer', shareOpen);
+
+  // share tab
+  const shareUnlocked = !state.showLib && !state.showQueue;
+  el('share-tab').classList.toggle('locked', !shareUnlocked);
+  el('share-tab-label').textContent =
+    !shareUnlocked ? 'CLOSE DRAWERS TO SHARE' : (state.showShare ? 'CLOSE' : 'SHARE');
+  el('share-chevron').style.transform =
+    state.showShare && shareUnlocked ? 'rotate(180deg)' : 'none';
+
+  setColor(t.color);
+}
+
+function setDrawer(id, open) {
+  el(id).style.maxHeight = open ? '300px' : '0';
+}
+
+function renderWaveform() {
+  const t    = activeTrack();
+  const data = t.waveform || generateWaveform(0);
+  const wf   = el('waveform');
+  wf.innerHTML = '';
+  data.forEach((h, i) => {
+    const pct     = i / data.length;
+    const played  = state.track && pct < state.progress;
+    const cursor  = state.track && Math.abs(pct - state.progress) < 0.015;
+    const bar     = document.createElement('div');
+    bar.className = 'wbar';
+    bar.style.height     = `${Math.max(4, h*48)}px`;
+    bar.style.background = cursor ? '#fff' : played ? t.color : 'rgba(255,255,255,.13)';
+    if (played) bar.style.boxShadow = `0 0 5px ${t.color}77`;
+    wf.appendChild(bar);
+  });
+}
+
+// ─── Library ───────────────────────────────────────────────────────────────────
+function buildLibrary() {
+  const list = el('lib-list');
+  if (!LIBRARY.length) {
+    list.innerHTML = '<div style="padding:10px 14px;font-family:\'Space Mono\',monospace;font-size:9px;color:rgba(255,255,255,.25);letter-spacing:.06em;">NO UPLOADS YET</div>';
+    return;
+  }
+  list.innerHTML = '';
+  LIBRARY.forEach(t => {
+    const row = document.createElement('div');
+    row.className = 'lib-row';
+    const isActive = state.track && state.track.id === t.id;
+    if (isActive) { row.classList.add('active'); row.style.borderLeftColor = t.color; }
+    row.innerHTML = `
+      <div class="lib-thumb" style="background:linear-gradient(135deg,${t.color}44,${t.color}11);border:1px solid ${t.color}33;">${t.type==='video'?'▶':'♪'}</div>
+      <div class="lib-info">
+        <div class="lib-title${isActive?' active':''}">${esc(t.title)}</div>
+        <div class="lib-meta">${t.date}${t.date&&t.duration?' · ':''}${t.duration?fmt(t.duration):''}</div>
+      </div>
+      <span class="type-badge" style="background:${t.color};font-size:9px;padding:2px 6px;">${t.type==='video'?'● VIDEO':'◉ AUDIO'}</span>
+    `;
+    row.addEventListener('click', () => selectVOD(t));
+    list.appendChild(row);
+  });
+}
+
+// ─── Queue ─────────────────────────────────────────────────────────────────────
+async function loadQueue() {
+  try {
+    const block = await fetch('/api/schedule/current').then(r => r.json());
+    const list  = el('queue-list');
+    if (!block) {
+      list.innerHTML = '<div class="q-row"><span class="q-title" style="opacity:.3;font-size:11px;">No schedule active</span></div>';
+      return;
+    }
+    list.innerHTML = `<div class="q-row">
+      <span class="q-title">${esc(block.label || 'Broadcast')}</span>
+      <span class="q-time">${block.start_time || ''}${block.end_time ? ' – ' + block.end_time : ''}</span>
+    </div>`;
+  } catch {
+    el('queue-list').innerHTML = '';
+  }
+}
+
+// ─── VOD selection (shows track info; live stream continues) ───────────────────
+function selectVOD(t) {
+  state = { ...state, track: t, progress: 0, elapsed: 0, showLib: false };
+  buildLibrary();
+  render();
+}
+
+function goLive() {
+  state = { ...state, track: null, progress: 0, elapsed: 0 };
+  render();
+}
+
+function skipTrack(dir) {
+  if (!state.track) return;
+  const idx = LIBRARY.findIndex(t => t.id === state.track?.id);
+  if (idx < 0) return;
+  selectVOD(LIBRARY[(idx + dir + LIBRARY.length) % LIBRARY.length]);
+}
+
+function seekWaveform(e) {
+  if (!state.track || !duration()) return;
+  const rect      = el('waveform').getBoundingClientRect();
+  state.progress  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  state.elapsed   = Math.floor(state.progress * duration());
+  renderWaveform();
+  el('time-elapsed').textContent = fmt(state.elapsed);
+  el('time-remain').textContent  = `-${fmt(duration() - state.elapsed)}`;
+}
+
+function toggleDrawer(which) {
+  if (which === 'lib') {
+    state.showLib   = !state.showLib;
+    state.showQueue = false;
+    if (state.showLib) state.showShare = false;
+  } else {
+    state.showQueue = !state.showQueue;
+    state.showLib   = false;
+    if (state.showQueue) state.showShare = false;
+  }
+  render();
+}
+
+function toggleShare() {
+  if (state.showLib || state.showQueue) return;
+  state.showShare = !state.showShare;
+  render();
+}
+
+// ─── Share ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.share-opt').forEach(btn => {
+  btn.addEventListener('mouseenter', () => {
+    const c = activeTrack().color;
+    btn.style.background  = `${c}18`;
+    btn.style.borderColor = `${c}44`;
+  });
+  btn.addEventListener('mouseleave', () => {
+    if (btn.classList.contains('copied')) return;
+    btn.style.background  = 'rgba(255,255,255,.04)';
+    btn.style.borderColor = 'rgba(255,255,255,.08)';
+  });
+  btn.addEventListener('click', () => {
+    const action = btn.dataset.share;
+    if (action === 'link') {
+      navigator.clipboard?.writeText(window.location.href).catch(() => {});
+      const icon  = btn.querySelector('.share-opt-icon');
+      const label = btn.querySelector('.share-opt-label');
+      btn.classList.add('copied');
+      icon.textContent  = '✓';
+      label.textContent = 'COPIED';
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        icon.textContent  = '⌗';
+        label.textContent = 'COPY LINK';
+        btn.style.background  = 'rgba(255,255,255,.04)';
+        btn.style.borderColor = 'rgba(255,255,255,.08)';
+      }, 2000);
+    } else if (action === 'twitter') {
+      const text = encodeURIComponent(`Listening to ${stationName} — ${window.location.href}`);
+      window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+    } else if (action === 'embed') {
+      const code = `<iframe src="${window.location.href}" width="560" height="480" frameborder="0" allowfullscreen></iframe>`;
+      navigator.clipboard?.writeText(code).catch(() => {});
+      const lbl = btn.querySelector('.share-opt-label');
+      lbl.textContent = 'COPIED';
+      setTimeout(() => { lbl.textContent = 'EMBED'; }, 2000);
+    } else if (action === 'rss') {
+      window.open('/api/library', '_blank');
     }
   });
+});
 
-  // ── Volume slider ──────────────────────────────────────────────────────────
-  const volumeSlider = document.getElementById('volume-slider');
-  volumeSlider.addEventListener('input', () => {
-    const vol = volumeSlider.value / 100;
-    document.getElementById('audio-el').volume = vol;
-    document.getElementById('video-el').volume = vol;
+// ─── Modal / Payment ───────────────────────────────────────────────────────────
+function buildTipPresets() {
+  const presetsEl = el('tip-presets');
+  presetsEl.innerHTML = tipAmounts.map(cents => {
+    const label = cents % 100 === 0 ? `$${cents/100}` : `$${(cents/100).toFixed(2)}`;
+    return `<button class="tip-preset" data-cents="${cents}">${label}</button>`;
+  }).join('');
+  presetsEl.querySelectorAll('.tip-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      presetsEl.querySelectorAll('.tip-preset').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedTipCents = parseInt(btn.dataset.cents, 10);
+      el('tip-amount').value = (selectedTipCents / 100).toFixed(2);
+      updateCTA();
+    });
   });
+}
 
-  // ── Schedule day label ─────────────────────────────────────────────────────
-  const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  document.getElementById('schedule-day').textContent = DAYS[new Date().getDay()];
+function openModal() {
+  el('modal-creator-name').textContent = `Support ${stationName}`;
+  el('modal-creator-show').textContent = stationName.toUpperCase();
+  el('modal-backdrop').classList.add('open');
+  setModalTab('tip');
+}
 
-  // ── Station schedule panel ─────────────────────────────────────────────────
-  (async function loadStationSchedule() {
-    const list = document.getElementById('station-schedule-list');
+function closeModal() {
+  el('modal-backdrop').classList.remove('open');
+  el('modal-done').style.display  = 'none';
+  el('modal-main').style.display  = '';
+  el('tip-amount').value          = '';
+  selectedTipCents                = null;
+  document.querySelectorAll('.tip-preset').forEach(p => p.classList.remove('active'));
+  updateCTA();
+}
+
+function setModalTab(id) {
+  document.querySelectorAll('.modal-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === id));
+  updateCTA();
+}
+
+function updateCTA() {
+  const cta = el('modal-cta');
+  const tab = document.querySelector('.modal-tab.active')?.dataset.tab || 'tip';
+  const amt = parseFloat(el('tip-amount').value);
+  cta.classList.remove('processing');
+  if (tab === 'tip') {
+    cta.textContent = amt > 0 ? `SEND $${amt.toFixed(2)} TIP` : 'SEND TIP';
+    cta.disabled    = !(amt > 0);
+  } else if (tab === 'subscribe') {
+    cta.textContent = 'SUBSCRIBE';
+    cta.disabled    = false;
+  } else {
+    cta.textContent = 'GET ALL-ACCESS';
+    cta.disabled    = false;
+  }
+}
+
+document.querySelectorAll('.modal-tab').forEach(btn =>
+  btn.addEventListener('click', () => setModalTab(btn.dataset.tab))
+);
+el('tip-amount').addEventListener('input', () => {
+  selectedTipCents = null;
+  document.querySelectorAll('.tip-preset').forEach(b => b.classList.remove('active'));
+  updateCTA();
+});
+el('modal-close').addEventListener('click', closeModal);
+el('modal-backdrop').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+el('modal-done-close').addEventListener('click', closeModal);
+
+el('modal-cta').addEventListener('click', async () => {
+  const cta = el('modal-cta');
+  const tab = document.querySelector('.modal-tab.active')?.dataset.tab || 'tip';
+
+  if (tab === 'tip') {
+    const rawAmt = parseFloat(el('tip-amount').value);
+    const cents  = selectedTipCents || (rawAmt > 0 ? Math.round(rawAmt * 100) : 0);
+    if (!cents || cents < 100) return;
+
+    cta.classList.add('processing');
+    cta.textContent = 'CONNECTING TO STRIPE…';
 
     try {
-      const [schedRes, statusRes] = await Promise.all([
-        fetch('/api/schedule'),
-        fetch('/api/stream/status').catch(() => null),
-      ]);
-
-      // Listener count
-      if (statusRes && statusRes.ok) {
-        const status = await statusRes.json().catch(() => ({}));
-        if (typeof status.listenerCount === 'number') {
-          document.getElementById('listener-text').textContent =
-            status.listenerCount === 1 ? '1 listening now' : `${status.listenerCount} listening now`;
-        }
-      }
-
-      if (!schedRes.ok) throw new Error('no schedule');
-      const blocks = await schedRes.json();
-
-      if (!Array.isArray(blocks) || !blocks.length) {
-        list.innerHTML = '<div class="empty">Running in shuffle mode</div>';
-        return;
-      }
-
-      const now     = new Date();
-      const nowMins = now.getHours() * 60 + now.getMinutes();
-
-      list.innerHTML = blocks.map(b => {
-        const [sh, sm] = (b.start_time || '00:00').split(':').map(Number);
-        const [eh, em] = (b.end_time   || '00:00').split(':').map(Number);
-        const startMins = sh * 60 + sm;
-        const endMins   = eh * 60 + em;
-        const isCurrent = nowMins >= startMins && nowMins < endMins;
-        const isPast    = nowMins >= endMins;
-        const label     = b.label    ? String(b.label).replace(/&/g,'&amp;').replace(/</g,'&lt;') : 'Untitled';
-        const cat       = b.category ? String(b.category).replace(/_/g,' ') : 'All categories';
-        const badge     = isCurrent
-          ? '<span class="sched-badge live">Live</span>'
-          : isPast
-          ? '<span class="sched-badge up">Past</span>'
-          : '<span class="sched-badge up">Up next</span>';
-
-        return `
-          <div class="schedule-item${isCurrent ? ' current' : ''}">
-            <span class="sched-time">${b.start_time || ''}</span>
-            <div class="sched-info">
-              <div class="sched-name">${label}</div>
-              <div class="sched-sub">${cat} · ${b.mode || 'shuffle'}</div>
-            </div>
-            ${badge}
-          </div>`;
-      }).join('');
-
-    } catch {
-      list.innerHTML = '<div class="empty">Running in shuffle mode</div>';
+      const res  = await fetch('/api/payment/tip', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ amountCents: cents }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Payment failed');
+      window.location.href = data.checkoutUrl;
+    } catch (err) {
+      cta.classList.remove('processing');
+      updateCTA();
+      const errEl = document.createElement('div');
+      errEl.style.cssText = 'font-family:Space Mono,monospace;font-size:10px;color:#ff4466;margin-top:8px;text-align:center;';
+      errEl.textContent = err.message;
+      el('modal-body').appendChild(errEl);
+      setTimeout(() => errEl.remove(), 4000);
     }
+  } else {
+    // subscribe / all-access — direct users to contact creator
+    el('modal-main').style.display = 'none';
+    el('modal-done').style.display = 'block';
+    el('modal-done-icon').textContent  = '◎';
+    el('modal-done-title').textContent = 'Contact the station';
+    el('modal-done-msg').textContent   = 'Subscription sign-up is managed by the station owner. Reach out directly to get access.';
+  }
+});
+
+// ─── ?tipped=1 handling ────────────────────────────────────────────────────────
+function handleTippedParam() {
+  const params = new URLSearchParams(location.search);
+  if (!params.has('tipped')) return;
+  params.delete('tipped');
+  const clean = location.pathname + (params.toString() ? '?' + params : '') + location.hash;
+  history.replaceState(null, '', clean);
+  el('modal-done').style.display  = 'block';
+  el('modal-main').style.display  = 'none';
+  el('modal-done-icon').textContent  = '✦';
+  el('modal-done-title').textContent = 'Thank you.';
+  el('modal-done-msg').textContent   = `Your support keeps ${stationName} independent.`;
+  el('modal-backdrop').classList.add('open');
+  setTimeout(closeModal, 5000);
+}
+
+// ─── Player event bindings ─────────────────────────────────────────────────────
+el('play-btn').addEventListener('click', togglePlay);
+el('skip-prev').addEventListener('click', () => skipTrack(-1));
+el('skip-next').addEventListener('click', () => skipTrack(1));
+el('back-live-btn').addEventListener('click', goLive);
+el('lib-btn').addEventListener('click', () => toggleDrawer('lib'));
+el('queue-btn').addEventListener('click', () => toggleDrawer('queue'));
+el('share-tab').addEventListener('click', toggleShare);
+el('waveform').addEventListener('click', seekWaveform);
+
+// ─── View toggle ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.view-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const toDash = btn.dataset.view === 'dashboard';
+    document.querySelectorAll('.view-tab').forEach(b => b.classList.toggle('active', b === btn));
+    el('player-card').classList.toggle('dash-active', toDash);
+    el('topbar-right').style.opacity      = toDash ? '0' : '1';
+    el('topbar-right').style.pointerEvents = toDash ? 'none' : '';
+  });
+});
+
+// ─── Floating Tip ──────────────────────────────────────────────────────────────
+(function() {
+  const tipEl    = el('floating-tip');
+  let pos        = { x:0, y:0 };
+  let target     = { x:0, y:0 };
+  let paused     = false;
+  let tapCount   = 0;
+  let pauseTimer = null;
+  const isMobile = window.matchMedia('(pointer:coarse)').matches;
+
+  function newTarget() {
+    const p = 48;
+    target = {
+      x: p + Math.random() * (window.innerWidth  - p*2),
+      y: p + Math.random() * (window.innerHeight - p*2),
+    };
+  }
+
+  function setPaused(v, ms) {
+    paused = v;
+    tipEl.classList.toggle('paused', v);
+    if (v && ms) {
+      clearTimeout(pauseTimer);
+      pauseTimer = setTimeout(() => { paused = false; tipEl.classList.remove('paused'); tapCount = 0; }, ms);
+    }
+  }
+
+  pos = { x: 80 + Math.random()*(window.innerWidth-160), y: 80 + Math.random()*(window.innerHeight-160) };
+  tipEl.style.left = pos.x + 'px';
+  tipEl.style.top  = pos.y + 'px';
+  newTarget();
+
+  (function loop() {
+    if (!paused) {
+      const dx = target.x - pos.x, dy = target.y - pos.y;
+      if (Math.sqrt(dx*dx + dy*dy) < 30) { newTarget(); }
+      else { pos.x += dx*0.008; pos.y += dy*0.008; tipEl.style.left = pos.x+'px'; tipEl.style.top = pos.y+'px'; }
+    }
+    requestAnimationFrame(loop);
   })();
+
+  if (!isMobile) {
+    tipEl.addEventListener('mouseenter', () => { clearTimeout(pauseTimer); setPaused(true); });
+    tipEl.addEventListener('mouseleave', () => setPaused(false));
+    tipEl.addEventListener('click', openModal);
+  } else {
+    tipEl.addEventListener('touchend', e => {
+      e.preventDefault();
+      tapCount++;
+      if (tapCount === 1) { setPaused(true, 4000); }
+      else { clearTimeout(pauseTimer); setPaused(false); tapCount = 0; openModal(); }
+    });
+  }
+})();
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+function dashFetch(url, opts = {}) {
+  const token = sessionStorage.getItem(SESSION_KEY);
+  if (token) opts.headers = { ...(opts.headers || {}), 'X-Dashboard-Token': token };
+  return fetch(url, opts);
+}
+
+async function tryDashAuth() {
+  try { return (await dashFetch('/api/dashboard/vault')).ok; } catch { return false; }
+}
+
+function showDashAuthGate() {
+  el('dash-auth-gate').hidden = false;
+  el('dash-content').hidden   = true;
+}
+
+function showDashContent() {
+  el('dash-auth-gate').hidden = true;
+  el('dash-content').hidden   = false;
+}
+
+async function initDashboard() {
+  const token = sessionStorage.getItem(SESSION_KEY);
+  if (token) {
+    const ok = await tryDashAuth();
+    if (ok) { showDashContent(); loadDashboard(); return; }
+    sessionStorage.removeItem(SESSION_KEY);
+  }
+  showDashAuthGate();
+}
+
+el('dash-token-btn').addEventListener('click', async () => {
+  const token = el('dash-token-input').value.trim();
+  if (!token) return;
+  sessionStorage.setItem(SESSION_KEY, token);
+  el('dash-auth-msg').textContent = '';
+  const ok = await tryDashAuth();
+  if (ok) { showDashContent(); loadDashboard(); }
+  else {
+    sessionStorage.removeItem(SESSION_KEY);
+    el('dash-auth-msg').className   = 'dash-error-msg';
+    el('dash-auth-msg').textContent = 'Invalid token';
+  }
+});
+el('dash-token-input').addEventListener('keydown', e => { if (e.key === 'Enter') el('dash-token-btn').click(); });
+
+function loadDashboard() {
+  loadDashVaultStats();
+  loadDashBroadcast();
+  loadDashSchedule();
+  loadDashMedia();
+  loadDashAnalytics();
+  loadDashTipConfig();
+}
+
+async function loadDashVaultStats() {
+  try {
+    const d = await dashFetch('/api/dashboard/vault').then(r => r.json());
+    el('dash-vault-stats').innerHTML =
+      `<div class="stat-card"><div class="stat-val">${d.totalFiles||0}</div><div class="stat-key">UPLOADS</div></div>` +
+      `<div class="stat-card"><div class="stat-val">${d.totalHours||0}h</div><div class="stat-key">RUNTIME</div></div>` +
+      Object.entries(d.byCategory || {}).slice(0, 1).map(([cat, n]) =>
+        `<div class="stat-card"><div class="stat-val">${n}</div><div class="stat-key">${esc(cat.toUpperCase())}</div></div>`
+      ).join('');
+  } catch {
+    el('dash-vault-stats').innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;">Could not load stats</div>';
+  }
+}
+
+async function loadDashBroadcast() {
+  try {
+    const data = await fetch('/api/stream/status').then(r => r.json());
+    const np   = data.nowPlaying;
+    el('dash-np').textContent   = np ? (np.title + (np.artist ? ' — ' + np.artist : '')) : 'Nothing playing';
+    el('dash-mode').textContent = (data.mode || 'shuffle').toUpperCase();
+
+    el('btn-toggle-mode').textContent = data.mode === 'shuffle' ? 'SWITCH TO SCHEDULED' : 'SWITCH TO SHUFFLE';
+    el('btn-toggle-mode').onclick = async () => {
+      const newMode = data.mode === 'shuffle' ? 'scheduled' : 'shuffle';
+      await dashFetch('/api/dashboard/broadcast/mode', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ mode: newMode }),
+      });
+      loadDashBroadcast();
+    };
+    el('btn-restart').onclick = async () => {
+      el('btn-restart').textContent = 'RESTARTING…';
+      await dashFetch('/api/dashboard/broadcast/restart', { method: 'POST' });
+      setTimeout(() => { el('btn-restart').textContent = 'RESTART'; loadDashBroadcast(); }, 1500);
+    };
+  } catch {}
+}
+
+const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+async function loadDashSchedule() {
+  try {
+    const blocks = await dashFetch('/api/schedule').then(r => r.json());
+    const list   = el('dash-sched-list');
+    list.innerHTML = blocks.length
+      ? blocks.map(b => {
+          const day = b.day_of_week != null ? DAY_NAMES[b.day_of_week] : 'Daily';
+          return `<div class="sched-row">
+            <div class="sched-info">
+              <div class="sched-title">${esc(b.label || '—')}</div>
+              <div class="sched-meta">${day} · ${b.start_time}–${b.end_time} · ${b.category||'any'} · ${b.mode}</div>
+            </div>
+            <button class="mgmt-btn danger" data-del-block="${b.id}">DEL</button>
+          </div>`;
+        }).join('')
+      : '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No schedule blocks.</div>';
+
+    list.querySelectorAll('[data-del-block]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await dashFetch(`/api/schedule/blocks/${btn.dataset.delBlock}`, { method: 'DELETE' });
+        loadDashSchedule();
+      });
+    });
+  } catch {}
+}
+
+el('btn-add-sched').addEventListener('click', async () => {
+  const dayVal = el('sched-day').value;
+  const body   = {
+    label:       el('sched-label').value.trim() || null,
+    day_of_week: dayVal !== '' ? parseInt(dayVal, 10) : null,
+    start_time:  el('sched-start').value,
+    end_time:    el('sched-end').value,
+    category:    el('sched-category').value || null,
+    mode:        el('sched-mode').value,
+  };
+  if (!body.start_time || !body.end_time) return;
+  await dashFetch('/api/schedule/blocks', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body),
+  });
+  loadDashSchedule();
+});
+
+async function loadDashMedia() {
+  try {
+    const items = await dashFetch('/api/dashboard/media').then(r => r.json());
+    const list  = el('dash-media-list');
+    if (!items.length) {
+      list.innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No media yet.</div>';
+      return;
+    }
+    list.innerHTML = items.map(item => {
+      const c = trackColor(item.id);
+      return `<div class="mgmt-row">
+        <div class="mgmt-thumb" style="background:linear-gradient(135deg,${c}44,${c}11);border:1px solid ${c}33;">${item.category==='videos'?'▶':'♪'}</div>
+        <div class="mgmt-info">
+          <div class="mgmt-title">${esc(item.title || item.filename)}</div>
+          <div class="mgmt-meta">${esc(item.category)}</div>
+        </div>
+        <div class="mgmt-actions">
+          <select class="dash-select" data-vis-id="${item.id}">
+            <option value="public"${item.visibility==='public'?' selected':''}>PUBLIC</option>
+            <option value="supporters_only"${item.visibility==='supporters_only'?' selected':''}>SUPPORTERS</option>
+            <option value="private"${item.visibility==='private'?' selected':''}>PRIVATE</option>
+          </select>
+          <button class="mgmt-btn" data-save-id="${item.id}">SAVE</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    list.querySelectorAll('[data-save-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id  = btn.dataset.saveId;
+        const sel = list.querySelector(`[data-vis-id="${id}"]`);
+        btn.disabled = true;
+        await dashFetch(`/api/dashboard/media/${id}`, {
+          method: 'PATCH', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ visibility: sel.value }),
+        });
+        btn.disabled    = false;
+        btn.textContent = '✓';
+        setTimeout(() => { btn.textContent = 'SAVE'; }, 1500);
+      });
+    });
+  } catch {}
+}
+
+// Upload
+let uploadFiles = [];
+const uploadZone  = el('dash-upload-zone');
+const uploadInput = el('dash-upload-input');
+uploadZone.addEventListener('click',     () => uploadInput.click());
+uploadZone.addEventListener('dragover',  e  => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', ()  => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop',      e  => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  queueUploads(Array.from(e.dataTransfer.files));
+});
+uploadInput.addEventListener('change', () => queueUploads(Array.from(uploadInput.files)));
+
+function queueUploads(files) {
+  uploadFiles = files;
+  el('dash-upload-form').hidden = false;
+  el('dash-upload-queue').innerHTML = files
+    .map(f => `<div class="dash-file-item">• ${esc(f.name)} (${(f.size/1024/1024).toFixed(1)} MB)</div>`)
+    .join('');
+}
+
+el('dash-upload-submit').addEventListener('click', async () => {
+  const msg      = el('dash-upload-msg');
+  const category = el('dash-upload-cat').value;
+  const vis      = el('dash-upload-vis').value;
+  msg.textContent = '';
+
+  for (const file of uploadFiles) {
+    const fd = new FormData();
+    fd.append('media',      file);
+    fd.append('category',   category);
+    fd.append('visibility', vis);
+    try {
+      const res = await dashFetch('/api/dashboard/upload', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error((await res.json()).error || 'Upload failed');
+      msg.className   = 'dash-success-msg';
+      msg.textContent = `Uploaded: ${file.name}`;
+    } catch (err) {
+      msg.className   = 'dash-error-msg';
+      msg.textContent = err.message;
+    }
+  }
+  uploadFiles = [];
+  el('dash-upload-form').hidden = true;
+  setTimeout(() => { loadDashVaultStats(); loadDashMedia(); loadLibrary(); }, 1500);
+});
+
+async function loadDashAnalytics() {
+  try {
+    const [liveData, topData] = await Promise.all([
+      dashFetch('/api/analytics/live').then(r => r.json()),
+      dashFetch('/api/analytics/top?limit=3').then(r => r.json()),
+    ]);
+    el('dash-analytics').innerHTML =
+      `<div class="stat-card"><div class="stat-val">${liveData.currentListeners||0}</div><div class="stat-key">NOW</div></div>` +
+      `<div class="stat-card"><div class="stat-val">${liveData.peakToday||0}</div><div class="stat-key">PEAK TODAY</div></div>` +
+      (topData.length
+        ? `<div class="stat-card"><div class="stat-key" style="margin-bottom:6px;">TOP TRACKS</div>${
+            topData.map(t => `<div style="font-size:8px;color:rgba(255,255,255,.45);padding:1px 0;font-family:'Space Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.title||t.filename)}</div>`).join('')
+          }</div>` : '');
+  } catch {}
+}
+
+async function loadDashTipConfig() {
+  try {
+    const d    = await dashFetch('/api/dashboard/tip-config').then(r => r.json());
+    const amts = d.amounts || [300, 500, 1000];
+    el('tip-cfg-1').value        = (amts[0] || 300) / 100;
+    el('tip-cfg-2').value        = (amts[1] || 500) / 100;
+    el('tip-cfg-3').value        = (amts[2] || 1000) / 100;
+    el('tip-cfg-custom').checked = !!d.customEnabled;
+  } catch {}
+}
+
+el('btn-save-tip-cfg').addEventListener('click', async () => {
+  const amounts = [
+    Math.round(parseFloat(el('tip-cfg-1').value) * 100),
+    Math.round(parseFloat(el('tip-cfg-2').value) * 100),
+    Math.round(parseFloat(el('tip-cfg-3').value) * 100),
+  ];
+  const customEnabled = el('tip-cfg-custom').checked;
+  const msg = el('tip-cfg-msg');
+  try {
+    const res = await dashFetch('/api/dashboard/tip-config', {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ amounts, customEnabled }),
+    });
+    if (res.ok) {
+      msg.className   = 'dash-success-msg';
+      msg.textContent = 'SAVED';
+      tipAmounts = amounts;
+      buildTipPresets();
+      setTimeout(() => { msg.textContent = ''; }, 2000);
+    } else { throw new Error(); }
+  } catch {
+    msg.className   = 'dash-error-msg';
+    msg.textContent = 'FAILED';
+  }
+});
+
+// ─── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  // Station name
+  try {
+    const d = await fetch('/api/health').then(r => r.json());
+    if (d.station) {
+      stationName = d.station;
+      el('pw-wordmark-text').textContent = stationName;
+      document.title = stationName;
+    }
+  } catch {}
+
+  // Stream status + polling
+  await fetchStreamStatus();
+  statusInterval = setInterval(fetchStreamStatus, STATUS_INTERVAL_MS);
+
+  // Library and queue
+  loadLibrary();
+  loadQueue();
+
+  // Tip presets for modal
+  loadTipConfig();
+
+  // Dashboard auth
+  initDashboard();
+
+  // Initial render
+  render();
+
+  // Handle ?tipped=1
+  handleTippedParam();
+}
+
+init();
 </script>
+
 </body>
 </html>
