@@ -551,7 +551,7 @@
     <!-- Top bar -->
     <div id="topbar">
       <div style="display:flex;align-items:center;gap:10px;">
-        <span class="pw-wordmark" id="pw-wordmark-text">Paperweight</span>
+        <span class="pw-wordmark" id="pw-wordmark-text"></span>
         <div id="view-toggle">
           <button class="view-tab active" data-view="player">PLAYER</button>
           <button class="view-tab" data-view="dashboard">DASHBOARD</button>
@@ -864,7 +864,7 @@ let hls            = null;
 let statusInterval = null;
 let pingInterval   = null;
 let currentIsVideo = false;
-let stationName    = 'Paperweight';
+let stationName    = '';
 let LIBRARY        = [];
 let tipAmounts     = [];
 let selectedTipCents = null;
@@ -945,7 +945,7 @@ async function loadLibrary() {
                   ? new Date(item.indexedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'})
                   : '',
       color:    trackColor(item.id),
-      creator:  stationName,
+      creator:  item.artist || '',
       isLive:   false,
       waveform: generateWaveform(item.id),
     }));
@@ -1026,7 +1026,7 @@ function activeTrack() {
     id:      0,
     type:    currentIsVideo ? 'video' : 'audio',
     title:   np ? (np.title || 'On Air') : (state.playing ? 'On Air' : 'Off Air'),
-    creator: np?.artist || stationName,
+    creator: np?.artist || '',
     isLive:  true,
     color:   '#00F5D4',
     waveform: generateWaveform(0),
@@ -1314,7 +1314,7 @@ function buildTipPresets() {
 }
 
 function openModal() {
-  el('modal-creator-name').textContent = `Support ${stationName}`;
+  el('modal-creator-name').textContent = stationName ? `Support ${stationName}` : 'Support this station';
   el('modal-creator-show').textContent = stationName.toUpperCase();
   el('modal-backdrop').classList.add('open');
   setModalTab('tip');
@@ -1416,7 +1416,7 @@ function handleTippedParam() {
   el('modal-main').style.display  = 'none';
   el('modal-done-icon').textContent  = '✦';
   el('modal-done-title').textContent = 'Thank you.';
-  el('modal-done-msg').textContent   = `Your support keeps ${stationName} independent.`;
+  el('modal-done-msg').textContent   = stationName ? `Your support keeps ${stationName} independent.` : 'Your support is appreciated.';
   el('modal-backdrop').classList.add('open');
   setTimeout(closeModal, 5000);
 }
