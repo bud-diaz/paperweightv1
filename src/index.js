@@ -1,6 +1,7 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const fs = require('fs');
 const config = require('./config');
 const { initDb, closeDb, log } = require('./db');
 const { startScanner, stopScanner } = require('./scanner');
@@ -46,9 +47,10 @@ function createApp() {
   // API routes
   app.use('/api', apiRouter);
 
-  // Serve frontend (config.paths.app points to the bundled client/ dir,
-  // which lives inside the pkg snapshot when running as a packaged exe)
-  app.use(express.static(path.join(config.paths.app, 'client')));
+  // Serve frontend — check dataRoot/client/ first so users can drop
+  // replacement files next to the exe without rebuilding the package.
+  app.use(express.static(path.join(config.paths.root, 'client')));
+  app.use(express.static(path.join(config.paths.app,  'client')));
 
   // Marketing/about page accessible at /landing
   app.get('/landing', (req, res) => {
@@ -90,12 +92,15 @@ function createApp() {
     }
   });
 
-  // SPA fallback — serve creator.html (player) for any unmatched GET
+  // SPA fallback — serve creator.html (player) for any unmatched GET.
+  // Prefer the override file next to the exe (dataRoot) over the bundled copy.
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/hls')) {
       return res.status(404).json({ error: 'Not found' });
     }
-    res.sendFile(path.join(config.paths.app, 'client', 'creator.html'));
+    const override  = path.join(config.paths.root, 'client', 'creator.html');
+    const bundled   = path.join(config.paths.app,  'client', 'creator.html');
+    res.sendFile(fs.existsSync(override) ? override : bundled);
   });
 
   // Express error handler — catches sync throws and next(err) calls
