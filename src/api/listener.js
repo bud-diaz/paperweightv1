@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { getDb } = require('../db');
 const { authLimiter } = require('../middleware/rateLimiter');
+const config = require('../config');
 
 const BCRYPT_ROUNDS = 10;
 
@@ -10,6 +11,15 @@ const BCRYPT_ROUNDS = 10;
 
 function generateToken() {
   return crypto.randomBytes(32).toString('hex');
+}
+
+function cookieOpts() {
+  return {
+    httpOnly: true,
+    secure: config.https,
+    sameSite: 'Strict',
+    maxAge: 365 * 24 * 60 * 60 * 1000,
+  };
 }
 
 // Returns the listener's active token row, or creates a new one.
@@ -39,7 +49,7 @@ function getActiveSubscription(db, listenerId) {
 
 // POST /api/listener/register
 // Body: { email, password }
-// Returns: { token, tier }
+// Sets pw_token cookie (web) and returns { token, tier } (mobile).
 router.post('/register', authLimiter, async (req, res) => {
   const { email, password } = req.body;
 
@@ -67,6 +77,7 @@ router.post('/register', authLimiter, async (req, res) => {
     const listenerId = info.lastInsertRowid;
     const tokenRow = getOrCreateToken(db, listenerId, 'free');
 
+    res.cookie('pw_token', tokenRow.token, cookieOpts());
     res.status(201).json({ token: tokenRow.token, tier: tokenRow.tier });
   } catch (err) {
     res.status(500).json({ error: 'Registration failed' });
@@ -75,7 +86,7 @@ router.post('/register', authLimiter, async (req, res) => {
 
 // POST /api/listener/login
 // Body: { email, password }
-// Returns: { token, tier }
+// Sets pw_token cookie (web) and returns { token, tier } (mobile).
 router.post('/login', authLimiter, async (req, res) => {
   const { email, password } = req.body;
 
@@ -105,6 +116,7 @@ router.post('/login', authLimiter, async (req, res) => {
     const sub = getActiveSubscription(db, account.id);
     const tier = sub ? sub.tier : tokenRow.tier;
 
+    res.cookie('pw_token', tokenRow.token, cookieOpts());
     res.json({ token: tokenRow.token, tier });
   } catch (err) {
     res.status(500).json({ error: 'Login failed' });
@@ -112,14 +124,14 @@ router.post('/login', authLimiter, async (req, res) => {
 });
 
 // POST /api/listener/logout
-// No-op server-side — token lives in mobile Keychain and client drops it.
-// Included for API completeness and future token revocation.
+// Clears the pw_token cookie for web clients.
 router.post('/logout', (req, res) => {
+  res.clearCookie('pw_token');
   res.json({ ok: true });
 });
 
 // GET /api/listener/me
-// Requires Bearer token. Returns account info + current tier + subscription state.
+// Returns account info + current tier + subscription state + hasPassword flag.
 router.get('/me', (req, res) => {
   if (!req.tokenRow || !req.tokenRow.listener_id) {
     return res.status(401).json({ error: 'Authentication required' });
@@ -127,7 +139,7 @@ router.get('/me', (req, res) => {
 
   const db = getDb();
   const account = db.prepare(
-    'SELECT id, email, created_at FROM listener_accounts WHERE id = ? AND is_active = 1'
+    'SELECT id, email, password_hash, created_at FROM listener_accounts WHERE id = ? AND is_active = 1'
   ).get(req.tokenRow.listener_id);
 
   if (!account) {
@@ -139,10 +151,39 @@ router.get('/me', (req, res) => {
   res.json({
     email: account.email,
     tier: req.tier,
+    // Accounts auto-created by Stripe have a random hex password_hash.
+    // Bcrypt hashes always start with $2. This lets the UI prompt them to set a real password.
+    hasPassword: account.password_hash.startsWith('$2'),
     subscriptionStatus: sub ? sub.status : null,
     currentPeriodEnd: sub ? sub.current_period_end : null,
     provider: sub ? sub.provider : null,
   });
+});
+
+// PATCH /api/listener/password
+// Allows a listener to set or change their password.
+// Used primarily by subscribers auto-created by Stripe (who have no usable password).
+// Body: { password }  — min 8 chars
+router.patch('/password', authLimiter, async (req, res) => {
+  if (!req.tokenRow || !req.tokenRow.listener_id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const { password } = req.body;
+  if (!password || typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+
+  try {
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    getDb().prepare(
+      "UPDATE listener_accounts SET password_hash = ? WHERE id = ?"
+    ).run(passwordHash, req.tokenRow.listener_id);
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update password' });
+  }
 });
 
 // GET /api/listener/saved-stations

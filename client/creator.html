@@ -124,6 +124,7 @@
     }
     #track-title   { font-family:'DM Serif Display',serif; font-size:22px; color:#fff; line-height:1.1; letter-spacing:-.02em; }
     #track-creator { font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,.45); margin-top:3px; letter-spacing:.06em; }
+    #track-station { font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,.25); margin-top:4px; letter-spacing:.08em; }
 
     /* ── waveform ── */
     #waveform-section { padding: 12px 16px 0; flex-shrink: 0; }
@@ -204,6 +205,47 @@
     .share-opt-icon.embed { font-size:9px; font-family:'Space Mono',monospace; letter-spacing:-.03em; }
     .share-opt-label { font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.3); letter-spacing:.06em; transition:color .2s; }
     .share-opt.copied .share-opt-icon, .share-opt.copied .share-opt-label { color:#39ff14; }
+
+    /* ── account / auth section ── */
+    .auth-section-label { font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.28); letter-spacing:.1em; padding:14px 20px 10px; }
+    #auth-divider { border:none; border-top:1px solid rgba(255,255,255,.07); margin:0 20px 12px; }
+    #auth-tabs { display:flex; gap:6px; padding:0 20px 10px; }
+    .auth-tab {
+      flex:1; padding:6px 0; font-family:'Space Mono',monospace; font-size:8px; letter-spacing:.06em;
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:6px;
+      cursor:pointer; color:rgba(255,255,255,.3); transition:all .15s;
+    }
+    .auth-tab.active { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.22); color:rgba(255,255,255,.8); }
+    #auth-form { padding:0 20px; display:flex; flex-direction:column; gap:7px; }
+    .auth-input {
+      width:100%; box-sizing:border-box; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+      border-radius:6px; padding:8px 10px; font-family:'Space Mono',monospace; font-size:10px; color:#fff; outline:none;
+    }
+    .auth-input::placeholder { color:rgba(255,255,255,.22); }
+    .auth-input:focus { border-color:rgba(255,255,255,.28); }
+    .auth-submit {
+      padding:8px; font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.06em;
+      background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.16); border-radius:6px;
+      color:rgba(255,255,255,.85); cursor:pointer; transition:all .15s;
+    }
+    .auth-submit:hover:not(:disabled) { background:rgba(255,255,255,.18); }
+    .auth-submit:disabled { opacity:.4; cursor:not-allowed; }
+    .auth-msg { font-family:'Space Mono',monospace; font-size:9px; min-height:14px; padding:0 0 2px; }
+    .auth-msg.error   { color:#ff6b6b; }
+    .auth-msg.success { color:#39ff14; }
+    #auth-logged-in { padding:0 20px; }
+    .auth-account-row { display:flex; align-items:center; gap:8px; padding:4px 0 8px; }
+    .auth-email-disp { font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,.45); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .auth-tier-badge { font-family:'Space Mono',monospace; font-size:8px; padding:2px 7px; border-radius:4px; border:1px solid rgba(255,255,255,.15); color:rgba(255,255,255,.5); flex-shrink:0; }
+    .auth-tier-badge.subscriber,.auth-tier-badge.pro,.auth-tier-badge.all_access { border-color:rgba(255,255,255,.3); color:#fff; }
+    .auth-logout-btn { font-family:'Space Mono',monospace; font-size:8px; letter-spacing:.04em; padding:4px 8px; background:none; border:1px solid rgba(255,255,255,.1); border-radius:5px; color:rgba(255,255,255,.3); cursor:pointer; flex-shrink:0; }
+    .auth-logout-btn:hover { border-color:rgba(255,255,255,.25); color:rgba(255,255,255,.6); }
+    #auth-set-pw { font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.3); background:none; border:none; border-bottom:1px solid rgba(255,255,255,.18); padding:0 0 1px; cursor:pointer; margin-bottom:8px; }
+    #auth-set-pw:hover { color:rgba(255,255,255,.6); }
+    #auth-setpw-form { display:flex; flex-direction:column; gap:7px; padding-bottom:4px; }
+    .vg-login-hint { text-align:center; margin-top:14px; font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.25); }
+    .vg-login-hint button { background:none; border:none; color:rgba(255,255,255,.5); font-family:'Space Mono',monospace; font-size:8px; cursor:pointer; text-decoration:underline; }
+    .vg-login-hint button:hover { color:rgba(255,255,255,.8); }
 
     /* ── spacer ── */
     #card-spacer { flex: 1; min-height: 0; }
@@ -661,7 +703,7 @@
 
     <!-- Top bar -->
     <div id="topbar">
-      <span class="pw-wordmark" id="pw-wordmark-text"></span>
+      <span class="pw-wordmark" id="pw-wordmark-text">Paperweight</span>
       <div id="view-toggle">
         <button class="view-tab active" data-view="player">PLAYER</button>
         <button class="view-tab" data-view="dashboard">DASHBOARD</button>
@@ -710,6 +752,7 @@
             <div id="art-meta">
               <div id="track-title"></div>
               <div id="track-creator"></div>
+              <div id="track-station"></div>
             </div>
           </div>
         </div>
@@ -758,6 +801,38 @@
         <!-- Share drawer -->
         <div class="drawer" id="share-drawer">
           <div class="drawer-inner">
+
+            <!-- Account section -->
+            <div class="auth-section-label">ACCOUNT</div>
+            <div id="auth-section">
+              <div id="auth-logged-out">
+                <div id="auth-tabs">
+                  <button class="auth-tab active" data-auth-tab="login">LOG IN</button>
+                  <button class="auth-tab" data-auth-tab="register">CREATE ACCOUNT</button>
+                </div>
+                <div id="auth-form">
+                  <input class="auth-input" id="auth-email" type="email" placeholder="email address" autocomplete="email"/>
+                  <input class="auth-input" id="auth-password" type="password" placeholder="password (min 8 chars)" autocomplete="current-password"/>
+                  <button class="auth-submit" id="auth-submit-btn">LOG IN</button>
+                  <div class="auth-msg" id="auth-msg"></div>
+                </div>
+              </div>
+              <div id="auth-logged-in" hidden>
+                <div class="auth-account-row">
+                  <span class="auth-email-disp" id="auth-email-display"></span>
+                  <span class="auth-tier-badge" id="auth-tier-badge"></span>
+                  <button class="auth-logout-btn" id="auth-logout-btn">LOG OUT</button>
+                </div>
+                <button id="auth-set-pw" hidden>Set a password to log in from any device →</button>
+                <div id="auth-setpw-form" hidden>
+                  <input class="auth-input" id="auth-new-password" type="password" placeholder="choose a password (min 8 chars)" autocomplete="new-password"/>
+                  <button class="auth-submit" id="auth-setpw-btn">SET PASSWORD</button>
+                  <div class="auth-msg" id="auth-setpw-msg"></div>
+                </div>
+              </div>
+            </div>
+
+            <hr id="auth-divider"/>
             <div class="drawer-label">SHARE</div>
             <div id="share-options">
               <button class="share-opt" data-share="link">
@@ -1040,6 +1115,8 @@ let tipAmounts     = [];
 let selectedTipCents = null;
 
 let previewAudio   = null;
+let authState      = { loggedIn: false, email: '', tier: 'free', hasPassword: false };
+let authTab        = 'login';
 let previewTimer   = null;
 let previewTickInt = null;
 const PREVIEW_SECS = 30;
@@ -1100,7 +1177,6 @@ async function fetchStreamStatus() {
 
     if (data.station) {
       stationName = data.station;
-      el('pw-wordmark-text').textContent = stationName;
     }
     state.nowPlaying    = data.nowPlaying || null;
     state.listenerCount = data.listenerCount || 0;
@@ -1246,6 +1322,7 @@ function render() {
   // titles
   el('track-title').textContent   = t.title;
   el('track-creator').textContent = t.creator ? t.creator.toUpperCase() : '';
+  el('track-station').textContent = stationName ? stationName.toUpperCase() : '';
 
   // on-air badge
   el('on-air-badge').style.display = !state.track ? 'flex' : 'none';
@@ -1698,6 +1775,25 @@ function handleTippedParam() {
   el('modal-done-msg').textContent   = stationName ? `Your support keeps ${stationName} independent.` : 'Your support is appreciated.';
   el('modal-backdrop').classList.add('open');
   setTimeout(closeModal, 5000);
+
+  // Suggest creating an account (tippers are anonymous; account links future access)
+  if (!authState.loggedIn) {
+    const nudge = document.createElement('p');
+    nudge.style.cssText = 'margin:12px 0 0;font-family:"Space Mono",monospace;font-size:9px;color:rgba(255,255,255,.35);text-align:center;line-height:1.5;';
+    nudge.textContent = 'Create a free account to save your access.';
+    const nudgeBtn = document.createElement('button');
+    nudgeBtn.style.cssText = 'margin-top:8px;background:none;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:5px 14px;font-family:"Space Mono",monospace;font-size:8px;letter-spacing:.05em;color:rgba(255,255,255,.45);cursor:pointer;display:block;margin-left:auto;margin-right:auto;';
+    nudgeBtn.textContent = 'CREATE ACCOUNT';
+    nudgeBtn.addEventListener('click', () => {
+      closeModal();
+      setAuthTab('register');
+      state.showShare = true;
+      render();
+      setTimeout(() => el('auth-email').focus(), 120);
+    });
+    el('modal-done').appendChild(nudge);
+    el('modal-done').appendChild(nudgeBtn);
+  }
 }
 
 // ─── Vault gate ────────────────────────────────────────────────────────────────
@@ -1774,6 +1870,21 @@ function showVaultGate(t, opts) {
     this.classList.remove('processing'); this.textContent = 'SUBSCRIBE';
   });
   container.appendChild(subDiv);
+
+  // Login hint for returning subscribers who lost their session
+  if (!authState.loggedIn) {
+    const loginHint = document.createElement('div');
+    loginHint.className = 'vg-login-hint';
+    loginHint.innerHTML = 'Already have an account? <button>Log in</button>';
+    loginHint.querySelector('button').addEventListener('click', () => {
+      closeVaultGate();
+      setAuthTab('login');
+      state.showShare = true;
+      render();
+      setTimeout(() => el('auth-email').focus(), 120);
+    });
+    container.appendChild(loginHint);
+  }
 
   el('vault-gate-backdrop').classList.add('open');
 }
@@ -2522,6 +2633,151 @@ el('btn-save-tip-cfg').addEventListener('click', async () => {
   }
 });
 
+// ─── Listener auth ────────────────────────────────────────────────────────────
+
+async function loadAuthState() {
+  try {
+    const me = await fetch('/api/tokens/me').then(r => r.json());
+    if (me.tier === 'free') {
+      authState = { loggedIn: false, email: '', tier: 'free', hasPassword: false };
+    } else {
+      try {
+        const acc = await fetch('/api/listener/me').then(r => r.json());
+        authState = { loggedIn: true, email: acc.email || '', tier: me.tier, hasPassword: !!acc.hasPassword };
+      } catch {
+        // Creator-issued token: valid non-free tier but no listener account
+        authState = { loggedIn: true, email: '', tier: me.tier, hasPassword: true };
+      }
+    }
+  } catch {
+    authState = { loggedIn: false, email: '', tier: 'free', hasPassword: false };
+  }
+  renderAuthSection();
+}
+
+function renderAuthSection() {
+  const loggedIn = authState.loggedIn;
+  el('auth-logged-out').hidden = loggedIn;
+  el('auth-logged-in').hidden  = !loggedIn;
+  if (loggedIn) {
+    el('auth-email-display').textContent = authState.email || '—';
+    const badge = el('auth-tier-badge');
+    badge.textContent = authState.tier.replace('_', ' ').toUpperCase();
+    badge.className   = `auth-tier-badge ${authState.tier}`;
+    const needsPw = authState.tier !== 'free' && !authState.hasPassword;
+    el('auth-set-pw').hidden = !needsPw;
+    if (!needsPw) el('auth-setpw-form').hidden = true;
+  }
+}
+
+function setAuthTab(tab) {
+  authTab = tab;
+  document.querySelectorAll('.auth-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.authTab === tab));
+  el('auth-submit-btn').textContent = tab === 'login' ? 'LOG IN' : 'CREATE ACCOUNT';
+  el('auth-msg').textContent = '';
+}
+
+async function submitAuth() {
+  const email    = el('auth-email').value.trim();
+  const password = el('auth-password').value;
+  const btn      = el('auth-submit-btn');
+  const msg      = el('auth-msg');
+
+  msg.className = 'auth-msg';
+  if (!email || !password) {
+    msg.className = 'auth-msg error';
+    msg.textContent = 'Email and password are required.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '…';
+  msg.textContent = '';
+
+  const endpoint = authTab === 'login' ? '/api/listener/login' : '/api/listener/register';
+  try {
+    const res  = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msg.className = 'auth-msg error';
+      msg.textContent = data.error || 'Something went wrong.';
+    } else {
+      el('auth-email').value    = '';
+      el('auth-password').value = '';
+      await loadAuthState();
+      loadLibrary();
+    }
+  } catch {
+    msg.className = 'auth-msg error';
+    msg.textContent = 'Network error — please try again.';
+  }
+  btn.disabled = false;
+  btn.textContent = authTab === 'login' ? 'LOG IN' : 'CREATE ACCOUNT';
+}
+
+async function logoutListener() {
+  try { await fetch('/api/listener/logout', { method: 'POST' }); } catch {}
+  authState = { loggedIn: false, email: '', tier: 'free', hasPassword: false };
+  renderAuthSection();
+  loadLibrary();
+}
+
+async function handleSetPassword() {
+  const pw  = el('auth-new-password').value;
+  const btn = el('auth-setpw-btn');
+  const msg = el('auth-setpw-msg');
+  msg.className = 'auth-msg';
+
+  if (!pw || pw.length < 8) {
+    msg.className = 'auth-msg error';
+    msg.textContent = 'Password must be at least 8 characters.';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = '…'; msg.textContent = '';
+  try {
+    const res  = await fetch('/api/listener/password', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msg.className = 'auth-msg error';
+      msg.textContent = data.error || 'Failed to set password.';
+    } else {
+      authState.hasPassword = true;
+      el('auth-set-pw').hidden = true;
+      el('auth-new-password').value = '';
+      msg.className = 'auth-msg success';
+      msg.textContent = 'Password set — you can now log in from any device.';
+      setTimeout(() => { el('auth-setpw-form').hidden = true; msg.textContent = ''; }, 3500);
+    }
+  } catch {
+    msg.className = 'auth-msg error';
+    msg.textContent = 'Network error — please try again.';
+  }
+  btn.disabled = false; btn.textContent = 'SET PASSWORD';
+}
+
+// Auth event wiring
+document.querySelectorAll('.auth-tab').forEach(b =>
+  b.addEventListener('click', () => setAuthTab(b.dataset.authTab)));
+el('auth-submit-btn').addEventListener('click', submitAuth);
+el('auth-email').addEventListener('keydown',    e => { if (e.key === 'Enter') el('auth-password').focus(); });
+el('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth(); });
+el('auth-logout-btn').addEventListener('click', logoutListener);
+el('auth-set-pw').addEventListener('click', () => {
+  el('auth-setpw-form').hidden = false;
+  el('auth-new-password').focus();
+});
+el('auth-setpw-btn').addEventListener('click', handleSetPassword);
+
 // ─── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   // Station name
@@ -2529,7 +2785,6 @@ async function init() {
     const d = await fetch('/api/health').then(r => r.json());
     if (d.station) {
       stationName = d.station;
-      el('pw-wordmark-text').textContent = stationName;
       document.title = stationName;
     }
   } catch {}
@@ -2537,6 +2792,9 @@ async function init() {
   // Stream status + polling
   await fetchStreamStatus();
   statusInterval = setInterval(fetchStreamStatus, STATUS_INTERVAL_MS);
+
+  // Listener auth state — loads before library so gated content is correct first render
+  await loadAuthState();
 
   // Library and queue
   loadLibrary();
@@ -2559,6 +2817,19 @@ async function init() {
 
   // Handle ?tipped=1
   handleTippedParam();
+
+  // Handle ?subscribed=1 — Stripe redirects here after checkout.
+  // Cookie is already set by the server; check if they need to set a password.
+  if (new URLSearchParams(location.search).get('subscribed') === '1') {
+    history.replaceState(null, '', location.pathname + location.hash);
+    if (authState.tier !== 'free' && !authState.hasPassword) {
+      state.showShare = true;
+      render();
+      el('auth-set-pw').hidden = false;
+      el('auth-setpw-form').hidden = false;
+      setTimeout(() => el('auth-new-password').focus(), 120);
+    }
+  }
 }
 
 init();
