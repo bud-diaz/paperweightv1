@@ -207,8 +207,20 @@
     .share-opt.copied .share-opt-icon, .share-opt.copied .share-opt-label { color:#39ff14; }
 
     /* ── account / auth section ── */
-    .auth-section-label { font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.28); letter-spacing:.1em; padding:14px 20px 10px; }
-    #auth-divider { border:none; border-top:1px solid rgba(255,255,255,.07); margin:0 20px 12px; }
+    #auth-toggle {
+      display:flex; align-items:center; justify-content:space-between; gap:8px;
+      width:100%; padding:12px 20px 10px; background:none; border:none; cursor:pointer;
+      font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.28); letter-spacing:.1em;
+      transition:color .15s;
+    }
+    #auth-toggle:hover { color:rgba(255,255,255,.55); }
+    #auth-toggle-left { display:flex; align-items:center; gap:8px; }
+    #auth-toggle-status { font-size:8px; color:rgba(255,255,255,.35); letter-spacing:.04em; }
+    #auth-chevron { transition:transform .2s; flex-shrink:0; }
+    #auth-toggle.open #auth-chevron { transform:rotate(180deg); }
+    #auth-body { overflow:hidden; max-height:0; transition:max-height .28s ease; }
+    #auth-body.open { max-height:500px; }
+    #auth-divider { border:none; border-top:1px solid rgba(255,255,255,.07); margin:0 20px 10px; }
     #auth-tabs { display:flex; gap:6px; padding:0 20px 10px; }
     .auth-tab {
       flex:1; padding:6px 0; font-family:'Space Mono',monospace; font-size:8px; letter-spacing:.06em;
@@ -803,7 +815,16 @@
           <div class="drawer-inner">
 
             <!-- Account section -->
-            <div class="auth-section-label">ACCOUNT</div>
+            <button id="auth-toggle">
+              <div id="auth-toggle-left">
+                <span>ACCOUNT</span>
+                <span id="auth-toggle-status"></span>
+              </div>
+              <svg id="auth-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none">
+                <path d="M1 3l3 3 3-3" stroke="rgba(255,255,255,.3)" stroke-width="1.2"/>
+              </svg>
+            </button>
+            <div id="auth-body">
             <div id="auth-section">
               <div id="auth-logged-out">
                 <div id="auth-tabs">
@@ -831,6 +852,7 @@
                 </div>
               </div>
             </div>
+            </div><!-- /auth-body -->
 
             <hr id="auth-divider"/>
             <div class="drawer-label">SHARE</div>
@@ -1117,6 +1139,7 @@ let selectedTipCents = null;
 let previewAudio   = null;
 let authState      = { loggedIn: false, email: '', tier: 'free', hasPassword: false };
 let authTab        = 'login';
+let authOpen       = false;
 let previewTimer   = null;
 let previewTickInt = null;
 const PREVIEW_SECS = 30;
@@ -1789,6 +1812,7 @@ function handleTippedParam() {
       setAuthTab('register');
       state.showShare = true;
       render();
+      toggleAuthSection(true);
       setTimeout(() => el('auth-email').focus(), 120);
     });
     el('modal-done').appendChild(nudge);
@@ -1881,6 +1905,7 @@ function showVaultGate(t, opts) {
       setAuthTab('login');
       state.showShare = true;
       render();
+      toggleAuthSection(true);
       setTimeout(() => el('auth-email').focus(), 120);
     });
     container.appendChild(loginHint);
@@ -2655,11 +2680,21 @@ async function loadAuthState() {
   renderAuthSection();
 }
 
+function toggleAuthSection(force) {
+  authOpen = force !== undefined ? force : !authOpen;
+  el('auth-toggle').classList.toggle('open', authOpen);
+  el('auth-body').classList.toggle('open', authOpen);
+}
+
 function renderAuthSection() {
   const loggedIn = authState.loggedIn;
   el('auth-logged-out').hidden = loggedIn;
   el('auth-logged-in').hidden  = !loggedIn;
+
+  // Compact status shown in the toggle header when collapsed
+  const status = el('auth-toggle-status');
   if (loggedIn) {
+    status.textContent = `${authState.tier.replace('_', ' ').toUpperCase()}`;
     el('auth-email-display').textContent = authState.email || '—';
     const badge = el('auth-tier-badge');
     badge.textContent = authState.tier.replace('_', ' ').toUpperCase();
@@ -2667,6 +2702,8 @@ function renderAuthSection() {
     const needsPw = authState.tier !== 'free' && !authState.hasPassword;
     el('auth-set-pw').hidden = !needsPw;
     if (!needsPw) el('auth-setpw-form').hidden = true;
+  } else {
+    status.textContent = '';
   }
 }
 
@@ -2766,6 +2803,7 @@ async function handleSetPassword() {
 }
 
 // Auth event wiring
+el('auth-toggle').addEventListener('click', () => toggleAuthSection());
 document.querySelectorAll('.auth-tab').forEach(b =>
   b.addEventListener('click', () => setAuthTab(b.dataset.authTab)));
 el('auth-submit-btn').addEventListener('click', submitAuth);
@@ -2825,6 +2863,7 @@ async function init() {
     if (authState.tier !== 'free' && !authState.hasPassword) {
       state.showShare = true;
       render();
+      toggleAuthSection(true);
       el('auth-set-pw').hidden = false;
       el('auth-setpw-form').hidden = false;
       setTimeout(() => el('auth-new-password').focus(), 120);
