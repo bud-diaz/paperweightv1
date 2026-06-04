@@ -31,6 +31,16 @@ function runMigrations(database) {
       column: 'listener_id',
       sql:    'ALTER TABLE tokens ADD COLUMN listener_id INTEGER REFERENCES listener_accounts(id)',
     },
+    {
+      table:  'tokens',
+      column: 'scope_type',
+      sql:    'ALTER TABLE tokens ADD COLUMN scope_type TEXT',
+    },
+    {
+      table:  'tokens',
+      column: 'scope_id',
+      sql:    'ALTER TABLE tokens ADD COLUMN scope_id INTEGER',
+    },
   ];
 
   for (const guard of alterGuards) {

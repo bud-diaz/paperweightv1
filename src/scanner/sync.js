@@ -69,4 +69,20 @@ function markInactive(filepath) {
   log('info', 'scanner', `Marked inactive: ${path.basename(filepath)}`);
 }
 
-module.exports = { needsProbe, upsert, markInactive };
+function reconcileInactive() {
+  const db   = getDb();
+  const rows = db.prepare('SELECT filepath FROM media WHERE is_active = 1').all();
+  let removed = 0;
+  for (const { filepath } of rows) {
+    if (!fs.existsSync(filepath)) {
+      db.prepare(
+        "UPDATE media SET is_active = 0, updated_at = datetime('now') WHERE filepath = ?"
+      ).run(filepath);
+      log('info', 'scanner', `Reconciled missing file: ${path.basename(filepath)}`);
+      removed++;
+    }
+  }
+  if (removed > 0) log('info', 'scanner', `Reconciliation complete: ${removed} file(s) marked inactive`);
+}
+
+module.exports = { needsProbe, upsert, markInactive, reconcileInactive };
