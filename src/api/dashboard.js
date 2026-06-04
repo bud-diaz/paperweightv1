@@ -16,7 +16,7 @@ router.use(requireDashboard);
 // ─── Multer upload config ─────────────────────────────────────────────────────
 
 const VALID_CATEGORIES  = new Set(['music', 'beats', 'podcasts', 'videos', 'drafts', 'live_sessions']);
-const VALID_VISIBILITY  = new Set(['public', 'supporters_only', 'private']);
+const VALID_VISIBILITY  = new Set(['public', 'supporters_only', 'vault']);
 
 // MIME types accepted for vault uploads — audio and video only.
 const ALLOWED_MIMES = new Set([
@@ -127,7 +127,7 @@ router.post('/upload', (req, res) => {
 // ─── Media management ────────────────────────────────────────────────────────
 
 // GET /api/dashboard/media
-// Returns all active media items including private — creator sees everything.
+// Returns all active media items including vault — creator sees everything.
 router.get('/media', (req, res) => {
   const items = getDb().prepare(`
     SELECT id, title, filename, category, visibility, duration, indexed_at
@@ -140,11 +140,11 @@ router.get('/media', (req, res) => {
 });
 
 // PATCH /api/dashboard/media/:id
-// Body: { visibility: 'public' | 'supporters_only' | 'private' }
+// Body: { visibility: 'public' | 'supporters_only' | 'vault' }
 router.patch('/media/:id', (req, res) => {
   const { visibility } = req.body;
   if (!VALID_VISIBILITY.has(visibility)) {
-    return res.status(400).json({ error: 'visibility must be public, supporters_only, or private' });
+    return res.status(400).json({ error: 'visibility must be public, supporters_only, or vault' });
   }
   const info = getDb().prepare(
     "UPDATE media SET visibility = ?, updated_at = datetime('now') WHERE id = ? AND is_active = 1"

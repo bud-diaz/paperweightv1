@@ -9,7 +9,7 @@ const { canAccessVaultContent } = require('../auth/vault');
 const config = require('../config');
 
 const PREVIEW_DIR = path.join(config.paths.hlsOutput, 'previews');
-const PREVIEW_DURATION = 30;
+const PREVIEW_DURATION = 60;
 
 // Tiers that may access supporters_only content
 const SUBSCRIBER_TIERS = new Set(['subscriber', 'pro', 'all_access']);
@@ -54,7 +54,6 @@ function buildMediaQuery({ category, search, tier }) {
 
   // Vault items are always discoverable (shown with lock UI) — included for all tiers.
   // Free tier: public + vault. Subscriber tiers: public + supporters_only + vault.
-  // Private items are never shown in listings.
   if (SUBSCRIBER_TIERS.has(tier)) {
     conditions.push("m.visibility IN ('public', 'supporters_only', 'vault')");
   } else {
@@ -180,11 +179,6 @@ router.get('/:id', (req, res) => {
 
   if (!row) return res.status(404).json({ error: 'Not found' });
 
-  // private — blocked for all listener requests regardless of tier
-  if (row.visibility === 'private') {
-    return res.status(403).json({ error: 'Access denied' });
-  }
-
   // Fetch project membership once — used by both access checks below
   const projectMembership = getDb().prepare(
     'SELECT project_id FROM vault_project_items WHERE content_id = ?'
@@ -218,10 +212,10 @@ router.get('/:id', (req, res) => {
 // Caches the result; serves cached file on subsequent requests.
 // Intentional: supporters_only items return a preview for free-tier listeners.
 // The teaser is the conversion mechanic — hearing 60 seconds drives upgrade clicks.
-// Private items are excluded by the visibility != 'private' filter.
+// Vault items are excluded — no preview served for gated content.
 router.get('/:id/preview', (req, res) => {
   const row = getDb().prepare(
-    "SELECT * FROM media WHERE id = ? AND is_active = 1 AND visibility != 'private'"
+    "SELECT * FROM media WHERE id = ? AND is_active = 1 AND visibility != 'vault'"
   ).get(req.params.id);
 
   if (!row) return res.status(404).json({ error: 'Not found' });
@@ -301,10 +295,6 @@ router.get('/:id/download', (req, res) => {
   ).get(req.params.id);
 
   if (!row) return res.status(404).json({ error: 'Not found' });
-
-  if (row.visibility === 'private') {
-    return res.status(403).json({ error: 'Access denied' });
-  }
 
   if (row.visibility === 'vault') {
     const listenerId = req.tokenRow?.listener_id || null;

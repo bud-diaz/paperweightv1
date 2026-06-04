@@ -926,7 +926,7 @@
                 <select class="dash-select" id="dash-upload-vis">
                   <option value="public">Public</option>
                   <option value="supporters_only">Supporters Only</option>
-                  <option value="private">Private</option>
+                  <option value="vault">Vault</option>
                 </select>
                 <button class="mgmt-btn" id="dash-upload-submit">UPLOAD</button>
               </div>
@@ -2186,7 +2186,6 @@ function buildDashLibItem(item, scopeType, scopeId, nested = false) {
           <option value="public"${item.visibility==='public'?' selected':''}>PUBLIC</option>
           <option value="supporters_only"${item.visibility==='supporters_only'?' selected':''}>SUPPORTERS</option>
           <option value="vault"${item.visibility==='vault'?' selected':''}>VAULT</option>
-          <option value="private"${item.visibility==='private'?' selected':''}>PRIVATE</option>
         </select>
         <button class="mgmt-btn" id="save-${item.id}">SAVE</button>
         <button class="mgmt-btn" id="tok-tog-${panelId}" style="letter-spacing:.03em;">⬡ TOKEN</button>
