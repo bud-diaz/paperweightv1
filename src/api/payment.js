@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { getDb, log } = require('../db');
 const config = require('../config');
 const { paymentLimiter } = require('../middleware/rateLimiter');
+const { cloudOnly } = require('../middleware/cloudGate');
 
 // Lazy-loaded to avoid circular dependency at module init time
 // (vault.js → router.js → payment.js, and payment.js → vault.js)
@@ -67,11 +68,13 @@ function cancelSubscription(db, { providerSubscriptionId }) {
 // ─── Checkout ─────────────────────────────────────────────────────────────────
 
 // POST /api/payment/checkout
+// CLOUD PHASE (gated by PAPERWEIGHT_CLOUD): native-app checkout. The native
+// Paperweight Play app opens the returned URL in a WebView; on success Core
+// redirects to the paperweightplay:// deep link. Inert in self-hosted builds —
+// the web player uses GET /checkout-url instead. See ROADMAP.md.
 // Body: { tier: 'pro'|'all_access', provider: 'stripe'|'paypal' }
 // Returns: { checkoutUrl }
-// Play opens this URL in a WebView. On success, Core redirects to
-// paperweightplay://payment/success?tier=<tier>
-router.post('/checkout', paymentLimiter, (req, res) => {
+router.post('/checkout', cloudOnly, paymentLimiter, (req, res) => {
   if (!req.tokenRow || !req.tokenRow.listener_id) {
     return res.status(401).json({ error: 'Authentication required' });
   }
@@ -114,6 +117,12 @@ async function handleStripeCheckout(req, res, tier) {
       metadata: {
         listener_id: String(req.tokenRow.listener_id),
         tier,
+      },
+      subscription_data: {
+        metadata: {
+          listener_id: String(req.tokenRow.listener_id),
+          tier,
+        },
       },
     });
 
@@ -182,10 +191,74 @@ async function handlePayPalCheckout(req, res, tier) {
   }
 }
 
+async function getPayPalAccessToken(clientId, clientSecret) {
+  const tokenRes = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+    },
+    body: 'grant_type=client_credentials',
+  });
+
+  if (!tokenRes.ok) {
+    throw new Error(`PayPal token request failed with HTTP ${tokenRes.status}`);
+  }
+
+  const data = await tokenRes.json();
+  if (!data.access_token) {
+    throw new Error('PayPal token response did not include access_token');
+  }
+
+  return data.access_token;
+}
+
+async function verifyPayPalWebhook({ clientId, clientSecret, webhookId, headers, event }) {
+  const required = [
+    'paypal-auth-algo',
+    'paypal-cert-url',
+    'paypal-transmission-id',
+    'paypal-transmission-sig',
+    'paypal-transmission-time',
+  ];
+
+  for (const header of required) {
+    if (!headers[header]) {
+      throw new Error(`Missing PayPal webhook header: ${header}`);
+    }
+  }
+
+  const accessToken = await getPayPalAccessToken(clientId, clientSecret);
+  const verifyRes = await fetch('https://api-m.paypal.com/v1/notifications/verify-webhook-signature', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      auth_algo: headers['paypal-auth-algo'],
+      cert_url: headers['paypal-cert-url'],
+      transmission_id: headers['paypal-transmission-id'],
+      transmission_sig: headers['paypal-transmission-sig'],
+      transmission_time: headers['paypal-transmission-time'],
+      webhook_id: webhookId,
+      webhook_event: event,
+    }),
+  });
+
+  if (!verifyRes.ok) {
+    throw new Error(`PayPal webhook verification failed with HTTP ${verifyRes.status}`);
+  }
+
+  const result = await verifyRes.json();
+  return result.verification_status === 'SUCCESS';
+}
+
 // GET /api/payment/success
-// Handles redirect from Stripe/PayPal after successful checkout.
-// Completes the subscription and redirects to the app deep link.
-router.get('/success', async (req, res) => {
+// CLOUD PHASE (gated by PAPERWEIGHT_CLOUD): redirect target for the native-app
+// checkout above. Completes the subscription and redirects to the paperweightplay://
+// deep link. The web player uses GET /web-success instead. See ROADMAP.md.
+router.get('/success', cloudOnly, async (req, res) => {
   const { session_id, tier } = req.query;
 
   if (session_id && process.env.STRIPE_SECRET_KEY) {
@@ -466,6 +539,24 @@ router.post('/webhook/paypal', async (req, res) => {
   const ppEventType = event.event_type || 'unknown';
 
   try {
+    const verified = await verifyPayPalWebhook({
+      clientId,
+      clientSecret,
+      webhookId,
+      headers: req.headers,
+      event,
+    });
+
+    if (!verified) {
+      logWebhookEvent(db, { provider: 'paypal', eventId: ppEventId, eventType: ppEventType, outcome: 'error', errorMsg: 'Webhook signature verification failed' });
+      return res.status(400).json({ error: 'PayPal webhook signature verification failed' });
+    }
+  } catch (err) {
+    logWebhookEvent(db, { provider: 'paypal', eventId: ppEventId, eventType: ppEventType, outcome: 'error', errorMsg: err.message });
+    return res.status(400).json({ error: 'PayPal webhook verification failed' });
+  }
+
+  try {
     switch (event.event_type) {
       case 'BILLING.SUBSCRIPTION.ACTIVATED': {
         const sub = event.resource;
@@ -737,3 +828,7 @@ async function stripeWebhookHandler(req, res) {
 
 module.exports = router;
 module.exports.stripeWebhookHandler = stripeWebhookHandler;
+// Exported for unit tests — the core subscription state transitions, exercised
+// by both the Stripe and PayPal webhook handlers.
+module.exports.activateSubscription = activateSubscription;
+module.exports.cancelSubscription = cancelSubscription;

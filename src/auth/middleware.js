@@ -1,17 +1,14 @@
 const { validateToken } = require('./index');
 const { getDb } = require('../db');
 const config = require('../config');
+const { isSubscriberTier, isHigherTier } = require('./access');
 
-// Subscriber tiers — includes legacy 'subscriber' and v1.5 named tiers.
-const SUBSCRIBER_TIERS = new Set(['subscriber', 'pro', 'all_access']);
-
-// Runs on every request. Sets req.tier = 'free' | 'subscriber' | 'pro' | 'all_access'.
-// Accepts auth via cookie (web player) or Authorization: Bearer <token> header (mobile).
-// Never blocks — just annotates the request.
+// Runs on every request. Sets req.tier = free | subscriber | pro | all_access.
+// Accepts auth via cookie (web player) or Authorization: Bearer <token> header.
+// Never blocks; it only annotates the request.
 function attachTier(req, res, next) {
   let tokenStr = req.cookies?.pw_token;
 
-  // Bearer token fallback for mobile clients that cannot use httpOnly cookies
   if (!tokenStr) {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -34,11 +31,9 @@ function attachTier(req, res, next) {
 
   req.tier = row.tier;
 
-  // Real-time subscription expiry check for Stripe-issued tokens.
-  // Tokens linked to a listener_id are validated against subscriptions.current_period_end —
-  // even if the webhook hasn't fired yet, an expired period downgrades to free immediately.
-  // Creator-issued invite tokens (no listener_id) are trusted as-is.
-  if (SUBSCRIBER_TIERS.has(row.tier) && row.listener_id) {
+  // Stripe-linked listener tokens are downgraded immediately when their latest
+  // active subscription period is missing or expired.
+  if (isSubscriberTier(row.tier) && row.listener_id) {
     try {
       const sub = getDb().prepare(
         "SELECT current_period_end FROM subscriptions WHERE listener_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
@@ -51,18 +46,16 @@ function attachTier(req, res, next) {
     }
   }
 
-  // Apply the highest-tier token directly assigned to this listener account.
-  // Creator-issued tokens can be assigned to many accounts; no subscription check needed.
+  // Creator-assigned tokens can upgrade listener accounts independent of Stripe.
   if (row.listener_id) {
     try {
-      const RANK = { all_access: 0, pro: 1, subscriber: 2, free: 3 };
       const assigned = getDb().prepare(`
         SELECT t.tier FROM token_assignments ta
         JOIN tokens t ON t.id = ta.token_id
         WHERE ta.listener_id = ? AND t.is_active = 1
       `).all(row.listener_id);
       for (const a of assigned) {
-        if ((RANK[a.tier] ?? 3) < (RANK[req.tier] ?? 3)) {
+        if (isHigherTier(a.tier, req.tier)) {
           req.tier = a.tier;
         }
       }
@@ -72,15 +65,13 @@ function attachTier(req, res, next) {
   next();
 }
 
-// Blocks non-subscriber requests with 403.
 function requireSubscriber(req, res, next) {
-  if (!SUBSCRIBER_TIERS.has(req.tier)) {
+  if (!isSubscriberTier(req.tier)) {
     return res.status(403).json({ error: 'Subscriber access required' });
   }
   next();
 }
 
-// Blocks requests that are not all_access tier (downloads only).
 function requireAllAccess(req, res, next) {
   if (req.tier !== 'all_access') {
     return res.status(403).json({ error: 'All-Access subscription required' });
@@ -88,7 +79,6 @@ function requireAllAccess(req, res, next) {
   next();
 }
 
-// Protects dashboard routes. Always requires a valid X-Dashboard-Token header.
 function requireDashboard(req, res, next) {
   const headerToken = req.headers['x-dashboard-token'];
   const hasValidToken =

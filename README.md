@@ -1,89 +1,132 @@
 # Paperweight
 
-Self-hosted internet radio for creators. Run your own station from a Raspberry Pi, Windows PC, or any Linux machine — no cloud subscriptions, no middlemen.
+Self-hosted internet radio for creators who want to run a station from their own machine.
 
----
+Paperweight scans a local media vault, broadcasts a continuous HLS stream with FFmpeg, serves a listener player, and gives the creator a local dashboard for scheduling, uploads, tokens, listener accounts, vault pricing, analytics, and payments.
 
-## What it does
+It is built for a single creator or small team running one station on a Windows PC, Raspberry Pi, Linux box, mini PC, or packaged executable install. It is not a multi-tenant SaaS platform.
 
-- **Live broadcast** — continuous HLS stream from your vault of audio and video files, with shuffle and scheduled programming modes
-- **Listener player** — clean web player with waveform, now-playing card, and library drawer; works on desktop and mobile
-- **Gated content** — set tracks or project bundles to Vault visibility with pay-what-you-want pricing; listeners unlock individually or by project
-- **Listener accounts** — listeners create email + password accounts so their access follows them across devices
-- **Tokens** — issue access tokens (subscriber, pro, all-access) and assign them directly to listener accounts
-- **Projects** — organise tracks into named collections (albums, EPs, series) with their own pricing and unlock tokens
-- **Dashboard** — creator control panel for library management, track metadata editing, scheduling, uploads, analytics, and payments
+## What It Does
 
----
+- Live broadcast from local audio/video files using FFmpeg and HLS.
+- Listener web player with now-playing state and library browsing.
+- Vault scanner that indexes files from `vault/`.
+- Visibility controls: public, supporters-only, and vault.
+- Listener accounts with email and password.
+- Creator-issued access tokens and account token assignments.
+- Stripe subscriptions, tips, and vault unlock checkout.
+- PayPal subscriptions with verified webhook handling when configured.
+- Creator dashboard for media, scheduling, uploads, tokens, payments, and analytics.
+- Packaged Windows executable build via `@yao-pkg/pkg`.
 
 ## Requirements
 
-- **Node.js** 18+
-- **FFmpeg** (audio/video processing and HLS broadcast)
-- 2GB RAM minimum (4GB recommended)
-- Disk space for your vault files
+- Node.js 18 or newer.
+- FFmpeg and ffprobe on `PATH`.
+- 2 GB RAM minimum, 4 GB recommended.
+- Disk space for your media vault.
 
----
+## Quick Start
 
-## Setup
+```bash
+npm install
+bash scripts/setup.sh
+npm run preflight
+npm start
+```
 
-- **Raspberry Pi / Linux** → see [SETUP.md](SETUP.md)
-- **Windows** → see [SETUP_WINDOWS.md](SETUP_WINDOWS.md)
+Station:
 
----
+```text
+http://localhost:3000
+```
 
-## Access tiers
+Dashboard:
+
+```text
+http://localhost:3000/#dashboard
+```
+
+Use the dashboard token printed by `scripts/setup.sh`.
+
+## Setup Guides
+
+- Raspberry Pi / Linux: [SETUP.md](SETUP.md)
+- Windows: [SETUP_WINDOWS.md](SETUP_WINDOWS.md)
+- Operations: [OPERATIONS.md](OPERATIONS.md)
+- Security: [SECURITY.md](SECURITY.md)
+- Release checklist: [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
+
+## Access Tiers
 
 | Tier | Access |
 |---|---|
 | `free` | Public tracks only |
 | `subscriber` | Public + supporters-only tracks |
 | `pro` | Everything in subscriber |
-| `all_access` | All content including vault (if creator enables it) |
+| `all_access` | All content including vault when the creator enables all-access vault inclusion |
 
-Listeners get a tier by: redeeming a creator-issued token, subscribing via Stripe, or having a token assigned directly to their account from the dashboard.
+Listeners get a tier by redeeming a creator token, subscribing through a configured payment provider, or having a token assigned directly to their listener account.
 
----
-
-## Vault visibility levels
+## Visibility
 
 | Setting | Who can play |
 |---|---|
-| Public | Everyone |
-| Supporters Only | Subscriber tier and above |
-| Vault | Paid unlock or assigned token required |
+| `public` | Everyone |
+| `supporters_only` | Subscriber tier and above, or scoped token holders |
+| `vault` | Paid unlock, scoped token, project unlock, or enabled all-access |
 
----
+## Release Checks
 
-## Development
+Before building an executable, run:
 
 ```bash
-npm install
-npm run dev        # nodemon, auto-restarts on changes
+npm run preflight
+npm run check:migrations
+npm run check:scheduler
+npm run check:analytics
+npm run check:package
+npm audit --omit=dev
 ```
 
-Station runs at `http://localhost:3000`. Dashboard at `/#dashboard`.
+Then build:
 
----
-
-## Project layout
-
+```bash
+npm run build:exe
 ```
-vault/             ← your media files (music/, beats/, podcasts/, videos/, drafts/)
-data/              ← SQLite database
-hls_output/        ← live HLS segments (ephemeral)
-src/
-  api/             ← Express routes
-  auth/            ← token validation, tier middleware
-  broadcast/       ← FFmpeg engine, playlist, scheduler
-  db/              ← migrations, SQLite helpers
-  scanner/         ← vault file watcher
+
+## Project Layout
+
+```text
 client/
-  creator.html     ← entire frontend (single self-contained SPA)
-scripts/           ← install, setup, preflight, token generator
+  creator.html          single-file player and creator dashboard
+  index.html            optional landing/about page at /landing
+src/
+  api/                  Express API routes
+  auth/                 listener tokens, tiers, access checks
+  broadcast/            FFmpeg HLS engine, playlist, scheduler
+  db/                   SQLite migrations and helpers
+  middleware/           CSRF and rate limit middleware
+  scanner/              vault watcher, adapters, ffprobe metadata
+scripts/
+  setup.sh              interactive .env and folder setup
+  preflight.js          release/runtime readiness check
+  check-migrations.js   migration idempotency check
+  check-scheduler.js    schedule edge-case check
+  check-analytics.js    analytics write-path check
+  smoke.js              HTTP smoke test against a running server
 ```
 
----
+Runtime data:
+
+```text
+vault/                  media files
+data/                   SQLite database
+logs/                   process logs
+hls_output/             generated HLS segments and previews
+```
+
+These runtime folders are ignored by Git and live next to the executable in packaged mode.
 
 ## License
 

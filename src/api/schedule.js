@@ -1,10 +1,8 @@
 const router = require('express').Router();
 const { getDb } = require('../db');
 const { requireDashboard } = require('../auth/middleware');
-const { resolveCurrentBlock } = require('../broadcast/scheduler');
+const { resolveCurrentBlock, isValidTime, isValidDayOfWeek } = require('../broadcast/scheduler');
 
-// Public endpoint — must be registered BEFORE requireDashboard middleware
-// GET /api/schedule/current
 router.get('/current', (req, res) => {
   const block = resolveCurrentBlock();
   res.json(block || null);
@@ -12,8 +10,53 @@ router.get('/current', (req, res) => {
 
 router.use(requireDashboard);
 
-// GET /api/schedule
-// Returns all blocks with their playlist_items
+function normalizeDayOfWeek(value) {
+  if (value === undefined || value === null || value === '') return null;
+  return Number(value);
+}
+
+function validateBlockInput(input, existing = null) {
+  const startTime = input.start_time ?? existing?.start_time;
+  const endTime = input.end_time ?? existing?.end_time;
+  const dayOfWeek = normalizeDayOfWeek(input.day_of_week ?? existing?.day_of_week ?? null);
+  const mode = input.mode ?? existing?.mode ?? 'shuffle';
+
+  if (!startTime || !endTime) {
+    return { error: 'start_time and end_time are required' };
+  }
+
+  if (!isValidTime(startTime) || !isValidTime(endTime)) {
+    return { error: 'start_time and end_time must use HH:MM in 24-hour time' };
+  }
+
+  if (startTime === endTime) {
+    return { error: 'start_time and end_time cannot be the same' };
+  }
+
+  if (!isValidDayOfWeek(dayOfWeek)) {
+    return { error: 'day_of_week must be null or an integer from 0 to 6' };
+  }
+
+  if (!['shuffle', 'sequential'].includes(mode)) {
+    return { error: 'mode must be shuffle or sequential' };
+  }
+
+  return {
+    value: {
+      day_of_week: dayOfWeek,
+      start_time: startTime,
+      end_time: endTime,
+      category: input.category ?? existing?.category ?? null,
+      tags_filter: input.tags_filter !== undefined
+        ? (input.tags_filter ? JSON.stringify(input.tags_filter) : null)
+        : existing?.tags_filter ?? null,
+      mode,
+      label: input.label ?? existing?.label ?? null,
+      priority: input.priority ?? existing?.priority ?? 0,
+    },
+  };
+}
+
 router.get('/', (req, res) => {
   const db = getDb();
   const blocks = db.prepare('SELECT * FROM schedule_blocks ORDER BY priority DESC, start_time ASC').all();
@@ -32,42 +75,26 @@ router.get('/', (req, res) => {
   res.json(withItems);
 });
 
-// POST /api/schedule/blocks
 router.post('/blocks', (req, res) => {
-  const { day_of_week, start_time, end_time, category, tags_filter, mode, label, priority } = req.body;
-
-  if (!start_time || !end_time) {
-    return res.status(400).json({ error: 'start_time and end_time are required' });
-  }
-  if (mode && !['shuffle', 'sequential'].includes(mode)) {
-    return res.status(400).json({ error: 'mode must be shuffle or sequential' });
-  }
+  const validated = validateBlockInput(req.body);
+  if (validated.error) return res.status(400).json({ error: validated.error });
 
   const result = getDb().prepare(`
     INSERT INTO schedule_blocks (day_of_week, start_time, end_time, category, tags_filter, mode, label, priority)
     VALUES (:day_of_week, :start_time, :end_time, :category, :tags_filter, :mode, :label, :priority)
-  `).run({
-    day_of_week: day_of_week ?? null,
-    start_time,
-    end_time,
-    category: category || null,
-    tags_filter: tags_filter ? JSON.stringify(tags_filter) : null,
-    mode: mode || 'shuffle',
-    label: label || null,
-    priority: priority ?? 0,
-  });
+  `).run(validated.value);
 
   const block = getDb().prepare('SELECT * FROM schedule_blocks WHERE id = ?').get(result.lastInsertRowid);
   res.status(201).json(block);
 });
 
-// PUT /api/schedule/blocks/:id
 router.put('/blocks/:id', (req, res) => {
-  const { day_of_week, start_time, end_time, category, tags_filter, mode, label, priority } = req.body;
   const db = getDb();
-
   const existing = db.prepare('SELECT * FROM schedule_blocks WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Block not found' });
+
+  const validated = validateBlockInput(req.body, existing);
+  if (validated.error) return res.status(400).json({ error: validated.error });
 
   db.prepare(`
     UPDATE schedule_blocks
@@ -80,31 +107,17 @@ router.put('/blocks/:id', (req, res) => {
         label       = :label,
         priority    = :priority
     WHERE id = :id
-  `).run({
-    id: req.params.id,
-    day_of_week: day_of_week ?? existing.day_of_week,
-    start_time:  start_time  ?? existing.start_time,
-    end_time:    end_time    ?? existing.end_time,
-    category:    category    ?? existing.category,
-    tags_filter: tags_filter ? JSON.stringify(tags_filter) : existing.tags_filter,
-    mode:        mode        ?? existing.mode,
-    label:       label       ?? existing.label,
-    priority:    priority    ?? existing.priority,
-  });
+  `).run({ ...validated.value, id: req.params.id });
 
   res.json(db.prepare('SELECT * FROM schedule_blocks WHERE id = ?').get(req.params.id));
 });
 
-// DELETE /api/schedule/blocks/:id
 router.delete('/blocks/:id', (req, res) => {
   const changes = getDb().prepare('DELETE FROM schedule_blocks WHERE id = ?').run(req.params.id).changes;
   if (!changes) return res.status(404).json({ error: 'Block not found' });
   res.json({ ok: true });
 });
 
-// PUT /api/schedule/blocks/:id/items
-// Full replace of playlist_items for a block.
-// Body: { items: [{ media_id, position }] }
 router.put('/blocks/:id/items', (req, res) => {
   const db = getDb();
   const block = db.prepare('SELECT * FROM schedule_blocks WHERE id = ?').get(req.params.id);

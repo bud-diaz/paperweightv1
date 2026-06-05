@@ -12,18 +12,33 @@ const { csrfCheck } = require('./middleware/csrfCheck');
 const app = express();
 let server;
 let isShuttingDown = false;
+let fatalExitCode = 0;
+
+function fatalShutdown(kind, err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(`[FATAL] ${kind}:`, err);
+  try { log('error', 'server', `${kind}: ${msg}`); } catch {}
+  fatalExitCode = 1;
+
+  try {
+    shutdown();
+  } catch (shutdownErr) {
+    console.error('[FATAL] Shutdown after fatal error failed:', shutdownErr);
+    process.exit(1);
+  }
+}
 
 // ─── Catch unhandled errors before they take the process down ────────────────
 
 process.on('uncaughtException', err => {
-  console.error('[FATAL] Uncaught exception:', err);
+  return fatalShutdown('Uncaught exception', err);
   // Don't exit — log and continue. DB logger may not be ready yet.
   try { log('error', 'server', `Uncaught exception: ${err.message}`); } catch {}
 });
 
 process.on('unhandledRejection', (reason) => {
   const msg = reason instanceof Error ? reason.message : String(reason);
-  console.error('[WARN] Unhandled rejection:', msg);
+  return fatalShutdown('Unhandled rejection', reason);
   try { log('warn', 'server', `Unhandled rejection: ${msg}`); } catch {}
 });
 
@@ -154,16 +169,16 @@ function shutdown() {
   if (server) {
     server.close(() => {
       closeDb();
-      process.exit(0);
+      process.exit(fatalExitCode);
     });
     // Force exit if graceful shutdown takes too long
     setTimeout(() => {
       console.error('[WARN] Graceful shutdown timed out, forcing exit');
-      process.exit(1);
+      process.exit(fatalExitCode || 1);
     }, 5000).unref();
   } else {
     closeDb();
-    process.exit(0);
+    process.exit(fatalExitCode);
   }
 }
 

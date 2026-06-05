@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { validateToken } = require('../auth');
 const config = require('../config');
+const { isSubscriberTier } = require('../auth/access');
 
 const COOKIE_NAME = 'pw_token';
 
@@ -40,7 +41,7 @@ router.post('/logout', (req, res) => {
 // GET /api/tokens/me
 router.get('/me', (req, res) => {
   res.json({
-    authenticated: req.tier === 'subscriber',
+    authenticated: isSubscriberTier(req.tier),
     tier: req.tier,
   });
 });

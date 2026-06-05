@@ -9,7 +9,7 @@ router.use(generalLimiter);
 
 // Health check
 router.get('/health', (req, res) => {
-  res.json({ status: 'ok', station: config.station.name, version: '1.5.0' });
+  res.json({ status: 'ok', station: config.station.name, version: config.version });
 });
 
 // v1 routes (unchanged)

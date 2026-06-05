@@ -4,19 +4,11 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { getDb } = require('../db');
-const { requireSubscriber } = require('../auth/middleware');
-const { canAccessVaultContent } = require('../auth/vault');
+const { isSubscriberTier, canAccessMedia, canDownloadMedia } = require('../auth/access');
 const config = require('../config');
 
 const PREVIEW_DIR = path.join(config.paths.hlsOutput, 'previews');
 const PREVIEW_DURATION = 60;
-
-// Tiers that may access supporters_only content
-const SUBSCRIBER_TIERS = new Set(['subscriber', 'pro', 'all_access']);
-
-// ─── HMAC-signed download URLs ────────────────────────────────────────────────
-// Signed URLs are valid for 1 hour. Secret is DOWNLOAD_SIGNING_SECRET, which
-// is auto-generated at startup when not set, so it never leaks DASHBOARD_TOKEN.
 
 function signingSecret() {
   return config.auth.downloadSigningSecret;
@@ -28,8 +20,8 @@ function signDownloadUrl(mediaId) {
     .update(`${mediaId}:${exp}`)
     .digest('hex');
   return {
-    signedUrl:  `/api/library/${mediaId}/file?exp=${exp}&sig=${sig}`,
-    expiresAt:  new Date(exp * 1000).toISOString(),
+    signedUrl: `/api/library/${mediaId}/file?exp=${exp}&sig=${sig}`,
+    expiresAt: new Date(exp * 1000).toISOString(),
   };
 }
 
@@ -46,15 +38,22 @@ function verifyDownloadSig(mediaId, exp, sig) {
   }
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+function parseTags(tags) {
+  if (!tags) return [];
+  try {
+    const parsed = JSON.parse(tags);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 function buildMediaQuery({ category, search, tier }) {
   const conditions = ['m.is_active = 1'];
   const params = {};
 
-  // Vault items are always discoverable (shown with lock UI) — included for all tiers.
-  // Free tier: public + vault. Subscriber tiers: public + supporters_only + vault.
-  if (SUBSCRIBER_TIERS.has(tier)) {
+  // Vault items are discoverable for everyone so the UI can show locked items.
+  if (isSubscriberTier(tier)) {
     conditions.push("m.visibility IN ('public', 'supporters_only', 'vault')");
   } else {
     conditions.push("m.visibility IN ('public', 'vault')");
@@ -84,7 +83,7 @@ function formatItem(row, tier) {
     category: row.category,
     duration: row.duration,
     bpm: row.bpm || null,
-    tags: row.tags ? JSON.parse(row.tags) : [],
+    tags: parseTags(row.tags),
     visibility: row.visibility,
     mimeType: row.mime_type || null,
     isVideo,
@@ -93,28 +92,20 @@ function formatItem(row, tier) {
     indexedAt: row.indexed_at,
   };
 
-  if (tier === 'subscriber') {
+  if (isSubscriberTier(tier)) {
     base.downloadUrl = `/api/library/${row.id}/download`;
   }
 
   return base;
 }
 
-// Returns true if the request carries a scoped token that grants access to
-// this specific media item (by track id or by its project id).
-function hasScopedVaultAccess(req, mediaId, projectId) {
-  const tok = req.tokenRow;
-  if (!tok || !tok.scope_type) return false;
-  if (tok.scope_type === 'track'   && Number(tok.scope_id) === Number(mediaId))   return true;
-  if (tok.scope_type === 'project' && Number(tok.scope_id) === Number(projectId)) return true;
-  return false;
+function getProjectId(mediaId) {
+  const row = getDb().prepare(
+    'SELECT project_id FROM vault_project_items WHERE content_id = ?'
+  ).get(mediaId);
+  return row?.project_id ?? null;
 }
 
-// ─── Routes ──────────────────────────────────────────────────────────────────
-
-// GET /api/library/structure
-// Returns tracks organised into projects + a standalone list.
-// Must be defined before /:id so Express doesn't treat 'structure' as an id.
 router.get('/structure', (req, res) => {
   const db = getDb();
   const { conditions, params } = buildMediaQuery({ tier: req.tier });
@@ -124,12 +115,12 @@ router.get('/structure', (req, res) => {
     `SELECT m.* FROM media m ${where} ORDER BY m.indexed_at DESC`
   ).all(params);
 
-  const projects  = db.prepare('SELECT id, name, description FROM vault_projects ORDER BY created_at ASC').all();
+  const projects = db.prepare('SELECT id, name, description FROM vault_projects ORDER BY created_at ASC').all();
   const projectItems = db.prepare('SELECT project_id, content_id FROM vault_project_items').all();
 
   const trackToProject = new Map(projectItems.map(pi => [pi.content_id, pi.project_id]));
-  const projectMap     = new Map(projects.map(p => [p.id, { ...p, tracks: [] }]));
-  const standalone     = [];
+  const projectMap = new Map(projects.map(p => [p.id, { ...p, tracks: [] }]));
+  const standalone = [];
 
   for (const track of allTracks) {
     const projId = trackToProject.get(track.id);
@@ -141,12 +132,11 @@ router.get('/structure', (req, res) => {
   }
 
   res.json({
-    projects:   [...projectMap.values()].filter(p => p.tracks.length > 0),
+    projects: [...projectMap.values()].filter(p => p.tracks.length > 0),
     standalone,
   });
 });
 
-// GET /api/library
 router.get('/', (req, res) => {
   const { category, search, page = '1', limit = '20' } = req.query;
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -171,7 +161,6 @@ router.get('/', (req, res) => {
   });
 });
 
-// GET /api/library/:id
 router.get('/:id', (req, res) => {
   const row = getDb().prepare(
     'SELECT * FROM media WHERE id = ? AND is_active = 1'
@@ -179,40 +168,14 @@ router.get('/:id', (req, res) => {
 
   if (!row) return res.status(404).json({ error: 'Not found' });
 
-  // Fetch project membership once — used by both access checks below
-  const projectMembership = getDb().prepare(
-    'SELECT project_id FROM vault_project_items WHERE content_id = ?'
-  ).get(row.id);
-  const projectId = projectMembership?.project_id ?? null;
-
-  // supporters_only — subscriber tier or a scoped token for this track/project
-  if (row.visibility === 'supporters_only') {
-    if (!SUBSCRIBER_TIERS.has(req.tier) && !hasScopedVaultAccess(req, row.id, projectId)) {
-      return res.status(403).json({ error: 'Supporter access required' });
-    }
-  }
-
-  // vault — scoped token, vault unlock, or all_access bypass
-  if (row.visibility === 'vault') {
-    if (!hasScopedVaultAccess(req, row.id, projectId)) {
-      const listenerId = req.tokenRow?.listener_id || null;
-      const result = canAccessVaultContent(listenerId, row.id);
-      if (!result.allowed) {
-        return res.status(403).json({ error: 'Vault access required', unlockOptions: result.unlockOptions });
-      }
-    }
+  const access = canAccessMedia(req, row, getProjectId(row.id));
+  if (!access.allowed) {
+    return res.status(403).json({ error: access.error, unlockOptions: access.unlockOptions });
   }
 
   res.json(formatItem(row, req.tier));
 });
 
-// GET /api/library/:id/preview
-// For audio files: generates a 60-second AAC clip (.m4a).
-// For video files: generates a 60-second H.264/AAC clip (.mp4).
-// Caches the result; serves cached file on subsequent requests.
-// Intentional: supporters_only items return a preview for free-tier listeners.
-// The teaser is the conversion mechanic — hearing 60 seconds drives upgrade clicks.
-// Vault items are excluded — no preview served for gated content.
 router.get('/:id/preview', (req, res) => {
   const row = getDb().prepare(
     "SELECT * FROM media WHERE id = ? AND is_active = 1 AND visibility != 'vault'"
@@ -221,50 +184,44 @@ router.get('/:id/preview', (req, res) => {
   if (!row) return res.status(404).json({ error: 'Not found' });
 
   const isVideo = row.mime_type && row.mime_type.startsWith('video/');
-  const previewExt  = isVideo ? 'mp4' : 'm4a';
+  const previewExt = isVideo ? 'mp4' : 'm4a';
   const previewPath = path.join(PREVIEW_DIR, `${row.id}.${previewExt}`);
 
-  // Also check for the other extension (in case mime_type changed after re-index)
-  const altExt  = isVideo ? 'm4a' : 'mp4';
+  const altExt = isVideo ? 'm4a' : 'mp4';
   const altPath = path.join(PREVIEW_DIR, `${row.id}.${altExt}`);
   if (fs.existsSync(altPath)) fs.unlinkSync(altPath);
 
-  // Serve cached preview if it exists
   if (fs.existsSync(previewPath)) {
     return res.sendFile(previewPath);
   }
 
   fs.mkdirSync(PREVIEW_DIR, { recursive: true });
 
-  // Build FFmpeg args depending on source type
-  let args;
-  if (isVideo) {
-    args = [
-      '-y',
-      '-i', row.filepath,
-      '-t', String(PREVIEW_DURATION),
-      '-c:v', 'libx264',
-      '-crf', '23',
-      '-preset', 'fast',
-      '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      '-ac', '2',
-      '-movflags', '+faststart',
-      previewPath,
-    ];
-  } else {
-    args = [
-      '-y',
-      '-i', row.filepath,
-      '-t', String(PREVIEW_DURATION),
-      '-vn',
-      '-c:a', 'aac',
-      '-b:a', '96k',
-      '-ac', '2',
-      previewPath,
-    ];
-  }
+  const args = isVideo
+    ? [
+        '-y',
+        '-i', row.filepath,
+        '-t', String(PREVIEW_DURATION),
+        '-c:v', 'libx264',
+        '-crf', '23',
+        '-preset', 'fast',
+        '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-ac', '2',
+        '-movflags', '+faststart',
+        previewPath,
+      ]
+    : [
+        '-y',
+        '-i', row.filepath,
+        '-t', String(PREVIEW_DURATION),
+        '-vn',
+        '-c:a', 'aac',
+        '-b:a', '96k',
+        '-ac', '2',
+        previewPath,
+      ];
 
   const proc = spawn('ffmpeg', args, { stdio: 'ignore', windowsHide: true });
 
@@ -286,9 +243,6 @@ router.get('/:id/preview', (req, res) => {
   });
 });
 
-// GET /api/library/:id/download
-// Returns a signed URL — never serves the raw file directly.
-// Vault items use canAccessVaultContent(); all others use requireSubscriber gate.
 router.get('/:id/download', (req, res) => {
   const row = getDb().prepare(
     'SELECT * FROM media WHERE id = ? AND is_active = 1'
@@ -296,17 +250,9 @@ router.get('/:id/download', (req, res) => {
 
   if (!row) return res.status(404).json({ error: 'Not found' });
 
-  if (row.visibility === 'vault') {
-    const listenerId = req.tokenRow?.listener_id || null;
-    const result = canAccessVaultContent(listenerId, row.id);
-    if (!result.allowed) {
-      return res.status(403).json({ error: 'Vault access required', unlockOptions: result.unlockOptions });
-    }
-  } else {
-    // Non-vault content: subscriber tier required
-    if (!SUBSCRIBER_TIERS.has(req.tier)) {
-      return res.status(403).json({ error: 'Subscriber access required' });
-    }
+  const access = canDownloadMedia(req, row, getProjectId(row.id));
+  if (!access.allowed) {
+    return res.status(403).json({ error: access.error, unlockOptions: access.unlockOptions });
   }
 
   if (!fs.existsSync(row.filepath)) {
@@ -316,9 +262,6 @@ router.get('/:id/download', (req, res) => {
   res.json(signDownloadUrl(row.id));
 });
 
-// GET /api/library/:id/file?exp=UNIX_TS&sig=HMAC
-// Validates the HMAC signature issued by the download route and streams the file.
-// No auth header required — the HMAC is the auth mechanism.
 router.get('/:id/file', (req, res) => {
   const { exp, sig } = req.query;
 

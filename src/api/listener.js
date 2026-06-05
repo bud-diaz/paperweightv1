@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { getDb } = require('../db');
 const { authLimiter } = require('../middleware/rateLimiter');
+const { cloudOnly } = require('../middleware/cloudGate');
 const config = require('../config');
 
 const BCRYPT_ROUNDS = 10;
@@ -186,9 +187,14 @@ router.patch('/password', authLimiter, async (req, res) => {
   }
 });
 
+// ─── Saved stations ───────────────────────────────────────────────────────────
+// CLOUD PHASE (gated by PAPERWEIGHT_CLOUD): the multi-station directory. A single
+// Paperweight Play client saves many creator stations by core_url. Self-hosted
+// builds serve one station and never call these routes. See ROADMAP.md.
+
 // GET /api/listener/saved-stations
 // Returns the listener's saved stations.
-router.get('/saved-stations', (req, res) => {
+router.get('/saved-stations', cloudOnly, (req, res) => {
   if (!req.tokenRow || !req.tokenRow.listener_id) {
     return res.status(401).json({ error: 'Authentication required' });
   }
@@ -202,7 +208,7 @@ router.get('/saved-stations', (req, res) => {
 
 // POST /api/listener/saved-stations
 // Body: { coreUrl, slug, name }
-router.post('/saved-stations', (req, res) => {
+router.post('/saved-stations', cloudOnly, (req, res) => {
   if (!req.tokenRow || !req.tokenRow.listener_id) {
     return res.status(401).json({ error: 'Authentication required' });
   }
@@ -229,7 +235,7 @@ router.post('/saved-stations', (req, res) => {
 });
 
 // DELETE /api/listener/saved-stations/:id
-router.delete('/saved-stations/:id', (req, res) => {
+router.delete('/saved-stations/:id', cloudOnly, (req, res) => {
   if (!req.tokenRow || !req.tokenRow.listener_id) {
     return res.status(401).json({ error: 'Authentication required' });
   }
