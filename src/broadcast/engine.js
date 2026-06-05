@@ -21,6 +21,7 @@ let state = {
   trackOffsets: [],          // cumulative seconds: [0, d0, d0+d1, ...]
   segmentCounter: 0,         // global HLS segment counter, never resets
   nowPlayingTimer: null,
+  recentlyPlayed: [],        // last 10 finished tracks, newest first
 };
 
 // ─── State file ──────────────────────────────────────────────────────────────
@@ -37,6 +38,7 @@ function writeStateFile(overrides = {}) {
     isLive: state.isRunning,
     mode: state.mode,
     isVideo: hasVideo,
+    recentlyPlayed: state.recentlyPlayed,
     nowPlaying: track ? {
       id: track.id,
       title: track.title || path.basename(track.filepath),
@@ -58,6 +60,18 @@ function writeStateFile(overrides = {}) {
 
 // ─── Now-playing tracker ─────────────────────────────────────────────────────
 
+function pushRecentlyPlayed(track) {
+  if (!track) return;
+  state.recentlyPlayed.unshift({
+    id: track.id,
+    title: track.title || path.basename(track.filepath),
+    artist: track.artist || null,
+    category: track.category || null,
+    playedAt: new Date().toISOString(),
+  });
+  if (state.recentlyPlayed.length > 10) state.recentlyPlayed.pop();
+}
+
 function updateNowPlaying() {
   if (!state.batchStartedAt || !state.currentBatch.length) return;
 
@@ -70,6 +84,13 @@ function updateNowPlaying() {
     if (elapsedSec >= offsets[i]) {
       idx = i;
       break;
+    }
+  }
+
+  // Record any tracks we advanced past as recently played
+  if (idx > state.nowPlayingIndex) {
+    for (let i = state.nowPlayingIndex; i < idx; i++) {
+      pushRecentlyPlayed(state.currentBatch[i]);
     }
   }
 
@@ -147,6 +168,11 @@ function buildFFmpegArgs(concatPath, hasVideo = false) {
 
 function runFFmpeg(batch) {
   return new Promise((resolve, reject) => {
+    // The track playing at the end of the previous batch is now finished
+    if (state.currentBatch.length > 0) {
+      pushRecentlyPlayed(state.currentBatch[state.nowPlayingIndex]);
+    }
+
     const hasVideo = batch.some(t => isVideoTrack(t));
     const concatPath = writeConcatManifest(batch);
     const args = buildFFmpegArgs(concatPath, hasVideo);

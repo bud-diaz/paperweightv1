@@ -41,6 +41,16 @@ function runMigrations(database) {
       column: 'scope_id',
       sql:    'ALTER TABLE tokens ADD COLUMN scope_id INTEGER',
     },
+    {
+      table:  'media',
+      column: 'producer',
+      sql:    'ALTER TABLE media ADD COLUMN producer TEXT',
+    },
+    {
+      table:  'media',
+      column: 'credits',
+      sql:    'ALTER TABLE media ADD COLUMN credits TEXT',
+    },
   ];
 
   for (const guard of alterGuards) {

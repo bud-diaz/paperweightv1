@@ -130,7 +130,8 @@ router.post('/upload', (req, res) => {
 // Returns all active media items including vault — creator sees everything.
 router.get('/media', (req, res) => {
   const items = getDb().prepare(`
-    SELECT id, title, filename, category, visibility, duration, indexed_at
+    SELECT id, title, filename, category, visibility, duration,
+           artist, album, producer, credits, indexed_at
     FROM media
     WHERE is_active = 1
     ORDER BY indexed_at DESC
@@ -140,18 +141,40 @@ router.get('/media', (req, res) => {
 });
 
 // PATCH /api/dashboard/media/:id
-// Body: { visibility: 'public' | 'supporters_only' | 'vault' }
+// Body: any subset of { visibility, title, artist, album, producer, credits }
 router.patch('/media/:id', (req, res) => {
-  const { visibility } = req.body;
-  if (!VALID_VISIBILITY.has(visibility)) {
-    return res.status(400).json({ error: 'visibility must be public, supporters_only, or vault' });
+  const { visibility, title, artist, album, producer, credits } = req.body;
+  const setClauses = [];
+  const params     = [];
+
+  if (visibility !== undefined) {
+    if (!VALID_VISIBILITY.has(visibility)) {
+      return res.status(400).json({ error: 'visibility must be public, supporters_only, or vault' });
+    }
+    setClauses.push('visibility = ?');
+    params.push(visibility);
   }
+
+  for (const [field, val] of Object.entries({ title, artist, album, producer, credits })) {
+    if (val !== undefined) {
+      setClauses.push(`${field} = ?`);
+      params.push(val === '' ? null : val);
+    }
+  }
+
+  if (setClauses.length === 0) {
+    return res.status(400).json({ error: 'No fields to update' });
+  }
+
+  setClauses.push("updated_at = datetime('now')");
+  params.push(req.params.id);
+
   const info = getDb().prepare(
-    "UPDATE media SET visibility = ?, updated_at = datetime('now') WHERE id = ? AND is_active = 1"
-  ).run(visibility, req.params.id);
+    `UPDATE media SET ${setClauses.join(', ')} WHERE id = ? AND is_active = 1`
+  ).run(...params);
   if (info.changes === 0) return res.status(404).json({ error: 'Not found' });
-  log('info', 'dashboard', `Media ${req.params.id} visibility → ${visibility}`);
-  res.json({ ok: true, id: Number(req.params.id), visibility });
+  log('info', 'dashboard', `Media ${req.params.id} updated`);
+  res.json({ ok: true, id: Number(req.params.id) });
 });
 
 // ─── Tip configuration ────────────────────────────────────────────────────────
@@ -230,7 +253,8 @@ router.post('/tokens', (req, res) => {
     return res.status(400).json({ error: 'label is required' });
   }
   const token = createToken(label.trim(), tier, scope_type || null, scope_id ?? null);
-  res.status(201).json({ token, label: label.trim(), tier: tier || 'subscriber', scope_type: scope_type || null, scope_id: scope_id ?? null });
+  const row   = getDb().prepare('SELECT id FROM tokens WHERE token = ?').get(token);
+  res.status(201).json({ id: row?.id, token, label: label.trim(), tier: tier || 'subscriber', scope_type: scope_type || null, scope_id: scope_id ?? null });
 });
 
 // GET /api/dashboard/tokens/for/:scopeType/:scopeId
@@ -253,6 +277,68 @@ router.patch('/tokens/:id/tier', (req, res) => {
 // DELETE /api/dashboard/tokens/:id
 router.delete('/tokens/:id', (req, res) => {
   revokeToken(req.params.id);
+  res.json({ ok: true });
+});
+
+// ─── Listener accounts list ──────────────────────────────────────────────────
+
+// GET /api/dashboard/accounts
+// Returns all active listener accounts for typeahead use in the dashboard.
+router.get('/accounts', (req, res) => {
+  const accounts = getDb().prepare(
+    'SELECT id, email, created_at FROM listener_accounts WHERE is_active = 1 ORDER BY email ASC'
+  ).all();
+  res.json(accounts);
+});
+
+// ─── Token account assignments ────────────────────────────────────────────────
+
+// GET /api/dashboard/tokens/:id/assignments
+router.get('/tokens/:id/assignments', (req, res) => {
+  const rows = getDb().prepare(`
+    SELECT la.id, la.email, ta.created_at
+    FROM token_assignments ta
+    JOIN listener_accounts la ON la.id = ta.listener_id
+    WHERE ta.token_id = ?
+    ORDER BY ta.created_at ASC
+  `).all(req.params.id);
+  res.json(rows);
+});
+
+// POST /api/dashboard/tokens/:id/assignments
+// Body: { email }
+router.post('/tokens/:id/assignments', (req, res) => {
+  const { email } = req.body;
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    return res.status(400).json({ error: 'Valid email is required' });
+  }
+  const db = getDb();
+  const token = db.prepare('SELECT id FROM tokens WHERE id = ? AND is_active = 1').get(req.params.id);
+  if (!token) return res.status(404).json({ error: 'Token not found' });
+
+  const account = db.prepare(
+    'SELECT id, email FROM listener_accounts WHERE email = ? AND is_active = 1'
+  ).get(email.toLowerCase().trim());
+  if (!account) return res.status(404).json({ error: 'No Paperweight account found for that email' });
+
+  try {
+    db.prepare('INSERT INTO token_assignments (token_id, listener_id) VALUES (?, ?)').run(req.params.id, account.id);
+    log('info', 'dashboard', `Token ${req.params.id} assigned to listener ${account.id} (${account.email})`);
+    res.status(201).json({ ok: true, listener_id: account.id, email: account.email });
+  } catch (err) {
+    if (err.message.includes('UNIQUE constraint')) {
+      return res.status(409).json({ error: 'Already assigned to this account' });
+    }
+    throw err;
+  }
+});
+
+// DELETE /api/dashboard/tokens/:id/assignments/:listener_id
+router.delete('/tokens/:id/assignments/:listener_id', (req, res) => {
+  const info = getDb().prepare(
+    'DELETE FROM token_assignments WHERE token_id = ? AND listener_id = ?'
+  ).run(req.params.id, req.params.listener_id);
+  if (info.changes === 0) return res.status(404).json({ error: 'Assignment not found' });
   res.json({ ok: true });
 });
 

@@ -26,7 +26,9 @@ CREATE TABLE IF NOT EXISTS media_new (
   is_active   INTEGER NOT NULL DEFAULT 1
 );
 
-INSERT INTO media_new SELECT * FROM media;
+INSERT INTO media_new (id, filepath, filename, category, title, artist, album, duration, bpm, tags, file_size, mime_type, visibility, indexed_at, updated_at, is_active)
+SELECT                  id, filepath, filename, category, title, artist, album, duration, bpm, tags, file_size, mime_type, visibility, indexed_at, updated_at, is_active
+FROM media;
 
 DROP TABLE media;
 

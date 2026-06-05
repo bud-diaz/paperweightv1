@@ -178,22 +178,86 @@ grep DASHBOARD_TOKEN /c/paperweight/.env
 
 ---
 
-## Creating subscriber tokens
+## Listener accounts
 
-Give listeners access to the full library by creating a token for them.
+Listeners can create a free account on your station using an email address and password. Once they have an account, their access (tokens, subscriptions, vault unlocks) follows them across devices — they just log in instead of pasting token strings.
+
+Accounts are created from the **Share** drawer on the player page. No email verification is required.
+
+As a creator you can see all registered accounts in the dashboard **Tokens** section when assigning a token.
+
+---
+
+## Managing access with tokens
+
+Tokens grant listeners a tier above free (subscriber, pro, or all-access). You can create them from the dashboard or command line.
 
 **From the dashboard:**
-1. Go to **Subscriber Tokens**
-2. Enter a label (e.g. the person's name)
-3. Click **Create Token**
-4. Copy the token and send it to them
+1. Go to **Tokens**
+2. Enter a label (e.g. the listener's name)
+3. Choose a tier
+4. Optionally enter their email to assign it directly to their account
+5. Click **Create** — copy the token string and send it to them if not assigning by account
 
 **From Git Bash:**
 ```bash
 node scripts/gen-token.js "Maria"
 ```
 
-Listeners go to your station, click the lock icon in the Library, and paste their token.
+**Assigning tokens to accounts:**
+
+Tokens can be assigned directly to listener accounts without the listener having to redeem a string. When assigned, the tier applies automatically the next time they log in.
+
+One token can be assigned to multiple accounts — useful for granting a group the same level of access.
+
+To assign after creation:
+1. In the **Tokens** section, find the token
+2. Click **⊕ ASSIGN**
+3. Start typing a listener's email — select from the dropdown
+4. Click **Assign**
+
+To remove access, click **Remove** next to their email in the same panel, or **Revoke** the token entirely.
+
+---
+
+## Vault content and gated projects
+
+Set any track's visibility to **Vault** to gate it behind a payment or assigned token.
+
+**Visibility levels:**
+
+| Setting | Who can play |
+|---|---|
+| Public | Everyone |
+| Supporters Only | Subscriber tier and above |
+| Vault | Paid unlock or assigned token required |
+
+Change a track's visibility from the **Library** section in the dashboard using the dropdown next to each track.
+
+**Projects (gated bundles):**
+
+Group tracks into a named project (album, EP, series) and set pricing for the whole bundle. Listeners can unlock the entire project at once instead of track by track.
+
+To create a project:
+1. Go to **Projects** in the dashboard
+2. Click **+ New Project**, enter a name and optional pricing
+3. Expand the project card and use **Add Track** to assign tracks
+4. Set tracks to **Vault** visibility so the gate applies
+
+Listeners see projects listed first in the library drawer with a **Support to Unlock** button.
+
+---
+
+## Track info and credits
+
+Edit a track's metadata directly from the dashboard without touching files.
+
+1. Find the track in the **Library** section
+2. Click **✎ Edit**
+3. Update Title, Artist, Album, Producer, or Credits
+4. Click **Save Changes**
+
+Changes take effect immediately in the player and library.
 
 ---
 

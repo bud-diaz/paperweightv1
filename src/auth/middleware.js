@@ -51,6 +51,24 @@ function attachTier(req, res, next) {
     }
   }
 
+  // Apply the highest-tier token directly assigned to this listener account.
+  // Creator-issued tokens can be assigned to many accounts; no subscription check needed.
+  if (row.listener_id) {
+    try {
+      const RANK = { all_access: 0, pro: 1, subscriber: 2, free: 3 };
+      const assigned = getDb().prepare(`
+        SELECT t.tier FROM token_assignments ta
+        JOIN tokens t ON t.id = ta.token_id
+        WHERE ta.listener_id = ? AND t.is_active = 1
+      `).all(row.listener_id);
+      for (const a of assigned) {
+        if ((RANK[a.tier] ?? 3) < (RANK[req.tier] ?? 3)) {
+          req.tier = a.tier;
+        }
+      }
+    } catch {}
+  }
+
   next();
 }
 
