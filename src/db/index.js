@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const config = require('../config');
 
 const DB_PATH = path.join(config.paths.data, 'paperweight.db');
@@ -13,14 +14,53 @@ function getDb() {
   return db;
 }
 
+function ensureMigrationTable(database) {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      filename   TEXT PRIMARY KEY,
+      checksum   TEXT NOT NULL,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+}
+
+function migrationChecksum(sql) {
+  return crypto.createHash('sha256').update(sql).digest('hex');
+}
+
 function runMigrations(database) {
+  ensureMigrationTable(database);
+
   const files = fs.readdirSync(MIGRATIONS_DIR)
     .filter(f => f.endsWith('.sql'))
     .sort();
 
+  const applied = new Map(
+    database.prepare('SELECT filename, checksum FROM schema_migrations').all()
+      .map(row => [row.filename, row.checksum])
+  );
+
   for (const file of files) {
     const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
-    database.exec(sql);
+    const checksum = migrationChecksum(sql);
+    const previousChecksum = applied.get(file);
+
+    if (previousChecksum) {
+      if (previousChecksum !== checksum) {
+        log('warn', 'db', `Migration ${file} changed after it was applied; skipping`);
+      }
+      continue;
+    }
+
+    const applyMigration = database.transaction(() => {
+      if (sql.trim()) database.exec(sql);
+      database.prepare(
+        'INSERT INTO schema_migrations (filename, checksum) VALUES (?, ?)'
+      ).run(file, checksum);
+    });
+
+    applyMigration();
+    log('info', 'db', `Applied migration ${file}`);
   }
 
   // Programmatic ALTER TABLE guards — SQLite has no IF NOT EXISTS for ALTER TABLE.
@@ -40,6 +80,11 @@ function runMigrations(database) {
       table:  'tokens',
       column: 'scope_id',
       sql:    'ALTER TABLE tokens ADD COLUMN scope_id INTEGER',
+    },
+    {
+      table:  'tokens',
+      column: 'updated_at',
+      sql:    "ALTER TABLE tokens ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))",
     },
     {
       table:  'media',
@@ -130,4 +175,4 @@ function log(level, component, message) {
   }
 }
 
-module.exports = { initDb, closeDb, getDb, log };
+module.exports = { initDb, closeDb, getDb, log, runMigrations };

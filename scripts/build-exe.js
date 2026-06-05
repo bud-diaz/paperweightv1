@@ -53,6 +53,8 @@ function ensureDir(dir) {
 
 // ─── Pre-flight checks ────────────────────────────────────────────────────────
 
+run('node scripts/check-package-assets.js');
+
 const pkgBin = path.join(ROOT, 'node_modules', '.bin', 'pkg');
 if (!fs.existsSync(pkgBin) && !fs.existsSync(pkgBin + '.cmd')) {
   console.error('ERROR: @yao-pkg/pkg not found. Run `npm install` first.');

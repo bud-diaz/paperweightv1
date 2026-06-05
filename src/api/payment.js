@@ -115,6 +115,12 @@ async function handleStripeCheckout(req, res, tier) {
         listener_id: String(req.tokenRow.listener_id),
         tier,
       },
+      subscription_data: {
+        metadata: {
+          listener_id: String(req.tokenRow.listener_id),
+          tier,
+        },
+      },
     });
 
     res.json({ checkoutUrl: session.url });
@@ -180,6 +186,69 @@ async function handlePayPalCheckout(req, res, tier) {
   } catch (err) {
     res.status(500).json({ error: 'Failed to create PayPal subscription' });
   }
+}
+
+async function getPayPalAccessToken(clientId, clientSecret) {
+  const tokenRes = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+    },
+    body: 'grant_type=client_credentials',
+  });
+
+  if (!tokenRes.ok) {
+    throw new Error(`PayPal token request failed with HTTP ${tokenRes.status}`);
+  }
+
+  const data = await tokenRes.json();
+  if (!data.access_token) {
+    throw new Error('PayPal token response did not include access_token');
+  }
+
+  return data.access_token;
+}
+
+async function verifyPayPalWebhook({ clientId, clientSecret, webhookId, headers, event }) {
+  const required = [
+    'paypal-auth-algo',
+    'paypal-cert-url',
+    'paypal-transmission-id',
+    'paypal-transmission-sig',
+    'paypal-transmission-time',
+  ];
+
+  for (const header of required) {
+    if (!headers[header]) {
+      throw new Error(`Missing PayPal webhook header: ${header}`);
+    }
+  }
+
+  const accessToken = await getPayPalAccessToken(clientId, clientSecret);
+  const verifyRes = await fetch('https://api-m.paypal.com/v1/notifications/verify-webhook-signature', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      auth_algo: headers['paypal-auth-algo'],
+      cert_url: headers['paypal-cert-url'],
+      transmission_id: headers['paypal-transmission-id'],
+      transmission_sig: headers['paypal-transmission-sig'],
+      transmission_time: headers['paypal-transmission-time'],
+      webhook_id: webhookId,
+      webhook_event: event,
+    }),
+  });
+
+  if (!verifyRes.ok) {
+    throw new Error(`PayPal webhook verification failed with HTTP ${verifyRes.status}`);
+  }
+
+  const result = await verifyRes.json();
+  return result.verification_status === 'SUCCESS';
 }
 
 // GET /api/payment/success
@@ -464,6 +533,24 @@ router.post('/webhook/paypal', async (req, res) => {
   const db = getDb();
   const ppEventId   = req.headers['paypal-transmission-id'] || null;
   const ppEventType = event.event_type || 'unknown';
+
+  try {
+    const verified = await verifyPayPalWebhook({
+      clientId,
+      clientSecret,
+      webhookId,
+      headers: req.headers,
+      event,
+    });
+
+    if (!verified) {
+      logWebhookEvent(db, { provider: 'paypal', eventId: ppEventId, eventType: ppEventType, outcome: 'error', errorMsg: 'Webhook signature verification failed' });
+      return res.status(400).json({ error: 'PayPal webhook signature verification failed' });
+    }
+  } catch (err) {
+    logWebhookEvent(db, { provider: 'paypal', eventId: ppEventId, eventType: ppEventType, outcome: 'error', errorMsg: err.message });
+    return res.status(400).json({ error: 'PayPal webhook verification failed' });
+  }
 
   try {
     switch (event.event_type) {

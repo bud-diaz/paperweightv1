@@ -362,11 +362,6 @@ router.post('/unlock', paymentLimiter, async (req, res) => {
   const priceError = validateAmount(priceConfig, amountCents);
   if (priceError) return res.status(400).json({ error: priceError });
 
-  // Check if already unlocked
-  const existing = canAccessVaultContent(listenerId, unlock_type === 'track' ? targetId : null);
-  // For non-track checks we do a direct unlock check
-  // (canAccessVaultContent needs contentId; for project/all_access, skip pre-check)
-
   try {
     const stripe = require('stripe')(stripeKey);
     const base   = config.station.publicUrl || `http://localhost:${config.port}`;

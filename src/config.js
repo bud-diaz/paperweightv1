@@ -16,12 +16,25 @@ const isPackaged = typeof process.pkg !== 'undefined';
 const appRoot  = path.resolve(__dirname, '..');
 const dataRoot = isPackaged ? path.dirname(process.execPath) : appRoot;
 
+function loadPackageVersion() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(appRoot, 'package.json'), 'utf8'));
+    return pkg.version || '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
+
 // ─── .env loader ─────────────────────────────────────────────────────────────
 
 function loadEnv() {
   const envPath = path.join(dataRoot, '.env');
 
   if (!fs.existsSync(envPath)) {
+    if (process.env.PAPERWEIGHT_ALLOW_MISSING_ENV === 'true') {
+      return;
+    }
+
     if (isPackaged) {
       // First run: create a default .env next to the exe so the user can edit it.
       const token = crypto.randomBytes(16).toString('hex');
@@ -58,6 +71,8 @@ function loadEnv() {
 loadEnv();
 
 const config = {
+  version: loadPackageVersion(),
+
   port: parseInt(process.env.PORT || '3000', 10),
 
   station: {
@@ -91,6 +106,7 @@ const config = {
   auth: {
     dashboardToken: (() => {
       if (process.env.DASHBOARD_TOKEN) return process.env.DASHBOARD_TOKEN;
+      if (process.env.PAPERWEIGHT_ALLOW_MISSING_ENV === 'true') return '';
       const generated = crypto.randomBytes(16).toString('hex');
       console.log('\n[Paperweight] DASHBOARD_TOKEN not set — using temporary token for this session:');
       console.log(`  ${generated}`);

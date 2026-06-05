@@ -1,34 +1,125 @@
 const router = require('express').Router();
 const crypto = require('crypto');
 const broadcast = require('../broadcast');
+const { getDb, log } = require('../db');
 
-// In-memory listener tracking: ipHash → lastPingMs
-// Listeners expire after 60s with no ping.
+// In-memory listener sessions keyed by anonymous listener hash.
+// Sessions expire after 60s with no ping.
 const activeListeners = new Map();
 const LISTENER_TTL_MS = 60_000;
+const MAX_PING_DELTA_SEC = 45;
 
-function recordPing(ip) {
-  const hash = crypto.createHash('sha256').update(ip || '').digest('hex');
-  activeListeners.set(hash, Date.now());
+function listenerHash(req) {
+  const raw = `${req.ip || ''}:${req.headers['user-agent'] || ''}`;
+  return crypto.createHash('sha256').update(raw).digest('hex');
+}
 
-  // Prune expired entries
-  const cutoff = Date.now() - LISTENER_TTL_MS;
-  for (const [k, v] of activeListeners) {
-    if (v < cutoff) activeListeners.delete(k);
+function pruneExpired(nowMs = Date.now()) {
+  const cutoff = nowMs - LISTENER_TTL_MS;
+  for (const [hash, session] of activeListeners) {
+    if ((session.lastPingMs || 0) < cutoff) activeListeners.delete(hash);
   }
-  return activeListeners.size;
 }
 
 function getListenerCount() {
-  const cutoff = Date.now() - LISTENER_TTL_MS;
-  let count = 0;
-  for (const v of activeListeners.values()) {
-    if (v >= cutoff) count++;
-  }
-  return count;
+  pruneExpired();
+  return activeListeners.size;
 }
 
-// GET /api/stream/status
+function todaySqlDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function refreshDailyStats(date = todaySqlDate()) {
+  const db = getDb();
+  const start = `${date} 00:00:00`;
+  const end = `${date} 23:59:59`;
+
+  const totals = db.prepare(`
+    SELECT
+      COUNT(DISTINCT ip_hash) AS unique_listeners,
+      COALESCE(SUM(seconds), 0) AS total_listen_sec
+    FROM listen_events
+    WHERE started_at BETWEEN ? AND ?
+  `).get(start, end);
+
+  const top = db.prepare(`
+    SELECT media_id
+    FROM listen_events
+    WHERE started_at BETWEEN ? AND ? AND media_id IS NOT NULL
+    GROUP BY media_id
+    ORDER BY SUM(seconds) DESC, COUNT(*) DESC
+    LIMIT 1
+  `).get(start, end);
+
+  db.prepare(`
+    INSERT INTO daily_stats (date, unique_listeners, total_listen_sec, top_media_id)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(date) DO UPDATE SET
+      unique_listeners = excluded.unique_listeners,
+      total_listen_sec = excluded.total_listen_sec,
+      top_media_id = excluded.top_media_id
+  `).run(date, totals.unique_listeners || 0, totals.total_listen_sec || 0, top?.media_id || null);
+}
+
+function recordListenEvent(req, state, nowMs) {
+  const mediaId = state?.nowPlaying?.id;
+  if (!mediaId) return null;
+
+  const db = getDb();
+  const hash = listenerHash(req);
+  const existing = activeListeners.get(hash);
+
+  if (existing?.mediaId === mediaId && existing.eventId) {
+    const deltaSec = Math.max(
+      1,
+      Math.min(MAX_PING_DELTA_SEC, Math.round((nowMs - existing.lastPingMs) / 1000) || 1)
+    );
+
+    db.prepare('UPDATE listen_events SET seconds = seconds + ? WHERE id = ?')
+      .run(deltaSec, existing.eventId);
+    existing.lastPingMs = nowMs;
+    existing.lastMediaStartedAt = state.nowPlaying.startedAt || null;
+    activeListeners.set(hash, existing);
+    return existing.eventId;
+  }
+
+  const info = db.prepare(
+    'INSERT INTO listen_events (ip_hash, media_id, seconds, tier) VALUES (?, ?, ?, ?)'
+  ).run(hash, mediaId, 0, req.tier || 'free');
+
+  activeListeners.set(hash, {
+    mediaId,
+    eventId: info.lastInsertRowid,
+    lastPingMs: nowMs,
+    lastMediaStartedAt: state.nowPlaying.startedAt || null,
+  });
+
+  return info.lastInsertRowid;
+}
+
+function recordPing(req) {
+  const nowMs = Date.now();
+  const hash = listenerHash(req);
+  pruneExpired(nowMs);
+
+  const state = broadcast.getState();
+  try {
+    const eventId = recordListenEvent(req, state, nowMs);
+    if (eventId) {
+      refreshDailyStats();
+    } else {
+      const session = activeListeners.get(hash) || {};
+      session.lastPingMs = nowMs;
+      activeListeners.set(hash, session);
+    }
+  } catch (err) {
+    log('warn', 'analytics', `Failed to record listen event: ${err.message}`);
+  }
+
+  return activeListeners.size;
+}
+
 router.get('/status', (req, res) => {
   const state = broadcast.getState();
   res.json({
@@ -37,12 +128,13 @@ router.get('/status', (req, res) => {
   });
 });
 
-// POST /api/stream/ping
 // Web player calls this every 30s to register as an active listener.
 router.post('/ping', (req, res) => {
-  const count = recordPing(req.ip);
+  const count = recordPing(req);
   res.json({ listenerCount: count });
 });
 
 module.exports = router;
 module.exports.getListenerCount = getListenerCount;
+module.exports.refreshDailyStats = refreshDailyStats;
+module.exports.recordPing = recordPing;

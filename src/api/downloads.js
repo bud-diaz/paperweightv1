@@ -3,16 +3,20 @@ const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const { getDb } = require('../db');
-const { requireSubscriber } = require('../auth/middleware');
+const { canDownloadMedia } = require('../auth/access');
 
-// Signed download tokens are valid for 48 hours by default.
-// Configurable via DOWNLOAD_TOKEN_TTL_HOURS env var.
 const TOKEN_TTL_HOURS = parseInt(process.env.DOWNLOAD_TOKEN_TTL_HOURS || '48', 10);
 
-// GET /api/library/:id/signed-url
-// Requires all_access tier. Generates a signed download token for the media item.
-// Returns: { signedUrl, expiresAt }
-router.get('/library/:id/signed-url', requireSubscriber, (req, res) => {
+function getProjectId(db, mediaId) {
+  const row = db.prepare(
+    'SELECT project_id FROM vault_project_items WHERE content_id = ?'
+  ).get(mediaId);
+  return row?.project_id ?? null;
+}
+
+// Legacy signed-token download flow. The newer /api/library/:id/download route
+// returns HMAC links; keep this route aligned with the same access policy.
+router.get('/library/:id/signed-url', (req, res) => {
   const db = getDb();
 
   const media = db.prepare(
@@ -21,6 +25,15 @@ router.get('/library/:id/signed-url', requireSubscriber, (req, res) => {
 
   if (!media) {
     return res.status(404).json({ error: 'Media not found' });
+  }
+
+  const access = canDownloadMedia(req, media, getProjectId(db, media.id));
+  if (!access.allowed) {
+    return res.status(403).json({ error: access.error, unlockOptions: access.unlockOptions });
+  }
+
+  if (!req.tokenRow?.listener_id) {
+    return res.status(401).json({ error: 'Listener account required for signed download tokens' });
   }
 
   if (!fs.existsSync(media.filepath)) {
@@ -42,10 +55,6 @@ router.get('/library/:id/signed-url', requireSubscriber, (req, res) => {
   });
 });
 
-// GET /api/download/:token
-// Validates the signed token and streams the file.
-// No auth header required — the token IS the auth mechanism.
-// Expiry is the sole gate — tokens are not single-use to allow partial download retries.
 router.get('/download/:token', (req, res) => {
   const { token } = req.params;
 
@@ -53,10 +62,8 @@ router.get('/download/:token', (req, res) => {
     return res.status(400).json({ error: 'Invalid token' });
   }
 
-  const db = getDb();
-
-  const record = db.prepare(
-    "SELECT dt.*, m.filepath, m.filename, m.title FROM download_tokens dt JOIN media m ON m.id = dt.media_id WHERE dt.token = ?"
+  const record = getDb().prepare(
+    'SELECT dt.*, m.filepath, m.filename, m.title FROM download_tokens dt JOIN media m ON m.id = dt.media_id WHERE dt.token = ?'
   ).get(token);
 
   if (!record) {
@@ -71,8 +78,7 @@ router.get('/download/:token', (req, res) => {
     return res.status(404).json({ error: 'File not found on disk' });
   }
 
-  const filename = path.basename(record.filepath);
-  res.download(record.filepath, filename);
+  res.download(record.filepath, path.basename(record.filepath));
 });
 
 module.exports = router;
