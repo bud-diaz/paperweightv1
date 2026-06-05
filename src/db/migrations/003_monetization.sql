@@ -38,7 +38,11 @@ CREATE TABLE IF NOT EXISTS download_tokens (
   created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
--- Stations saved by listeners (server-side, synced to account)
+-- Stations saved by listeners (server-side, synced to account).
+-- CLOUD-PHASE GROUNDWORK: the multi-station directory (one Play client, many
+-- creator stations keyed by core_url). Unused by the self-hosted build, whose
+-- routes are gated behind PAPERWEIGHT_CLOUD. Kept here so the schema is stable
+-- ahead of Paperweight Cloud. See ROADMAP.md.
 CREATE TABLE IF NOT EXISTS listener_saved_stations (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   listener_id INTEGER NOT NULL REFERENCES listener_accounts(id),

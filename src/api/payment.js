@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { getDb, log } = require('../db');
 const config = require('../config');
 const { paymentLimiter } = require('../middleware/rateLimiter');
+const { cloudOnly } = require('../middleware/cloudGate');
 
 // Lazy-loaded to avoid circular dependency at module init time
 // (vault.js → router.js → payment.js, and payment.js → vault.js)
@@ -67,11 +68,13 @@ function cancelSubscription(db, { providerSubscriptionId }) {
 // ─── Checkout ─────────────────────────────────────────────────────────────────
 
 // POST /api/payment/checkout
+// CLOUD PHASE (gated by PAPERWEIGHT_CLOUD): native-app checkout. The native
+// Paperweight Play app opens the returned URL in a WebView; on success Core
+// redirects to the paperweightplay:// deep link. Inert in self-hosted builds —
+// the web player uses GET /checkout-url instead. See ROADMAP.md.
 // Body: { tier: 'pro'|'all_access', provider: 'stripe'|'paypal' }
 // Returns: { checkoutUrl }
-// Play opens this URL in a WebView. On success, Core redirects to
-// paperweightplay://payment/success?tier=<tier>
-router.post('/checkout', paymentLimiter, (req, res) => {
+router.post('/checkout', cloudOnly, paymentLimiter, (req, res) => {
   if (!req.tokenRow || !req.tokenRow.listener_id) {
     return res.status(401).json({ error: 'Authentication required' });
   }
@@ -252,9 +255,10 @@ async function verifyPayPalWebhook({ clientId, clientSecret, webhookId, headers,
 }
 
 // GET /api/payment/success
-// Handles redirect from Stripe/PayPal after successful checkout.
-// Completes the subscription and redirects to the app deep link.
-router.get('/success', async (req, res) => {
+// CLOUD PHASE (gated by PAPERWEIGHT_CLOUD): redirect target for the native-app
+// checkout above. Completes the subscription and redirects to the paperweightplay://
+// deep link. The web player uses GET /web-success instead. See ROADMAP.md.
+router.get('/success', cloudOnly, async (req, res) => {
   const { session_id, tier } = req.query;
 
   if (session_id && process.env.STRIPE_SECRET_KEY) {
@@ -824,3 +828,7 @@ async function stripeWebhookHandler(req, res) {
 
 module.exports = router;
 module.exports.stripeWebhookHandler = stripeWebhookHandler;
+// Exported for unit tests — the core subscription state transitions, exercised
+// by both the Stripe and PayPal webhook handlers.
+module.exports.activateSubscription = activateSubscription;
+module.exports.cancelSubscription = cancelSubscription;

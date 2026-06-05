@@ -119,6 +119,13 @@ const config = {
     downloadSigningSecret: process.env.DOWNLOAD_SIGNING_SECRET || crypto.randomBytes(32).toString('hex'),
   },
 
+  // Paperweight Cloud (next roadmap phase): native-app deep-link checkout and the
+  // multi-station directory. Off by default — the routes guarded by this flag are
+  // inert in the self-hosted build. See ROADMAP.md.
+  cloud: {
+    enabled: process.env.PAPERWEIGHT_CLOUD === 'true',
+  },
+
   // true when the server is behind TLS (enables secure cookies, HTTPS redirects)
   https: process.env.HTTPS === 'true',
 };
