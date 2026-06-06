@@ -8,6 +8,7 @@ const { startScanner, stopScanner } = require('./scanner');
 const broadcast = require('./broadcast');
 const apiRouter = require('./api/router');
 const { csrfCheck } = require('./middleware/csrfCheck');
+const { printStartupWarnings } = require('./startup-checks');
 
 const app = express();
 let server;
@@ -134,6 +135,8 @@ function createApp() {
 
 async function start() {
   initDb();
+  // Surface security/config misconfigurations early (never aborts startup).
+  printStartupWarnings(process.env, log);
   startScanner();
   broadcast.start('shuffle');
   createApp();

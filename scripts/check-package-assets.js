@@ -41,6 +41,7 @@ for (const asset of ['package.json', 'client/**/*', 'node_modules/better-sqlite3
 for (const rel of [
   'client/creator.html',
   'client/index.html',
+  'client/vendor/hls.min.js',
   'src/index.js',
   'src/launcher.js',
   'scripts/preflight.js',
@@ -51,6 +52,16 @@ for (const rel of [
 ]) {
   if (fs.existsSync(path.join(ROOT, rel))) pass(`required file exists: ${rel}`);
   else fail(`required file missing: ${rel}`);
+}
+
+// The shipped player must not pull runtime JS from a CDN — frontend deps are
+// vendored locally (client/vendor/). Guard against a CDN <script> regression.
+const creatorHtml = fs.readFileSync(path.join(ROOT, 'client', 'creator.html'), 'utf8');
+const cdnScript = /<script[^>]+src=["']https?:\/\/[^"']+["']/i.test(creatorHtml);
+if (cdnScript) {
+  fail('client/creator.html loads a script from a CDN — vendor it under client/vendor/ instead');
+} else {
+  pass('client/creator.html has no runtime CDN <script> dependency');
 }
 
 if (!ok) {

@@ -556,6 +556,11 @@ router.post('/webhook/paypal', async (req, res) => {
     return res.status(400).json({ error: 'PayPal webhook verification failed' });
   }
 
+  // Idempotency: skip events we have already handled (verification passed above).
+  if (alreadyProcessed(db, 'paypal', ppEventId)) {
+    return res.json({ received: true, duplicate: true });
+  }
+
   try {
     switch (event.event_type) {
       case 'BILLING.SUBSCRIPTION.ACTIVATED': {
@@ -610,6 +615,26 @@ function logWebhookEvent(db, { provider, eventId, eventType, outcome, errorMsg }
   }
 }
 
+// ─── Webhook idempotency ──────────────────────────────────────────────────────
+// Stripe and PayPal both retry delivery (network blips, slow 200s), so the same
+// event can arrive more than once. A given provider event_id always carries an
+// identical payload, so once we have fully handled it ('ok') or deliberately
+// ignored it ('skipped') there is nothing to gain from re-running the handler —
+// and re-running risks duplicate side effects on any non-idempotent branch.
+// Events whose only prior outcome was 'error' are NOT treated as processed, so
+// genuine retries after a transient failure still get a chance to succeed.
+function alreadyProcessed(db, provider, eventId) {
+  if (!eventId) return false; // Can't dedup without an id — let it through.
+  try {
+    const row = db.prepare(
+      "SELECT 1 FROM webhook_events WHERE provider = ? AND event_id = ? AND outcome IN ('ok', 'skipped') LIMIT 1"
+    ).get(provider, eventId);
+    return !!row;
+  } catch {
+    return false;
+  }
+}
+
 // Exported as a standalone handler for mounting before express.json() in index.js
 // so the raw body buffer is available for Stripe signature verification.
 async function stripeWebhookHandler(req, res) {
@@ -629,6 +654,12 @@ async function stripeWebhookHandler(req, res) {
   }
 
   const db = getDb();
+
+  // Idempotency: if we have already handled this exact event, acknowledge and
+  // return without re-running any side effects.
+  if (alreadyProcessed(db, 'stripe', event.id)) {
+    return res.json({ received: true, duplicate: true });
+  }
 
   switch (event.type) {
 
@@ -832,3 +863,6 @@ module.exports.stripeWebhookHandler = stripeWebhookHandler;
 // by both the Stripe and PayPal webhook handlers.
 module.exports.activateSubscription = activateSubscription;
 module.exports.cancelSubscription = cancelSubscription;
+// Exported for unit tests — webhook idempotency guard and its log writer.
+module.exports.alreadyProcessed = alreadyProcessed;
+module.exports.logWebhookEvent = logWebhookEvent;

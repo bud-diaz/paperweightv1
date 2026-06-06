@@ -12,8 +12,8 @@
     "check:analytics": "node scripts/check-analytics.js",
     "check:package": "node scripts/check-package-assets.js",
     "smoke": "node scripts/smoke.js",
-    "test": "node --test test/scheduler.test.js test/access.test.js test/payment.test.js",
-    "release:check": "node scripts/preflight.js && node scripts/check-migrations.js && node scripts/check-scheduler.js && node scripts/check-analytics.js && node scripts/check-package-assets.js",
+    "test": "node --test test/scheduler.test.js test/access.test.js test/payment.test.js test/startup-checks.test.js",
+    "release:check": "npm test && node scripts/preflight.js && node scripts/check-migrations.js && node scripts/check-scheduler.js && node scripts/check-analytics.js && node scripts/check-package-assets.js",
     "build:exe": "node scripts/build-exe.js"
   },
   "dependencies": {

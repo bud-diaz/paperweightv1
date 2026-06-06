@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { freshDb, seedListener, seedToken, futureIso } = require('./helpers');
-const { activateSubscription, cancelSubscription } = require('../src/api/payment');
+const { activateSubscription, cancelSubscription, alreadyProcessed, logWebhookEvent } = require('../src/api/payment');
 
 function getSub(db, providerSubscriptionId) {
   return db.prepare('SELECT * FROM subscriptions WHERE provider_subscription_id = ?').get(providerSubscriptionId);
@@ -80,4 +80,34 @@ test('cancelSubscription expires the subscription and downgrades the token to fr
 test('cancelSubscription returns false for an unknown subscription id', () => {
   const db = freshDb();
   assert.strictEqual(cancelSubscription(db, { providerSubscriptionId: 'does_not_exist' }), false);
+});
+
+// ─── Webhook idempotency ──────────────────────────────────────────────────────
+
+test('alreadyProcessed is false for an unseen event and true once handled', () => {
+  const db = freshDb();
+  assert.strictEqual(alreadyProcessed(db, 'stripe', 'evt_1'), false);
+
+  logWebhookEvent(db, { provider: 'stripe', eventId: 'evt_1', eventType: 'checkout.session.completed', outcome: 'ok' });
+  assert.strictEqual(alreadyProcessed(db, 'stripe', 'evt_1'), true, 'a handled event is treated as a duplicate on redelivery');
+
+  // A skipped event is also terminal — re-running gains nothing.
+  logWebhookEvent(db, { provider: 'stripe', eventId: 'evt_skip', eventType: 'payment_intent.succeeded', outcome: 'skipped' });
+  assert.strictEqual(alreadyProcessed(db, 'stripe', 'evt_skip'), true);
+});
+
+test('alreadyProcessed allows retry after a prior error and never crosses providers', () => {
+  const db = freshDb();
+
+  // An errored attempt must NOT block a genuine retry.
+  logWebhookEvent(db, { provider: 'stripe', eventId: 'evt_2', eventType: 'checkout.session.completed', outcome: 'error', errorMsg: 'boom' });
+  assert.strictEqual(alreadyProcessed(db, 'stripe', 'evt_2'), false, 'errored events are retryable');
+
+  // Same id under a different provider is a different event.
+  logWebhookEvent(db, { provider: 'paypal', eventId: 'evt_3', eventType: 'BILLING.SUBSCRIPTION.ACTIVATED', outcome: 'ok' });
+  assert.strictEqual(alreadyProcessed(db, 'stripe', 'evt_3'), false, 'provider is part of the identity');
+  assert.strictEqual(alreadyProcessed(db, 'paypal', 'evt_3'), true);
+
+  // A missing/null event id can never be deduplicated.
+  assert.strictEqual(alreadyProcessed(db, 'paypal', null), false);
 });

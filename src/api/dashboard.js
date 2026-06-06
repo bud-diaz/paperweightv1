@@ -27,6 +27,26 @@ const ALLOWED_MIMES = new Set([
   'video/webm', 'video/mpeg',
 ]);
 
+// Reduce an uploaded filename to a safe, predictable form before it touches the
+// filesystem. Strips any directory components (path traversal), drops control
+// characters and shell/FS-hostile characters, collapses whitespace to
+// underscores, and guarantees a non-empty result with an extension.
+function sanitizeUploadName(originalname) {
+  const base = path.basename(String(originalname || ''));
+  const ext  = path.extname(base).toLowerCase().replace(/[^.a-z0-9]/g, '').slice(0, 12);
+  let stem = base.slice(0, base.length - path.extname(base).length);
+
+  stem = stem
+    .replace(/[\x00-\x1f\x7f]/g, "")            // control characters
+    .replace(/[/\\?%*:|"'<>`$&;]/g, '')        // path/shell-hostile characters
+    .replace(/\s+/g, '_')                       // collapse whitespace
+    .replace(/^[._]+/, '')                       // no leading dot/underscore (hidden files)
+    .slice(0, 200);
+
+  if (!stem) stem = `upload_${Date.now()}`;
+  return ext ? `${stem}${ext}` : stem;
+}
+
 const storage = multer.diskStorage({
   destination(req, file, cb) {
     const category = VALID_CATEGORIES.has(req.body.category)
@@ -37,9 +57,7 @@ const storage = multer.diskStorage({
     cb(null, dest);
   },
   filename(req, file, cb) {
-    // Sanitize filename: strip path traversal, replace spaces
-    const safe = path.basename(file.originalname).replace(/\s+/g, '_');
-    cb(null, safe);
+    cb(null, sanitizeUploadName(file.originalname));
   },
 });
 
@@ -105,21 +123,26 @@ router.post('/upload', (req, res) => {
 
     // Stamp visibility immediately so the scanner's later upsert (which doesn't
     // touch the visibility column) preserves the creator's chosen value.
+    // The row is inserted is_active = 0 so the file is NOT playable or indexed
+    // until the vault scanner has successfully run ffprobe on it — a corrupt or
+    // unprobeable upload never reaches listeners. The scanner's upsert flips
+    // is_active = 1 only on a successful probe.
     // Use path.resolve() so this matches the absolute path the watcher emits.
     const absFilepath = path.resolve(req.file.path);
     getDb().prepare(`
-      INSERT INTO media (filepath, filename, category, visibility, indexed_at, updated_at)
-      VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+      INSERT INTO media (filepath, filename, category, visibility, is_active, indexed_at, updated_at)
+      VALUES (?, ?, ?, ?, 0, datetime('now'), datetime('now'))
       ON CONFLICT(filepath) DO UPDATE SET visibility = excluded.visibility
     `).run(absFilepath, req.file.filename, category, visibility);
 
-    log('info', 'dashboard', `Uploaded: ${req.file.filename} → ${req.file.destination} [${visibility}]`);
+    log('info', 'dashboard', `Uploaded (awaiting probe): ${req.file.filename} → ${req.file.destination} [${visibility}]`);
     res.status(201).json({
       filename:   req.file.filename,
       filepath:   req.file.path,
       size:       req.file.size,
       category,
       visibility,
+      status:     'processing', // becomes active once the scanner probes it
     });
   });
 });

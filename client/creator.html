@@ -13,7 +13,8 @@
   <title>Paperweight Player</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+  <!-- hls.js is vendored locally (client/vendor/) — no runtime CDN dependency. -->
+  <script src="/vendor/hls.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { height: 100%; }
@@ -1225,6 +1226,9 @@
 const HLS_URL            = '/hls/stream/index.m3u8';
 const STATUS_INTERVAL_MS = 10_000;
 const PING_INTERVAL_MS   = 30_000;
+// Dashboard (owner/admin) token is held in sessionStorage only — it is cleared
+// when the tab/session closes and never persisted to disk, so a shared or
+// public-kiosk browser does not retain owner access across sessions.
 const SESSION_KEY        = 'pw_dash_token';
 let   dashboardLoaded    = false;
 
@@ -2235,7 +2239,7 @@ document.querySelectorAll('.view-tab').forEach(btn => {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 function dashFetch(url, opts = {}) {
-  const token = localStorage.getItem(SESSION_KEY);
+  const token = sessionStorage.getItem(SESSION_KEY);
   if (token) opts.headers = { ...(opts.headers || {}), 'X-Dashboard-Token': token };
   return fetch(url, opts);
 }
@@ -2269,11 +2273,11 @@ let dashboardInitialized = false;
 async function initDashboard() {
   if (dashboardInitialized) return;
   dashboardInitialized = true;
-  const token = localStorage.getItem(SESSION_KEY);
+  const token = sessionStorage.getItem(SESSION_KEY);
   if (token) {
     const ok = await tryDashAuth();
     if (ok) { showDashContent(); return; }
-    localStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
   }
   showDashAuthGate();
 }
@@ -2281,12 +2285,12 @@ async function initDashboard() {
 el('dash-token-btn').addEventListener('click', async () => {
   const token = el('dash-token-input').value.trim();
   if (!token) return;
-  localStorage.setItem(SESSION_KEY, token);
+  sessionStorage.setItem(SESSION_KEY, token);
   el('dash-auth-msg').textContent = '';
   const ok = await tryDashAuth();
   if (ok) { showDashContent(); loadDashboard(); }
   else {
-    localStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
     el('dash-auth-msg').className   = 'dash-error-msg';
     el('dash-auth-msg').textContent = 'Invalid token';
   }
@@ -3549,11 +3553,11 @@ async function init() {
 
   // Silently restore creator session — reveals toggle, hides tip button, no navigation
   (async () => {
-    const stored = localStorage.getItem(SESSION_KEY);
+    const stored = sessionStorage.getItem(SESSION_KEY);
     if (!stored) return;
     const ok = await tryDashAuth();
     if (ok) { showDashContent(); }
-    else    { localStorage.removeItem(SESSION_KEY); }
+    else    { sessionStorage.removeItem(SESSION_KEY); }
   })();
 
   // Initial render
