@@ -64,6 +64,17 @@ if (cdnScript) {
   pass('client/creator.html has no runtime CDN <script> dependency');
 }
 
+// Guard against scratch/exported HTML artifacts at the repo root. The shipped
+// UI lives in client/; a root-level index.html or paperweight-*.html is a stray
+// export that should not be part of a release.
+const scratch = fs.readdirSync(ROOT)
+  .filter(name => name === 'index.html' || /^paperweight-.*\.html$/.test(name));
+if (scratch.length > 0) {
+  fail(`scratch HTML artifact(s) at repo root: ${scratch.join(', ')} — move UI into client/ or delete`);
+} else {
+  pass('no scratch HTML artifacts at repo root');
+}
+
 if (!ok) {
   process.exitCode = 1;
 } else {

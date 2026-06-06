@@ -2,6 +2,13 @@
 # Run as Administrator in PowerShell:
 #   cd C:\paperweight
 #   .\scripts\install.ps1
+#
+# cloudflared is OPTIONAL — it is only needed to expose the station publicly
+# through a Cloudflare Tunnel. Opt in with:
+#   .\scripts\install.ps1 -Cloudflared
+param(
+    [switch]$Cloudflared
+)
 
 # ── Admin check ───────────────────────────────────────────────────────────────
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.SecurityIdentifier]'S-1-5-32-544')) {
@@ -42,10 +49,14 @@ Write-Host "-- FFmpeg"
 winget install Gyan.FFmpeg --silent --accept-source-agreements --accept-package-agreements
 Write-Host "  OK FFmpeg installed"
 
-# -- cloudflared --------------------------------------------------------------
-Write-Host "-- cloudflared"
-winget install Cloudflare.cloudflared --silent --accept-source-agreements --accept-package-agreements
-Write-Host "  OK cloudflared installed"
+# -- cloudflared (optional) ---------------------------------------------------
+Write-Host "-- cloudflared (optional)"
+if ($Cloudflared) {
+    winget install Cloudflare.cloudflared --silent --accept-source-agreements --accept-package-agreements
+    Write-Host "  OK cloudflared installed"
+} else {
+    Write-Host "  - Skipped. Re-run with -Cloudflared to expose the station publicly via a tunnel."
+}
 
 # -- PM2 ----------------------------------------------------------------------
 Write-Host "-- PM2"

@@ -1,13 +1,36 @@
 #!/usr/bin/env bash
+# Paperweight installer for Debian/Ubuntu/Raspberry Pi OS (apt-based, 64-bit).
+#
+# Installs: Node.js LTS, FFmpeg/ffprobe, PM2, and tmpfs-backed HLS output
+# (which protects an SD card from constant segment writes on a Pi).
+#
+# cloudflared is OPTIONAL — a Cloudflare Tunnel only matters if you want to
+# expose the station publicly without opening a port. Opt in with either:
+#   INSTALL_CLOUDFLARED=1 bash scripts/install.sh
+#   bash scripts/install.sh --cloudflared
 set -e
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+INSTALL_CLOUDFLARED="${INSTALL_CLOUDFLARED:-0}"
+for arg in "$@"; do
+  case "$arg" in
+    --cloudflared) INSTALL_CLOUDFLARED=1 ;;
+    --no-cloudflared) INSTALL_CLOUDFLARED=0 ;;
+  esac
+done
 
 echo ""
 echo "╔══════════════════════════════════════╗"
 echo "║      PAPERWEIGHT INSTALLER           ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
+
+if ! command -v apt &>/dev/null; then
+  echo "  ERROR: this installer targets apt-based systems (Debian/Ubuntu/Raspberry Pi OS)."
+  echo "         On macOS use scripts/install-macos.sh; on Windows use scripts/install.ps1."
+  exit 1
+fi
 
 # ── Node.js ───────────────────────────────────────────────────────────────────
 echo "── Node.js ──────────────────────────"
@@ -37,9 +60,12 @@ else
   echo "  ✓ PM2 installed"
 fi
 
-# ── cloudflared ───────────────────────────────────────────────────────────────
-echo "── cloudflared ──────────────────────"
-if command -v cloudflared &>/dev/null; then
+# ── cloudflared (optional) ────────────────────────────────────────────────────
+echo "── cloudflared (optional) ───────────"
+if [ "$INSTALL_CLOUDFLARED" != "1" ]; then
+  echo "  - Skipped. Paperweight runs fine on your LAN without it."
+  echo "    Re-run with --cloudflared to expose the station publicly via a tunnel."
+elif command -v cloudflared &>/dev/null; then
   echo "  ✓ cloudflared already installed"
 else
   curl -L https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg > /dev/null
