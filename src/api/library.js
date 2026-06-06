@@ -78,8 +78,10 @@ function formatItem(row, tier) {
   const base = {
     id: row.id,
     title: row.title || row.filename,
-    artist: row.artist || null,
-    album: row.album || null,
+    artist:   row.artist   || null,
+    album:    row.album    || null,
+    producer: row.producer || null,
+    credits:  row.credits  || null,
     category: row.category,
     duration: row.duration,
     bpm: row.bpm || null,

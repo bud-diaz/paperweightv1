@@ -84,7 +84,7 @@ function runMigrations(database) {
     {
       table:  'tokens',
       column: 'updated_at',
-      sql:    "ALTER TABLE tokens ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))",
+      sql:    'ALTER TABLE tokens ADD COLUMN updated_at TEXT',
     },
     {
       table:  'media',
