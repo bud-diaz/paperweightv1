@@ -54,14 +54,18 @@ for (const rel of [
   else fail(`required file missing: ${rel}`);
 }
 
-// The shipped player must not pull runtime JS from a CDN — frontend deps are
-// vendored locally (client/vendor/). Guard against a CDN <script> regression.
-const creatorHtml = fs.readFileSync(path.join(ROOT, 'client', 'creator.html'), 'utf8');
-const cdnScript = /<script[^>]+src=["']https?:\/\/[^"']+["']/i.test(creatorHtml);
-if (cdnScript) {
-  fail('client/creator.html loads a script from a CDN — vendor it under client/vendor/ instead');
-} else {
-  pass('client/creator.html has no runtime CDN <script> dependency');
+// The shipped frontend must not pull JS or fonts from a CDN at runtime —
+// dependencies are vendored locally under client/vendor/. Guard against a
+// regression in any served frontend file (player, landing page, stylesheet).
+const CDN_HOSTS = /(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com|ajax\.googleapis\.com)/i;
+for (const rel of ['client/creator.html', 'client/index.html', 'client/styles.css']) {
+  const full = path.join(ROOT, rel);
+  if (!fs.existsSync(full)) continue;
+  if (CDN_HOSTS.test(fs.readFileSync(full, 'utf8'))) {
+    fail(`${rel} references a CDN host — vendor the dependency under client/vendor/ instead`);
+  } else {
+    pass(`${rel} has no runtime CDN dependency`);
+  }
 }
 
 // Guard against scratch/exported HTML artifacts at the repo root. The shipped

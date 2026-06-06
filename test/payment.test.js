@@ -3,6 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { freshDb, seedListener, seedToken, futureIso } = require('./helpers');
 const { activateSubscription, cancelSubscription, alreadyProcessed, logWebhookEvent } = require('../src/api/payment');
+const { createVaultUnlock } = require('../src/api/vault');
 
 function getSub(db, providerSubscriptionId) {
   return db.prepare('SELECT * FROM subscriptions WHERE provider_subscription_id = ?').get(providerSubscriptionId);
@@ -110,4 +111,32 @@ test('alreadyProcessed allows retry after a prior error and never crosses provid
 
   // A missing/null event id can never be deduplicated.
   assert.strictEqual(alreadyProcessed(db, 'paypal', null), false);
+});
+
+// ─── Vault unlocks and tips ─────────────────────────────────────────────────────
+
+test('createVaultUnlock is idempotent on stripe_payment_id', () => {
+  const db = freshDb();
+  const listenerId = seedListener(db);
+
+  const opts = { listenerId, unlockType: 'track', targetId: 1, paymentType: 'one_time', amountPaid: 500, stripePaymentId: 'pi_unlock_1', expiresAt: null };
+  const id1 = createVaultUnlock(db, opts);
+  const id2 = createVaultUnlock(db, opts);
+
+  assert.strictEqual(id1, id2, 'a duplicate webhook for the same payment reuses the existing unlock');
+  const rows = db.prepare('SELECT * FROM vault_unlocks WHERE stripe_payment_id = ?').all('pi_unlock_1');
+  assert.strictEqual(rows.length, 1, 'no second unlock row is created for a duplicate payment');
+});
+
+test('a tip grants no access — no tier change, subscription, or vault unlock', () => {
+  const db = freshDb();
+  const listenerId = seedListener(db);
+  const token = seedToken(db, { tier: 'free', listenerId });
+
+  // The tip webhook's only side effect is a tips row (see payment_intent.succeeded).
+  db.prepare('INSERT INTO tips (amount_cents, stripe_payment_intent_id) VALUES (?, ?)').run(500, 'pi_tip_1');
+
+  assert.strictEqual(db.prepare('SELECT tier FROM tokens WHERE id = ?').get(token.id).tier, 'free');
+  assert.strictEqual(db.prepare('SELECT COUNT(*) AS n FROM subscriptions WHERE listener_id = ?').get(listenerId).n, 0);
+  assert.strictEqual(db.prepare('SELECT COUNT(*) AS n FROM vault_unlocks WHERE listener_id = ?').get(listenerId).n, 0);
 });

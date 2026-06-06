@@ -64,6 +64,34 @@ function pastIso(ms = 24 * 60 * 60 * 1000) {
   return new Date(Date.now() - ms).toISOString();
 }
 
+// Builds the real API router on a throwaway Express server listening on an
+// ephemeral port, mirroring src/index.js's middleware stack (json, cookies,
+// CSRF) without the broadcast/scanner subsystems. Returns { base, close }.
+// NOTE: any test that exercises dashboard auth must set process.env.DASHBOARD_TOKEN
+// BEFORE requiring this module, because src/config reads it once at load time.
+function createTestServer() {
+  const express = require('express');
+  const cookieParser = require('cookie-parser');
+  const { csrfCheck } = require('../src/middleware/csrfCheck');
+  const apiRouter = require('../src/api/router');
+
+  const app = express();
+  app.use(express.json());
+  app.use(cookieParser());
+  app.use(csrfCheck);
+  app.use('/api', apiRouter);
+
+  return new Promise(resolve => {
+    const server = app.listen(0, '127.0.0.1', () => {
+      const { port } = server.address();
+      resolve({
+        base: `http://127.0.0.1:${port}`,
+        close: () => new Promise(done => server.close(done)),
+      });
+    });
+  });
+}
+
 // Best-effort cleanup of the temp dir when the test process exits.
 process.on('exit', () => {
   try { closeDb(); } catch {}
@@ -78,4 +106,5 @@ module.exports = {
   seedToken,
   futureIso,
   pastIso,
+  createTestServer,
 };
