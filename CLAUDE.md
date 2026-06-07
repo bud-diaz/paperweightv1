@@ -13,7 +13,7 @@ npm run check:scheduler  # scheduler edge-case check
 npm run check:analytics  # analytics write-path check
 npm run check:package    # package metadata and asset check
 npm run smoke            # HTTP smoke test against a running server
-npm run build:exe        # build Windows executable into dist/
+npm run build:exe        # optional convenience executable packaging
 
 node scripts/gen-token.js "Label"
 node -e "const db = require('better-sqlite3')('data/paperweight.db'); console.log(db.prepare('SELECT ...').all())"

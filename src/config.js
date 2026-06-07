@@ -70,6 +70,8 @@ function loadEnv() {
 
 loadEnv();
 
+const hasEnvValue = key => !!(process.env[key] && process.env[key].trim());
+
 const config = {
   version: loadPackageVersion(),
 
@@ -131,3 +133,34 @@ const config = {
 };
 
 module.exports = config;
+
+function warnStartupConfig() {
+  const warnings = [];
+
+  if (!hasEnvValue('DOWNLOAD_SIGNING_SECRET')) {
+    warnings.push('DOWNLOAD_SIGNING_SECRET is not set; signed download links will be invalid after restart.');
+  }
+
+  if (config.station.publicUrl && !config.https) {
+    warnings.push('STATION_PUBLIC_URL is set while HTTPS=false; public listener cookies will not use the Secure flag.');
+  }
+
+  const stripeKeys = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_SUBSCRIBER', 'STRIPE_PRICE_PRO', 'STRIPE_PRICE_ALL_ACCESS'];
+  const stripeAny = stripeKeys.some(hasEnvValue);
+  if (stripeAny && !hasEnvValue('STRIPE_WEBHOOK_SECRET')) {
+    warnings.push('Stripe is partially configured without STRIPE_WEBHOOK_SECRET; subscription state will not be authoritative.');
+  }
+
+  const paypalKeys = ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PAYPAL_WEBHOOK_ID', 'PAYPAL_PLAN_PRO', 'PAYPAL_PLAN_ALL_ACCESS'];
+  const paypalAny = paypalKeys.some(hasEnvValue);
+  const paypalRequired = ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PAYPAL_WEBHOOK_ID'];
+  if (paypalAny && paypalRequired.some(key => !hasEnvValue(key))) {
+    warnings.push('PayPal is partially configured; PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, and PAYPAL_WEBHOOK_ID are all required.');
+  }
+
+  for (const warning of warnings) {
+    console.warn(`[Paperweight config] WARN ${warning}`);
+  }
+}
+
+warnStartupConfig();

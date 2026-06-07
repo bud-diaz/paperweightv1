@@ -30,7 +30,12 @@ if (pkg.version === lock.version && pkg.version === lock.packages?.['']?.version
 }
 
 const pkgAssets = new Set(pkg.pkg?.assets || []);
-for (const asset of ['package.json', 'client/**/*', 'node_modules/better-sqlite3/build/Release/*.node']) {
+for (const asset of [
+  'package.json',
+  'client/**/*',
+  'node_modules/hls.js/dist/hls.min.js',
+  'node_modules/better-sqlite3/build/Release/*.node',
+]) {
   if ([...pkgAssets].some(entry => entry === asset || entry.includes(asset))) {
     pass(`pkg asset configured: ${asset}`);
   } else {
@@ -41,9 +46,11 @@ for (const asset of ['package.json', 'client/**/*', 'node_modules/better-sqlite3
 for (const rel of [
   'client/creator.html',
   'client/index.html',
+  'node_modules/hls.js/dist/hls.min.js',
   'src/index.js',
   'src/launcher.js',
   'scripts/preflight.js',
+  'scripts/check-release-clean.js',
   'scripts/check-migrations.js',
   'scripts/check-scheduler.js',
   'scripts/check-analytics.js',

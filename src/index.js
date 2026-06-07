@@ -9,44 +9,17 @@ const broadcast = require('./broadcast');
 const apiRouter = require('./api/router');
 const { csrfCheck } = require('./middleware/csrfCheck');
 
-const app = express();
 let server;
 let isShuttingDown = false;
 let fatalExitCode = 0;
 
-function fatalShutdown(kind, err) {
-  const msg = err instanceof Error ? err.message : String(err);
-  console.error(`[FATAL] ${kind}:`, err);
-  try { log('error', 'server', `${kind}: ${msg}`); } catch {}
-  fatalExitCode = 1;
-
-  try {
-    shutdown();
-  } catch (shutdownErr) {
-    console.error('[FATAL] Shutdown after fatal error failed:', shutdownErr);
-    process.exit(1);
-  }
+function hlsAssetPath() {
+  return path.join(config.paths.app, 'node_modules', 'hls.js', 'dist', 'hls.min.js');
 }
 
-// ─── Catch unhandled errors before they take the process down ────────────────
-
-process.on('uncaughtException', err => {
-  return fatalShutdown('Uncaught exception', err);
-  // Don't exit — log and continue. DB logger may not be ready yet.
-  try { log('error', 'server', `Uncaught exception: ${err.message}`); } catch {}
-});
-
-process.on('unhandledRejection', (reason) => {
-  const msg = reason instanceof Error ? reason.message : String(reason);
-  return fatalShutdown('Unhandled rejection', reason);
-  try { log('warn', 'server', `Unhandled rejection: ${msg}`); } catch {}
-});
-
-// ─── App setup ───────────────────────────────────────────────────────────────
-
 function createApp() {
-  // Stripe webhook must receive the raw body before express.json() parses it.
-  // Mount this single route before any body parsers.
+  const app = express();
+
   app.post('/api/payment/webhook/stripe',
     express.raw({ type: 'application/json' }),
     require('./api/payment').stripeWebhookHandler
@@ -56,23 +29,26 @@ function createApp() {
   app.use(cookieParser());
   app.use(csrfCheck);
 
-  // Serve HLS output
   app.use('/hls', express.static(config.paths.hlsOutput));
 
-  // API routes
+  app.get('/vendor/hls.min.js', (req, res) => {
+    const asset = hlsAssetPath();
+    if (!fs.existsSync(asset)) {
+      return res.status(404).type('text/plain').send('hls.js asset not installed');
+    }
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.sendFile(asset);
+  });
+
   app.use('/api', apiRouter);
 
-  // Serve frontend — check dataRoot/client/ first so users can drop
-  // replacement files next to the exe without rebuilding the package.
   app.use(express.static(path.join(config.paths.root, 'client')));
-  app.use(express.static(path.join(config.paths.app,  'client')));
+  app.use(express.static(path.join(config.paths.app, 'client')));
 
-  // Marketing/about page accessible at /landing
   app.get('/landing', (req, res) => {
     res.sendFile(path.join(config.paths.app, 'client', 'index.html'));
   });
 
-  // PWA manifest — dynamic so it picks up the configured station name
   app.get('/manifest.json', (req, res) => {
     const name = config.station.name || 'Paperweight';
     res.json({
@@ -91,37 +67,30 @@ function createApp() {
     });
   });
 
-  // PWA icon — generated SVG served as PNG-compatible (place a real icon.png in client/ to override)
   app.get('/icon.png', (req, res) => {
-    if (!res.headersSent) {
-      const name  = config.station.name || 'P';
-      const letter = name.trim()[0]?.toUpperCase() || 'P';
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-        <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
-        <circle cx="256" cy="256" r="190" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
-        <text x="256" y="310" text-anchor="middle" font-family="Georgia,serif" font-size="220" fill="#ffffff">${letter}</text>
-      </svg>`;
-      res.setHeader('Content-Type', 'image/svg+xml');
-      res.setHeader('Cache-Control', 'public, max-age=86400');
-      res.send(svg);
-    }
+    const name = config.station.name || 'P';
+    const letter = name.trim()[0]?.toUpperCase() || 'P';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
+      <circle cx="256" cy="256" r="190" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+      <text x="256" y="310" text-anchor="middle" font-family="Georgia,serif" font-size="220" fill="#ffffff">${letter}</text>
+    </svg>`;
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(svg);
   });
 
-  // SPA fallback — serve creator.html (player) for any unmatched GET.
-  // Prefer the override file next to the exe (dataRoot) over the bundled copy.
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/hls')) {
       return res.status(404).json({ error: 'Not found' });
     }
-    const override  = path.join(config.paths.root, 'client', 'creator.html');
-    const bundled   = path.join(config.paths.app,  'client', 'creator.html');
+    const override = path.join(config.paths.root, 'client', 'creator.html');
+    const bundled = path.join(config.paths.app, 'client', 'creator.html');
     res.sendFile(fs.existsSync(override) ? override : bundled);
   });
 
-  // Express error handler — catches sync throws and next(err) calls
-  // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
-    log('error', 'server', `Request error: ${err.message}`);
+    try { log('error', 'server', `Request error: ${err.message}`); } catch {}
     if (!res.headersSent) {
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -130,14 +99,26 @@ function createApp() {
   return app;
 }
 
-// ─── Startup ─────────────────────────────────────────────────────────────────
+function fatalShutdown(kind, err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(`[FATAL] ${kind}:`, err);
+  try { log('error', 'server', `${kind}: ${msg}`); } catch {}
+  fatalExitCode = 1;
+
+  try {
+    shutdown();
+  } catch (shutdownErr) {
+    console.error('[FATAL] Shutdown after fatal error failed:', shutdownErr);
+    process.exit(1);
+  }
+}
 
 async function start() {
   initDb();
   startScanner();
   broadcast.start('shuffle');
-  createApp();
 
+  const app = createApp();
   server = app.listen(config.port);
 
   server.on('listening', () => {
@@ -154,15 +135,15 @@ async function start() {
     }
     process.exit(1);
   });
-}
 
-// ─── Graceful shutdown ───────────────────────────────────────────────────────
+  return server;
+}
 
 function shutdown() {
   if (isShuttingDown) return;
   isShuttingDown = true;
 
-  log('info', 'server', 'Shutting down...');
+  try { log('info', 'server', 'Shutting down...'); } catch {}
   broadcast.stop();
   stopScanner();
 
@@ -171,7 +152,6 @@ function shutdown() {
       closeDb();
       process.exit(fatalExitCode);
     });
-    // Force exit if graceful shutdown takes too long
     setTimeout(() => {
       console.error('[WARN] Graceful shutdown timed out, forcing exit');
       process.exit(fatalExitCode || 1);
@@ -182,10 +162,16 @@ function shutdown() {
   }
 }
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT',  shutdown);
+if (require.main === module) {
+  process.on('uncaughtException', err => fatalShutdown('Uncaught exception', err));
+  process.on('unhandledRejection', reason => fatalShutdown('Unhandled rejection', reason));
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 
-start().catch(err => {
-  console.error('Failed to start Paperweight:', err);
-  process.exit(1);
-});
+  start().catch(err => {
+    console.error('Failed to start Paperweight:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { createApp, start, shutdown, hlsAssetPath };

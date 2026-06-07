@@ -1,33 +1,36 @@
-# ── Dependencies ──────────────────────────────────────────────────────────────
+# Dependencies
 node_modules/
 
-# ── Environment & secrets ─────────────────────────────────────────────────────
+# Environment and secrets
 .env
 *.pem
 *.key
 *.p12
 *.pfx
 
-# ── Database ──────────────────────────────────────────────────────────────────
+# Database
 data/
 *.db
 *.db-shm
 *.db-wal
 
-# ── Uploaded media (vault) ────────────────────────────────────────────────────
+# Uploaded media
 vault/
 
-# ── Generated stream / preview files ─────────────────────────────────────────
+# Generated stream and preview files
 hls_output/
 
-# ── Logs ──────────────────────────────────────────────────────────────────────
+# Logs
 logs/
 *.log
 
-# ── Claude Code session data ──────────────────────────────────────────────────
+# Local assistant/session data
 .claude/
 
-# ── Temp / scratch files ──────────────────────────────────────────────────────
+# Build output
+dist/
+
+# Temp and scratch files
 *.tmp
 *_temp.html
 *_temp.*

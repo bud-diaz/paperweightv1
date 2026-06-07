@@ -33,10 +33,11 @@ function freshDb() {
   return initDb();
 }
 
-function seedMedia(db, { visibility = 'public', category = 'music', title = 'Track' } = {}) {
+function seedMedia(db, { visibility = 'public', category = 'music', title = 'Track', filepath = null } = {}) {
+  const mediaPath = filepath || `/vault/${crypto.randomUUID()}.mp3`;
   const info = db.prepare(
     'INSERT INTO media (filepath, filename, category, title, visibility) VALUES (?, ?, ?, ?, ?)'
-  ).run(`/vault/${crypto.randomUUID()}.mp3`, 'f.mp3', category, title, visibility);
+  ).run(mediaPath, path.basename(mediaPath), category, title, visibility);
   return db.prepare('SELECT * FROM media WHERE id = ?').get(info.lastInsertRowid);
 }
 
