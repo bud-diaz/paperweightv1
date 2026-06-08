@@ -13,7 +13,9 @@ const { exec } = require('child_process');
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const url = `http://localhost:${PORT}`;
 
-require('./index').start().catch(err => {
+const app = require('./index');
+
+app.start().catch(err => {
   console.error('[Paperweight] Failed to start:', err);
   process.exit(1);
 });
@@ -56,5 +58,13 @@ function waitForServer(attemptsLeft) {
 
 setTimeout(() => waitForServer(60), 500);
 
-process.on('SIGINT', () => {});
-process.on('SIGTERM', () => {});
+// Shut down cleanly on Ctrl+C / termination so the broadcast (ffmpeg) and HTTP
+// server stop and the database is closed. index.js only self-registers these
+// handlers when run directly (require.main === module), which is not the case
+// under this launcher, so wire them to the exported shutdown() here.
+function handleSignal(signal) {
+  console.log(`\n[Paperweight] Received ${signal}, shutting down...`);
+  app.shutdown();
+}
+process.on('SIGINT', () => handleSignal('SIGINT'));
+process.on('SIGTERM', () => handleSignal('SIGTERM'));
