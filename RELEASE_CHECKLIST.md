@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this before building or distributing a Paperweight executable.
+Use this before publishing Paperweight for public distribution.
 
 ## Required Environment
 
@@ -8,81 +8,98 @@ Use this before building or distributing a Paperweight executable.
 - `npm install` has completed successfully.
 - FFmpeg and ffprobe are installed and available on `PATH`.
 - `.env` exists and has a permanent `DASHBOARD_TOKEN`.
+- `DOWNLOAD_SIGNING_SECRET` is set for public stations.
 - The vault path exists and contains the expected category folders.
 
-## Pre-Build Checks
+For source installs, set both secrets in `.env` explicitly. A packaged exe with no
+`.env` generates both on first run and writes them back so they persist; treat the
+generated `DASHBOARD_TOKEN` printed on first launch as sensitive.
+
+## Required Gate
 
 Run:
 
 ```bash
-npm run preflight
-npm run check:migrations
-npm run check:scheduler
-npm run check:analytics
-npm run check:package
-npm audit --omit=dev
+npm run release:check
 ```
 
 Expected result:
 
+- Release cleanliness check passes.
+- Unit and HTTP tests pass.
 - Preflight has no `FAIL` items.
-- Migration, scheduler, and analytics checks pass.
-- npm audit reports zero production vulnerabilities.
+- Migration, scheduler, analytics, and package checks pass.
+- `npm audit --omit=dev` reports zero production vulnerabilities.
 
-## Manual Smoke Pass
+## Platform Smoke Passes
 
-Start the app:
+Run the install/start/smoke path on each supported platform before public release:
+
+- Windows 10/11 x64
+- macOS
+- Linux x64
+- Raspberry Pi OS 64-bit or Ubuntu on Raspberry Pi
+
+For each platform:
+
+1. Run the platform installer.
+2. Run `bash scripts/setup.sh`.
+3. Run `npm run preflight`.
+4. Start Paperweight with `npm start`.
+5. Run `npm run smoke`.
+6. Verify the dashboard rejects a missing/wrong token.
+7. Verify the dashboard accepts the token from `.env`.
+8. Add a small audio file and confirm it indexes.
+9. Confirm the library shows public media.
+10. Confirm `supporters_only` and `vault` media are gated for free listeners.
+
+## Public Station Checks
+
+- Public URL resolves to the station.
+- HTTPS terminates before Paperweight.
+- `.env` has `STATION_PUBLIC_URL` and `HTTPS=true`.
+- Stripe is not partially configured.
+- PayPal is not partially configured.
+- Payment webhooks show successful verification in dashboard logs after a test event.
+
+## Convenience Executable Packaging
+
+Executables are optional convenience artifacts, not the primary public distribution path.
+
+Build each target **on its matching OS and architecture** — `better-sqlite3` is a
+native module, so a binary built on one platform will not load on another. Use a
+clean dependency install so the bundled native matches the target:
 
 ```bash
-npm start
+npm ci            # rebuilds better-sqlite3 for this OS/arch
+npm run build:exe # runs release:check, then packages to dist/
 ```
 
-Then verify:
+`build:exe` runs the full `release:check` first, so FFmpeg/ffprobe must be on
+`PATH` on the build machine (preflight fails otherwise).
 
-- `http://localhost:3000/api/health` returns `status: ok`.
-- `http://localhost:3000` serves the player.
-- The dashboard rejects an empty or wrong dashboard token.
-- The dashboard accepts the token from `.env`.
-- Uploading a small audio file creates a media row.
-- The library shows public media.
-- A `supporters_only` item is hidden or gated for free listeners.
-- A `vault` item shows locked pricing options.
-- `/api/stream/ping` updates analytics after something is now-playing.
+### Clean-folder smoke (required before publishing an exe)
 
-Run the HTTP smoke check while the app is running:
+Verify the built binary self-bootstraps with nothing beside it:
 
 ```bash
-npm run smoke
+npm run smoke:exe   # launches the exe in an empty temp dir and smokes it
 ```
 
-## Build
+It confirms the exe, starting from an empty folder, creates its own `.env` (with a
+generated `DASHBOARD_TOKEN` and `DOWNLOAD_SIGNING_SECRET`), `data/paperweight.db`,
+and `hls_output/stream/`, applies all migrations, and serves the locally-vendored
+frontend (`/vendor/hls.min.js`, `/vendor/fonts/fonts.css`) with no CDN. The
+generated secrets are written back to `.env`, so they persist across restarts.
 
-Run:
-
-```bash
-npm run build:exe
-```
-
-The Windows executable is written to `dist/`.
-
-## Packaged Executable Smoke Pass
-
-Copy the executable into a clean folder and run it there.
-
-Verify:
-
-- A default `.env` is created next to the executable on first run.
-- `data/`, `logs/`, `vault/`, and `hls_output/` are created next to the executable.
-- The generated dashboard token appears in the console.
-- After editing `.env` and restarting, `/api/health` returns the configured station name.
-- The executable can load `better-sqlite3`.
-- The player loads without needing source files outside the executable.
+Do not publish executable artifacts unless the same platform has passed this
+clean-folder smoke.
 
 ## Do Not Ship If
 
-- Preflight fails.
-- `npm audit --omit=dev` reports production vulnerabilities.
-- Migration check fails or mentions `media_new`.
-- PayPal is configured but webhook verification fails in dashboard logs.
-- Stripe payments are enabled without `STRIPE_WEBHOOK_SECRET`.
-- FFmpeg or ffprobe are missing from the target machine.
+- `npm run release:check` fails.
+- FFmpeg or ffprobe are missing on a target platform.
+- Any setup guide is stale or untested.
+- Runtime frontend depends on a CDN.
+- Payment provider configuration is partial.
+- The dashboard token appears in screenshots, logs, or support material.

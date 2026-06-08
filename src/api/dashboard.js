@@ -10,6 +10,7 @@ const { requireDashboard } = require('../auth/middleware');
 const { createToken, revokeToken, listTokens, updateTokenTier, listTokensForScope } = require('../auth');
 const broadcast = require('../broadcast');
 const config = require('../config');
+const { probe } = require('../scanner/probe');
 
 router.use(requireDashboard);
 
@@ -37,8 +38,17 @@ const storage = multer.diskStorage({
     cb(null, dest);
   },
   filename(req, file, cb) {
-    // Sanitize filename: strip path traversal, replace spaces
-    const safe = path.basename(file.originalname).replace(/\s+/g, '_');
+    let safe = path.basename(file.originalname)
+      .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+      .replace(/\s+/g, '_')
+      .slice(0, 180);
+    // '', '.', and '..' resolve to a directory, so path.join(dest, safe) would
+    // target the category dir or its parent (EISDIR). Fall back to a generated
+    // name, preserving any usable extension.
+    if (!safe || safe === '.' || safe === '..') {
+      const ext = path.extname(file.originalname).replace(/[^.a-zA-Z0-9]/g, '').slice(0, 12);
+      safe = `upload_${Date.now()}${ext}`;
+    }
     cb(null, safe);
   },
 });
@@ -93,7 +103,7 @@ router.get('/vault', (req, res) => {
 // Multipart: field 'media' (file), optional 'category' (string)
 // The vault watcher picks up the file automatically after upload.
 router.post('/upload', (req, res) => {
-  upload.single('media')(req, res, err => {
+  upload.single('media')(req, res, async err => {
     if (err) {
       // Multer errors (file too large, wrong field name, etc.)
       return res.status(400).json({ error: err.message || 'Upload failed' });
@@ -102,11 +112,19 @@ router.post('/upload', (req, res) => {
 
     const category   = path.basename(req.file.destination);
     const visibility = VALID_VISIBILITY.has(req.body.visibility) ? req.body.visibility : 'public';
+    const absFilepath = path.resolve(req.file.path);
+
+    try {
+      await probe(absFilepath);
+    } catch (probeErr) {
+      try { fs.unlinkSync(absFilepath); } catch {}
+      log('warn', 'dashboard', `Rejected upload after ffprobe failure: ${req.file.filename} (${probeErr.message})`);
+      return res.status(400).json({ error: `Uploaded file could not be inspected by ffprobe: ${probeErr.message}` });
+    }
 
     // Stamp visibility immediately so the scanner's later upsert (which doesn't
     // touch the visibility column) preserves the creator's chosen value.
     // Use path.resolve() so this matches the absolute path the watcher emits.
-    const absFilepath = path.resolve(req.file.path);
     getDb().prepare(`
       INSERT INTO media (filepath, filename, category, visibility, indexed_at, updated_at)
       VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))

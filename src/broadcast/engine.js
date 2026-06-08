@@ -285,6 +285,10 @@ function start(mode = 'shuffle') {
     log('warn', 'broadcast', 'Already running');
     return;
   }
+  // Ensure HLS output dirs exist. The installer (setup.sh) creates these, but a
+  // standalone exe launched in a fresh directory must create them itself or
+  // ffmpeg's segment writes and state.json fail. recursive covers the parent.
+  fs.mkdirSync(HLS_STREAM_DIR, { recursive: true });
   state.isRunning = true;
   state.mode = mode;
   log('info', 'broadcast', `Broadcast starting in ${mode} mode`);

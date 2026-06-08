@@ -1,13 +1,8 @@
 /**
- * launcher.js — entry point used when Paperweight is packaged as a .exe
+ * Entry point used when Paperweight is packaged as a desktop executable.
  *
- * When pkg bundles the app, it uses this file as the main entry point instead
- * of index.js. It does two things beyond what index.js does:
- *
- *   1. Opens the user's default browser to the dashboard once the server is up.
- *   2. Keeps the console window alive with a friendly status line.
- *
- * Run normally: this file is NOT used — `node src/index.js` goes straight to index.js.
+ * Normal source installs run `node src/index.js` directly. Packaged builds use
+ * this wrapper so the app can open the local station URL after startup.
  */
 
 'use strict';
@@ -15,19 +10,17 @@
 const http = require('http');
 const { exec } = require('child_process');
 
-// ─── Config is loaded inside index.js, but we need the port here before that.
-// Read PORT from env if already set; config.js will do the full .env parse.
 const PORT = parseInt(process.env.PORT || '3000', 10);
-
-// ─── Load the server ──────────────────────────────────────────────────────────
-require('./index');
-
-// ─── Open browser once server is ready ───────────────────────────────────────
-
 const url = `http://localhost:${PORT}`;
 
+const app = require('./index');
+
+app.start().catch(err => {
+  console.error('[Paperweight] Failed to start:', err);
+  process.exit(1);
+});
+
 function openBrowser(target) {
-  // platform-specific open command
   const cmd = process.platform === 'darwin'
     ? `open "${target}"`
     : process.platform === 'win32'
@@ -46,8 +39,13 @@ function waitForServer(attemptsLeft) {
   }
 
   const req = http.get(url, res => {
-    res.resume(); // drain the response
-    console.log(`[Paperweight] Opening browser → ${url}`);
+    res.resume();
+    // Allow headless/automated runs (e.g. the clean-folder exe smoke) to skip it.
+    if (process.env.PAPERWEIGHT_NO_BROWSER === 'true') {
+      console.log(`[Paperweight] Server ready at: ${url}`);
+      return;
+    }
+    console.log(`[Paperweight] Opening browser -> ${url}`);
     openBrowser(url);
   });
 
@@ -58,10 +56,15 @@ function waitForServer(attemptsLeft) {
   req.end();
 }
 
-// Give the server ~500 ms head-start, then start polling (up to 30 s total).
 setTimeout(() => waitForServer(60), 500);
 
-// ─── Keep console window open & friendly ────────────────────────────────────
-
-process.on('SIGINT',  () => { /* index.js handles shutdown */ });
-process.on('SIGTERM', () => { /* index.js handles shutdown */ });
+// Shut down cleanly on Ctrl+C / termination so the broadcast (ffmpeg) and HTTP
+// server stop and the database is closed. index.js only self-registers these
+// handlers when run directly (require.main === module), which is not the case
+// under this launcher, so wire them to the exported shutdown() here.
+function handleSignal(signal) {
+  console.log(`\n[Paperweight] Received ${signal}, shutting down...`);
+  app.shutdown();
+}
+process.on('SIGINT', () => handleSignal('SIGINT'));
+process.on('SIGTERM', () => handleSignal('SIGTERM'));

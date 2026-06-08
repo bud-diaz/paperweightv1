@@ -13,7 +13,7 @@ npm run check:scheduler  # scheduler edge-case check
 npm run check:analytics  # analytics write-path check
 npm run check:package    # package metadata and asset check
 npm run smoke            # HTTP smoke test against a running server
-npm run build:exe        # build Windows executable into dist/
+npm run build:exe        # optional convenience executable packaging
 
 node scripts/gen-token.js "Label"
 node -e "const db = require('better-sqlite3')('data/paperweight.db'); console.log(db.prepare('SELECT ...').all())"
@@ -39,7 +39,7 @@ Schema files live in `src/db/migrations/`. Applied SQL migrations are tracked in
 
 Current migration sequence:
 
-`001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments.
+`001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments -> `010` webhook idempotency -> `011` payment idempotency.
 
 Never add recurring destructive SQL to a migration file. Do not use `DROP TABLE media` or table rebuilds in automatically applied SQL migrations.
 

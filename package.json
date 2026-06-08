@@ -1,7 +1,7 @@
 {
   "name": "paperweight",
   "version": "1.5.0",
-  "description": "Anchor your creative archive.",
+  "description": "Self-hosted creator-first streaming and distribution.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -12,8 +12,10 @@
     "check:analytics": "node scripts/check-analytics.js",
     "check:package": "node scripts/check-package-assets.js",
     "smoke": "node scripts/smoke.js",
-    "test": "node --test test/scheduler.test.js test/access.test.js test/payment.test.js",
-    "release:check": "node scripts/preflight.js && node scripts/check-migrations.js && node scripts/check-scheduler.js && node scripts/check-analytics.js && node scripts/check-package-assets.js",
+    "smoke:exe": "node scripts/smoke-exe.js",
+    "test": "node --test test/scheduler.test.js test/access.test.js test/payment.test.js test/http.test.js",
+    "check:clean": "node scripts/check-release-clean.js",
+    "release:check": "node scripts/check-release-clean.js && npm test && node scripts/preflight.js && node scripts/check-migrations.js && node scripts/check-scheduler.js && node scripts/check-analytics.js && node scripts/check-package-assets.js && npm audit --omit=dev",
     "build:exe": "node scripts/build-exe.js"
   },
   "dependencies": {
@@ -23,6 +25,7 @@
     "cookie-parser": "^1.4.6",
     "express": "^4.19.2",
     "express-rate-limit": "^8.5.2",
+    "hls.js": "^1.6.16",
     "multer": "^2.1.1",
     "stripe": "^17.0.0"
   },
@@ -41,11 +44,14 @@
       "scripts/check-scheduler.js",
       "scripts/check-analytics.js",
       "scripts/check-package-assets.js",
+      "scripts/check-release-clean.js",
       "scripts/smoke.js"
     ],
     "assets": [
       "package.json",
       "client/**/*",
+      "src/db/migrations/*.sql",
+      "node_modules/hls.js/dist/hls.min.js",
       "node_modules/better-sqlite3/build/Release/*.node",
       "node_modules/better-sqlite3/build/Release/*.dll"
     ],

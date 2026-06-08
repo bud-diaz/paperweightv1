@@ -498,16 +498,11 @@ router.get('/tip-success', async (req, res) => {
         const amountCents = pi.amount_received || pi.amount;
         const db          = getDb();
 
-        // Avoid duplicate row if webhook already logged it
-        const existing = db.prepare(
-          'SELECT id FROM tips WHERE stripe_payment_intent_id = ?'
-        ).get(pi.id);
-
-        if (!existing) {
-          db.prepare(
-            'INSERT INTO tips (amount_cents, stripe_payment_intent_id, stripe_checkout_session_id) VALUES (?, ?, ?)'
-          ).run(amountCents, pi.id, session.id);
-        }
+        // ON CONFLICT DO NOTHING — idempotent against idx_tips_payment_intent if the
+        // webhook already logged this intent (redirect and webhook race each other).
+        db.prepare(
+          'INSERT INTO tips (amount_cents, stripe_payment_intent_id, stripe_checkout_session_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING'
+        ).run(amountCents, pi.id, session.id);
 
         log('info', 'payment', `Tip logged via redirect: $${(amountCents / 100).toFixed(2)} (${pi.id})`);
       }
@@ -538,76 +533,111 @@ router.post('/webhook/paypal', async (req, res) => {
   const ppEventId   = req.headers['paypal-transmission-id'] || null;
   const ppEventType = event.event_type || 'unknown';
 
+  // Verify the signature BEFORE touching the DB — and before the dedup read — so an
+  // unauthenticated caller can't probe which transmission ids exist.
+  let verified;
   try {
-    const verified = await verifyPayPalWebhook({
+    verified = await verifyPayPalWebhook({
       clientId,
       clientSecret,
       webhookId,
       headers: req.headers,
       event,
     });
-
-    if (!verified) {
-      logWebhookEvent(db, { provider: 'paypal', eventId: ppEventId, eventType: ppEventType, outcome: 'error', errorMsg: 'Webhook signature verification failed' });
-      return res.status(400).json({ error: 'PayPal webhook signature verification failed' });
-    }
   } catch (err) {
-    logWebhookEvent(db, { provider: 'paypal', eventId: ppEventId, eventType: ppEventType, outcome: 'error', errorMsg: err.message });
+    log('error', 'payment', `PayPal webhook verification error: ${err.message}`);
     return res.status(400).json({ error: 'PayPal webhook verification failed' });
   }
-
-  try {
-    switch (event.event_type) {
-      case 'BILLING.SUBSCRIPTION.ACTIVATED': {
-        const sub = event.resource;
-        const [listenerIdStr, tier] = (sub.custom_id || '').split(':');
-        const listenerId = parseInt(listenerIdStr, 10);
-
-        if (listenerId && tier) {
-          activateSubscription(db, {
-            providerSubscriptionId: sub.id,
-            provider: 'paypal',
-            tier,
-            currentPeriodEnd: sub.billing_info?.next_billing_time || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            listenerIdOrEmail: listenerId,
-          });
-          logWebhookEvent(db, { provider: 'paypal', eventId: ppEventId, eventType: ppEventType, outcome: 'ok' });
-        } else {
-          logWebhookEvent(db, { provider: 'paypal', eventId: ppEventId, eventType: ppEventType, outcome: 'skipped' });
-        }
-        break;
-      }
-      case 'BILLING.SUBSCRIPTION.CANCELLED':
-      case 'BILLING.SUBSCRIPTION.EXPIRED': {
-        cancelSubscription(db, { providerSubscriptionId: event.resource.id });
-        logWebhookEvent(db, { provider: 'paypal', eventId: ppEventId, eventType: ppEventType, outcome: 'ok' });
-        break;
-      }
-      default: {
-        logWebhookEvent(db, { provider: 'paypal', eventId: ppEventId, eventType: ppEventType, outcome: 'skipped' });
-      }
-    }
-  } catch (err) {
-    logWebhookEvent(db, { provider: 'paypal', eventId: ppEventId, eventType: ppEventType, outcome: 'error', errorMsg: err.message });
-    // Log but still return 200 to prevent PayPal retries
+  if (!verified) {
+    log('warn', 'payment', 'PayPal webhook signature verification failed');
+    return res.status(400).json({ error: 'PayPal webhook signature verification failed' });
   }
 
-  res.json({ received: true });
+  // Fast-path duplicate short-circuit (authoritative guard is claimAndRun).
+  if (hasWebhookEvent(db, 'paypal', ppEventId)) {
+    return res.json({ received: true, duplicate: true });
+  }
+
+  let outcome = 'skipped';
+  let mutate = null;
+  switch (event.event_type) {
+    case 'BILLING.SUBSCRIPTION.ACTIVATED': {
+      const sub = event.resource;
+      const [listenerIdStr, tier] = (sub.custom_id || '').split(':');
+      const listenerId = parseInt(listenerIdStr, 10);
+      if (listenerId && tier) {
+        outcome = 'ok';
+        mutate = () => activateSubscription(db, {
+          providerSubscriptionId: sub.id,
+          provider: 'paypal',
+          tier,
+          currentPeriodEnd: sub.billing_info?.next_billing_time || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          listenerIdOrEmail: listenerId,
+        });
+      }
+      break;
+    }
+    case 'BILLING.SUBSCRIPTION.CANCELLED':
+    case 'BILLING.SUBSCRIPTION.EXPIRED': {
+      const subId = event.resource.id;
+      outcome = 'ok';
+      mutate = () => cancelSubscription(db, { providerSubscriptionId: subId });
+      break;
+    }
+    // default: unhandled event type — recorded as 'skipped'.
+  }
+
+  try {
+    const status = claimAndRun(
+      db,
+      { provider: 'paypal', eventId: ppEventId, eventType: ppEventType, outcome },
+      mutate
+    );
+    res.json({ received: true, duplicate: status === 'duplicate' });
+  } catch (err) {
+    log('error', 'payment', `PayPal webhook ${ppEventType} (${ppEventId}) failed: ${err.message}`);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
 });
 
-// ─── Webhook event logging ────────────────────────────────────────────────────
-// Writes one row per received webhook event. outcome: 'ok' | 'skipped' | 'error'.
-// This is the primary production debugging tool — every event is recorded
-// regardless of whether action was taken.
-function logWebhookEvent(db, { provider, eventId, eventType, outcome, errorMsg }) {
-  try {
-    db.prepare(
-      'INSERT INTO webhook_events (provider, event_id, event_type, outcome, error_msg) VALUES (?, ?, ?, ?, ?)'
-    ).run(provider, eventId || null, eventType, outcome, errorMsg || null);
-  } catch {
-    // Never let logging failure surface to the caller — the event handler must
-    // still return 200 to Stripe/PayPal even if the log write fails.
-  }
+// ─── Webhook event processing ─────────────────────────────────────────────────
+// claimAndRun atomically records a webhook event and runs its state mutation in a
+// SINGLE synchronous better-sqlite3 transaction. The claim is an INSERT guarded by
+// the UNIQUE(provider, event_id) index (migration 010): a duplicate or concurrent
+// re-delivery of the same event finds the row already present and skips the
+// mutation, so subscriptions / vault unlocks / tips can never be double-applied.
+// Because the transaction is synchronous and contains no awaits, two deliveries
+// cannot interleave between the claim and the mutation. If `mutate` throws, the
+// whole transaction (claim included) rolls back, leaving the event un-recorded so
+// the provider's retry can reprocess it. Returns 'processed' | 'duplicate'.
+//
+// IMPORTANT: all provider API calls (awaits) must happen BEFORE this is called —
+// the `mutate` closure must be purely synchronous.
+function claimAndRun(db, { provider, eventId, eventType, outcome = 'ok' }, mutate) {
+  let result = 'processed';
+  db.transaction(() => {
+    if (eventId) {
+      const claim = db.prepare(
+        'INSERT OR IGNORE INTO webhook_events (provider, event_id, event_type, outcome) VALUES (?, ?, ?, ?)'
+      ).run(provider, eventId, eventType, outcome);
+      if (claim.changes === 0) { result = 'duplicate'; return; }
+    } else {
+      // No stable id to dedup on (e.g. a PayPal event with no transmission id):
+      // record it for the log, but it cannot be guarded against replay.
+      db.prepare(
+        'INSERT INTO webhook_events (provider, event_id, event_type, outcome) VALUES (?, NULL, ?, ?)'
+      ).run(provider, eventType, outcome);
+    }
+    if (mutate) mutate();
+  })();
+  return result;
+}
+
+function hasWebhookEvent(db, provider, eventId) {
+  if (!eventId) return false;
+  return !!db.prepare(
+    'SELECT id FROM webhook_events WHERE provider = ? AND event_id = ? LIMIT 1'
+  ).get(provider, eventId);
 }
 
 // Exported as a standalone handler for mounting before express.json() in index.js
@@ -630,54 +660,55 @@ async function stripeWebhookHandler(req, res) {
 
   const db = getDb();
 
+  // Fast-path: skip the work (and the Stripe API call) for an event we have
+  // already processed. The authoritative guard is the transactional claim in
+  // claimAndRun below.
+  if (hasWebhookEvent(db, 'stripe', event.id)) {
+    return res.json({ received: true, duplicate: true });
+  }
+
+  // Resolve everything that needs a Stripe API call (await) up front, then hand a
+  // purely-synchronous mutation closure to claimAndRun so the claim + mutation
+  // commit or roll back together. Default is a no-op 'skipped' event.
+  let outcome = 'skipped';
+  let mutate = null;
+
   switch (event.type) {
 
     // Primary activation path — fires when a Stripe Checkout session completes.
-    // Retrieves the subscription to get current_period_end, then upserts the
-    // listener_accounts row (Stripe-created accounts get an unusable password hash)
-    // and calls activateSubscription with tier='subscriber'.
     case 'checkout.session.completed': {
       const session = event.data.object;
-      // Tip payments use mode:'payment' and carry metadata.type='tip'.
-      // They are handled by payment_intent.succeeded — explicitly skip here.
-      if (session.metadata?.type === 'tip') {
-        logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'skipped' });
-        break;
-      }
+      // Tip payments (mode:'payment', metadata.type='tip') are handled by
+      // payment_intent.succeeded — skip here.
+      if (session.metadata?.type === 'tip') break;
 
       // One-time vault unlock (mode: payment with vault metadata)
       if (session.metadata?.vault_unlock_type && session.metadata?.vault_payment_type === 'one_time') {
-        try {
-          const meta = session.metadata;
-          const pi = session.payment_intent
-            ? (typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent.id)
-            : null;
-          getCreateVaultUnlock()(db, {
-            listenerId:      parseInt(meta.vault_listener_id, 10),
-            unlockType:      meta.vault_unlock_type,
-            targetId:        meta.vault_target_id ? parseInt(meta.vault_target_id, 10) : null,
-            paymentType:     'one_time',
-            amountPaid:      session.amount_total || 0,
-            stripePaymentId: pi,
-            expiresAt:       null,
-          });
-          logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'ok' });
-        } catch (err) {
-          logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'error', errorMsg: err.message });
-        }
+        const meta = session.metadata;
+        const pi = session.payment_intent
+          ? (typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent.id)
+          : null;
+        outcome = 'ok';
+        mutate = () => getCreateVaultUnlock()(db, {
+          listenerId:      parseInt(meta.vault_listener_id, 10),
+          unlockType:      meta.vault_unlock_type,
+          targetId:        meta.vault_target_id ? parseInt(meta.vault_target_id, 10) : null,
+          paymentType:     'one_time',
+          amountPaid:      session.amount_total || 0,
+          stripePaymentId: pi,
+          expiresAt:       null,
+        });
         break;
       }
 
       const email = session.customer_details?.email || session.customer_email;
-      if (!email || !session.subscription) {
-        logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'skipped' });
-        break;
-      }
+      if (!email || !session.subscription) break;
 
-      try {
-        const sub = await stripe.subscriptions.retrieve(session.subscription);
-
-        // INSERT OR IGNORE — idempotent if duplicate event fires for same email
+      // Stripe API call happens HERE, outside the transaction.
+      const sub = await stripe.subscriptions.retrieve(session.subscription);
+      outcome = 'ok';
+      mutate = () => {
+        // INSERT OR IGNORE — idempotent if a duplicate event fires for same email
         const ph = require('crypto').randomBytes(32).toString('hex');
         db.prepare(
           'INSERT OR IGNORE INTO listener_accounts (email, password_hash) VALUES (?, ?)'
@@ -705,13 +736,7 @@ async function stripeWebhookHandler(req, res) {
             expiresAt:       new Date(sub.current_period_end * 1000).toISOString(),
           });
         }
-
-        logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'ok' });
-      } catch (err) {
-        logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'error', errorMsg: err.message });
-        // Swallow — return 200 so Stripe does not retry an event we received correctly.
-        // The error is now in webhook_events for inspection.
-      }
+      };
       break;
     }
 
@@ -722,108 +747,105 @@ async function stripeWebhookHandler(req, res) {
       const vaultUnlockType = sub.metadata?.vault_unlock_type;
 
       if (tier && sub.status === 'active') {
-        activateSubscription(db, {
+        outcome = 'ok';
+        mutate = () => activateSubscription(db, {
           providerSubscriptionId: sub.id,
           provider: 'stripe',
           tier,
           currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
           listenerIdOrEmail: parseInt(sub.metadata?.listener_id, 10),
         });
-        logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'ok' });
       } else if (vaultUnlockType && sub.metadata?.vault_listener_id) {
         // Recurring vault unlock subscription
         const meta = sub.metadata;
         const expiresAt = sub.current_period_end
           ? new Date(sub.current_period_end * 1000).toISOString()
           : null;
-
-        // Update existing vault_unlock or create new one
-        const existing = db.prepare(
-          'SELECT id FROM vault_unlocks WHERE stripe_payment_id = ?'
-        ).get(sub.id);
-
-        if (existing) {
-          db.prepare(
-            "UPDATE vault_unlocks SET active = ?, expires_at = ? WHERE id = ?"
-          ).run(sub.status === 'active' ? 1 : 0, expiresAt, existing.id);
-        } else {
-          getCreateVaultUnlock()(db, {
-            listenerId:      parseInt(meta.vault_listener_id, 10),
-            unlockType:      vaultUnlockType,
-            targetId:        meta.vault_target_id ? parseInt(meta.vault_target_id, 10) : null,
-            paymentType:     'recurring',
-            amountPaid:      0,
-            stripePaymentId: sub.id,
-            expiresAt,
-          });
-        }
-        logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'ok' });
-      } else {
-        logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'skipped' });
+        outcome = 'ok';
+        mutate = () => {
+          const existing = db.prepare(
+            'SELECT id FROM vault_unlocks WHERE stripe_payment_id = ?'
+          ).get(sub.id);
+          if (existing) {
+            db.prepare(
+              "UPDATE vault_unlocks SET active = ?, expires_at = ? WHERE id = ?"
+            ).run(sub.status === 'active' ? 1 : 0, expiresAt, existing.id);
+          } else {
+            getCreateVaultUnlock()(db, {
+              listenerId:      parseInt(meta.vault_listener_id, 10),
+              unlockType:      vaultUnlockType,
+              targetId:        meta.vault_target_id ? parseInt(meta.vault_target_id, 10) : null,
+              paymentType:     'recurring',
+              amountPaid:      0,
+              stripePaymentId: sub.id,
+              expiresAt,
+            });
+          }
+        };
       }
       break;
     }
 
     case 'customer.subscription.deleted': {
       const subId = event.data.object.id;
-      cancelSubscription(db, { providerSubscriptionId: subId });
-      // Also deactivate any vault unlock tied to this subscription
-      db.prepare("UPDATE vault_unlocks SET active = 0 WHERE stripe_payment_id = ?").run(subId);
-      logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'ok' });
+      outcome = 'ok';
+      mutate = () => {
+        cancelSubscription(db, { providerSubscriptionId: subId });
+        // Also deactivate any vault unlock tied to this subscription
+        db.prepare("UPDATE vault_unlocks SET active = 0 WHERE stripe_payment_id = ?").run(subId);
+      };
       break;
     }
 
     // Tip payments — payment_intent.succeeded fires for every successful payment
     // including subscription invoice renewals. Only act on intents tagged type:'tip'.
-    // Subscription invoice intents carry no such metadata and are safely ignored.
     case 'payment_intent.succeeded': {
       const pi = event.data.object;
-      if (pi.metadata?.type !== 'tip') {
-        logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'skipped' });
-        break;
-      }
+      if (pi.metadata?.type !== 'tip') break;
 
       const amountCents = parseInt(pi.metadata?.amount_cents, 10) || pi.amount_received;
-
-      // Avoid duplicate row if tip-success redirect already logged it
-      const existing = db.prepare(
-        'SELECT id FROM tips WHERE stripe_payment_intent_id = ?'
-      ).get(pi.id);
-
-      if (!existing) {
+      outcome = 'ok';
+      mutate = () => {
+        // ON CONFLICT DO NOTHING — idempotent against idx_tips_payment_intent if the
+        // tip-success redirect already logged this intent.
         db.prepare(
-          'INSERT INTO tips (amount_cents, stripe_payment_intent_id) VALUES (?, ?)'
+          'INSERT INTO tips (amount_cents, stripe_payment_intent_id) VALUES (?, ?) ON CONFLICT DO NOTHING'
         ).run(amountCents, pi.id);
-      }
-
-      log('info', 'payment', `Tip confirmed via webhook: $${(amountCents / 100).toFixed(2)} (${pi.id})`);
-      logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'ok' });
+        log('info', 'payment', `Tip confirmed via webhook: $${(amountCents / 100).toFixed(2)} (${pi.id})`);
+      };
       break;
     }
 
-    // Payment failure — mark the subscription inactive so access is revoked
-    // at the next access check. Stripe will retry the charge; if it recovers,
-    // invoice.payment_succeeded → customer.subscription.updated will reactivate.
+    // Payment failure — mark the subscription inactive so access is revoked at the
+    // next access check. Stripe retries the charge; recovery reactivates via
+    // customer.subscription.updated.
     case 'invoice.payment_failed': {
       const subscriptionId = event.data.object.subscription;
       if (subscriptionId) {
-        cancelSubscription(db, { providerSubscriptionId: subscriptionId });
-        // Also deactivate any vault unlock tied to this subscription
-        db.prepare("UPDATE vault_unlocks SET active = 0 WHERE stripe_payment_id = ?").run(subscriptionId);
-        logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'ok' });
-      } else {
-        logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'skipped' });
+        outcome = 'ok';
+        mutate = () => {
+          cancelSubscription(db, { providerSubscriptionId: subscriptionId });
+          db.prepare("UPDATE vault_unlocks SET active = 0 WHERE stripe_payment_id = ?").run(subscriptionId);
+        };
       }
       break;
     }
 
-    default: {
-      // Log unhandled event types so they appear in the event log for debugging.
-      logWebhookEvent(db, { provider: 'stripe', eventId: event.id, eventType: event.type, outcome: 'skipped' });
-    }
+    // default: unhandled event type — recorded as 'skipped'.
   }
 
-  res.json({ received: true });
+  try {
+    const status = claimAndRun(
+      db,
+      { provider: 'stripe', eventId: event.id, eventType: event.type, outcome },
+      mutate
+    );
+    res.json({ received: true, duplicate: status === 'duplicate' });
+  } catch (err) {
+    // Mutation threw and rolled back (event not recorded) — let Stripe retry.
+    log('error', 'payment', `Stripe webhook ${event.type} (${event.id}) failed: ${err.message}`);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
 }
 
 module.exports = router;
@@ -832,3 +854,4 @@ module.exports.stripeWebhookHandler = stripeWebhookHandler;
 // by both the Stripe and PayPal webhook handlers.
 module.exports.activateSubscription = activateSubscription;
 module.exports.cancelSubscription = cancelSubscription;
+module.exports.claimAndRun = claimAndRun;

@@ -2,7 +2,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { freshDb, seedListener, seedToken, futureIso } = require('./helpers');
-const { activateSubscription, cancelSubscription } = require('../src/api/payment');
+const { activateSubscription, cancelSubscription, claimAndRun } = require('../src/api/payment');
+const { createVaultUnlock } = require('../src/api/vault');
 
 function getSub(db, providerSubscriptionId) {
   return db.prepare('SELECT * FROM subscriptions WHERE provider_subscription_id = ?').get(providerSubscriptionId);
@@ -80,4 +81,108 @@ test('cancelSubscription expires the subscription and downgrades the token to fr
 test('cancelSubscription returns false for an unknown subscription id', () => {
   const db = freshDb();
   assert.strictEqual(cancelSubscription(db, { providerSubscriptionId: 'does_not_exist' }), false);
+});
+
+test('webhook event ids are unique per provider', () => {
+  const db = freshDb();
+  db.prepare(
+    "INSERT INTO webhook_events (provider, event_id, event_type, outcome) VALUES ('stripe', 'evt_1', 'checkout.session.completed', 'ok')"
+  ).run();
+
+  assert.throws(() => {
+    db.prepare(
+      "INSERT INTO webhook_events (provider, event_id, event_type, outcome) VALUES ('stripe', 'evt_1', 'checkout.session.completed', 'ok')"
+    ).run();
+  }, /UNIQUE/);
+
+  db.prepare(
+    "INSERT INTO webhook_events (provider, event_id, event_type, outcome) VALUES ('paypal', 'evt_1', 'BILLING.SUBSCRIPTION.ACTIVATED', 'ok')"
+  ).run();
+});
+
+test('vault unlock creation is idempotent by Stripe payment id', () => {
+  const db = freshDb();
+  const listenerId = seedListener(db);
+
+  const first = createVaultUnlock(db, {
+    listenerId,
+    unlockType: 'all_access',
+    targetId: null,
+    paymentType: 'one_time',
+    amountPaid: 500,
+    stripePaymentId: 'pi_1',
+    expiresAt: null,
+  });
+  const second = createVaultUnlock(db, {
+    listenerId,
+    unlockType: 'all_access',
+    targetId: null,
+    paymentType: 'one_time',
+    amountPaid: 500,
+    stripePaymentId: 'pi_1',
+    expiresAt: null,
+  });
+
+  assert.strictEqual(second, first);
+  const rows = db.prepare('SELECT * FROM vault_unlocks WHERE stripe_payment_id = ?').all('pi_1');
+  assert.strictEqual(rows.length, 1);
+});
+
+test('claimAndRun runs the mutation exactly once and reports duplicates', () => {
+  const db = freshDb();
+  let runs = 0;
+  const meta = { provider: 'stripe', eventId: 'evt_once', eventType: 'payment_intent.succeeded' };
+
+  const first = claimAndRun(db, meta, () => { runs += 1; });
+  const second = claimAndRun(db, meta, () => { runs += 1; });
+
+  assert.strictEqual(first, 'processed');
+  assert.strictEqual(second, 'duplicate', 'a re-delivery of the same event must not run the mutation');
+  assert.strictEqual(runs, 1, 'mutation must execute exactly once across duplicate deliveries');
+  assert.strictEqual(
+    db.prepare("SELECT COUNT(*) c FROM webhook_events WHERE event_id = 'evt_once'").get().c,
+    1
+  );
+});
+
+test('claimAndRun rolls back the claim when the mutation throws (event stays retryable)', () => {
+  const db = freshDb();
+  const meta = { provider: 'stripe', eventId: 'evt_boom', eventType: 'checkout.session.completed' };
+
+  assert.throws(() => claimAndRun(db, meta, () => { throw new Error('mutation failed'); }), /mutation failed/);
+  assert.strictEqual(
+    db.prepare("SELECT COUNT(*) c FROM webhook_events WHERE event_id = 'evt_boom'").get().c,
+    0,
+    'a failed mutation must leave no claim row, so the provider retry can reprocess'
+  );
+
+  // The retry now succeeds and is recorded.
+  let ran = false;
+  const retry = claimAndRun(db, meta, () => { ran = true; });
+  assert.strictEqual(retry, 'processed');
+  assert.strictEqual(ran, true);
+});
+
+test('a duplicate tip event cannot double-record the tip (gate + unique index)', () => {
+  const db = freshDb();
+  const insertTip = () => db.prepare(
+    'INSERT INTO tips (amount_cents, stripe_payment_intent_id) VALUES (?, ?) ON CONFLICT DO NOTHING'
+  ).run(500, 'pi_tip');
+
+  claimAndRun(db, { provider: 'stripe', eventId: 'evt_tip', eventType: 'payment_intent.succeeded' }, insertTip);
+  claimAndRun(db, { provider: 'stripe', eventId: 'evt_tip', eventType: 'payment_intent.succeeded' }, insertTip);
+
+  const rows = db.prepare("SELECT * FROM tips WHERE stripe_payment_intent_id = 'pi_tip'").all();
+  assert.strictEqual(rows.length, 1, 'tip revenue must not be double-counted on a duplicate webhook');
+});
+
+test('tips.stripe_payment_intent_id is unique (defense-in-depth backstop)', () => {
+  const db = freshDb();
+  db.prepare("INSERT INTO tips (amount_cents, stripe_payment_intent_id) VALUES (300, 'pi_dup')").run();
+  assert.throws(() => {
+    db.prepare("INSERT INTO tips (amount_cents, stripe_payment_intent_id) VALUES (300, 'pi_dup')").run();
+  }, /UNIQUE/);
+  // NULL payment ids are exempt (partial index) — multiple allowed.
+  db.prepare("INSERT INTO tips (amount_cents, stripe_payment_intent_id) VALUES (300, NULL)").run();
+  db.prepare("INSERT INTO tips (amount_cents, stripe_payment_intent_id) VALUES (300, NULL)").run();
 });
