@@ -29,18 +29,13 @@ if (pkg.version === lock.version && pkg.version === lock.packages?.['']?.version
   fail(`version mismatch: package=${pkg.version}, lock=${lock.version}, root=${lock.packages?.['']?.version}`);
 }
 
-// pkg.assets globs are broken for node20 targets; native .node files still need
-// the glob because pkg has special handling for them.
+// pkg.assets globs are broken for node20 targets. package.json is still needed
+// by pkg for version and main resolution.
 const pkgAssets = new Set(pkg.pkg?.assets || []);
-for (const asset of [
-  'package.json',
-  'node_modules/better-sqlite3/build/Release/*.node',
-]) {
-  if ([...pkgAssets].some(entry => entry === asset || entry.includes(asset))) {
-    pass(`pkg asset configured: ${asset}`);
-  } else {
-    fail(`pkg asset missing: ${asset}`);
-  }
+if ([...pkgAssets].some(entry => entry === 'package.json')) {
+  pass('pkg asset configured: package.json');
+} else {
+  fail('pkg asset missing: package.json');
 }
 
 // Migrations are embedded as JS strings in src/db/migrations/index.js (not .sql
@@ -62,12 +57,23 @@ if (fs.existsSync(clientBundle)) {
   fail('client bundle missing: run node scripts/generate-client-bundle.js');
 }
 
+// better_sqlite3.node is embedded by scripts/generate-native-bundle.js into
+// src/native-bundle.js (gitignored, generated after this check). Verify the
+// source .node file exists so the generator can run.
+const sqliteNode = path.join(ROOT, 'node_modules/better-sqlite3/build/Release/better_sqlite3.node');
+if (fs.existsSync(sqliteNode)) {
+  pass('native binding source: better_sqlite3.node exists');
+} else {
+  fail('native binding missing: run npm install (or npm rebuild better-sqlite3)');
+}
+
 for (const rel of [
   'client/creator.html',
   'client/index.html',
   'node_modules/hls.js/dist/hls.min.js',
   'src/index.js',
   'src/launcher.js',
+  'src/native-loader.js',
   'scripts/preflight.js',
   'scripts/check-release-clean.js',
   'scripts/check-migrations.js',
