@@ -31,9 +31,7 @@ function migrationChecksum(sql) {
 function runMigrations(database) {
   ensureMigrationTable(database);
 
-  const files = fs.readdirSync(MIGRATIONS_DIR)
-    .filter(f => f.endsWith('.sql'))
-    .sort();
+  const files = require('./migrations');
 
   const applied = new Map(
     database.prepare('SELECT filename, checksum FROM schema_migrations').all()
