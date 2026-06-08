@@ -3,6 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { freshDb, seedListener, seedToken, futureIso } = require('./helpers');
 const { activateSubscription, cancelSubscription } = require('../src/api/payment');
+const { createVaultUnlock } = require('../src/api/vault');
 
 function getSub(db, providerSubscriptionId) {
   return db.prepare('SELECT * FROM subscriptions WHERE provider_subscription_id = ?').get(providerSubscriptionId);
@@ -80,4 +81,49 @@ test('cancelSubscription expires the subscription and downgrades the token to fr
 test('cancelSubscription returns false for an unknown subscription id', () => {
   const db = freshDb();
   assert.strictEqual(cancelSubscription(db, { providerSubscriptionId: 'does_not_exist' }), false);
+});
+
+test('webhook event ids are unique per provider', () => {
+  const db = freshDb();
+  db.prepare(
+    "INSERT INTO webhook_events (provider, event_id, event_type, outcome) VALUES ('stripe', 'evt_1', 'checkout.session.completed', 'ok')"
+  ).run();
+
+  assert.throws(() => {
+    db.prepare(
+      "INSERT INTO webhook_events (provider, event_id, event_type, outcome) VALUES ('stripe', 'evt_1', 'checkout.session.completed', 'ok')"
+    ).run();
+  }, /UNIQUE/);
+
+  db.prepare(
+    "INSERT INTO webhook_events (provider, event_id, event_type, outcome) VALUES ('paypal', 'evt_1', 'BILLING.SUBSCRIPTION.ACTIVATED', 'ok')"
+  ).run();
+});
+
+test('vault unlock creation is idempotent by Stripe payment id', () => {
+  const db = freshDb();
+  const listenerId = seedListener(db);
+
+  const first = createVaultUnlock(db, {
+    listenerId,
+    unlockType: 'all_access',
+    targetId: null,
+    paymentType: 'one_time',
+    amountPaid: 500,
+    stripePaymentId: 'pi_1',
+    expiresAt: null,
+  });
+  const second = createVaultUnlock(db, {
+    listenerId,
+    unlockType: 'all_access',
+    targetId: null,
+    paymentType: 'one_time',
+    amountPaid: 500,
+    stripePaymentId: 'pi_1',
+    expiresAt: null,
+  });
+
+  assert.strictEqual(second, first);
+  const rows = db.prepare('SELECT * FROM vault_unlocks WHERE stripe_payment_id = ?').all('pi_1');
+  assert.strictEqual(rows.length, 1);
 });

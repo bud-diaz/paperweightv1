@@ -1,55 +1,56 @@
 # Security
 
-Paperweight is designed as a self-hosted creator station. It is not a multi-tenant SaaS service.
+Paperweight is a self-hosted, creator-first streaming and distribution server. It is designed for one station owner or a small trusted team, not for untrusted creators sharing one hosted instance.
 
 ## Trust Model
 
 - The creator controls the machine running Paperweight.
-- The dashboard is protected by a shared dashboard token.
+- The dashboard is protected by a shared owner token in `DASHBOARD_TOKEN`.
 - Listener accounts are separate from dashboard access.
-- Listener access uses an httpOnly `pw_token` cookie or a Bearer token for mobile clients.
-- SQLite is local to the station.
+- Listener access uses an httpOnly `pw_token` cookie or a Bearer token for mobile/native clients.
+- SQLite data lives locally at `data/paperweight.db`.
 
-## Production Requirements
+## Public Station Requirements
 
-- Use HTTPS for public stations.
-- Set `HTTPS=true` when running behind TLS so cookies use the `Secure` flag.
+- Put public stations behind HTTPS.
+- Set `HTTPS=true` when public traffic is served over TLS so cookies use the `Secure` flag.
 - Keep `.env` private.
-- Use a permanent `DOWNLOAD_SIGNING_SECRET` in `.env`.
-- Do not expose the dashboard token in screenshots, logs, or support messages.
-- Back up `data/paperweight.db` before upgrades.
+- Set a permanent `DOWNLOAD_SIGNING_SECRET`; otherwise signed download links break after restart.
+- Back up `.env`, `vault/`, and `data/paperweight.db`.
 
 ## Dashboard Auth
 
 Dashboard routes require `X-Dashboard-Token`.
 
-The listener cookie does not grant dashboard access. Dashboard access does not depend on listener accounts.
+This is owner/admin auth, not team account management. Do not share the dashboard token with listeners. Listener cookies never grant dashboard access.
+
+The shipped UI stores the dashboard token for the current browser session only.
 
 ## CSRF
 
-Unsafe browser requests carrying `pw_token` are checked against Origin or Referer. Bearer-token clients bypass this because they do not use browser cookies.
+Unsafe browser requests carrying `pw_token` are checked against Origin or Referer. Bearer-token clients bypass this check because they do not use browser cookies.
 
-## Payment Webhooks
+## Payments
 
-Stripe webhooks are verified with `STRIPE_WEBHOOK_SECRET`.
+Stripe webhooks require `STRIPE_WEBHOOK_SECRET`.
 
-PayPal webhooks are verified with PayPal's webhook signature verification endpoint before access is granted.
+PayPal webhooks require `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, and `PAYPAL_WEBHOOK_ID`.
 
-Do not enable a payment provider without configuring its webhook secret or webhook ID.
+Do not enable a payment provider without verified webhooks. Payment redirects improve user experience, but webhooks are the authoritative access sync path.
 
-## File Uploads
+## Uploads And Media
 
-Dashboard uploads are restricted to audio and video MIME types and written under the configured vault path.
+Dashboard uploads are restricted to audio/video MIME types, sanitized, and inspected with ffprobe before they are treated as usable media.
 
-The server still depends on FFmpeg and ffprobe to safely inspect and stream media. Treat uploaded media as untrusted input and keep FFmpeg updated.
+Media files are still untrusted input. Keep FFmpeg updated and avoid running Paperweight as an operating-system administrator/root user after installation.
 
 ## Known Limits
 
 - No email verification for listener accounts.
 - No password reset flow.
-- Dashboard auth is a shared token, not a named creator account.
+- Dashboard auth is a shared token, not named creator accounts.
 - Analytics are approximate and based on player pings.
-- This is intended for a single station owner, not untrusted creators sharing one server.
+- One station per install.
 
 ## Reporting Issues
 

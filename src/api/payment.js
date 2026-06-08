@@ -538,6 +538,10 @@ router.post('/webhook/paypal', async (req, res) => {
   const ppEventId   = req.headers['paypal-transmission-id'] || null;
   const ppEventType = event.event_type || 'unknown';
 
+  if (hasWebhookEvent(db, 'paypal', ppEventId)) {
+    return res.json({ received: true, duplicate: true });
+  }
+
   try {
     const verified = await verifyPayPalWebhook({
       clientId,
@@ -610,6 +614,13 @@ function logWebhookEvent(db, { provider, eventId, eventType, outcome, errorMsg }
   }
 }
 
+function hasWebhookEvent(db, provider, eventId) {
+  if (!eventId) return false;
+  return !!db.prepare(
+    'SELECT id FROM webhook_events WHERE provider = ? AND event_id = ? LIMIT 1'
+  ).get(provider, eventId);
+}
+
 // Exported as a standalone handler for mounting before express.json() in index.js
 // so the raw body buffer is available for Stripe signature verification.
 async function stripeWebhookHandler(req, res) {
@@ -629,6 +640,10 @@ async function stripeWebhookHandler(req, res) {
   }
 
   const db = getDb();
+
+  if (hasWebhookEvent(db, 'stripe', event.id)) {
+    return res.json({ received: true, duplicate: true });
+  }
 
   switch (event.type) {
 

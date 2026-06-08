@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this before building or distributing a Paperweight executable.
+Use this before publishing Paperweight for public distribution.
 
 ## Required Environment
 
@@ -8,81 +8,71 @@ Use this before building or distributing a Paperweight executable.
 - `npm install` has completed successfully.
 - FFmpeg and ffprobe are installed and available on `PATH`.
 - `.env` exists and has a permanent `DASHBOARD_TOKEN`.
+- `DOWNLOAD_SIGNING_SECRET` is set for public stations.
 - The vault path exists and contains the expected category folders.
 
-## Pre-Build Checks
+## Required Gate
 
 Run:
 
 ```bash
-npm run preflight
-npm run check:migrations
-npm run check:scheduler
-npm run check:analytics
-npm run check:package
-npm audit --omit=dev
+npm run release:check
 ```
 
 Expected result:
 
+- Release cleanliness check passes.
+- Unit and HTTP tests pass.
 - Preflight has no `FAIL` items.
-- Migration, scheduler, and analytics checks pass.
-- npm audit reports zero production vulnerabilities.
+- Migration, scheduler, analytics, and package checks pass.
+- `npm audit --omit=dev` reports zero production vulnerabilities.
 
-## Manual Smoke Pass
+## Platform Smoke Passes
 
-Start the app:
+Run the install/start/smoke path on each supported platform before public release:
 
-```bash
-npm start
-```
+- Windows 10/11 x64
+- macOS
+- Linux x64
+- Raspberry Pi OS 64-bit or Ubuntu on Raspberry Pi
 
-Then verify:
+For each platform:
 
-- `http://localhost:3000/api/health` returns `status: ok`.
-- `http://localhost:3000` serves the player.
-- The dashboard rejects an empty or wrong dashboard token.
-- The dashboard accepts the token from `.env`.
-- Uploading a small audio file creates a media row.
-- The library shows public media.
-- A `supporters_only` item is hidden or gated for free listeners.
-- A `vault` item shows locked pricing options.
-- `/api/stream/ping` updates analytics after something is now-playing.
+1. Run the platform installer.
+2. Run `bash scripts/setup.sh`.
+3. Run `npm run preflight`.
+4. Start Paperweight with `npm start`.
+5. Run `npm run smoke`.
+6. Verify the dashboard rejects a missing/wrong token.
+7. Verify the dashboard accepts the token from `.env`.
+8. Add a small audio file and confirm it indexes.
+9. Confirm the library shows public media.
+10. Confirm `supporters_only` and `vault` media are gated for free listeners.
 
-Run the HTTP smoke check while the app is running:
+## Public Station Checks
 
-```bash
-npm run smoke
-```
+- Public URL resolves to the station.
+- HTTPS terminates before Paperweight.
+- `.env` has `STATION_PUBLIC_URL` and `HTTPS=true`.
+- Stripe is not partially configured.
+- PayPal is not partially configured.
+- Payment webhooks show successful verification in dashboard logs after a test event.
 
-## Build
+## Convenience Executable Packaging
 
-Run:
+Executables are optional convenience artifacts, not the primary public distribution path.
 
 ```bash
 npm run build:exe
 ```
 
-The Windows executable is written to `dist/`.
-
-## Packaged Executable Smoke Pass
-
-Copy the executable into a clean folder and run it there.
-
-Verify:
-
-- A default `.env` is created next to the executable on first run.
-- `data/`, `logs/`, `vault/`, and `hls_output/` are created next to the executable.
-- The generated dashboard token appears in the console.
-- After editing `.env` and restarting, `/api/health` returns the configured station name.
-- The executable can load `better-sqlite3`.
-- The player loads without needing source files outside the executable.
+Do not publish executable artifacts unless the same platform has passed the clean-folder smoke test.
 
 ## Do Not Ship If
 
-- Preflight fails.
-- `npm audit --omit=dev` reports production vulnerabilities.
-- Migration check fails or mentions `media_new`.
-- PayPal is configured but webhook verification fails in dashboard logs.
-- Stripe payments are enabled without `STRIPE_WEBHOOK_SECRET`.
-- FFmpeg or ffprobe are missing from the target machine.
+- `npm run release:check` fails.
+- FFmpeg or ffprobe are missing on a target platform.
+- Any setup guide is stale or untested.
+- Runtime frontend depends on a CDN.
+- Payment provider configuration is partial.
+- The dashboard token appears in screenshots, logs, or support material.
