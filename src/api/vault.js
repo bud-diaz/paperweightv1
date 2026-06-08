@@ -477,10 +477,20 @@ function createVaultUnlock(db, { listenerId, unlockType, targetId, paymentType, 
     if (existing) return existing.id;
   }
 
+  // ON CONFLICT DO NOTHING — backstop against idx_vault_unlocks_payment so a
+  // duplicate payment id can never create a second unlock row, even outside the
+  // webhook transaction (e.g. a checkout success-redirect racing the webhook).
   const info = db.prepare(`
     INSERT INTO vault_unlocks (listener_id, unlock_type, target_id, amount_paid, payment_type, stripe_payment_id, active, expires_at)
     VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+    ON CONFLICT DO NOTHING
   `).run(listenerId, unlockType, targetId || null, amountPaid || 0, paymentType, stripePaymentId || null, expiresAt || null);
+
+  if (info.changes === 0 && stripePaymentId) {
+    // Lost the race to a concurrent insert — return the row that won.
+    const row = db.prepare('SELECT id FROM vault_unlocks WHERE stripe_payment_id = ?').get(stripePaymentId);
+    return row ? row.id : null;
+  }
 
   log('info', 'vault', `Vault unlock created: ${unlockType} target=${targetId || 'all'} listener=${listenerId} id=${info.lastInsertRowid}`);
   return info.lastInsertRowid;

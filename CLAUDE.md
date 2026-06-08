@@ -39,7 +39,7 @@ Schema files live in `src/db/migrations/`. Applied SQL migrations are tracked in
 
 Current migration sequence:
 
-`001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments.
+`001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments -> `010` webhook idempotency -> `011` payment idempotency.
 
 Never add recurring destructive SQL to a migration file. Do not use `DROP TABLE media` or table rebuilds in automatically applied SQL migrations.
 
