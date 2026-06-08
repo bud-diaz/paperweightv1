@@ -185,7 +185,7 @@ const config = {
 
   // Paperweight Cloud (next roadmap phase): native-app deep-link checkout and the
   // multi-station directory. Off by default — the routes guarded by this flag are
-  // inert in the self-hosted build. See ROADMAP.md.
+  // inert in the self-hosted build.
   cloud: {
     enabled: process.env.PAPERWEIGHT_CLOUD === 'true',
   },
