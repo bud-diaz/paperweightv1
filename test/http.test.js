@@ -10,6 +10,9 @@ const path = require('path');
 
 const { freshDb, seedMedia, seedListener, seedToken, futureIso } = require('./helpers');
 const { createApp } = require('../src/index');
+const config = require('../src/config');
+const { parseEnvValue } = require('../src/config');
+const { resolveAvailableUploadPath, sanitizeUploadName } = require('../src/api/dashboard');
 
 async function withServer(fn) {
   const app = createApp();
@@ -41,6 +44,58 @@ test('health and local HLS asset are served', async () => {
     const hls = await request(baseUrl, '/vendor/hls.min.js');
     assert.equal(hls.res.status, 200);
     assert.match(hls.text, /Hls/);
+  });
+});
+
+test('HLS serves only the stream directory, not runtime work files', async () => {
+  freshDb();
+  const streamDir = path.join(config.paths.hlsOutput, 'stream');
+  fs.mkdirSync(streamDir, { recursive: true });
+  fs.writeFileSync(path.join(streamDir, 'index.m3u8'), '#EXTM3U\n', 'utf8');
+  fs.writeFileSync(path.join(config.paths.hlsOutput, 'concat.txt'), 'file /secret/song.mp3\n', 'utf8');
+
+  await withServer(async baseUrl => {
+    const playlist = await request(baseUrl, '/hls/stream/index.m3u8');
+    assert.equal(playlist.res.status, 200);
+    assert.match(playlist.text, /#EXTM3U/);
+
+    const concat = await request(baseUrl, '/hls/concat.txt');
+    assert.equal(concat.res.status, 404);
+  });
+});
+
+test('vault unlock options are camelCase for the player UI', async () => {
+  const db = freshDb();
+  const media = seedMedia(db, { visibility: 'vault' });
+  db.prepare(`
+    INSERT INTO vault_prices (content_id, suggested_price, minimum_price, allow_free, payment_type, recurring_interval, currency)
+    VALUES (?, 700, 300, 1, 'one_time', NULL, 'usd')
+  `).run(media.id);
+
+  await withServer(async baseUrl => {
+    const result = await request(baseUrl, `/api/vault/unlock-options/${media.id}`);
+    assert.equal(result.res.status, 200);
+    assert.equal(result.body.isVault, true);
+    assert.equal(result.body.unlockOptions.track.minimumPrice, 300);
+    assert.equal(result.body.unlockOptions.track.suggestedPrice, 700);
+    assert.equal(result.body.unlockOptions.track.allowFree, true);
+    assert.equal(result.body.unlockOptions.track.paymentType, 'one_time');
+    assert.equal(result.body.unlockOptions.track.minimum_price, undefined);
+  });
+});
+
+test('supporter previews stay public short previews while vault previews stay blocked', async () => {
+  const db = freshDb();
+  const supporter = seedMedia(db, { visibility: 'supporters_only' });
+  const vault = seedMedia(db, { visibility: 'vault' });
+
+  await withServer(async baseUrl => {
+    const vaultPreview = await request(baseUrl, `/api/library/${vault.id}/preview`);
+    assert.equal(vaultPreview.res.status, 404);
+
+    const supporterPreview = await request(baseUrl, `/api/library/${supporter.id}/preview`);
+    assert.notEqual(supporterPreview.res.status, 403);
+    assert.notEqual(supporterPreview.res.status, 404);
   });
 });
 
@@ -167,4 +222,24 @@ test('dashboard upload rejects unsupported multipart file types', async () => {
     assert.equal(upload.status, 400);
     assert.match(body.error, /Unsupported file type/);
   });
+});
+
+test('upload filenames are sanitized and collision-safe', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-upload-name-'));
+  try {
+    assert.equal(sanitizeUploadName('../bad name?.mp3'), 'bad_name.mp3');
+    fs.writeFileSync(path.join(dir, 'song.mp3'), 'existing');
+    const next = resolveAvailableUploadPath(dir, 'song.mp3');
+    assert.equal(next.filename, 'song_1.mp3');
+    assert.equal(next.filepath, path.join(dir, 'song_1.mp3'));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('env parser keeps hash characters inside quoted values', () => {
+  assert.equal(parseEnvValue('"abc#123" # comment'), 'abc#123');
+  assert.equal(parseEnvValue("'abc#123' # comment"), 'abc#123');
+  assert.equal(parseEnvValue('abc#123'), 'abc#123');
+  assert.equal(parseEnvValue('abc # comment'), 'abc');
 });

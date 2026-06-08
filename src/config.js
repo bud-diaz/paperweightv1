@@ -27,6 +27,36 @@ function loadPackageVersion() {
 
 // ─── .env loader ─────────────────────────────────────────────────────────────
 
+function parseEnvValue(raw) {
+  let value = String(raw || '').trim();
+  if (!value) return '';
+
+  const quote = value[0];
+  if (quote === '"' || quote === "'") {
+    let out = '';
+    let escaped = false;
+    for (let i = 1; i < value.length; i++) {
+      const ch = value[i];
+      if (quote === '"' && escaped) {
+        out += ch;
+        escaped = false;
+        continue;
+      }
+      if (quote === '"' && ch === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (ch === quote) return out;
+      out += ch;
+    }
+    return out;
+  }
+
+  const commentAt = value.search(/\s#/);
+  if (commentAt !== -1) value = value.slice(0, commentAt).trim();
+  return value;
+}
+
 function loadEnv() {
   const envPath = path.join(dataRoot, '.env');
 
@@ -63,9 +93,7 @@ function loadEnv() {
     const eq = trimmed.indexOf('=');
     if (eq === -1) continue;
     const key = trimmed.slice(0, eq).trim();
-    // Strip inline comments and surrounding quotes
-    let val = trimmed.slice(eq + 1).trim().replace(/#.*$/, '').trim();
-    val = val.replace(/^['"]|['"]$/g, '');
+    const val = parseEnvValue(trimmed.slice(eq + 1));
     if (!process.env[key]) process.env[key] = val;
   }
 }
@@ -198,3 +226,5 @@ function warnStartupConfig() {
 }
 
 warnStartupConfig();
+
+module.exports.parseEnvValue = parseEnvValue;

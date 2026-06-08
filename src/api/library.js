@@ -179,6 +179,8 @@ router.get('/:id', (req, res) => {
 });
 
 router.get('/:id/preview', (req, res) => {
+  // Public short previews are intentional for public/supporters_only items.
+  // Vault previews stay unavailable until a separate paid-preview policy exists.
   const row = getDb().prepare(
     "SELECT * FROM media WHERE id = ? AND is_active = 1 AND visibility != 'vault'"
   ).get(req.params.id);

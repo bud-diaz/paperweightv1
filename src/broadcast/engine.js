@@ -240,6 +240,20 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function cleanHlsStreamDir() {
+  try {
+    if (!fs.existsSync(HLS_STREAM_DIR)) return;
+    for (const name of fs.readdirSync(HLS_STREAM_DIR)) {
+      if (name === 'index.m3u8' || /^seg_\d+\.ts$/.test(name)) {
+        fs.unlinkSync(path.join(HLS_STREAM_DIR, name));
+      }
+    }
+    state.segmentCounter = 0;
+  } catch (err) {
+    log('warn', 'broadcast', `Could not clean stale HLS files: ${err.message}`);
+  }
+}
+
 async function broadcastLoop() {
   while (state.isRunning) {
     let batch, source;
@@ -289,6 +303,7 @@ function start(mode = 'shuffle') {
   // standalone exe launched in a fresh directory must create them itself or
   // ffmpeg's segment writes and state.json fail. recursive covers the parent.
   fs.mkdirSync(HLS_STREAM_DIR, { recursive: true });
+  cleanHlsStreamDir();
   state.isRunning = true;
   state.mode = mode;
   log('info', 'broadcast', `Broadcast starting in ${mode} mode`);
@@ -338,4 +353,4 @@ function isRunning() {
   return state.isRunning;
 }
 
-module.exports = { start, stop, setMode, getState, isRunning };
+module.exports = { start, stop, setMode, getState, isRunning, cleanHlsStreamDir };

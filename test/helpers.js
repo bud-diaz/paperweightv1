@@ -18,6 +18,8 @@ const crypto = require('crypto');
 // initDb() opens a throwaway database instead of the real one.
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-test-'));
 process.env.DATA_PATH = tmpDir;
+process.env.HLS_OUTPUT_PATH = path.join(tmpDir, 'hls_output');
+process.env.VAULT_PATH = path.join(tmpDir, 'vault');
 
 const { initDb, closeDb, getDb } = require('../src/db');
 

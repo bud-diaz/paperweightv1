@@ -10,6 +10,43 @@ function getCreateVaultUnlock() {
   return require('./vault').createVaultUnlock;
 }
 
+const ACTIVE_STRIPE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
+
+function isStripeSubscriptionActive(sub) {
+  return !!(sub && ACTIVE_STRIPE_SUBSCRIPTION_STATUSES.has(sub.status));
+}
+
+function isPaidCheckoutSession(session) {
+  return session?.payment_status === 'paid';
+}
+
+function isSucceededPaymentIntent(pi) {
+  return !!(pi && typeof pi !== 'string' && pi.status === 'succeeded');
+}
+
+function currentPeriodEndIso(sub) {
+  if (!sub?.current_period_end) return null;
+  return new Date(sub.current_period_end * 1000).toISOString();
+}
+
+function refreshExistingStripeSubscription(db, sub) {
+  if (!sub?.id || !isStripeSubscriptionActive(sub)) return false;
+  const existing = db.prepare(
+    'SELECT id, listener_id, tier FROM subscriptions WHERE provider_subscription_id = ?'
+  ).get(sub.id);
+  const periodEnd = currentPeriodEndIso(sub);
+  if (!existing || !periodEnd) return false;
+
+  const tier = sub.metadata?.tier || existing.tier;
+  db.prepare(
+    "UPDATE subscriptions SET tier = ?, status = 'active', current_period_end = ? WHERE id = ?"
+  ).run(tier, periodEnd, existing.id);
+  db.prepare(
+    'UPDATE tokens SET tier = ? WHERE listener_id = ? AND is_active = 1'
+  ).run(tier, existing.listener_id);
+  return true;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 // Updates the listener's token tier and upserts the subscription record.
@@ -271,13 +308,13 @@ router.get('/success', cloudOnly, async (req, res) => {
       const listenerId = session.metadata?.listener_id;
       const sub = session.subscription;
 
-      if (listenerId && sub) {
+      if (listenerId && isStripeSubscriptionActive(sub)) {
         const db = getDb();
         activateSubscription(db, {
           providerSubscriptionId: sub.id,
           provider: 'stripe',
           tier: session.metadata.tier || tier,
-          currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
+          currentPeriodEnd: currentPeriodEndIso(sub),
           listenerIdOrEmail: parseInt(listenerId, 10),
         });
       }
@@ -387,13 +424,13 @@ router.get('/web-success', async (req, res) => {
       // the listener lands on the library page before the webhook arrives, and
       // attachTier finds no active subscription record → incorrectly downgrades to free.
       // session.subscription is already the expanded object (expand: ['subscription']).
-      if (sub && sub.id && sub.current_period_end) {
+      if (sub && sub.id && isStripeSubscriptionActive(sub) && currentPeriodEndIso(sub)) {
         try {
           activateSubscription(db, {
             providerSubscriptionId: sub.id,
             provider:               'stripe',
             tier:                   'subscriber',
-            currentPeriodEnd:       new Date(sub.current_period_end * 1000).toISOString(),
+            currentPeriodEnd:       currentPeriodEndIso(sub),
             listenerIdOrEmail:      account.id,
           });
         } catch {
@@ -493,7 +530,7 @@ router.get('/tip-success', async (req, res) => {
         expand: ['payment_intent'],
       });
 
-      if (session.metadata?.type === 'tip' && session.payment_intent) {
+      if (session.metadata?.type === 'tip' && isPaidCheckoutSession(session) && isSucceededPaymentIntent(session.payment_intent)) {
         const pi          = session.payment_intent;
         const amountCents = pi.amount_received || pi.amount;
         const db          = getDb();
@@ -684,10 +721,12 @@ async function stripeWebhookHandler(req, res) {
 
       // One-time vault unlock (mode: payment with vault metadata)
       if (session.metadata?.vault_unlock_type && session.metadata?.vault_payment_type === 'one_time') {
+        if (!isPaidCheckoutSession(session)) break;
         const meta = session.metadata;
         const pi = session.payment_intent
           ? (typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent.id)
           : null;
+        if (!pi) throw new Error('Paid vault checkout completed without a payment intent id');
         outcome = 'ok';
         mutate = () => getCreateVaultUnlock()(db, {
           listenerId:      parseInt(meta.vault_listener_id, 10),
@@ -706,6 +745,7 @@ async function stripeWebhookHandler(req, res) {
 
       // Stripe API call happens HERE, outside the transaction.
       const sub = await stripe.subscriptions.retrieve(session.subscription);
+      if (!isStripeSubscriptionActive(sub) || !currentPeriodEndIso(sub)) break;
       outcome = 'ok';
       mutate = () => {
         // INSERT OR IGNORE — idempotent if a duplicate event fires for same email
@@ -719,7 +759,7 @@ async function stripeWebhookHandler(req, res) {
           providerSubscriptionId: sub.id,
           provider: 'stripe',
           tier: 'subscriber',
-          currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
+          currentPeriodEnd: currentPeriodEndIso(sub),
           listenerIdOrEmail: account.id,
         });
 
@@ -733,7 +773,7 @@ async function stripeWebhookHandler(req, res) {
             paymentType:     meta.vault_payment_type || 'recurring',
             amountPaid:      session.amount_total || 0,
             stripePaymentId: sub.id,
-            expiresAt:       new Date(sub.current_period_end * 1000).toISOString(),
+            expiresAt:       currentPeriodEndIso(sub),
           });
         }
       };
@@ -746,21 +786,19 @@ async function stripeWebhookHandler(req, res) {
       const tier = sub.metadata?.tier;
       const vaultUnlockType = sub.metadata?.vault_unlock_type;
 
-      if (tier && sub.status === 'active') {
+      if (tier && isStripeSubscriptionActive(sub) && currentPeriodEndIso(sub)) {
         outcome = 'ok';
         mutate = () => activateSubscription(db, {
           providerSubscriptionId: sub.id,
           provider: 'stripe',
           tier,
-          currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
+          currentPeriodEnd: currentPeriodEndIso(sub),
           listenerIdOrEmail: parseInt(sub.metadata?.listener_id, 10),
         });
       } else if (vaultUnlockType && sub.metadata?.vault_listener_id) {
         // Recurring vault unlock subscription
         const meta = sub.metadata;
-        const expiresAt = sub.current_period_end
-          ? new Date(sub.current_period_end * 1000).toISOString()
-          : null;
+        const expiresAt = currentPeriodEndIso(sub);
         outcome = 'ok';
         mutate = () => {
           const existing = db.prepare(
@@ -769,8 +807,8 @@ async function stripeWebhookHandler(req, res) {
           if (existing) {
             db.prepare(
               "UPDATE vault_unlocks SET active = ?, expires_at = ? WHERE id = ?"
-            ).run(sub.status === 'active' ? 1 : 0, expiresAt, existing.id);
-          } else {
+            ).run(isStripeSubscriptionActive(sub) ? 1 : 0, expiresAt, existing.id);
+          } else if (isStripeSubscriptionActive(sub) && expiresAt) {
             getCreateVaultUnlock()(db, {
               listenerId:      parseInt(meta.vault_listener_id, 10),
               unlockType:      vaultUnlockType,
@@ -781,6 +819,11 @@ async function stripeWebhookHandler(req, res) {
               expiresAt,
             });
           }
+        };
+      } else if (event.type === 'customer.subscription.updated') {
+        outcome = 'ok';
+        mutate = () => {
+          refreshExistingStripeSubscription(db, sub);
         };
       }
       break;
@@ -855,3 +898,8 @@ module.exports.stripeWebhookHandler = stripeWebhookHandler;
 module.exports.activateSubscription = activateSubscription;
 module.exports.cancelSubscription = cancelSubscription;
 module.exports.claimAndRun = claimAndRun;
+module.exports.currentPeriodEndIso = currentPeriodEndIso;
+module.exports.isPaidCheckoutSession = isPaidCheckoutSession;
+module.exports.isSucceededPaymentIntent = isSucceededPaymentIntent;
+module.exports.isStripeSubscriptionActive = isStripeSubscriptionActive;
+module.exports.refreshExistingStripeSubscription = refreshExistingStripeSubscription;
