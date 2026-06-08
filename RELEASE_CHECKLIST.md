@@ -72,11 +72,16 @@ clean dependency install so the bundled native matches the target:
 
 ```bash
 npm ci            # rebuilds better-sqlite3 for this OS/arch
-npm run build:exe # runs release:check, then packages to dist/
+npm run build:exe # runs release:check, then packages this OS/arch to dist/
 ```
 
 `build:exe` runs the full `release:check` first, so FFmpeg/ffprobe must be on
 `PATH` on the build machine (preflight fails otherwise).
+
+Supported explicit targets are `win-x64`, `macos-x64`, `macos-arm64`,
+`linux-x64`, and `linux-arm64` (`pi`). The `Build Executables` GitHub Actions
+workflow builds each target on a matching native runner and uploads the smoke
+tested artifacts.
 
 ### Clean-folder smoke (required before publishing an exe)
 

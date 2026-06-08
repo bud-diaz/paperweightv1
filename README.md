@@ -117,7 +117,10 @@ Convenience executable packaging remains available:
 npm run build:exe
 ```
 
-Executables are not the primary public distribution path until each native target has CI and clean-folder smoke coverage.
+By default this builds the native executable for the current OS/CPU. The
+`Build Executables` GitHub Actions workflow builds and smoke-tests Windows x64,
+macOS Intel, macOS Apple Silicon, Linux x64, and Raspberry Pi/Linux ARM64
+artifacts on matching hosted runners.
 
 ## Project Layout
 
