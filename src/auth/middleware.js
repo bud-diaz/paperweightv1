@@ -1,7 +1,17 @@
 const { validateToken } = require('./index');
 const { getDb } = require('../db');
 const config = require('../config');
+const crypto = require('crypto');
 const { isSubscriberTier, isHigherTier } = require('./access');
+
+// Constant-time string compare that does not early-return on length mismatch.
+// timingSafeEqual requires equal-length buffers, so hash both sides first.
+function safeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const ha = crypto.createHash('sha256').update(a).digest();
+  const hb = crypto.createHash('sha256').update(b).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
 
 // Runs on every request. Sets req.tier = free | subscriber | pro | all_access.
 // Accepts auth via cookie (web player) or Authorization: Bearer <token> header.
@@ -82,8 +92,8 @@ function requireAllAccess(req, res, next) {
 function requireDashboard(req, res, next) {
   const headerToken = req.headers['x-dashboard-token'];
   const hasValidToken =
-    config.auth.dashboardToken &&
-    headerToken === config.auth.dashboardToken;
+    !!config.auth.dashboardToken &&
+    safeEqual(headerToken, config.auth.dashboardToken);
 
   if (hasValidToken) return next();
 

@@ -38,10 +38,17 @@ const storage = multer.diskStorage({
     cb(null, dest);
   },
   filename(req, file, cb) {
-    const safe = path.basename(file.originalname)
+    let safe = path.basename(file.originalname)
       .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
       .replace(/\s+/g, '_')
       .slice(0, 180);
+    // '', '.', and '..' resolve to a directory, so path.join(dest, safe) would
+    // target the category dir or its parent (EISDIR). Fall back to a generated
+    // name, preserving any usable extension.
+    if (!safe || safe === '.' || safe === '..') {
+      const ext = path.extname(file.originalname).replace(/[^.a-zA-Z0-9]/g, '').slice(0, 12);
+      safe = `upload_${Date.now()}${ext}`;
+    }
     cb(null, safe);
   },
 });

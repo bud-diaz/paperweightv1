@@ -38,9 +38,11 @@ function loadEnv() {
     if (isPackaged) {
       // First run: create a default .env next to the exe so the user can edit it.
       const token = crypto.randomBytes(16).toString('hex');
+      const signingSecret = crypto.randomBytes(32).toString('hex');
       const defaults = [
         '# Paperweight configuration — edit and restart the exe to apply changes',
         `DASHBOARD_TOKEN=${token}`,
+        `DOWNLOAD_SIGNING_SECRET=${signingSecret}`,
         'STATION_NAME=My Station',
         'PORT=3000',
         '',
@@ -71,6 +73,38 @@ function loadEnv() {
 loadEnv();
 
 const hasEnvValue = key => !!(process.env[key] && process.env[key].trim());
+
+// Returns a stable secret for `key`. If it is missing, generate one and persist
+// it to .env (when a writable .env exists) so it survives restarts instead of
+// changing on every boot — which would silently invalidate dashboard sessions and
+// every outstanding signed download link. With no persistent .env
+// (PAPERWEIGHT_ALLOW_MISSING_ENV — tests/CI), the value is ephemeral for the
+// session only.
+function ensurePersistedSecret(key, bytes, label) {
+  if (hasEnvValue(key)) return process.env[key];
+
+  const value = crypto.randomBytes(bytes).toString('hex');
+  process.env[key] = value;
+
+  const envPath = path.join(dataRoot, '.env');
+  if (process.env.PAPERWEIGHT_ALLOW_MISSING_ENV === 'true' || !fs.existsSync(envPath)) {
+    return value; // no persistent .env to write to — session-only value
+  }
+  try {
+    const contents = fs.readFileSync(envPath, 'utf8');
+    const line = `${key}=${value}`;
+    // key is a fixed internal identifier, so this RegExp is not user-controlled.
+    const keyRe = new RegExp(`^${key}=.*$`, 'm');
+    const next = keyRe.test(contents)
+      ? contents.replace(keyRe, line)               // fill an existing empty/placeholder entry
+      : contents + (contents.endsWith('\n') ? '' : '\n') + line + '\n';
+    fs.writeFileSync(envPath, next, 'utf8');
+    console.log(`[Paperweight] Generated ${key} and saved it to .env (${label}). It will persist across restarts.`);
+  } catch (err) {
+    console.warn(`[Paperweight] Could not persist ${key} to .env (${err.message}); using a temporary value for this session.`);
+  }
+  return value;
+}
 
 const config = {
   version: loadPackageVersion(),
@@ -107,18 +141,18 @@ const config = {
 
   auth: {
     dashboardToken: (() => {
-      if (process.env.DASHBOARD_TOKEN) return process.env.DASHBOARD_TOKEN;
+      if (hasEnvValue('DASHBOARD_TOKEN')) return process.env.DASHBOARD_TOKEN;
+      // Tests/CI run without a .env — leave the dashboard token empty so the gate
+      // stays closed rather than minting a usable token nobody knows.
       if (process.env.PAPERWEIGHT_ALLOW_MISSING_ENV === 'true') return '';
-      const generated = crypto.randomBytes(16).toString('hex');
-      console.log('\n[Paperweight] DASHBOARD_TOKEN not set — using temporary token for this session:');
-      console.log(`  ${generated}`);
-      console.log('  Add DASHBOARD_TOKEN=<value> to your .env to make it permanent.\n');
-      return generated;
+      const token = ensurePersistedSecret('DASHBOARD_TOKEN', 16, 'dashboard login');
+      console.log(`\n[Paperweight] Your dashboard token is: ${token}\n`);
+      return token;
     })(),
-    // Separate secret for HMAC-signed download URLs. Falls back to a random
-    // value generated at startup so it never shares entropy with DASHBOARD_TOKEN.
-    // Set DOWNLOAD_SIGNING_SECRET in .env to make signed URLs survive restarts.
-    downloadSigningSecret: process.env.DOWNLOAD_SIGNING_SECRET || crypto.randomBytes(32).toString('hex'),
+    // Separate secret for HMAC-signed download URLs so it never shares entropy
+    // with DASHBOARD_TOKEN. Persisted to .env on first run so signed links survive
+    // restarts.
+    downloadSigningSecret: ensurePersistedSecret('DOWNLOAD_SIGNING_SECRET', 32, 'signed download links'),
   },
 
   // Paperweight Cloud (next roadmap phase): native-app deep-link checkout and the
