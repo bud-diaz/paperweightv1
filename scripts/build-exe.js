@@ -19,11 +19,11 @@ const ROOT = path.resolve(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
 
 const TARGETS = [
-  { key: 'win-x64', aliases: ['windows', 'win'], platform: 'win32', arch: 'x64', label: 'Windows x64', target: 'node18-win-x64', out: 'paperweight-win-x64.exe' },
-  { key: 'macos-x64', aliases: ['mac-x64'], platform: 'darwin', arch: 'x64', label: 'macOS Intel', target: 'node18-macos-x64', out: 'paperweight-macos-x64' },
-  { key: 'macos-arm64', aliases: ['macos', 'mac', 'darwin-arm64'], platform: 'darwin', arch: 'arm64', label: 'macOS Apple Silicon', target: 'node18-macos-arm64', out: 'paperweight-macos-arm64' },
-  { key: 'linux-x64', aliases: ['linux'], platform: 'linux', arch: 'x64', label: 'Linux x64', target: 'node18-linux-x64', out: 'paperweight-linux-x64' },
-  { key: 'linux-arm64', aliases: ['pi', 'raspberry-pi', 'raspi'], platform: 'linux', arch: 'arm64', label: 'Raspberry Pi / Linux ARM64', target: 'node18-linux-arm64', out: 'paperweight-linux-arm64' },
+  { key: 'win-x64', aliases: ['windows', 'win'], platform: 'win32', arch: 'x64', label: 'Windows x64', target: 'node20-win-x64', out: 'paperweight-win-x64.exe' },
+  { key: 'macos-x64', aliases: ['mac-x64'], platform: 'darwin', arch: 'x64', label: 'macOS Intel', target: 'node20-macos-x64', out: 'paperweight-macos-x64' },
+  { key: 'macos-arm64', aliases: ['macos', 'mac', 'darwin-arm64'], platform: 'darwin', arch: 'arm64', label: 'macOS Apple Silicon', target: 'node20-macos-arm64', out: 'paperweight-macos-arm64' },
+  { key: 'linux-x64', aliases: ['linux'], platform: 'linux', arch: 'x64', label: 'Linux x64', target: 'node20-linux-x64', out: 'paperweight-linux-x64' },
+  { key: 'linux-arm64', aliases: ['pi', 'raspberry-pi', 'raspi'], platform: 'linux', arch: 'arm64', label: 'Raspberry Pi / Linux ARM64', target: 'node20-linux-arm64', out: 'paperweight-linux-arm64' },
 ];
 
 function usage() {
