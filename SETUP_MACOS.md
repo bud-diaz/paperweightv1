@@ -38,7 +38,7 @@ Use the dashboard token printed by `scripts/setup.sh`.
 For a simple local station, leave the terminal open. For a persistent station:
 
 ```bash
-pm2 start src/index.js --name paperweight
+pm2 start ecosystem.config.js
 pm2 save
 ```
 
