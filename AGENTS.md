@@ -7,19 +7,21 @@ Guidance for Codex when working in this repository.
 ```bash
 npm run dev              # nodemon src/index.js
 npm start                # node src/index.js
+npm test                 # unit and HTTP tests (scheduler, access, payment, http)
 npm run preflight        # environment and runtime readiness check
 npm run check:migrations # migration idempotency check
 npm run check:scheduler  # scheduler edge-case check
 npm run check:analytics  # analytics write-path check
 npm run check:package    # package metadata and asset check
+npm run check:clean      # release cleanliness check
+npm run release:check    # full pre-release gate (clean + tests + preflight + all checks + audit)
 npm run smoke            # HTTP smoke test against a running server
+npm run smoke:exe        # executable clean-folder smoke test
 npm run build:exe        # optional convenience executable packaging
 
 node scripts/gen-token.js "Label"
 node -e "const db = require('better-sqlite3')('data/paperweight.db'); console.log(db.prepare('SELECT ...').all())"
 ```
-
-There is no full test suite. The release checks above are the current minimum safety net.
 
 ## Architecture
 
@@ -39,7 +41,7 @@ Schema files live in `src/db/migrations/`. Applied SQL migrations are tracked in
 
 Current migration sequence:
 
-`001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments.
+`001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments -> `010` webhook idempotency -> `011` payment idempotency.
 
 Never add recurring destructive SQL to a migration file. Do not use `DROP TABLE media` or table rebuilds in automatically applied SQL migrations.
 
@@ -88,13 +90,14 @@ The SPA fallback checks `dataRoot/client/creator.html` before the bundled fronte
 
 ## Before Packaging
 
-Run the release checklist in `RELEASE_CHECKLIST.md`. At minimum:
+Run the release checklist in `RELEASE_CHECKLIST.md`. The single gate is:
 
 ```bash
-npm run preflight
-npm run check:migrations
-npm run check:scheduler
-npm run check:analytics
-npm run check:package
-npm audit --omit=dev
+npm run release:check
+```
+
+That runs: release cleanliness check, tests, preflight, migration/scheduler/analytics/package checks, and `npm audit --omit=dev`. Then smoke the executable if building one:
+
+```bash
+npm run smoke:exe
 ```
