@@ -11,7 +11,7 @@
 // Usage:  node scripts/smoke-exe.js [path-to-exe]
 // With no argument it picks the platform-matching artifact from dist/.
 //
-// Run this on the SAME OS/arch you built for — a native module built for one
+// Run this on the SAME OS/arch you built for - a native module built for one
 // platform will not load on another.
 
 'use strict';
@@ -27,11 +27,13 @@ const PORT = parseInt(process.env.PAPERWEIGHT_SMOKE_PORT || '3970', 10);
 const BOOT_TIMEOUT_MS = parseInt(process.env.PAPERWEIGHT_SMOKE_BOOT_MS || '30000', 10);
 
 function defaultExe() {
-  switch (process.platform) {
-    case 'win32':  return path.join(DIST, 'paperweight-win.exe');
-    case 'darwin': return path.join(DIST, 'paperweight-macos-x64');
-    default:       return path.join(DIST, 'paperweight-linux-x64');
+  if (process.platform === 'win32') {
+    return path.join(DIST, 'paperweight-win-x64.exe');
   }
+  if (process.platform === 'darwin') {
+    return path.join(DIST, process.arch === 'arm64' ? 'paperweight-macos-arm64' : 'paperweight-macos-x64');
+  }
+  return path.join(DIST, process.arch === 'arm64' ? 'paperweight-linux-arm64' : 'paperweight-linux-x64');
 }
 
 const exePath = process.argv[2] ? path.resolve(process.argv[2]) : defaultExe();
