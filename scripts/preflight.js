@@ -89,8 +89,8 @@ async function main() {
 
   section('Node.js');
   const [major] = process.versions.node.split('.').map(Number);
-  if (major >= 18) pass(`Node.js ${process.version}`);
-  else fail(`Node.js ${process.version} - v18+ required`);
+  if (major >= 20) pass(`Node.js ${process.version}`);
+  else fail(`Node.js ${process.version} - v20+ required`);
 
   section('.env');
   if (!hasEnv) {

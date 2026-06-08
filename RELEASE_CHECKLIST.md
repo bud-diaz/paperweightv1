@@ -4,7 +4,7 @@ Use this before publishing Paperweight for public distribution.
 
 ## Required Environment
 
-- Node.js 18 or newer is installed.
+- Node.js 20 or newer is installed.
 - `npm install` has completed successfully.
 - FFmpeg and ffprobe are installed and available on `PATH`.
 - `.env` exists and has a permanent `DASHBOARD_TOKEN`.
