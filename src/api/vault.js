@@ -26,10 +26,75 @@ function getPriceConfig(db, unlockType, targetId) {
 // Enforce minimum price server-side. Returns an error string or null.
 function validateAmount(priceConfig, amount) {
   if (!priceConfig) return 'Pricing not configured for this item';
+  if (amount < 0) return 'Amount must be zero or greater';
   if (priceConfig.allow_free) return null;
   if (!amount || amount < priceConfig.minimum_price) {
     return `Minimum price is ${priceConfig.minimum_price} cents ($${(priceConfig.minimum_price / 100).toFixed(2)})`;
   }
+  return null;
+}
+
+function normalizePriceOption(row) {
+  if (!row) return null;
+  return {
+    id: row.id ?? row.content_id ?? null,
+    contentId: row.content_id ?? null,
+    name: row.name ?? null,
+    description: row.description ?? null,
+    suggestedPrice: row.suggested_price ?? 0,
+    minimumPrice: row.minimum_price ?? 0,
+    allowFree: row.allow_free === 1 || row.allow_free === true,
+    paymentType: row.payment_type || 'one_time',
+    recurringInterval: row.recurring_interval || null,
+    currency: row.currency || 'usd',
+  };
+}
+
+function normalizeUnlockOptions(options = {}) {
+  return {
+    track: normalizePriceOption(options.track),
+    project: normalizePriceOption(options.project),
+    allAccess: normalizePriceOption(options.allAccess),
+  };
+}
+
+function isFreeOneTimeUnlock(priceConfig, amountCents, paymentType) {
+  return paymentType === 'one_time' && amountCents === 0 && !!priceConfig?.allow_free;
+}
+
+function stripeObjectId(value) {
+  if (!value) return null;
+  return typeof value === 'string' ? value : value.id || null;
+}
+
+function stripeSubscriptionPeriodEnd(value) {
+  if (!value || typeof value === 'string' || !value.current_period_end) return null;
+  return new Date(value.current_period_end * 1000).toISOString();
+}
+
+function isStripeSubscriptionActive(value) {
+  return !!(value && typeof value !== 'string' && ['active', 'trialing'].includes(value.status));
+}
+
+function resolvePaidUnlockSession(session) {
+  const meta = session?.metadata || {};
+  if (!meta.vault_unlock_type || !meta.vault_listener_id) return null;
+
+  if (meta.vault_payment_type === 'one_time') {
+    if (session.payment_status !== 'paid') return null;
+    const stripePaymentId = stripeObjectId(session.payment_intent);
+    if (!stripePaymentId) return null;
+    return { stripePaymentId, expiresAt: null };
+  }
+
+  if (meta.vault_payment_type === 'recurring') {
+    if (!isStripeSubscriptionActive(session.subscription)) return null;
+    const stripePaymentId = stripeObjectId(session.subscription);
+    const expiresAt = stripeSubscriptionPeriodEnd(session.subscription);
+    if (!stripePaymentId || !expiresAt) return null;
+    return { stripePaymentId, expiresAt };
+  }
+
   return null;
 }
 
@@ -311,7 +376,7 @@ router.get('/unlock-options/:content_id', (req, res) => {
     return res.json({ alreadyUnlocked: true });
   }
 
-  res.json({ isVault: true, unlockOptions: result.unlockOptions });
+  res.json({ isVault: true, unlockOptions: normalizeUnlockOptions(result.unlockOptions) });
 });
 
 // POST /api/vault/unlock
@@ -322,11 +387,6 @@ router.post('/unlock', paymentLimiter, async (req, res) => {
   const listenerId = req.tokenRow?.listener_id;
   if (!listenerId) {
     return res.status(401).json({ error: 'Account required', action: 'signup' });
-  }
-
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeKey) {
-    return res.status(503).json({ error: 'Stripe is not configured on this server' });
   }
 
   const { unlock_type, target_id, amount, payment_type, recurring_interval } = req.body;
@@ -361,6 +421,26 @@ router.post('/unlock', paymentLimiter, async (req, res) => {
   const priceConfig = getPriceConfig(db, unlock_type, targetId);
   const priceError = validateAmount(priceConfig, amountCents);
   if (priceError) return res.status(400).json({ error: priceError });
+  if (payment_type === 'recurring' && amountCents < 1) {
+    return res.status(400).json({ error: 'Recurring unlocks require a paid amount' });
+  }
+  if (isFreeOneTimeUnlock(priceConfig, amountCents, payment_type)) {
+    createVaultUnlock(db, {
+      listenerId,
+      unlockType: unlock_type,
+      targetId,
+      paymentType: 'one_time',
+      amountPaid: 0,
+      stripePaymentId: null,
+      expiresAt: null,
+    });
+    return res.json({ unlocked: true });
+  }
+
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey) {
+    return res.status(503).json({ error: 'Stripe is not configured on this server' });
+  }
 
   try {
     const stripe = require('stripe')(stripeKey);
@@ -446,7 +526,8 @@ router.get('/unlock-success', async (req, res) => {
       });
 
       const meta = session.metadata || {};
-      if (meta.vault_unlock_type && meta.vault_listener_id) {
+      const paid = resolvePaidUnlockSession(session);
+      if (paid) {
         const db = getDb();
         createVaultUnlock(db, {
           listenerId:      parseInt(meta.vault_listener_id, 10),
@@ -454,10 +535,8 @@ router.get('/unlock-success', async (req, res) => {
           targetId:        meta.vault_target_id ? parseInt(meta.vault_target_id, 10) : null,
           paymentType:     meta.vault_payment_type,
           amountPaid:      session.amount_total || 0,
-          stripePaymentId: session.payment_intent?.id || session.subscription?.id || null,
-          expiresAt:       session.subscription?.current_period_end
-            ? new Date(session.subscription.current_period_end * 1000).toISOString()
-            : null,
+          stripePaymentId: paid.stripePaymentId,
+          expiresAt:       paid.expiresAt,
         });
       }
     } catch { /* webhook is authoritative — don't block redirect */ }
@@ -469,6 +548,12 @@ router.get('/unlock-success', async (req, res) => {
 // ─── Shared unlock creation helper (used by redirect + webhook) ───────────────
 
 function createVaultUnlock(db, { listenerId, unlockType, targetId, paymentType, amountPaid, stripePaymentId, expiresAt }) {
+  const paidAmount = Number(amountPaid || 0);
+  const isFreeOneTime = paymentType === 'one_time' && paidAmount === 0;
+  if (!stripePaymentId && !isFreeOneTime) {
+    throw new Error('Paid vault unlocks require a Stripe payment or subscription id');
+  }
+
   // Idempotent: skip if stripe_payment_id already recorded
   if (stripePaymentId) {
     const existing = db.prepare(
@@ -484,7 +569,7 @@ function createVaultUnlock(db, { listenerId, unlockType, targetId, paymentType, 
     INSERT INTO vault_unlocks (listener_id, unlock_type, target_id, amount_paid, payment_type, stripe_payment_id, active, expires_at)
     VALUES (?, ?, ?, ?, ?, ?, 1, ?)
     ON CONFLICT DO NOTHING
-  `).run(listenerId, unlockType, targetId || null, amountPaid || 0, paymentType, stripePaymentId || null, expiresAt || null);
+  `).run(listenerId, unlockType, targetId || null, paidAmount, paymentType, stripePaymentId || null, expiresAt || null);
 
   if (info.changes === 0 && stripePaymentId) {
     // Lost the race to a concurrent insert — return the row that won.
@@ -499,3 +584,7 @@ function createVaultUnlock(db, { listenerId, unlockType, targetId, paymentType, 
 module.exports = router;
 module.exports.dashRouter     = dashRouter;
 module.exports.createVaultUnlock = createVaultUnlock;
+module.exports.normalizePriceOption = normalizePriceOption;
+module.exports.normalizeUnlockOptions = normalizeUnlockOptions;
+module.exports.isFreeOneTimeUnlock = isFreeOneTimeUnlock;
+module.exports.resolvePaidUnlockSession = resolvePaidUnlockSession;

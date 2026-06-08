@@ -2,8 +2,15 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { freshDb, seedListener, seedToken, futureIso } = require('./helpers');
-const { activateSubscription, cancelSubscription, claimAndRun } = require('../src/api/payment');
-const { createVaultUnlock } = require('../src/api/vault');
+const {
+  activateSubscription,
+  cancelSubscription,
+  claimAndRun,
+  isPaidCheckoutSession,
+  isSucceededPaymentIntent,
+  refreshExistingStripeSubscription,
+} = require('../src/api/payment');
+const { createVaultUnlock, resolvePaidUnlockSession } = require('../src/api/vault');
 
 function getSub(db, providerSubscriptionId) {
   return db.prepare('SELECT * FROM subscriptions WHERE provider_subscription_id = ?').get(providerSubscriptionId);
@@ -126,6 +133,98 @@ test('vault unlock creation is idempotent by Stripe payment id', () => {
   assert.strictEqual(second, first);
   const rows = db.prepare('SELECT * FROM vault_unlocks WHERE stripe_payment_id = ?').all('pi_1');
   assert.strictEqual(rows.length, 1);
+});
+
+test('paid vault unlocks require a Stripe payment id, while free one-time unlocks can be local', () => {
+  const db = freshDb();
+  const listenerId = seedListener(db);
+
+  assert.throws(() => {
+    createVaultUnlock(db, {
+      listenerId,
+      unlockType: 'track',
+      targetId: 123,
+      paymentType: 'one_time',
+      amountPaid: 500,
+      stripePaymentId: null,
+      expiresAt: null,
+    });
+  }, /Stripe payment or subscription id/);
+
+  const id = createVaultUnlock(db, {
+    listenerId,
+    unlockType: 'track',
+    targetId: 123,
+    paymentType: 'one_time',
+    amountPaid: 0,
+    stripePaymentId: null,
+    expiresAt: null,
+  });
+
+  const row = db.prepare('SELECT * FROM vault_unlocks WHERE id = ?').get(id);
+  assert.strictEqual(row.amount_paid, 0);
+  assert.strictEqual(row.stripe_payment_id, null);
+});
+
+test('vault redirect sessions must prove payment or an active subscription', () => {
+  const baseMeta = {
+    vault_unlock_type: 'track',
+    vault_listener_id: '1',
+    vault_target_id: '9',
+  };
+
+  assert.strictEqual(resolvePaidUnlockSession({
+    metadata: { ...baseMeta, vault_payment_type: 'one_time' },
+    payment_status: 'unpaid',
+    payment_intent: { id: 'pi_unpaid', status: 'requires_payment_method' },
+  }), null);
+
+  assert.deepStrictEqual(resolvePaidUnlockSession({
+    metadata: { ...baseMeta, vault_payment_type: 'one_time' },
+    payment_status: 'paid',
+    payment_intent: { id: 'pi_paid', status: 'succeeded' },
+  }), { stripePaymentId: 'pi_paid', expiresAt: null });
+
+  assert.strictEqual(resolvePaidUnlockSession({
+    metadata: { ...baseMeta, vault_payment_type: 'recurring' },
+    subscription: { id: 'sub_incomplete', status: 'incomplete', current_period_end: 2000 },
+  }), null);
+
+  assert.deepStrictEqual(resolvePaidUnlockSession({
+    metadata: { ...baseMeta, vault_payment_type: 'recurring' },
+    subscription: { id: 'sub_active', status: 'active', current_period_end: 2000 },
+  }), { stripePaymentId: 'sub_active', expiresAt: new Date(2000 * 1000).toISOString() });
+});
+
+test('Stripe subscription renewal refreshes an existing row even without metadata', () => {
+  const db = freshDb();
+  const listenerId = seedListener(db);
+  const token = seedToken(db, { tier: 'free', listenerId });
+  activateSubscription(db, {
+    providerSubscriptionId: 'sub_renew',
+    provider: 'stripe',
+    tier: 'subscriber',
+    currentPeriodEnd: futureIso(60_000),
+    listenerIdOrEmail: listenerId,
+  });
+
+  const renewed = refreshExistingStripeSubscription(db, {
+    id: 'sub_renew',
+    status: 'active',
+    current_period_end: 4_102_444_800,
+    metadata: {},
+  });
+
+  assert.strictEqual(renewed, true);
+  assert.strictEqual(getSub(db, 'sub_renew').current_period_end, '2100-01-01T00:00:00.000Z');
+  assert.strictEqual(db.prepare('SELECT tier FROM tokens WHERE id = ?').get(token.id).tier, 'subscriber');
+});
+
+test('tip redirect helpers require paid checkout and succeeded payment intent', () => {
+  assert.strictEqual(isPaidCheckoutSession({ payment_status: 'paid' }), true);
+  assert.strictEqual(isPaidCheckoutSession({ payment_status: 'unpaid' }), false);
+  assert.strictEqual(isSucceededPaymentIntent({ id: 'pi_1', status: 'succeeded' }), true);
+  assert.strictEqual(isSucceededPaymentIntent({ id: 'pi_2', status: 'requires_payment_method' }), false);
 });
 
 test('claimAndRun runs the mutation exactly once and reports duplicates', () => {

@@ -3118,9 +3118,9 @@ el('dash-upload-submit').addEventListener('click', async () => {
 
   for (const file of uploadFiles) {
     const fd = new FormData();
-    fd.append('media',      file);
     fd.append('category',   category);
     fd.append('visibility', vis);
+    fd.append('media',      file);
     try {
       const res = await dashFetch('/api/dashboard/upload', { method: 'POST', body: fd });
       if (!res.ok) throw new Error((await res.json()).error || 'Upload failed');

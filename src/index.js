@@ -29,7 +29,7 @@ function createApp() {
   app.use(cookieParser());
   app.use(csrfCheck);
 
-  app.use('/hls', express.static(config.paths.hlsOutput));
+  app.use('/hls/stream', express.static(path.join(config.paths.hlsOutput, 'stream')));
 
   app.get('/vendor/hls.min.js', (req, res) => {
     const asset = hlsAssetPath();

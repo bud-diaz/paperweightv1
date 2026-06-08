@@ -2,7 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config');
 
-const CONCAT_PATH = path.join(config.paths.hlsOutput, 'concat.txt');
+const CONCAT_DIR = path.join(config.paths.hlsOutput, 'work');
+const CONCAT_PATH = path.join(CONCAT_DIR, 'concat.txt');
 
 // Escapes a file path for use in an ffconcat manifest.
 // Single quotes are the only character that needs escaping in this format.
@@ -11,6 +12,7 @@ function escapePath(p) {
 }
 
 function writeConcatManifest(tracks) {
+  fs.mkdirSync(CONCAT_DIR, { recursive: true });
   const lines = ['ffconcat version 1.0'];
 
   for (const track of tracks) {
@@ -24,4 +26,4 @@ function writeConcatManifest(tracks) {
   return CONCAT_PATH;
 }
 
-module.exports = { writeConcatManifest, CONCAT_PATH };
+module.exports = { writeConcatManifest, CONCAT_PATH, CONCAT_DIR };

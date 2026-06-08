@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
+const crypto = require('crypto');
 const { URL: NodeURL } = require('url');
 const multer = require('multer');
 const { getDb, log } = require('../db');
@@ -18,6 +19,7 @@ router.use(requireDashboard);
 
 const VALID_CATEGORIES  = new Set(['music', 'beats', 'podcasts', 'videos', 'drafts', 'live_sessions']);
 const VALID_VISIBILITY  = new Set(['public', 'supporters_only', 'vault']);
+const UPLOAD_TMP_DIR = path.join(config.paths.data, 'upload_tmp');
 
 // MIME types accepted for vault uploads — audio and video only.
 const ALLOWED_MIMES = new Set([
@@ -28,28 +30,42 @@ const ALLOWED_MIMES = new Set([
   'video/webm', 'video/mpeg',
 ]);
 
+function sanitizeUploadName(originalname) {
+  const ext = path.extname(String(originalname || ''))
+    .replace(/[^.a-zA-Z0-9]/g, '')
+    .slice(0, 12);
+  let safe = path.basename(String(originalname || ''))
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+    .replace(/\s+/g, '_')
+    .slice(0, 180);
+
+  if (!safe || safe === '.' || safe === '..') {
+    safe = `upload${ext}`;
+  }
+  return safe;
+}
+
+function resolveAvailableUploadPath(dest, originalname) {
+  const safe = sanitizeUploadName(originalname);
+  const ext = path.extname(safe);
+  const stem = (ext ? safe.slice(0, -ext.length) : safe).slice(0, 150) || 'upload';
+  let filename = `${stem}${ext}`;
+  let candidate = path.join(dest, filename);
+  for (let i = 1; fs.existsSync(candidate); i++) {
+    filename = `${stem}_${i}${ext}`;
+    candidate = path.join(dest, filename);
+  }
+  return { filename, filepath: candidate };
+}
+
 const storage = multer.diskStorage({
   destination(req, file, cb) {
-    const category = VALID_CATEGORIES.has(req.body.category)
-      ? req.body.category
-      : 'music';
-    const dest = path.join(config.vault.path, category);
-    fs.mkdirSync(dest, { recursive: true });
-    cb(null, dest);
+    fs.mkdirSync(UPLOAD_TMP_DIR, { recursive: true });
+    cb(null, UPLOAD_TMP_DIR);
   },
   filename(req, file, cb) {
-    let safe = path.basename(file.originalname)
-      .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
-      .replace(/\s+/g, '_')
-      .slice(0, 180);
-    // '', '.', and '..' resolve to a directory, so path.join(dest, safe) would
-    // target the category dir or its parent (EISDIR). Fall back to a generated
-    // name, preserving any usable extension.
-    if (!safe || safe === '.' || safe === '..') {
-      const ext = path.extname(file.originalname).replace(/[^.a-zA-Z0-9]/g, '').slice(0, 12);
-      safe = `upload_${Date.now()}${ext}`;
-    }
-    cb(null, safe);
+    const ext = path.extname(file.originalname).replace(/[^.a-zA-Z0-9]/g, '').slice(0, 12);
+    cb(null, `upload_${Date.now()}_${crypto.randomBytes(6).toString('hex')}${ext}`);
   },
 });
 
@@ -110,17 +126,29 @@ router.post('/upload', (req, res) => {
     }
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-    const category   = path.basename(req.file.destination);
+    const category   = VALID_CATEGORIES.has(req.body.category) ? req.body.category : 'music';
     const visibility = VALID_VISIBILITY.has(req.body.visibility) ? req.body.visibility : 'public';
-    const absFilepath = path.resolve(req.file.path);
+    const tmpFilepath = path.resolve(req.file.path);
 
     try {
-      await probe(absFilepath);
+      await probe(tmpFilepath);
     } catch (probeErr) {
-      try { fs.unlinkSync(absFilepath); } catch {}
-      log('warn', 'dashboard', `Rejected upload after ffprobe failure: ${req.file.filename} (${probeErr.message})`);
+      try { fs.unlinkSync(tmpFilepath); } catch {}
+      log('warn', 'dashboard', `Rejected upload after ffprobe failure: ${req.file.originalname} (${probeErr.message})`);
       return res.status(400).json({ error: `Uploaded file could not be inspected by ffprobe: ${probeErr.message}` });
     }
+
+    const destDir = path.join(config.vault.path, category);
+    fs.mkdirSync(destDir, { recursive: true });
+    const finalFile = resolveAvailableUploadPath(destDir, req.file.originalname);
+    try {
+      fs.renameSync(tmpFilepath, finalFile.filepath);
+    } catch (moveErr) {
+      try { fs.unlinkSync(tmpFilepath); } catch {}
+      log('error', 'dashboard', `Upload move failed: ${req.file.originalname} (${moveErr.message})`);
+      return res.status(500).json({ error: 'Upload failed while moving file into the vault' });
+    }
+    const absFilepath = path.resolve(finalFile.filepath);
 
     // Stamp visibility immediately so the scanner's later upsert (which doesn't
     // touch the visibility column) preserves the creator's chosen value.
@@ -129,12 +157,12 @@ router.post('/upload', (req, res) => {
       INSERT INTO media (filepath, filename, category, visibility, indexed_at, updated_at)
       VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
       ON CONFLICT(filepath) DO UPDATE SET visibility = excluded.visibility
-    `).run(absFilepath, req.file.filename, category, visibility);
+    `).run(absFilepath, finalFile.filename, category, visibility);
 
-    log('info', 'dashboard', `Uploaded: ${req.file.filename} → ${req.file.destination} [${visibility}]`);
+    log('info', 'dashboard', `Uploaded: ${finalFile.filename} -> ${destDir} [${visibility}]`);
     res.status(201).json({
-      filename:   req.file.filename,
-      filepath:   req.file.path,
+      filename:   finalFile.filename,
+      filepath:   absFilepath,
       size:       req.file.size,
       category,
       visibility,
@@ -521,3 +549,5 @@ router.get('/webhook-log', (req, res) => {
 });
 
 module.exports = router;
+module.exports.sanitizeUploadName = sanitizeUploadName;
+module.exports.resolveAvailableUploadPath = resolveAvailableUploadPath;
