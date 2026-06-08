@@ -33,6 +33,7 @@ const pkgAssets = new Set(pkg.pkg?.assets || []);
 for (const asset of [
   'package.json',
   'client/**/*',
+  'src/db/migrations/*.sql',
   'node_modules/hls.js/dist/hls.min.js',
   'node_modules/better-sqlite3/build/Release/*.node',
 ]) {
@@ -41,6 +42,20 @@ for (const asset of [
   } else {
     fail(`pkg asset missing: ${asset}`);
   }
+}
+
+// Migrations are read from disk at runtime (src/db/index.js), so every .sql in
+// src/db/migrations must be inside the pkg snapshot or the exe crashes at boot.
+const migrationsDir = path.join(ROOT, 'src/db/migrations');
+const migrationFiles = fs.existsSync(migrationsDir)
+  ? fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql'))
+  : [];
+if (migrationFiles.length === 0) {
+  fail('no migration .sql files found under src/db/migrations');
+} else if ([...pkgAssets].some(e => e.includes('src/db/migrations'))) {
+  pass(`migrations bundled: ${migrationFiles.length} .sql files covered by pkg asset glob`);
+} else {
+  fail(`${migrationFiles.length} migration .sql files are not covered by any pkg asset (exe would crash at boot)`);
 }
 
 for (const rel of [
