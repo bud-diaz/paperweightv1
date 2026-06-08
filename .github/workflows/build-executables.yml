@@ -130,10 +130,13 @@ jobs:
       - name: Smoke test executable
         run: npm run smoke:exe -- ${{ matrix.executable }}
 
-      - name: Upload executable
+      - name: Package release zip
+        run: node scripts/package-release.js --target ${{ matrix.target }}
+
+      - name: Upload release zip
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.executable }}
+          path: releases/${{ matrix.artifact }}.zip
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 90
