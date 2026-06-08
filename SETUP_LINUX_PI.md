@@ -47,7 +47,7 @@ mount | grep hls_output
 ## Keep It Running
 
 ```bash
-pm2 start src/index.js --name paperweight
+pm2 start ecosystem.config.js
 pm2 save
 pm2 startup
 ```

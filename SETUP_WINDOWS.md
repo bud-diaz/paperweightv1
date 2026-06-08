@@ -52,7 +52,7 @@ Use the dashboard token printed by `scripts/setup.sh`.
 ## Keep It Running
 
 ```powershell
-pm2 start src/index.js --name paperweight
+pm2 start ecosystem.config.js
 pm2 save
 pm2-windows-startup install
 ```

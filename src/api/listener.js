@@ -190,7 +190,7 @@ router.patch('/password', authLimiter, async (req, res) => {
 // ─── Saved stations ───────────────────────────────────────────────────────────
 // CLOUD PHASE (gated by PAPERWEIGHT_CLOUD): the multi-station directory. A single
 // Paperweight Play client saves many creator stations by core_url. Self-hosted
-// builds serve one station and never call these routes. See ROADMAP.md.
+// builds serve one station and never call these routes.
 
 // GET /api/listener/saved-stations
 // Returns the listener's saved stations.

@@ -108,7 +108,7 @@ function cancelSubscription(db, { providerSubscriptionId }) {
 // CLOUD PHASE (gated by PAPERWEIGHT_CLOUD): native-app checkout. The native
 // Paperweight Play app opens the returned URL in a WebView; on success Core
 // redirects to the paperweightplay:// deep link. Inert in self-hosted builds —
-// the web player uses GET /checkout-url instead. See ROADMAP.md.
+// the web player uses GET /checkout-url instead.
 // Body: { tier: 'pro'|'all_access', provider: 'stripe'|'paypal' }
 // Returns: { checkoutUrl }
 router.post('/checkout', cloudOnly, paymentLimiter, (req, res) => {
@@ -294,7 +294,7 @@ async function verifyPayPalWebhook({ clientId, clientSecret, webhookId, headers,
 // GET /api/payment/success
 // CLOUD PHASE (gated by PAPERWEIGHT_CLOUD): redirect target for the native-app
 // checkout above. Completes the subscription and redirects to the paperweightplay://
-// deep link. The web player uses GET /web-success instead. See ROADMAP.md.
+// deep link. The web player uses GET /web-success instead.
 router.get('/success', cloudOnly, async (req, res) => {
   const { session_id, tier } = req.query;
 
