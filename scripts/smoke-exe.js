@@ -44,6 +44,14 @@ if (!fs.existsSync(exePath)) {
 }
 
 const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-exe-smoke-'));
+
+// Copy the exe into workDir so path.dirname(process.execPath) === workDir.
+// The packaged server writes .env / data/ / hls_output/ next to the executable,
+// which is the same directory a user would run it from.
+const workExe = path.join(workDir, path.basename(exePath));
+fs.copyFileSync(exePath, workExe);
+if (process.platform !== 'win32') fs.chmodSync(workExe, 0o755);
+
 console.log(`Clean-folder smoke for ${path.basename(exePath)}`);
 console.log(`  working dir: ${workDir}`);
 console.log(`  port:        ${PORT}\n`);
@@ -53,7 +61,7 @@ console.log(`  port:        ${PORT}\n`);
 const childEnv = { ...process.env, PORT: String(PORT), PAPERWEIGHT_NO_BROWSER: 'true' };
 delete childEnv.PAPERWEIGHT_ALLOW_MISSING_ENV;
 
-const child = spawn(exePath, [], {
+const child = spawn(workExe, [], {
   cwd: workDir,
   env: childEnv,
   stdio: ['ignore', 'inherit', 'inherit'],

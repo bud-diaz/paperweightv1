@@ -9,12 +9,27 @@ const broadcast = require('./broadcast');
 const apiRouter = require('./api/router');
 const { csrfCheck } = require('./middleware/csrfCheck');
 
+const isPackaged = typeof process.pkg !== 'undefined';
+
 let server;
 let isShuttingDown = false;
 let fatalExitCode = 0;
 
 function hlsAssetPath() {
   return path.join(config.paths.app, 'node_modules', 'hls.js', 'dist', 'hls.min.js');
+}
+
+// When packaged (pkg/node20), asset globs in package.json are not bundled.
+// All client files and hls.js are embedded in src/client-bundle.js instead.
+function bundledStaticMiddleware() {
+  const bundle = require('./client-bundle');
+  return (req, res, next) => {
+    const entry = bundle[req.path];
+    if (!entry) return next();
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Content-Type', entry.mime);
+    res.end(entry.data);
+  };
 }
 
 function createApp() {
@@ -32,6 +47,14 @@ function createApp() {
   app.use('/hls/stream', express.static(path.join(config.paths.hlsOutput, 'stream')));
 
   app.get('/vendor/hls.min.js', (req, res) => {
+    if (isPackaged) {
+      const entry = require('./client-bundle')['/vendor/hls.min.js'];
+      if (entry) {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('Content-Type', 'text/javascript');
+        return res.end(entry.data);
+      }
+    }
     const asset = hlsAssetPath();
     if (!fs.existsSync(asset)) {
       return res.status(404).type('text/plain').send('hls.js asset not installed');
@@ -42,10 +65,23 @@ function createApp() {
 
   app.use('/api', apiRouter);
 
+  // User-side overrides (files placed next to the exe) take precedence.
   app.use(express.static(path.join(config.paths.root, 'client')));
-  app.use(express.static(path.join(config.paths.app, 'client')));
+  // In packaged builds asset globs don't work with node20; serve from the JS bundle.
+  if (isPackaged) {
+    app.use(bundledStaticMiddleware());
+  } else {
+    app.use(express.static(path.join(config.paths.app, 'client')));
+  }
 
   app.get('/landing', (req, res) => {
+    if (isPackaged) {
+      const entry = require('./client-bundle')['/index.html'];
+      if (entry) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.end(entry.data);
+      }
+    }
     res.sendFile(path.join(config.paths.app, 'client', 'index.html'));
   });
 
@@ -85,8 +121,15 @@ function createApp() {
       return res.status(404).json({ error: 'Not found' });
     }
     const override = path.join(config.paths.root, 'client', 'creator.html');
-    const bundled = path.join(config.paths.app, 'client', 'creator.html');
-    res.sendFile(fs.existsSync(override) ? override : bundled);
+    if (fs.existsSync(override)) return res.sendFile(override);
+    if (isPackaged) {
+      const entry = require('./client-bundle')['/creator.html'];
+      if (entry) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.end(entry.data);
+      }
+    }
+    res.sendFile(path.join(config.paths.app, 'client', 'creator.html'));
   });
 
   app.use((err, req, res, next) => {

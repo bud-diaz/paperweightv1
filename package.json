@@ -49,9 +49,6 @@
     ],
     "assets": [
       "package.json",
-      "client/**/*",
-      "src/db/migrations/*.sql",
-      "node_modules/hls.js/dist/hls.min.js",
       "node_modules/better-sqlite3/build/Release/*.node",
       "node_modules/better-sqlite3/build/Release/*.dll"
     ],
