@@ -138,7 +138,7 @@ function initDb() {
   // pkg/node20 asset globs are broken so better_sqlite3.node is embedded in
   // src/native-bundle.js and extracted to disk at startup by native-loader.js.
   if (typeof process.pkg !== 'undefined') {
-    const getNativeBindingPath = require('./native-loader');
+    const getNativeBindingPath = require('../native-loader');
     db = new Database(DB_PATH, { nativeBinding: getNativeBindingPath() });
   } else {
     db = new Database(DB_PATH);
