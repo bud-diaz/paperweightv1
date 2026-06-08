@@ -76,6 +76,10 @@ async function main() {
 
   await expect('/', res => res.status === 200 && /html/i.test(res.headers['content-type'] || ''), 'SPA fallback returns HTML');
 
+  // Vendored frontend assets must be served locally (no runtime CDN dependency).
+  await expect('/vendor/hls.min.js', res => res.status === 200 && /javascript/i.test(res.headers['content-type'] || ''), 'hls.js is served locally');
+  await expect('/vendor/fonts/fonts.css', res => res.status === 200 && /css/i.test(res.headers['content-type'] || ''), 'fonts are served locally');
+
   if (!ok) {
     process.exitCode = 1;
     console.log('Smoke test failed.');

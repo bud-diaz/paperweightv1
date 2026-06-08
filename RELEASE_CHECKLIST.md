@@ -11,6 +11,10 @@ Use this before publishing Paperweight for public distribution.
 - `DOWNLOAD_SIGNING_SECRET` is set for public stations.
 - The vault path exists and contains the expected category folders.
 
+For source installs, set both secrets in `.env` explicitly. A packaged exe with no
+`.env` generates both on first run and writes them back so they persist; treat the
+generated `DASHBOARD_TOKEN` printed on first launch as sensitive.
+
 ## Required Gate
 
 Run:
@@ -62,11 +66,34 @@ For each platform:
 
 Executables are optional convenience artifacts, not the primary public distribution path.
 
+Build each target **on its matching OS and architecture** — `better-sqlite3` is a
+native module, so a binary built on one platform will not load on another. Use a
+clean dependency install so the bundled native matches the target:
+
 ```bash
-npm run build:exe
+npm ci            # rebuilds better-sqlite3 for this OS/arch
+npm run build:exe # runs release:check, then packages to dist/
 ```
 
-Do not publish executable artifacts unless the same platform has passed the clean-folder smoke test.
+`build:exe` runs the full `release:check` first, so FFmpeg/ffprobe must be on
+`PATH` on the build machine (preflight fails otherwise).
+
+### Clean-folder smoke (required before publishing an exe)
+
+Verify the built binary self-bootstraps with nothing beside it:
+
+```bash
+npm run smoke:exe   # launches the exe in an empty temp dir and smokes it
+```
+
+It confirms the exe, starting from an empty folder, creates its own `.env` (with a
+generated `DASHBOARD_TOKEN` and `DOWNLOAD_SIGNING_SECRET`), `data/paperweight.db`,
+and `hls_output/stream/`, applies all migrations, and serves the locally-vendored
+frontend (`/vendor/hls.min.js`, `/vendor/fonts/fonts.css`) with no CDN. The
+generated secrets are written back to `.env`, so they persist across restarts.
+
+Do not publish executable artifacts unless the same platform has passed this
+clean-folder smoke.
 
 ## Do Not Ship If
 

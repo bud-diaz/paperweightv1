@@ -38,6 +38,11 @@ function waitForServer(attemptsLeft) {
 
   const req = http.get(url, res => {
     res.resume();
+    // Allow headless/automated runs (e.g. the clean-folder exe smoke) to skip it.
+    if (process.env.PAPERWEIGHT_NO_BROWSER === 'true') {
+      console.log(`[Paperweight] Server ready at: ${url}`);
+      return;
+    }
     console.log(`[Paperweight] Opening browser -> ${url}`);
     openBrowser(url);
   });

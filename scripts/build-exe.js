@@ -67,3 +67,6 @@ for (const { label, target, out } of targets) {
 }
 
 console.log('\nExecutable packaging complete.');
+console.log('\nNext: verify the build self-bootstraps in an empty folder with');
+console.log('  npm run smoke:exe');
+console.log('Run it on this same OS/arch — a native module built here will not load elsewhere.');
