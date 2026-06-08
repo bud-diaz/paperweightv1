@@ -126,7 +126,14 @@ console.log('Public distribution remains source/install-script based.\n');
 console.log(`Host: ${process.platform}/${process.arch}`);
 console.log(`Targets: ${targets.map(t => t.key).join(', ')}\n`);
 
+// Regenerate the client bundle so pkg bundles the latest client/ and hls.js.
+run('node scripts/generate-client-bundle.js');
+
 run('npm run release:check');
+
+// Generate platform-specific native binding bundle AFTER release:check so the
+// untracked-file check doesn't flag it (it's gitignored but only created here).
+run('node scripts/generate-native-bundle.js');
 
 const pkgBin = path.join(ROOT, 'node_modules', '.bin', 'pkg');
 if (!fs.existsSync(pkgBin) && !fs.existsSync(`${pkgBin}.cmd`)) {

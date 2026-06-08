@@ -30,6 +30,9 @@ logs/
 # Build output
 dist/
 
+# Platform-specific native binding bundle — generated at build time, NOT committed
+src/native-bundle.js
+
 # Temp and scratch files
 *.tmp
 *_temp.html
