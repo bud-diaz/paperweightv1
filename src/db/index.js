@@ -5,7 +5,6 @@ const crypto = require('crypto');
 const config = require('../config');
 
 const DB_PATH = path.join(config.paths.data, 'paperweight.db');
-const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 
 let db;
 
@@ -31,23 +30,20 @@ function migrationChecksum(sql) {
 function runMigrations(database) {
   ensureMigrationTable(database);
 
-  const files = fs.readdirSync(MIGRATIONS_DIR)
-    .filter(f => f.endsWith('.sql'))
-    .sort();
+  const migrations = require('./migrations');
 
   const applied = new Map(
     database.prepare('SELECT filename, checksum FROM schema_migrations').all()
       .map(row => [row.filename, row.checksum])
   );
 
-  for (const file of files) {
-    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
+  for (const { filename, sql } of migrations) {
     const checksum = migrationChecksum(sql);
-    const previousChecksum = applied.get(file);
+    const previousChecksum = applied.get(filename);
 
     if (previousChecksum) {
       if (previousChecksum !== checksum) {
-        log('warn', 'db', `Migration ${file} changed after it was applied; skipping`);
+        log('warn', 'db', `Migration ${filename} changed after it was applied; skipping`);
       }
       continue;
     }
@@ -56,11 +52,11 @@ function runMigrations(database) {
       if (sql.trim()) database.exec(sql);
       database.prepare(
         'INSERT INTO schema_migrations (filename, checksum) VALUES (?, ?)'
-      ).run(file, checksum);
+      ).run(filename, checksum);
     });
 
     applyMigration();
-    log('info', 'db', `Applied migration ${file}`);
+    log('info', 'db', `Applied migration ${filename}`);
   }
 
   // Programmatic ALTER TABLE guards — SQLite has no IF NOT EXISTS for ALTER TABLE.
