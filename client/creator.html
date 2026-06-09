@@ -3878,6 +3878,14 @@ async function startGoLive() {
   msgEl.textContent = 'Requesting microphone…';
   el('btn-go-live').disabled = true;
 
+  if (!navigator.mediaDevices?.getUserMedia) {
+    msgEl.textContent = location.protocol === 'https:'
+      ? 'Mic access unavailable — your browser may be blocking it in settings.'
+      : 'Go Live requires HTTPS. Open this page over a secure connection.';
+    el('btn-go-live').disabled = false;
+    return;
+  }
+
   try {
     liveMediaStream = await navigator.mediaDevices.getUserMedia({
       audio: { sampleRate: 44100, channelCount: 1, echoCancellation: false, noiseSuppression: false },
