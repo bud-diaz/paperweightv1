@@ -67,6 +67,11 @@ async function main() {
     return res.status === 200 && json?.name;
   }, 'manifest endpoint returns station metadata');
 
+  await expect('/api/stream/status', res => {
+    const json = parseJson(res.body);
+    return res.status === 200 && typeof json?.liveActive === 'boolean';
+  }, 'stream status includes liveActive field');
+
   await expect('/api/dashboard/vault', res => res.status === 401, 'dashboard API rejects missing dashboard token');
 
   await expect('/api/library/structure', res => {
