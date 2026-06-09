@@ -8,10 +8,12 @@ Paperweight currently ships as a self-hosted, creator-first streaming and distri
 
 - local media vault
 - continuous HLS stream
+- live mic broadcast from the dashboard
 - web listener player
 - creator dashboard
 - public/supporter/vault visibility
 - listener accounts and creator-issued tokens
+- optional TOTP 2FA on dashboard login
 - optional Stripe/PayPal monetization
 
 The current release is one station per install. It is not a managed cloud platform, mobile app suite, plugin ecosystem, or multi-tenant SaaS.

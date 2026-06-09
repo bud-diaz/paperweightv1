@@ -9,12 +9,14 @@ It is built for one creator or a small trusted team running one station on Windo
 ## What It Does
 
 - Live internet radio from local audio/video files using FFmpeg and HLS.
+- Live mic broadcast from the creator dashboard (go-live directly from the browser).
 - Public library and archive browsing from `vault/`.
 - Visibility controls: public, supporters-only, and vault.
 - Listener accounts, creator-issued access tokens, and account token assignments.
 - Stripe subscriptions, tips, and vault unlock checkout when configured.
 - PayPal subscriptions with verified webhooks when configured.
 - Creator dashboard for media, schedule, uploads, tokens, payments, and analytics.
+- Optional TOTP 2FA on dashboard login.
 - Optional convenience executable packaging for native targets after release checks pass.
 
 ## Supported Platforms
