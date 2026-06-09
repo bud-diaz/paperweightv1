@@ -1,4 +1,5 @@
-const router = require('express').Router();
+const express = require('express');
+const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -10,8 +11,10 @@ const { getDb, log } = require('../db');
 const { requireDashboard } = require('../auth/middleware');
 const { createToken, revokeToken, listTokens, updateTokenTier, listTokensForScope } = require('../auth');
 const broadcast = require('../broadcast');
+const live = require('../broadcast/live');
 const config = require('../config');
 const { probe } = require('../scanner/probe');
+const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCode } = require('../auth/totp');
 
 router.use(requireDashboard);
 
@@ -546,6 +549,113 @@ router.get('/webhook-log', (req, res) => {
 
   const rows = getDb().prepare(sql).all(...params);
   res.json({ events: rows, total: rows.length });
+});
+
+// ─── 2FA management ──────────────────────────────────────────────────────────
+
+// In-memory pending setup secret (awaiting TOTP confirmation before enabling).
+// Single-user app — one pending setup at a time is fine.
+let pendingSetup = null;
+
+// GET /api/dashboard/2fa/status
+router.get('/2fa/status', (req, res) => {
+  const row = getDb().prepare('SELECT enabled FROM dashboard_2fa WHERE id = 1').get();
+  res.json({ enabled: !!(row && row.enabled) });
+});
+
+// POST /api/dashboard/2fa/setup
+// Generates a new TOTP secret. Does NOT enable 2FA — call /2fa/confirm next.
+router.post('/2fa/setup', (req, res) => {
+  const secret = generateSecret();
+  pendingSetup = { secret, createdAt: Date.now() };
+  res.json({ secret, otpauthUri: getOtpauthUri(secret, config.station.name) });
+});
+
+// POST /api/dashboard/2fa/confirm
+// Body: { code } — verifies TOTP against the pending secret and enables 2FA.
+// Returns one-time recovery codes — the client must display and save these.
+router.post('/2fa/confirm', (req, res) => {
+  const { code } = req.body || {};
+  if (!code) return res.status(400).json({ error: 'code is required' });
+
+  if (!pendingSetup || Date.now() - pendingSetup.createdAt > 10 * 60 * 1000) {
+    pendingSetup = null;
+    return res.status(400).json({ error: 'No pending setup — call /2fa/setup first' });
+  }
+
+  if (!verifyTOTP(pendingSetup.secret, String(code).replace(/\s/g, ''))) {
+    return res.status(400).json({ error: 'Invalid code — check your authenticator app' });
+  }
+
+  const recoveryCodes = generateRecoveryCodes();
+  const hashedCodes   = recoveryCodes.map(hashCode);
+
+  getDb().prepare(`
+    INSERT INTO dashboard_2fa (id, secret, enabled, recovery_codes)
+    VALUES (1, ?, 1, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      secret         = excluded.secret,
+      enabled        = 1,
+      recovery_codes = excluded.recovery_codes
+  `).run(pendingSetup.secret, JSON.stringify(hashedCodes));
+
+  pendingSetup = null;
+  log('info', 'dashboard', '2FA enabled');
+  res.json({ ok: true, recoveryCodes }); // shown once — user must save these
+});
+
+// DELETE /api/dashboard/2fa
+// Body: { code } — disables 2FA after confirming the current TOTP code.
+router.delete('/2fa', (req, res) => {
+  const { code } = req.body || {};
+  if (!code) return res.status(400).json({ error: 'Current authenticator code is required' });
+
+  const row = getDb().prepare('SELECT secret FROM dashboard_2fa WHERE id = 1 AND enabled = 1').get();
+  if (!row) return res.status(400).json({ error: '2FA is not currently enabled' });
+
+  if (!verifyTOTP(row.secret, String(code).replace(/\s/g, ''))) {
+    return res.status(400).json({ error: 'Invalid code' });
+  }
+
+  getDb().prepare('UPDATE dashboard_2fa SET enabled = 0 WHERE id = 1').run();
+  log('info', 'dashboard', '2FA disabled');
+  res.json({ ok: true });
+});
+
+// ─── Live broadcast ───────────────────────────────────────────────────────────
+
+// GET /api/dashboard/live/status
+router.get('/live/status', (req, res) => {
+  res.json(live.getLiveState());
+});
+
+// POST /api/dashboard/live/start
+router.post('/live/start', (req, res) => {
+  try {
+    live.startLive();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/dashboard/live/chunk
+// Content-Type: application/octet-stream — raw s16le PCM, 44100Hz mono
+router.post('/live/chunk',
+  express.raw({ type: 'application/octet-stream', limit: '4mb' }),
+  (req, res) => {
+    if (!req.body || !req.body.length) {
+      return res.status(400).json({ error: 'Empty chunk' });
+    }
+    live.pushAudio(req.body);
+    res.json({ ok: true });
+  },
+);
+
+// POST /api/dashboard/live/stop
+router.post('/live/stop', (req, res) => {
+  live.stopLive();
+  res.json({ ok: true });
 });
 
 module.exports = router;

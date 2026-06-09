@@ -12,6 +12,8 @@ router.get('/health', (req, res) => {
   res.json({ status: 'ok', station: config.station.name, version: config.version });
 });
 
+router.use('/auth', require('./auth'));
+
 // v1 routes (unchanged)
 router.use('/stream',    require('./stream'));
 router.use('/library',   require('./library'));

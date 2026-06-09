@@ -46,8 +46,8 @@ function csrfCheck(req, res, next) {
   // Only check unsafe methods
   if (!UNSAFE_METHODS.has(req.method)) return next();
 
-  // Only check requests carrying a session cookie (browser web flow)
-  if (!req.cookies?.pw_token) return next();
+  // Only check requests carrying a listener or dashboard session cookie
+  if (!req.cookies?.pw_token && !req.cookies?.pw_dashboard_session) return next();
 
   const originHeader = req.headers.origin;
   const refererHeader = req.headers.referer;

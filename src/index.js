@@ -45,6 +45,7 @@ function createApp() {
   app.use(csrfCheck);
 
   app.use('/hls/stream', express.static(path.join(config.paths.hlsOutput, 'stream')));
+  app.use('/hls/live',   express.static(path.join(config.paths.hlsOutput, 'live')));
 
   app.get('/vendor/hls.min.js', (req, res) => {
     if (isPackaged) {

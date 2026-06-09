@@ -345,4 +345,20 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_unlocks_payment
   WHERE stripe_payment_id IS NOT NULL;
 `,
   },
+  {
+    filename: "012_dashboard_2fa.sql",
+    sql: `-- Migration 012: Dashboard 2FA
+-- Single-row table storing the TOTP secret and recovery codes for the creator's
+-- dashboard. enabled=0 means 2FA is configured but not active; enabled=1 enforces
+-- the second factor on every login attempt.
+
+CREATE TABLE IF NOT EXISTS dashboard_2fa (
+  id             INTEGER PRIMARY KEY CHECK (id = 1),
+  secret         TEXT    NOT NULL,
+  enabled        INTEGER NOT NULL DEFAULT 0,
+  recovery_codes TEXT    NOT NULL DEFAULT '[]',
+  created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+`,
+  },
 ];
