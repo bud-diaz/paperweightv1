@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const crypto = require('crypto');
 const broadcast = require('../broadcast');
+const live = require('../broadcast/live');
 const { getDb, log } = require('../db');
 
 // In-memory listener sessions keyed by anonymous listener hash.
@@ -122,8 +123,11 @@ function recordPing(req) {
 
 router.get('/status', (req, res) => {
   const state = broadcast.getState();
+  const liveState = live.getLiveState();
   res.json({
     ...state,
+    liveActive: liveState.isLive,
+    liveStartedAt: liveState.startedAt,
     listenerCount: getListenerCount(),
   });
 });

@@ -20,15 +20,15 @@ Paperweight is a self-hosted, creator-first streaming and distribution server. I
 
 ## Dashboard Auth
 
-Dashboard routes require `X-Dashboard-Token`.
+Dashboard login goes through `POST /api/auth/dashboard/login` with the `DASHBOARD_TOKEN` value. On success the server issues a `pw_dashboard_session` httpOnly cookie (24-hour in-memory session).
+
+If TOTP 2FA is enabled, the login step returns a short-lived challenge token instead of a session cookie. The second step (`POST /api/auth/dashboard/verify-2fa`) accepts a TOTP code or a one-time recovery code and issues the session cookie.
 
 This is owner/admin auth, not team account management. Do not share the dashboard token with listeners. Listener cookies never grant dashboard access.
 
-The shipped UI stores the dashboard token for the current browser session only.
-
 ## CSRF
 
-Unsafe browser requests carrying `pw_token` are checked against Origin or Referer. Bearer-token clients bypass this check because they do not use browser cookies.
+Unsafe browser requests carrying `pw_token` or `pw_dashboard_session` are checked against Origin or Referer. Bearer-token clients bypass this check because they do not use browser cookies.
 
 ## Payments
 

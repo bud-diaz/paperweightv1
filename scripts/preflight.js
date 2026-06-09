@@ -154,6 +154,7 @@ async function main() {
   ensureDir(dataPath, 'data directory');
   ensureDir(logsPath, 'logs directory');
   ensureDir(path.join(hlsPath, 'stream'), 'HLS stream directory');
+  ensureDir(path.join(hlsPath, 'live'), 'HLS live directory');
   ensureDir(path.join(hlsPath, 'previews'), 'preview directory');
   ensureDir(vaultPath, 'vault directory');
 

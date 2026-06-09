@@ -3,6 +3,7 @@ const { getDb } = require('../db');
 const config = require('../config');
 const crypto = require('crypto');
 const { isSubscriberTier, isHigherTier } = require('./access');
+const { validateSession } = require('./sessions');
 
 // Constant-time string compare that does not early-return on length mismatch.
 // timingSafeEqual requires equal-length buffers, so hash both sides first.
@@ -90,12 +91,26 @@ function requireAllAccess(req, res, next) {
 }
 
 function requireDashboard(req, res, next) {
+  // Session cookie set after successful login (required when 2FA is enabled;
+  // also works when 2FA is disabled to avoid replaying the token on every request).
+  const sessionId = req.cookies?.pw_dashboard_session;
+  if (sessionId && validateSession(sessionId)) return next();
+
+  // Direct token header — accepted only when 2FA is disabled.
   const headerToken = req.headers['x-dashboard-token'];
   const hasValidToken =
     !!config.auth.dashboardToken &&
-    safeEqual(headerToken, config.auth.dashboardToken);
+    safeEqual(String(headerToken || ''), config.auth.dashboardToken);
 
-  if (hasValidToken) return next();
+  if (hasValidToken) {
+    try {
+      const row = getDb().prepare('SELECT enabled FROM dashboard_2fa WHERE id = 1').get();
+      if (row && row.enabled) {
+        return res.status(401).json({ error: 'Dashboard access denied', requires2FA: true });
+      }
+    } catch {}
+    return next();
+  }
 
   res.status(401).json({ error: 'Dashboard access denied' });
 }

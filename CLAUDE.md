@@ -41,7 +41,7 @@ Schema files live in `src/db/migrations/`. Applied SQL migrations are tracked in
 
 Current migration sequence:
 
-`001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments -> `010` webhook idempotency -> `011` payment idempotency.
+`001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments -> `010` webhook idempotency -> `011` payment idempotency -> `012` dashboard 2FA.
 
 Never add recurring destructive SQL to a migration file. Do not use `DROP TABLE media` or table rebuilds in automatically applied SQL migrations.
 
@@ -55,9 +55,11 @@ Listener auth:
 
 Dashboard auth:
 
-- `X-Dashboard-Token` only.
-- Token comes from `.env` as `DASHBOARD_TOKEN`.
-- Listener cookies never grant dashboard access.
+- Login via `POST /api/auth/dashboard/login` with `X-Dashboard-Token` header → issues `pw_dashboard_session` httpOnly cookie (24h, in-memory).
+- If 2FA is enabled, login returns `{requires2FA, challenge}` and the client must follow up with `POST /api/auth/dashboard/verify-2fa`.
+- `requireDashboard` middleware checks `pw_dashboard_session` cookie first, then falls back to `X-Dashboard-Token` header only when 2FA is disabled.
+- Token comes from `.env` as `DASHBOARD_TOKEN`. Listener cookies never grant dashboard access.
+- 2FA TOTP secret and recovery codes stored in `dashboard_2fa` table (migration 012). Pure Node crypto — no new deps.
 
 Access policy lives in `src/auth/access.js`. Use it for new media/library/download gates instead of duplicating tier checks.
 

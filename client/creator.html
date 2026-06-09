@@ -410,6 +410,10 @@
     .dash-unlock-btn:hover { background:rgba(255,255,255,.12); }
     .dash-error-msg   { font-family:'Space Mono',monospace; font-size:9px; color:#ff4466; letter-spacing:.04em; }
     .dash-success-msg { font-family:'Space Mono',monospace; font-size:9px; color:#39ff14; letter-spacing:.04em; }
+    #dash-2fa-gate { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 24px; gap:10px; text-align:center; flex:1; }
+    .live-meter-bar { flex:1; border-radius:1px; transition:background .06s; }
+    .mgmt-btn.danger { background:rgba(255,60,60,.12); border-color:rgba(255,60,60,.25); color:rgba(255,100,100,.8); }
+    .mgmt-btn.danger:hover { background:rgba(255,60,60,.22); color:#ff6060; }
 
     /* ── dashboard inputs ── */
     .dash-input {
@@ -970,13 +974,25 @@
       <!-- PANEL: Dashboard (token gated) -->
       <div id="panel-dashboard">
 
-        <!-- Auth gate -->
+        <!-- Auth gate — step 1: token -->
         <div id="dash-auth-gate">
           <div class="dash-gate-title">Studio</div>
           <div class="dash-gate-hint">ENTER TOKEN TO CONTINUE</div>
           <input type="password" class="dash-input" id="dash-token-input" placeholder="Dashboard token…" style="max-width:220px;text-align:center;"/>
           <button class="dash-unlock-btn" id="dash-token-btn">UNLOCK</button>
           <div id="dash-auth-msg"></div>
+        </div>
+
+        <!-- Auth gate — step 2: 2FA TOTP (shown when 2FA is enabled) -->
+        <div id="dash-2fa-gate" hidden>
+          <div class="dash-gate-title">Two-Factor Auth</div>
+          <div class="dash-gate-hint">ENTER 6-DIGIT CODE FROM YOUR AUTHENTICATOR</div>
+          <input type="text" class="dash-input" id="dash-2fa-input" placeholder="000000" maxlength="8"
+            inputmode="numeric" autocomplete="one-time-code"
+            style="max-width:140px;text-align:center;letter-spacing:.25em;font-size:16px;"/>
+          <button class="dash-unlock-btn" id="dash-2fa-btn">VERIFY</button>
+          <div id="dash-2fa-msg"></div>
+          <button style="background:none;border:none;color:rgba(255,255,255,.25);font-family:'Space Mono',monospace;font-size:8px;cursor:pointer;letter-spacing:.06em;margin-top:4px;" id="dash-2fa-back">← BACK</button>
         </div>
 
         <!-- Dashboard content (shown after auth) -->
@@ -1034,6 +1050,32 @@
                 <button class="mgmt-btn" id="btn-toggle-mode">SWITCH MODE</button>
                 <button class="mgmt-btn" id="btn-restart">RESTART</button>
               </div>
+            </div>
+          </div>
+
+          <div class="dash-divider"></div>
+
+          <!-- Broadcast Live -->
+          <div class="dash-section" id="dash-live-section">
+            <div class="dash-section-label">BROADCAST LIVE</div>
+            <div id="live-idle" style="padding:0 14px 12px;">
+              <div style="font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,.3);margin-bottom:10px;line-height:1.7;">
+                Go live from your mic. Listeners switch to your feed in real time.
+              </div>
+              <button class="mgmt-btn" id="btn-go-live" style="border-color:rgba(57,255,20,.3);color:rgba(57,255,20,.8);">● GO LIVE</button>
+              <div id="live-idle-msg" style="margin-top:8px;font-size:9px;font-family:'Space Mono',monospace;color:rgba(255,255,255,.35);"></div>
+            </div>
+            <div id="live-onair" hidden style="padding:0 14px 12px;">
+              <div class="broadcast-row">
+                <div class="broadcast-info">
+                  <div class="broadcast-np" id="live-timer">0:00</div>
+                  <div class="broadcast-mode-badge" style="background:rgba(255,40,40,.12);color:#ff5555;border:1px solid rgba(255,60,60,.2);">● ON AIR</div>
+                </div>
+                <div class="broadcast-actions">
+                  <button class="mgmt-btn danger" id="btn-end-live">END BROADCAST</button>
+                </div>
+              </div>
+              <div id="live-meter" style="display:flex;gap:2px;height:18px;align-items:flex-end;margin-top:10px;"></div>
             </div>
           </div>
 
@@ -1172,6 +1214,38 @@
 
           <div class="dash-divider"></div>
 
+          <!-- Security -->
+          <div class="dash-section" id="dash-2fa-section">
+            <div class="dash-section-label">SECURITY</div>
+            <div id="dash-2fa-status-row" style="padding:0 14px 8px;font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,.4);line-height:1.6;"></div>
+            <!-- Setup: scan secret -->
+            <div id="dash-2fa-setup-panel" hidden style="padding:0 14px 12px;">
+              <div style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.3);margin-bottom:8px;line-height:1.7;">Enter this secret in Google Authenticator, Authy, or any TOTP app, then confirm with a code.</div>
+              <div id="dash-2fa-secret-box" style="font-family:'Space Mono',monospace;font-size:11px;color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:8px 12px;word-break:break-all;margin-bottom:8px;letter-spacing:.08em;"></div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
+                <input type="text" class="dash-input dash-input-sm" id="dash-2fa-confirm-input" placeholder="6-digit code" maxlength="6" inputmode="numeric" style="width:130px;letter-spacing:.15em;"/>
+                <button class="mgmt-btn" id="btn-2fa-confirm">ENABLE 2FA</button>
+              </div>
+              <div id="dash-2fa-setup-msg" style="margin-top:6px;font-size:9px;font-family:'Space Mono',monospace;"></div>
+            </div>
+            <!-- Recovery codes (shown once after setup) -->
+            <div id="dash-2fa-codes-panel" hidden style="padding:0 14px 12px;">
+              <div style="font-family:'Space Mono',monospace;font-size:8px;color:#ffa040;margin-bottom:8px;letter-spacing:.05em;">SAVE THESE CODES — SHOWN ONCE. Each works once if you lose your authenticator.</div>
+              <div id="dash-2fa-codes-list" style="font-family:'Space Mono',monospace;font-size:10px;color:#fff;line-height:2.2;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 14px;"></div>
+              <button class="mgmt-btn" id="btn-2fa-codes-done" style="margin-top:10px;">I'VE SAVED THESE</button>
+            </div>
+            <!-- Disable panel (when 2FA is on) -->
+            <div id="dash-2fa-disable-panel" hidden style="padding:0 14px 12px;">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <input type="text" class="dash-input dash-input-sm" id="dash-2fa-disable-input" placeholder="Current code to disable" maxlength="6" inputmode="numeric" style="width:190px;letter-spacing:.1em;"/>
+                <button class="mgmt-btn danger" id="btn-2fa-disable">DISABLE 2FA</button>
+              </div>
+              <div id="dash-2fa-disable-msg" style="margin-top:6px;font-size:9px;font-family:'Space Mono',monospace;"></div>
+            </div>
+          </div>
+
+          <div class="dash-divider"></div>
+
           <!-- Payments -->
           <div class="dash-section">
             <div class="dash-section-label">PAYMENTS</div>
@@ -1223,6 +1297,8 @@
 <script>
 // ─── Config ────────────────────────────────────────────────────────────────────
 const HLS_URL            = '/hls/stream/index.m3u8';
+const HLS_LIVE_URL       = '/hls/live/index.m3u8';
+let   currentLiveActive  = false;
 const STATUS_INTERVAL_MS = 10_000;
 const PING_INTERVAL_MS   = 30_000;
 const SESSION_KEY        = 'pw_dash_token';
@@ -1309,6 +1385,18 @@ async function fetchStreamStatus() {
       setupHls(newEl);
       if (currentIsVideo) newEl.hidden = false;
       newEl.play().catch(() => {});
+    }
+
+    // Handle regular ↔ live stream switch
+    const prevLive = currentLiveActive;
+    currentLiveActive = !!data.liveActive;
+    if (currentLiveActive !== prevLive && state.playing) {
+      const targetUrl = currentLiveActive ? HLS_LIVE_URL : HLS_URL;
+      if (hls) { hls.loadSource(targetUrl); }
+      else {
+        const mediaEl = currentIsVideo ? el('video-el') : el('audio-el');
+        if (mediaEl) mediaEl.src = targetUrl;
+      }
     }
 
     if (data.station) {
@@ -2246,6 +2334,7 @@ async function tryDashAuth() {
 
 function showDashAuthGate() {
   el('dash-auth-gate').hidden = false;
+  el('dash-2fa-gate').hidden  = true;
   el('dash-content').hidden   = true;
 }
 
@@ -2278,20 +2367,92 @@ async function initDashboard() {
   showDashAuthGate();
 }
 
+let pendingChallenge = null;
+
 el('dash-token-btn').addEventListener('click', async () => {
   const token = el('dash-token-input').value.trim();
   if (!token) return;
-  sessionStorage.setItem(SESSION_KEY, token);
   el('dash-auth-msg').textContent = '';
-  const ok = await tryDashAuth();
-  if (ok) { showDashContent(); loadDashboard(); }
-  else {
-    sessionStorage.removeItem(SESSION_KEY);
+  el('dash-token-btn').textContent = 'CHECKING…';
+  el('dash-token-btn').disabled = true;
+
+  try {
+    const res = await fetch('/api/auth/dashboard/login', {
+      method: 'POST',
+      headers: { 'X-Dashboard-Token': token },
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      el('dash-auth-msg').className   = 'dash-error-msg';
+      el('dash-auth-msg').textContent = data.error || 'Invalid token';
+      return;
+    }
+
+    // Keep token in sessionStorage so dashFetch can still send it as a header
+    // for backward-compat (requireDashboard accepts it when 2FA is off).
+    sessionStorage.setItem(SESSION_KEY, token);
+
+    if (data.requires2FA) {
+      pendingChallenge = data.challenge;
+      el('dash-auth-gate').hidden = true;
+      el('dash-2fa-gate').hidden  = false;
+      el('dash-2fa-input').value  = '';
+      el('dash-2fa-msg').textContent = '';
+      setTimeout(() => el('dash-2fa-input').focus(), 80);
+    } else {
+      showDashContent();
+    }
+  } catch {
     el('dash-auth-msg').className   = 'dash-error-msg';
-    el('dash-auth-msg').textContent = 'Invalid token';
+    el('dash-auth-msg').textContent = 'Connection error';
+  } finally {
+    el('dash-token-btn').textContent = 'UNLOCK';
+    el('dash-token-btn').disabled = false;
   }
 });
 el('dash-token-input').addEventListener('keydown', e => { if (e.key === 'Enter') el('dash-token-btn').click(); });
+
+el('dash-2fa-btn').addEventListener('click', async () => {
+  const code = el('dash-2fa-input').value.trim().replace(/\s/g, '');
+  if (!code) return;
+  el('dash-2fa-msg').textContent = '';
+  el('dash-2fa-btn').textContent = 'VERIFYING…';
+  el('dash-2fa-btn').disabled = true;
+
+  try {
+    const res = await fetch('/api/auth/dashboard/verify-2fa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challenge: pendingChallenge, code }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      el('dash-2fa-msg').className   = 'dash-error-msg';
+      el('dash-2fa-msg').textContent = data.error || 'Invalid code';
+      el('dash-2fa-input').value = '';
+      el('dash-2fa-input').focus();
+      return;
+    }
+
+    pendingChallenge = null;
+    showDashContent();
+  } catch {
+    el('dash-2fa-msg').className   = 'dash-error-msg';
+    el('dash-2fa-msg').textContent = 'Connection error';
+  } finally {
+    el('dash-2fa-btn').textContent = 'VERIFY';
+    el('dash-2fa-btn').disabled = false;
+  }
+});
+el('dash-2fa-input').addEventListener('keydown', e => { if (e.key === 'Enter') el('dash-2fa-btn').click(); });
+el('dash-2fa-back').addEventListener('click', () => {
+  pendingChallenge = null;
+  el('dash-2fa-gate').hidden  = true;
+  el('dash-auth-gate').hidden = false;
+  el('dash-auth-msg').textContent = '';
+});
 
 // ─── Listener account cache (for token-assignment typeaheads) ──────────────────
 let DASH_ACCOUNTS = [];
@@ -2365,12 +2526,14 @@ function loadDashboard() {
   loadDashStation();
   loadDashVaultStats();
   loadDashBroadcast();
+  loadDashLive();
   loadDashSchedule();
   loadDashProjects();
   loadDashLibrary();
   loadDashAccounts();
   loadDashTokens();
   loadDashAnalytics();
+  loadDash2FA();
   loadDashPaymentConfig();
   loadDashTipConfig();
 }
@@ -3576,6 +3739,251 @@ async function init() {
     }
   }
 }
+
+// ─── 2FA management ────────────────────────────────────────────────────────────
+async function loadDash2FA() {
+  try {
+    const data = await dashFetch('/api/dashboard/2fa/status').then(r => r.json());
+    const statusRow = el('dash-2fa-status-row');
+    el('dash-2fa-setup-panel').hidden   = true;
+    el('dash-2fa-codes-panel').hidden   = true;
+    el('dash-2fa-disable-panel').hidden = true;
+
+    if (data.enabled) {
+      statusRow.innerHTML = '<span style="color:#39ff14;">● 2FA ENABLED</span> — Token + authenticator code required to sign in.';
+      el('dash-2fa-disable-panel').hidden = false;
+    } else {
+      statusRow.innerHTML = '<span style="color:rgba(255,255,255,.3);">○ 2FA DISABLED</span> — Protected by token only. <button class="mgmt-btn" id="btn-2fa-start" style="margin-left:6px;padding:3px 10px;font-size:8px;">ENABLE</button>';
+      document.getElementById('btn-2fa-start').addEventListener('click', startTwoFASetup);
+    }
+  } catch {}
+}
+
+async function startTwoFASetup() {
+  try {
+    const data = await dashFetch('/api/dashboard/2fa/setup', { method: 'POST' }).then(r => r.json());
+    el('dash-2fa-secret-box').textContent = data.secret;
+    el('dash-2fa-confirm-input').value    = '';
+    el('dash-2fa-setup-msg').textContent  = '';
+    el('dash-2fa-setup-panel').hidden = false;
+    el('dash-2fa-status-row').textContent = 'Scan this secret with your authenticator app, then enter the code to activate.';
+  } catch {}
+}
+
+el('btn-2fa-confirm').addEventListener('click', async () => {
+  const code = el('dash-2fa-confirm-input').value.trim();
+  if (!code) return;
+  el('btn-2fa-confirm').textContent = 'ENABLING…';
+  el('btn-2fa-confirm').disabled = true;
+  try {
+    const res = await dashFetch('/api/dashboard/2fa/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      el('dash-2fa-setup-msg').className   = 'dash-error-msg';
+      el('dash-2fa-setup-msg').textContent = data.error || 'Failed';
+      return;
+    }
+    el('dash-2fa-setup-panel').hidden = true;
+    el('dash-2fa-codes-list').textContent = data.recoveryCodes.join('\n');
+    el('dash-2fa-codes-panel').hidden = false;
+  } catch {
+    el('dash-2fa-setup-msg').className   = 'dash-error-msg';
+    el('dash-2fa-setup-msg').textContent = 'Error';
+  } finally {
+    el('btn-2fa-confirm').textContent = 'ENABLE 2FA';
+    el('btn-2fa-confirm').disabled = false;
+  }
+});
+
+el('btn-2fa-codes-done').addEventListener('click', () => {
+  el('dash-2fa-codes-panel').hidden = true;
+  loadDash2FA();
+});
+
+el('btn-2fa-disable').addEventListener('click', async () => {
+  const code = el('dash-2fa-disable-input').value.trim();
+  if (!code) return;
+  el('btn-2fa-disable').textContent = 'DISABLING…';
+  el('btn-2fa-disable').disabled = true;
+  try {
+    const res = await dashFetch('/api/dashboard/2fa', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      el('dash-2fa-disable-msg').className   = 'dash-error-msg';
+      el('dash-2fa-disable-msg').textContent = data.error || 'Failed';
+      return;
+    }
+    el('dash-2fa-disable-input').value = '';
+    loadDash2FA();
+  } catch {
+    el('dash-2fa-disable-msg').className   = 'dash-error-msg';
+    el('dash-2fa-disable-msg').textContent = 'Error';
+  } finally {
+    el('btn-2fa-disable').textContent = 'DISABLE 2FA';
+    el('btn-2fa-disable').disabled = false;
+  }
+});
+
+// ─── Live Broadcast ─────────────────────────────────────────────────────────────
+const WORKLET_CODE = `
+class PaperweightPCM extends AudioWorkletProcessor {
+  constructor() { super(); this._buf = []; this._n = 0; }
+  process(inputs) {
+    const ch = inputs[0] && inputs[0][0];
+    if (!ch) return true;
+    this._buf.push(new Float32Array(ch));
+    this._n += ch.length;
+    if (this._n >= 88200) {
+      const out = new Float32Array(this._n);
+      let off = 0;
+      for (const f of this._buf) { out.set(f, off); off += f.length; }
+      this.port.postMessage(out, [out.buffer]);
+      this._buf = []; this._n = 0;
+    }
+    return true;
+  }
+}
+registerProcessor('pw-pcm', PaperweightPCM);
+`;
+
+let liveAudioCtx   = null;
+let liveWorkletNode = null;
+let liveMediaStream = null;
+let liveTimerInt    = null;
+let liveStartedAt   = 0;
+
+function loadDashLive() {
+  // Sync UI to current server live state on dashboard open
+  dashFetch('/api/dashboard/live/status').then(r => r.json()).then(data => {
+    if (data.isLive) {
+      // Someone else started a live session (or a previous one is still running)
+      el('live-idle').hidden  = true;
+      el('live-onair').hidden = false;
+    }
+  }).catch(() => {});
+}
+
+async function startGoLive() {
+  const msgEl = el('live-idle-msg');
+  msgEl.textContent = 'Requesting microphone…';
+  el('btn-go-live').disabled = true;
+
+  try {
+    liveMediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: { sampleRate: 44100, channelCount: 1, echoCancellation: false, noiseSuppression: false },
+      video: false,
+    });
+  } catch (err) {
+    msgEl.textContent = `Mic access denied: ${err.message}`;
+    el('btn-go-live').disabled = false;
+    return;
+  }
+
+  // Tell server to start live HLS output
+  try {
+    const res = await dashFetch('/api/dashboard/live/start', { method: 'POST' });
+    if (!res.ok) {
+      const d = await res.json();
+      msgEl.textContent = d.error || 'Could not start live session';
+      liveMediaStream.getTracks().forEach(t => t.stop());
+      liveMediaStream = null;
+      el('btn-go-live').disabled = false;
+      return;
+    }
+  } catch {
+    msgEl.textContent = 'Server error — try again';
+    liveMediaStream.getTracks().forEach(t => t.stop());
+    liveMediaStream = null;
+    el('btn-go-live').disabled = false;
+    return;
+  }
+
+  // Set up AudioWorklet
+  liveAudioCtx = new AudioContext({ sampleRate: 44100 });
+  const blob = new Blob([WORKLET_CODE], { type: 'application/javascript' });
+  const workletUrl = URL.createObjectURL(blob);
+
+  try {
+    await liveAudioCtx.audioWorklet.addModule(workletUrl);
+  } catch (err) {
+    msgEl.textContent = `AudioWorklet error: ${err.message}`;
+    await stopGoLive();
+    return;
+  } finally {
+    URL.revokeObjectURL(workletUrl);
+  }
+
+  const source = liveAudioCtx.createMediaStreamSource(liveMediaStream);
+  liveWorkletNode = new AudioWorkletNode(liveAudioCtx, 'pw-pcm');
+  source.connect(liveWorkletNode);
+
+  liveWorkletNode.port.onmessage = async e => {
+    const f32 = e.data;
+    // Convert Float32 → Int16 PCM
+    const i16 = new Int16Array(f32.length);
+    for (let i = 0; i < f32.length; i++) {
+      i16[i] = Math.max(-1, Math.min(1, f32[i])) * 0x7FFF;
+    }
+    updateMicMeter(f32);
+    try {
+      await dashFetch('/api/dashboard/live/chunk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: i16.buffer,
+      });
+    } catch {}
+  };
+
+  // Show on-air UI
+  liveStartedAt = Date.now();
+  el('live-idle').hidden  = true;
+  el('live-onair').hidden = false;
+  el('live-timer').textContent = '0:00';
+  liveTimerInt = setInterval(() => {
+    el('live-timer').textContent = fmt(Math.floor((Date.now() - liveStartedAt) / 1000));
+  }, 1000);
+}
+
+function updateMicMeter(f32) {
+  const bars = 14;
+  let sum = 0;
+  for (const s of f32) sum += s * s;
+  const rms   = Math.sqrt(sum / f32.length);
+  const level = Math.min(1, rms * 10);
+  const meter = el('live-meter');
+  meter.innerHTML = Array.from({ length: bars }, (_, i) => {
+    const threshold = (i + 1) / bars;
+    const active = level >= threshold;
+    const color   = i < bars * 0.65 ? '#39ff14' : i < bars * 0.85 ? '#ffa030' : '#ff4444';
+    const height  = 35 + i * 4.5;
+    return `<div class="live-meter-bar" style="background:${active ? color : 'rgba(255,255,255,.07)'};height:${height}%;"></div>`;
+  }).join('');
+}
+
+async function stopGoLive() {
+  if (liveTimerInt) { clearInterval(liveTimerInt); liveTimerInt = null; }
+  if (liveWorkletNode) { try { liveWorkletNode.disconnect(); } catch {} liveWorkletNode = null; }
+  if (liveAudioCtx)   { await liveAudioCtx.close().catch(() => {}); liveAudioCtx = null; }
+  if (liveMediaStream){ liveMediaStream.getTracks().forEach(t => t.stop()); liveMediaStream = null; }
+
+  try { await dashFetch('/api/dashboard/live/stop', { method: 'POST' }); } catch {}
+
+  el('live-onair').hidden = true;
+  el('live-idle').hidden  = false;
+  el('live-idle-msg').textContent = '';
+  el('btn-go-live').disabled = false;
+}
+
+el('btn-go-live').addEventListener('click', startGoLive);
+el('btn-end-live').addEventListener('click', stopGoLive);
 
 init();
 </script>
