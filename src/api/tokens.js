@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { validateToken } = require('../auth');
 const config = require('../config');
 const { isSubscriberTier } = require('../auth/access');
+const { tokenRedeemLimiter } = require('../middleware/rateLimiter');
 
 const COOKIE_NAME = 'pw_token';
 
@@ -17,7 +18,7 @@ function cookieOpts() {
 // POST /api/tokens/redeem
 // Body: { token: string }
 // Sets pw_token cookie on success.
-router.post('/redeem', (req, res) => {
+router.post('/redeem', tokenRedeemLimiter, (req, res) => {
   const { token } = req.body;
   if (!token || typeof token !== 'string') {
     return res.status(400).json({ error: 'token is required' });

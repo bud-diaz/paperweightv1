@@ -5,6 +5,8 @@ const { needsProbe, upsert, markInactive } = require('./sync');
 const { log } = require('../db');
 
 let watcherInstance = null;
+const pendingFiles = new Map();
+const PROBE_DEBOUNCE_MS = 150;
 
 function startWatcher(vaultPath, adapter) {
   if (watcherInstance) {
@@ -26,13 +28,41 @@ function startWatcher(vaultPath, adapter) {
   });
 
   watcherInstance
-    .on('add', filepath => onFile(filepath, adapter, 'add'))
-    .on('change', filepath => onFile(filepath, adapter, 'change'))
+    .on('add', filepath => queueFile(filepath, adapter, 'add'))
+    .on('change', filepath => queueFile(filepath, adapter, 'change'))
     .on('unlink', filepath => onRemove(filepath))
     .on('error', err => log('error', 'scanner', `Watcher error: ${err.message}`))
     .on('ready', () => log('info', 'scanner', 'Initial vault scan complete'));
 
   return watcherInstance;
+}
+
+function queueFile(filepath, adapter, event) {
+  if (!isSupported(filepath)) return;
+
+  const key = path.resolve(filepath);
+  const existing = pendingFiles.get(key);
+  if (existing) {
+    existing.event = event;
+    existing.dirty = true;
+    return;
+  }
+
+  const job = { event, dirty: false, timer: null };
+  pendingFiles.set(key, job);
+  job.timer = setTimeout(() => runQueuedFile(key, filepath, adapter, job), PROBE_DEBOUNCE_MS);
+}
+
+async function runQueuedFile(key, filepath, adapter, job) {
+  job.timer = null;
+  try {
+    do {
+      job.dirty = false;
+      await onFile(filepath, adapter, job.event);
+    } while (job.dirty);
+  } finally {
+    if (pendingFiles.get(key) === job) pendingFiles.delete(key);
+  }
 }
 
 async function onFile(filepath, adapter, event) {
@@ -62,6 +92,10 @@ function stopWatcher() {
   if (watcherInstance) {
     watcherInstance.close();
     watcherInstance = null;
+    for (const job of pendingFiles.values()) {
+      if (job.timer) clearTimeout(job.timer);
+    }
+    pendingFiles.clear();
     log('info', 'scanner', 'Watcher stopped');
   }
 }

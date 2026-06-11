@@ -18,6 +18,11 @@ const authLimiter = make({
   message: 'Too many authentication attempts',
 });
 
+const tokenRedeemLimiter = make({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+});
+
 // Checkout and tip creation — prevent checkout session spam
 const paymentLimiter = make({
   windowMs: 60 * 60 * 1000, // 1 hour
@@ -35,4 +40,4 @@ const previewLimiter = make({
   max: 30,
 });
 
-module.exports = { authLimiter, paymentLimiter, generalLimiter, previewLimiter };
+module.exports = { authLimiter, tokenRedeemLimiter, paymentLimiter, generalLimiter, previewLimiter };

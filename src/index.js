@@ -9,6 +9,7 @@ const broadcast = require('./broadcast');
 const live = require('./broadcast/live');
 const apiRouter = require('./api/router');
 const { csrfCheck } = require('./middleware/csrfCheck');
+const asyncHandler = require('./middleware/asyncHandler');
 const { getFFmpegStatus } = require('./runtime/ffmpeg');
 
 const isPackaged = typeof process.pkg !== 'undefined';
@@ -42,7 +43,7 @@ function createApp() {
 
   app.post('/api/payment/webhook/stripe',
     express.raw({ type: 'application/json' }),
-    require('./api/payment').stripeWebhookHandler
+    asyncHandler(require('./api/payment').stripeWebhookHandler)
   );
 
   app.use(express.json());

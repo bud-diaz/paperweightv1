@@ -146,6 +146,7 @@ function initDb() {
 
   // Performance settings appropriate for single-user self-hosted
   db.pragma('journal_mode = WAL');
+  db.pragma('busy_timeout = 5000');
   db.pragma('foreign_keys = ON');
   db.pragma('synchronous = NORMAL');
 

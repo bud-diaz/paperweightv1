@@ -49,6 +49,20 @@ try {
     }
   }
 
+  const twoFaTable = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'dashboard_2fa'"
+  ).get();
+  if (!twoFaTable) {
+    throw new Error('dashboard_2fa table was not created');
+  }
+
+  const twoFaColumns = db.pragma('table_info(dashboard_2fa)').map(col => col.name);
+  for (const required of ['secret', 'enabled', 'recovery_codes', 'created_at']) {
+    if (!twoFaColumns.includes(required)) {
+      throw new Error(`dashboard_2fa.${required} was not created`);
+    }
+  }
+
   console.log(`Migration check passed (${secondCount} migrations applied once).`);
 } catch (err) {
   console.error(`Migration check failed: ${err.message}`);

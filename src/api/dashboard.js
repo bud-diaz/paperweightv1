@@ -16,6 +16,7 @@ const config = require('../config');
 const { probe } = require('../scanner/probe');
 const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCode } = require('../auth/totp');
 const { getFFmpegStatus } = require('../runtime/ffmpeg');
+const asyncHandler = require('../middleware/asyncHandler');
 
 router.use(requireDashboard);
 
@@ -464,7 +465,7 @@ router.put('/station/url', (req, res) => {
 
 // GET /api/dashboard/station/health
 // Server-side pings the registered URL to see if it's reachable by the outside world.
-router.get('/station/health', async (req, res) => {
+router.get('/station/health', asyncHandler(async (req, res) => {
   const db = getDb();
   const row = db.prepare('SELECT url FROM station_registry WHERE id = 1').get();
 
@@ -474,7 +475,7 @@ router.get('/station/health', async (req, res) => {
 
   const result = await pingUrl(row.url);
   res.json({ ...result, checkedAt: new Date().toISOString() });
-});
+}));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -655,13 +656,28 @@ router.post('/live/start', (req, res) => {
 // Content-Type: application/octet-stream — raw s16le PCM, 44100Hz mono
 router.post('/live/chunk',
   express.raw({ type: 'application/octet-stream', limit: '4mb' }),
-  (req, res) => {
+  asyncHandler(async (req, res) => {
     if (!req.body || !req.body.length) {
       return res.status(400).json({ error: 'Empty chunk' });
     }
-    live.pushAudio(req.body);
-    res.json({ ok: true });
-  },
+    try {
+      const result = await live.pushAudio(req.body);
+      if (result?.busy) {
+        res.setHeader('Retry-After', '1');
+        return res.status(429).json({ error: 'Live encoder busy' });
+      }
+      if (result?.inactive) {
+        return res.status(409).json({ error: 'Live broadcast is not active' });
+      }
+      if (result?.error) {
+        return res.status(500).json({ error: 'Live audio write failed' });
+      }
+      res.json({ ok: true, backpressure: !!result?.backpressure });
+    } catch (err) {
+      log('error', 'dashboard', `Live audio chunk failed: ${err.message}`);
+      res.status(500).json({ error: 'Live audio write failed' });
+    }
+  }),
 );
 
 // POST /api/dashboard/live/stop

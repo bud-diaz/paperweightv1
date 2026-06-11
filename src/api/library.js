@@ -9,6 +9,8 @@ const config = require('../config');
 const { installHint } = require('../runtime/ffmpeg');
 const { normalizeUnlockOptions } = require('./vault');
 const { previewLimiter } = require('../middleware/rateLimiter');
+const { safeVaultPath } = require('./safeVaultPath');
+const asyncHandler = require('../middleware/asyncHandler');
 
 const PREVIEW_DIR = path.join(config.paths.hlsOutput, 'previews');
 const PREVIEW_DURATION = 60;
@@ -259,7 +261,7 @@ router.get('/:id', (req, res) => {
   res.json(formatItem(row, req.tier));
 });
 
-router.get('/:id/preview', previewLimiter, async (req, res) => {
+router.get('/:id/preview', previewLimiter, asyncHandler(async (req, res) => {
   // Public short previews are intentional for public/supporters_only items.
   // Vault previews stay unavailable until a separate paid-preview policy exists.
   const row = getDb().prepare(
@@ -291,7 +293,7 @@ router.get('/:id/preview', previewLimiter, async (req, res) => {
       res.status(status).json({ error: err.message });
     }
   }
-});
+}));
 
 router.get('/:id/download', (req, res) => {
   const row = getDb().prepare(
@@ -305,7 +307,12 @@ router.get('/:id/download', (req, res) => {
     return res.status(403).json({ error: access.error, unlockOptions: normalizeUnlockOptions(access.unlockOptions) });
   }
 
-  if (!fs.existsSync(row.filepath)) {
+  const filepath = safeVaultPath(row.filepath);
+  if (!filepath) {
+    return res.status(403).json({ error: 'File path is outside the vault' });
+  }
+
+  if (!fs.existsSync(filepath)) {
     return res.status(404).json({ error: 'File not found on disk' });
   }
 
@@ -323,11 +330,20 @@ router.get('/:id/file', (req, res) => {
     'SELECT * FROM media WHERE id = ? AND is_active = 1'
   ).get(req.params.id);
 
-  if (!row || !fs.existsSync(row.filepath)) {
+  if (!row) {
     return res.status(404).json({ error: 'File not found' });
   }
 
-  res.download(row.filepath, path.basename(row.filepath));
+  const filepath = safeVaultPath(row.filepath);
+  if (!filepath) {
+    return res.status(403).json({ error: 'File path is outside the vault' });
+  }
+
+  if (!fs.existsSync(filepath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  res.download(filepath, path.basename(filepath));
 });
 
 module.exports = router;

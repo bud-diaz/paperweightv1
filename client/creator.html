@@ -1384,6 +1384,7 @@ const HLS_LIVE_URL       = '/hls/live/index.m3u8';
 let   currentLiveActive  = false;
 const STATUS_INTERVAL_MS = 10_000;
 const PING_INTERVAL_MS   = 30_000;
+const HLS_RETRY_DELAYS_MS = [3000, 6000, 12000, 30000];
 let   dashboardLoaded    = false;
 
 function enterDashboard() {
@@ -1398,6 +1399,8 @@ const PALETTE            = ['#F9C74F','#FF3CAC','#00F5D4','#4CC9F0','#A78BFA'];
 
 // ─── Runtime ───────────────────────────────────────────────────────────────────
 let hls            = null;
+let hlsRetryTimer  = null;
+let hlsRetryAttempt = 0;
 let statusInterval = null;
 let pingInterval   = null;
 let currentIsVideo = false;
@@ -1459,6 +1462,7 @@ async function fetchStreamStatus() {
     const wasVideo = currentIsVideo;
     currentIsVideo = !!data.isVideo;
     if (wasVideo !== currentIsVideo && hls && state.playing) {
+      clearHlsRetry();
       hls.destroy(); hls = null;
       const oldEl = wasVideo ? el('video-el') : el('audio-el');
       const newEl = currentIsVideo ? el('video-el') : el('audio-el');
@@ -1474,6 +1478,7 @@ async function fetchStreamStatus() {
     currentLiveActive = !!data.liveActive;
     if (currentLiveActive !== prevLive && state.playing) {
       const targetUrl = currentLiveActive ? HLS_LIVE_URL : HLS_URL;
+      resetHlsRetry();
       if (hls) { hls.loadSource(targetUrl); }
       else {
         const mediaEl = currentIsVideo ? el('video-el') : el('audio-el');
@@ -1520,18 +1525,57 @@ function activeMediaEl() {
   return currentIsVideo ? el('video-el') : el('audio-el');
 }
 
+function activeHlsUrl() {
+  return currentLiveActive ? HLS_LIVE_URL : HLS_URL;
+}
+
+function clearHlsRetry() {
+  if (hlsRetryTimer) {
+    clearTimeout(hlsRetryTimer);
+    hlsRetryTimer = null;
+  }
+}
+
+function resetHlsRetry() {
+  clearHlsRetry();
+  hlsRetryAttempt = 0;
+}
+
+function scheduleHlsRetry() {
+  if (hlsRetryTimer) return;
+  const delay = HLS_RETRY_DELAYS_MS[Math.min(hlsRetryAttempt, HLS_RETRY_DELAYS_MS.length - 1)];
+  hlsRetryAttempt++;
+  el('track-creator').textContent = 'Stream reconnecting...';
+  hlsRetryTimer = setTimeout(() => {
+    hlsRetryTimer = null;
+    const mediaEl = activeMediaEl();
+    const url = activeHlsUrl();
+    if (hls) {
+      try { hls.stopLoad(); } catch {}
+      hls.loadSource(url);
+      hls.startLoad();
+    } else if (mediaEl) {
+      mediaEl.src = url;
+      mediaEl.load();
+      if (state.playing) mediaEl.play().catch(() => {});
+    }
+  }, delay);
+}
+
 function setupHls(mediaEl) {
   if (window.Hls && Hls.isSupported()) {
+    resetHlsRetry();
     hls = new Hls({ lowLatencyMode: false });
-    hls.loadSource(HLS_URL);
+    hls.loadSource(activeHlsUrl());
     hls.attachMedia(mediaEl);
+    hls.on(Hls.Events.MANIFEST_LOADED, resetHlsRetry);
     hls.on(Hls.Events.ERROR, (_, d) => {
       if (d.fatal) {
-        el('track-creator').textContent = 'Stream unavailable — check server';
+        scheduleHlsRetry();
       }
     });
   } else if (mediaEl.canPlayType('application/vnd.apple.mpegurl')) {
-    mediaEl.src = HLS_URL;
+    mediaEl.src = activeHlsUrl();
   }
 }
 
@@ -2412,10 +2456,14 @@ async function tryDashAuth() {
   try { return (await dashFetch('/api/dashboard/vault')).ok; } catch { return false; }
 }
 
+function setDashGate(gate) {
+  el('dash-auth-gate').hidden = gate !== 'auth';
+  el('dash-2fa-gate').hidden  = gate !== '2fa';
+  el('dash-content').hidden   = gate !== 'content';
+}
+
 function showDashAuthGate() {
-  el('dash-auth-gate').hidden = false;
-  el('dash-2fa-gate').hidden  = true;
-  el('dash-content').hidden   = true;
+  setDashGate('auth');
 }
 
 function showDashContent() {
@@ -2429,7 +2477,7 @@ function showDashContent() {
   btn.style.borderColor = 'rgba(57,255,20,.25)';
   btn.style.color = '#39ff14';
   el('dash-auth-msg').textContent = '';
-  el('dash-content').hidden   = false;
+  setDashGate('content');
   document.body.classList.add('creator-mode');
   if (!dashboardLoaded) { dashboardLoaded = true; loadDashboard(); }
 }
@@ -2447,6 +2495,7 @@ let pendingChallenge = null;
 el('dash-token-btn').addEventListener('click', async () => {
   const token = el('dash-token-input').value.trim();
   if (!token) return;
+  pendingChallenge = null;
   el('dash-auth-msg').textContent = '';
   el('dash-token-btn').textContent = 'CHECKING…';
   el('dash-token-btn').disabled = true;
@@ -2459,6 +2508,7 @@ el('dash-token-btn').addEventListener('click', async () => {
     const data = await res.json();
 
     if (!res.ok) {
+      pendingChallenge = null;
       el('dash-auth-msg').className   = 'dash-error-msg';
       el('dash-auth-msg').textContent = data.error || 'Invalid token';
       return;
@@ -2466,15 +2516,17 @@ el('dash-token-btn').addEventListener('click', async () => {
 
     if (data.requires2FA) {
       pendingChallenge = data.challenge;
-      el('dash-auth-gate').hidden = true;
-      el('dash-2fa-gate').hidden  = false;
+      setDashGate('2fa');
       el('dash-2fa-input').value  = '';
       el('dash-2fa-msg').textContent = '';
       setTimeout(() => el('dash-2fa-input').focus(), 80);
     } else {
+      pendingChallenge = null;
       showDashContent();
     }
   } catch {
+    pendingChallenge = null;
+    el('dash-2fa-input').value = '';
     el('dash-auth-msg').className   = 'dash-error-msg';
     el('dash-auth-msg').textContent = 'Connection error';
   } finally {
@@ -2487,6 +2539,12 @@ el('dash-token-input').addEventListener('keydown', e => { if (e.key === 'Enter')
 el('dash-2fa-btn').addEventListener('click', async () => {
   const code = el('dash-2fa-input').value.trim().replace(/\s/g, '');
   if (!code) return;
+  if (!pendingChallenge) {
+    el('dash-2fa-msg').className   = 'dash-error-msg';
+    el('dash-2fa-msg').textContent = 'Start login again';
+    el('dash-2fa-input').value = '';
+    return;
+  }
   el('dash-2fa-msg').textContent = '';
   el('dash-2fa-btn').textContent = 'VERIFYING…';
   el('dash-2fa-btn').disabled = true;
@@ -2500,6 +2558,7 @@ el('dash-2fa-btn').addEventListener('click', async () => {
     const data = await res.json();
 
     if (!res.ok) {
+      pendingChallenge = null;
       el('dash-2fa-msg').className   = 'dash-error-msg';
       el('dash-2fa-msg').textContent = data.error || 'Invalid code';
       el('dash-2fa-input').value = '';
@@ -2510,6 +2569,8 @@ el('dash-2fa-btn').addEventListener('click', async () => {
     pendingChallenge = null;
     showDashContent();
   } catch {
+    pendingChallenge = null;
+    el('dash-2fa-input').value = '';
     el('dash-2fa-msg').className   = 'dash-error-msg';
     el('dash-2fa-msg').textContent = 'Connection error';
   } finally {
@@ -2520,8 +2581,8 @@ el('dash-2fa-btn').addEventListener('click', async () => {
 el('dash-2fa-input').addEventListener('keydown', e => { if (e.key === 'Enter') el('dash-2fa-btn').click(); });
 el('dash-2fa-back').addEventListener('click', () => {
   pendingChallenge = null;
-  el('dash-2fa-gate').hidden  = true;
-  el('dash-auth-gate').hidden = false;
+  setDashGate('auth');
+  el('dash-2fa-input').value = '';
   el('dash-auth-msg').textContent = '';
 });
 
@@ -2594,6 +2655,7 @@ function makeTypeahead(inputEl, dropEl, accounts) {
 }
 
 function loadDashboard() {
+  bindVaultStatButtons();
   loadDashRuntime();
   loadDashStation();
   loadDashVaultStats();
@@ -2741,9 +2803,6 @@ async function loadDashPaymentConfig() {
 }
 
 async function loadDashVaultStats() {
-  ['tracks', 'locked', 'tokens'].forEach(n => {
-    el('vsb-' + n).onclick = () => openVaultPanel(n);
-  });
   try {
     const [mediaItems, tokens] = await Promise.all([
       dashFetch('/api/dashboard/media').then(r => r.json()),
@@ -2754,6 +2813,15 @@ async function loadDashVaultStats() {
     el('vs-locked').textContent = lockedCount;
     el('vs-tokens').textContent = tokens.length;
   } catch {}
+}
+
+let vaultStatsBound = false;
+function bindVaultStatButtons() {
+  if (vaultStatsBound) return;
+  vaultStatsBound = true;
+  ['tracks', 'locked', 'tokens'].forEach(name => {
+    el('vsb-' + name).addEventListener('click', () => openVaultPanel(name));
+  });
 }
 
 let _activeVaultPanel = null;

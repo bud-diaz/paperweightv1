@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { getDb } = require('../db');
 const { authLimiter } = require('../middleware/rateLimiter');
 const { cloudOnly } = require('../middleware/cloudGate');
+const asyncHandler = require('../middleware/asyncHandler');
 const config = require('../config');
 
 const BCRYPT_ROUNDS = 10;
@@ -51,7 +52,7 @@ function getActiveSubscription(db, listenerId) {
 // POST /api/listener/register
 // Body: { email, password }
 // Sets pw_token cookie (web) and returns { token, tier } (mobile).
-router.post('/register', authLimiter, async (req, res) => {
+router.post('/register', authLimiter, asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || typeof email !== 'string' || !email.includes('@')) {
@@ -83,12 +84,12 @@ router.post('/register', authLimiter, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Registration failed' });
   }
-});
+}));
 
 // POST /api/listener/login
 // Body: { email, password }
 // Sets pw_token cookie (web) and returns { token, tier } (mobile).
-router.post('/login', authLimiter, async (req, res) => {
+router.post('/login', authLimiter, asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -122,7 +123,7 @@ router.post('/login', authLimiter, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Login failed' });
   }
-});
+}));
 
 // POST /api/listener/logout
 // Clears the pw_token cookie for web clients.
@@ -165,7 +166,7 @@ router.get('/me', (req, res) => {
 // Allows a listener to set or change their password.
 // Used primarily by subscribers auto-created by Stripe (who have no usable password).
 // Body: { password }  — min 8 chars
-router.patch('/password', authLimiter, async (req, res) => {
+router.patch('/password', authLimiter, asyncHandler(async (req, res) => {
   if (!req.tokenRow || !req.tokenRow.listener_id) {
     return res.status(401).json({ error: 'Authentication required' });
   }
@@ -185,7 +186,7 @@ router.patch('/password', authLimiter, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Failed to update password' });
   }
-});
+}));
 
 // ─── Saved stations ───────────────────────────────────────────────────────────
 // CLOUD PHASE (gated by PAPERWEIGHT_CLOUD): the multi-station directory. A single

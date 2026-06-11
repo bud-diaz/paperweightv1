@@ -4,6 +4,7 @@ const { requireDashboard } = require('../auth/middleware');
 const { canAccessVaultContent } = require('../auth/vault');
 const { paymentLimiter } = require('../middleware/rateLimiter');
 const config = require('../config');
+const asyncHandler = require('../middleware/asyncHandler');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -383,7 +384,7 @@ router.get('/unlock-options/:content_id', (req, res) => {
 // Requires authenticated listener account (listener_id on token).
 // Body: { unlock_type, target_id, amount, payment_type, recurring_interval }
 // Returns: { checkoutUrl }
-router.post('/unlock', paymentLimiter, async (req, res) => {
+router.post('/unlock', paymentLimiter, asyncHandler(async (req, res) => {
   const listenerId = req.tokenRow?.listener_id;
   if (!listenerId) {
     return res.status(401).json({ error: 'Account required', action: 'signup' });
@@ -510,12 +511,12 @@ router.post('/unlock', paymentLimiter, async (req, res) => {
     log('error', 'vault', `Unlock checkout failed: ${err.message}`);
     res.status(500).json({ error: 'Failed to create checkout session' });
   }
-});
+}));
 
 // GET /api/vault/unlock-success?session_id=xxx
 // Stripe redirects here after successful vault checkout.
 // Creates vault_unlock opportunistically (webhook is authoritative).
-router.get('/unlock-success', async (req, res) => {
+router.get('/unlock-success', asyncHandler(async (req, res) => {
   const { session_id } = req.query;
 
   if (session_id && process.env.STRIPE_SECRET_KEY) {
@@ -543,7 +544,7 @@ router.get('/unlock-success', async (req, res) => {
   }
 
   res.redirect('/#library');
-});
+}));
 
 // ─── Shared unlock creation helper (used by redirect + webhook) ───────────────
 

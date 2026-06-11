@@ -5,6 +5,7 @@ const fs = require('fs');
 const { getDb } = require('../db');
 const { canDownloadMedia } = require('../auth/access');
 const { normalizeUnlockOptions } = require('./vault');
+const { safeVaultPath } = require('./safeVaultPath');
 
 const TOKEN_TTL_HOURS = parseInt(process.env.DOWNLOAD_TOKEN_TTL_HOURS || '48', 10);
 
@@ -37,7 +38,12 @@ router.get('/library/:id/signed-url', (req, res) => {
     return res.status(401).json({ error: 'Listener account required for signed download tokens' });
   }
 
-  if (!fs.existsSync(media.filepath)) {
+  const filepath = safeVaultPath(media.filepath);
+  if (!filepath) {
+    return res.status(403).json({ error: 'File path is outside the vault' });
+  }
+
+  if (!fs.existsSync(filepath)) {
     return res.status(404).json({ error: 'File not found on disk' });
   }
 
@@ -51,7 +57,7 @@ router.get('/library/:id/signed-url', (req, res) => {
   res.json({
     signedUrl: `/api/download/${token}`,
     expiresAt,
-    filename: path.basename(media.filepath),
+    filename: path.basename(filepath),
     title: media.title || media.filename,
   });
 });
@@ -75,11 +81,16 @@ router.get('/download/:token', (req, res) => {
     return res.status(403).json({ error: 'Download token has expired', expiresAt: record.expires_at });
   }
 
-  if (!fs.existsSync(record.filepath)) {
+  const filepath = safeVaultPath(record.filepath);
+  if (!filepath) {
+    return res.status(403).json({ error: 'File path is outside the vault' });
+  }
+
+  if (!fs.existsSync(filepath)) {
     return res.status(404).json({ error: 'File not found on disk' });
   }
 
-  res.download(record.filepath, path.basename(record.filepath));
+  res.download(filepath, path.basename(filepath));
 });
 
 module.exports = router;

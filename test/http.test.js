@@ -178,10 +178,14 @@ test('listener register, login, me, and password update flow works', async () =>
 
 test('library visibility and gated downloads are enforced', async () => {
   const db = freshDb();
-  const publicFile = path.join(os.tmpdir(), `paperweight-http-${Date.now()}.mp3`);
+  fs.mkdirSync(config.vault.path, { recursive: true });
+  const publicFile = path.join(config.vault.path, `paperweight-http-${Date.now()}.mp3`);
+  const outsideFile = path.join(os.tmpdir(), `paperweight-http-outside-${Date.now()}.mp3`);
   fs.writeFileSync(publicFile, 'not-real-audio');
+  fs.writeFileSync(outsideFile, 'not-real-audio');
 
   const publicMedia = seedMedia(db, { visibility: 'public', filepath: publicFile });
+  const outsideMedia = seedMedia(db, { visibility: 'public', filepath: outsideFile });
   const supporterMedia = seedMedia(db, { visibility: 'supporters_only' });
   const listenerId = seedListener(db);
   const token = seedToken(db, { tier: 'subscriber', listenerId });
@@ -204,9 +208,15 @@ test('library visibility and gated downloads are enforced', async () => {
     });
     assert.equal(allowed.res.status, 200);
     assert.match(allowed.body.signedUrl, new RegExp(`/api/library/${publicMedia.id}/file`));
+
+    const outside = await request(baseUrl, `/api/library/${outsideMedia.id}/download`, {
+      headers: { Authorization: `Bearer ${token.token}` },
+    });
+    assert.equal(outside.res.status, 403);
   });
 
   try { fs.unlinkSync(publicFile); } catch {}
+  try { fs.unlinkSync(outsideFile); } catch {}
 });
 
 test('dashboard upload rejects unsupported multipart file types', async () => {

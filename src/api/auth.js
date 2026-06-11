@@ -36,12 +36,9 @@ function createChallenge() {
 
 function consumeChallenge(token) {
   const c = pendingChallenges.get(token);
-  if (!c || Date.now() > c.expiresAt) {
-    pendingChallenges.delete(token);
-    return false;
-  }
+  if (!c) return false;
   pendingChallenges.delete(token);
-  return true;
+  return Date.now() <= c.expiresAt;
 }
 
 const SESSION_COOKIE = 'pw_dashboard_session';

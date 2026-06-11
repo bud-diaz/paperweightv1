@@ -5,6 +5,7 @@ const { log } = require('../db');
 
 const CONCAT_DIR = path.join(config.paths.hlsOutput, 'work');
 const CONCAT_PATH = path.join(CONCAT_DIR, 'concat.txt');
+const SAFE_CONCAT_PATH_RE = /^[A-Za-z0-9 ._\-/\\:]+$/;
 
 // Escapes a file path for use in an ffconcat manifest.
 // Single quotes are the only character that needs escaping in this format.
@@ -18,9 +19,10 @@ function writeConcatManifest(tracks) {
 
   for (const track of tracks) {
     const filepath = String(track.filepath || '');
-    if (/[\r\n]/.test(filepath)) {
+    // Prevent ffconcat directive injection by allowing only conservative path chars.
+    if (!filepath || !SAFE_CONCAT_PATH_RE.test(filepath)) {
       const label = track.id ? `id=${track.id}` : 'unknown track';
-      log('warn', 'broadcast', `Skipped unsafe concat filepath containing CR/LF (${label})`);
+      log('warn', 'broadcast', `Skipped unsafe concat filepath (${label})`);
       continue;
     }
     lines.push(`file '${escapePath(filepath)}'`);

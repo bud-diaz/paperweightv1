@@ -129,11 +129,11 @@ console.log(`Targets: ${targets.map(t => t.key).join(', ')}\n`);
 // Regenerate the client bundle so pkg bundles the latest client/ and hls.js.
 run('node scripts/generate-client-bundle.js');
 
-run('npm run release:check');
-
-// Generate platform-specific native binding bundle AFTER release:check so the
-// untracked-file check doesn't flag it (it's gitignored but only created here).
+// Generate platform-specific native binding bundle before release:check so the
+// package asset check can fail fast on a missing packaged native bundle.
 run('node scripts/generate-native-bundle.js');
+
+run('npm run release:check');
 
 const pkgBin = path.join(ROOT, 'node_modules', '.bin', 'pkg');
 if (!fs.existsSync(pkgBin) && !fs.existsSync(`${pkgBin}.cmd`)) {

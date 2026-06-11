@@ -3,6 +3,9 @@ const { getDb, log } = require('../db');
 const config = require('../config');
 const { paymentLimiter } = require('../middleware/rateLimiter');
 const { cloudOnly } = require('../middleware/cloudGate');
+const asyncHandler = require('../middleware/asyncHandler');
+
+const VALID_TIERS = new Set(['subscriber', 'pro', 'all_access']);
 
 // Lazy-loaded to avoid circular dependency at module init time
 // (vault.js → router.js → payment.js, and payment.js → vault.js)
@@ -295,7 +298,7 @@ async function verifyPayPalWebhook({ clientId, clientSecret, webhookId, headers,
 // CLOUD PHASE (gated by PAPERWEIGHT_CLOUD): redirect target for the native-app
 // checkout above. Completes the subscription and redirects to the paperweightplay://
 // deep link. The web player uses GET /web-success instead.
-router.get('/success', cloudOnly, async (req, res) => {
+router.get('/success', cloudOnly, asyncHandler(async (req, res) => {
   const { session_id, tier } = req.query;
 
   if (session_id && process.env.STRIPE_SECRET_KEY) {
@@ -325,7 +328,7 @@ router.get('/success', cloudOnly, async (req, res) => {
 
   // Deep link back to app
   res.redirect(`paperweightplay://payment/success?tier=${tier || ''}`);
-});
+}));
 
 // GET /api/payment/status
 // Returns current subscription status for the authenticated listener.
@@ -350,7 +353,7 @@ router.get('/status', (req, res) => {
 // GET /api/payment/checkout-url
 // Public — no auth required. Returns a Stripe checkout URL for the subscriber tier.
 // Used by the web player when a free listener hits a supporters_only item.
-router.get('/checkout-url', paymentLimiter, async (req, res) => {
+router.get('/checkout-url', paymentLimiter, asyncHandler(async (req, res) => {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeKey) {
     return res.status(503).json({ error: 'Stripe not configured on this server' });
@@ -374,13 +377,13 @@ router.get('/checkout-url', paymentLimiter, async (req, res) => {
   } catch {
     res.status(500).json({ error: 'Failed to create checkout session' });
   }
-});
+}));
 
 // GET /api/payment/web-success?session_id=xxx
 // Stripe redirects here after a successful web checkout.
 // Retrieves the session, finds or creates the listener account, issues a token,
 // sets the pw_token cookie, then redirects to the library with ?subscribed=1.
-router.get('/web-success', async (req, res) => {
+router.get('/web-success', asyncHandler(async (req, res) => {
   const { session_id } = req.query;
 
   if (!session_id || !process.env.STRIPE_SECRET_KEY) {
@@ -450,7 +453,7 @@ router.get('/web-success', async (req, res) => {
   } catch { /* log but don't block redirect — webhook is the authoritative record */ }
 
   res.redirect('/creator.html?subscribed=1#library');
-});
+}));
 
 // ─── Tip flow ────────────────────────────────────────────────────────────────
 
@@ -472,7 +475,7 @@ router.get('/tip-config', (req, res) => {
 // Public — no auth. Body: { amountCents: number }
 // Creates a Stripe Checkout session (mode: 'payment') for a one-time tip.
 // Does NOT create listener accounts, subscriptions, or change any tiers.
-router.post('/tip', paymentLimiter, async (req, res) => {
+router.post('/tip', paymentLimiter, asyncHandler(async (req, res) => {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeKey) return res.status(503).json({ error: 'Stripe not configured on this server' });
 
@@ -513,14 +516,14 @@ router.post('/tip', paymentLimiter, async (req, res) => {
     log('error', 'payment', `Tip checkout failed: ${err.message}`);
     res.status(500).json({ error: err.message || 'Failed to create tip checkout' });
   }
-});
+}));
 
 // GET /api/payment/tip-success?session_id=xxx
 // Stripe redirects here after a successful tip payment.
 // Logs the tip, then redirects back to the station player with ?tipped=1.
 // The webhook (payment_intent.succeeded) is the authoritative record;
 // this handler logs opportunistically in case the webhook is delayed.
-router.get('/tip-success', async (req, res) => {
+router.get('/tip-success', asyncHandler(async (req, res) => {
   const { session_id } = req.query;
 
   if (session_id && process.env.STRIPE_SECRET_KEY) {
@@ -547,7 +550,7 @@ router.get('/tip-success', async (req, res) => {
   }
 
   res.redirect('/creator.html?tipped=1#player');
-});
+}));
 
 // ─── Webhooks ─────────────────────────────────────────────────────────────────
 // NOTE: The Stripe webhook is mounted separately in src/index.js BEFORE
@@ -556,7 +559,7 @@ router.get('/tip-success', async (req, res) => {
 
 // POST /api/payment/webhook/paypal
 // PayPal sends events here. Must be registered in the PayPal developer console.
-router.post('/webhook/paypal', async (req, res) => {
+router.post('/webhook/paypal', asyncHandler(async (req, res) => {
   const clientId = process.env.PAYPAL_CLIENT_ID;
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
   const webhookId = process.env.PAYPAL_WEBHOOK_ID;
@@ -600,8 +603,19 @@ router.post('/webhook/paypal', async (req, res) => {
   switch (event.event_type) {
     case 'BILLING.SUBSCRIPTION.ACTIVATED': {
       const sub = event.resource;
-      const [listenerIdStr, tier] = (sub.custom_id || '').split(':');
+      const customId = String(sub.custom_id || '');
+      if (!customId || customId.length >= 256) {
+        return res.status(400).json({ error: 'Invalid PayPal custom_id' });
+      }
+      const parts = customId.split(':');
+      if (parts.length !== 2) {
+        return res.status(400).json({ error: 'Invalid PayPal custom_id' });
+      }
+      const [listenerIdStr, tier] = parts;
       const listenerId = parseInt(listenerIdStr, 10);
+      if (!listenerId || !VALID_TIERS.has(tier)) {
+        return res.status(400).json({ error: 'Invalid PayPal custom_id' });
+      }
       if (listenerId && tier) {
         outcome = 'ok';
         mutate = () => activateSubscription(db, {
@@ -635,7 +649,7 @@ router.post('/webhook/paypal', async (req, res) => {
     log('error', 'payment', `PayPal webhook ${ppEventType} (${ppEventId}) failed: ${err.message}`);
     res.status(500).json({ error: 'Webhook processing failed' });
   }
-});
+}));
 
 // ─── Webhook event processing ─────────────────────────────────────────────────
 // claimAndRun atomically records a webhook event and runs its state mutation in a

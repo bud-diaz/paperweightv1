@@ -7,12 +7,15 @@ const { buildShuffleBatch, buildSequentialBatch, homogenizeBatch, isVideoTrack }
 const { resolveCurrentBlock } = require('./scheduler');
 const { writeConcatManifest } = require('./concat');
 const { installHint } = require('../runtime/ffmpeg');
+const { writeJsonAtomic } = require('./stateFile');
 
 const STATE_PATH = path.join(config.paths.hlsOutput, 'state.json');
 const HLS_STREAM_DIR = path.join(config.paths.hlsOutput, 'stream');
 const FFMPEG_BACKOFF_INITIAL_MS = 3000;
 const FFMPEG_BACKOFF_MAX_MS = 60000;
 const FFMPEG_KILL_ESCALATE_MS = 5000;
+const STDERR_BUFFER_MAX = 64 * 1024;
+const STDERR_BUFFER_KEEP = 32 * 1024;
 
 // ─── Engine state (in-process) ───────────────────────────────────────────────
 let state = {
@@ -56,7 +59,7 @@ function writeStateFile(overrides = {}) {
   };
 
   try {
-    fs.writeFileSync(STATE_PATH, JSON.stringify(payload, null, 2), 'utf8');
+    writeJsonAtomic(STATE_PATH, payload);
   } catch (err) {
     log('error', 'broadcast', `Failed to write state.json: ${err.message}`);
   }
@@ -226,8 +229,14 @@ function runFFmpeg(batch) {
     let stderrBuf = '';
     proc.stderr.on('data', chunk => {
       stderrBuf += chunk.toString();
+      if (stderrBuf.length > STDERR_BUFFER_MAX) {
+        stderrBuf = stderrBuf.slice(-STDERR_BUFFER_KEEP);
+      }
       const lines = stderrBuf.split('\n');
       stderrBuf = lines.pop();
+      if (stderrBuf.length > STDERR_BUFFER_KEEP) {
+        stderrBuf = stderrBuf.slice(-STDERR_BUFFER_KEEP);
+      }
       for (const line of lines) {
         const l = line.trim();
         if (!l) continue;
@@ -272,16 +281,27 @@ function sleep(ms) {
 }
 
 function cleanHlsStreamDir() {
+  const parentDir = path.dirname(HLS_STREAM_DIR);
+  const suffix = `${Date.now()}-${process.pid}`;
+  const freshDir = path.join(parentDir, `stream.new-${suffix}`);
+  const gcDir = path.join(parentDir, `stream.gc-${suffix}`);
   try {
-    if (!fs.existsSync(HLS_STREAM_DIR)) return;
-    for (const name of fs.readdirSync(HLS_STREAM_DIR)) {
-      if (name === 'index.m3u8' || /^seg_\d+\.ts$/.test(name)) {
-        fs.unlinkSync(path.join(HLS_STREAM_DIR, name));
-      }
+    fs.mkdirSync(parentDir, { recursive: true });
+    fs.mkdirSync(freshDir, { recursive: true });
+    if (fs.existsSync(HLS_STREAM_DIR)) {
+      fs.renameSync(HLS_STREAM_DIR, gcDir);
     }
+    fs.renameSync(freshDir, HLS_STREAM_DIR);
     state.segmentCounter = 0;
+    if (fs.existsSync(gcDir)) {
+      fs.rm(gcDir, { recursive: true, force: true }, err => {
+        if (err) log('warn', 'broadcast', `Could not remove stale HLS directory: ${err.message}`);
+      });
+    }
   } catch (err) {
     log('warn', 'broadcast', `Could not clean stale HLS files: ${err.message}`);
+    try { fs.rmSync(freshDir, { recursive: true, force: true }); } catch {}
+    try { fs.mkdirSync(HLS_STREAM_DIR, { recursive: true }); } catch {}
   }
 }
 
