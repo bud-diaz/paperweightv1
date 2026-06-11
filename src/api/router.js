@@ -9,7 +9,7 @@ router.use(generalLimiter);
 
 // Health check
 router.get('/health', (req, res) => {
-  res.json({ status: 'ok', station: config.station.name, version: config.version });
+  res.json({ status: 'ok', station: config.station.name });
 });
 
 router.use('/auth', require('./auth'));

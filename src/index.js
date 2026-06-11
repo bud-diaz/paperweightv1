@@ -6,8 +6,10 @@ const config = require('./config');
 const { initDb, closeDb, log } = require('./db');
 const { startScanner, stopScanner } = require('./scanner');
 const broadcast = require('./broadcast');
+const live = require('./broadcast/live');
 const apiRouter = require('./api/router');
 const { csrfCheck } = require('./middleware/csrfCheck');
+const { getFFmpegStatus } = require('./runtime/ffmpeg');
 
 const isPackaged = typeof process.pkg !== 'undefined';
 
@@ -34,6 +36,9 @@ function bundledStaticMiddleware() {
 
 function createApp() {
   const app = express();
+  if (config.trustProxy !== false) {
+    app.set('trust proxy', config.trustProxy);
+  }
 
   app.post('/api/payment/webhook/stripe',
     express.raw({ type: 'application/json' }),
@@ -159,15 +164,28 @@ function fatalShutdown(kind, err) {
 
 async function start() {
   initDb();
+  const ffmpegStatus = getFFmpegStatus();
+  if (!ffmpegStatus.ok) {
+    console.error(`[Paperweight] ${ffmpegStatus.message}`);
+    try { log('error', 'server', ffmpegStatus.message); } catch {}
+  }
   startScanner();
   broadcast.start('shuffle');
 
   const app = createApp();
-  server = app.listen(config.port);
+  server = app.listen(config.port, config.host);
 
   server.on('listening', () => {
-    log('info', 'server', `Paperweight running on port ${config.port}`);
+    log('info', 'server', `Paperweight running on ${config.host}:${config.port}`);
     log('info', 'server', `Station: ${config.station.name}`);
+    if (config.trustProxy !== false) {
+      log('info', 'server', `Trust proxy enabled: ${config.trustProxy}`);
+    }
+    if (config.host === '0.0.0.0' || config.host === '::') {
+      const msg = 'HOST is bound to all interfaces; this station is reachable on the LAN. Set HOST=127.0.0.1 for local-only use.';
+      console.warn(`[Paperweight] ${msg}`);
+      try { log('warn', 'server', msg); } catch {}
+    }
   });
 
   server.on('error', err => {
@@ -188,6 +206,7 @@ function shutdown() {
   isShuttingDown = true;
 
   try { log('info', 'server', 'Shutting down...'); } catch {}
+  live.stopLive();
   broadcast.stop();
   stopScanner();
 

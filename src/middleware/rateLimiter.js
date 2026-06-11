@@ -30,4 +30,9 @@ const generalLimiter = make({
   max: 300,
 });
 
-module.exports = { authLimiter, paymentLimiter, generalLimiter };
+const previewLimiter = make({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+});
+
+module.exports = { authLimiter, paymentLimiter, generalLimiter, previewLimiter };

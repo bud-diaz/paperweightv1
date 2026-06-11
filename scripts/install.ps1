@@ -63,13 +63,17 @@ Set-Location $ROOT
 npm install
 Write-Host "OK   npm packages installed"
 
-Write-Host "-- Firewall"
-$existing = Get-NetFirewallRule -DisplayName "Paperweight" -ErrorAction SilentlyContinue
-if ($existing) {
-    Write-Host "OK   Firewall rule already exists"
+if ($env:PAPERWEIGHT_OPEN_FIREWALL -eq "true") {
+    Write-Host "-- Firewall"
+    $existing = Get-NetFirewallRule -DisplayName "Paperweight" -ErrorAction SilentlyContinue
+    if ($existing) {
+        Write-Host "OK   Firewall rule already exists"
+    } else {
+        New-NetFirewallRule -DisplayName "Paperweight" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow | Out-Null
+        Write-Host "OK   Firewall rule added (port 3000)"
+    }
 } else {
-    New-NetFirewallRule -DisplayName "Paperweight" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow | Out-Null
-    Write-Host "OK   Firewall rule added (port 3000)"
+    Write-Host "SKIP Firewall rule (HOST defaults to 127.0.0.1; set PAPERWEIGHT_OPEN_FIREWALL=true for LAN access)"
 }
 
 Write-Host ""

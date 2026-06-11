@@ -98,6 +98,10 @@ echo "  Hides your IP address from listeners. Recommended for public stations."
 echo "  Set up a free tunnel at: https://one.dash.cloudflare.com"
 read -rp "Tunnel token (press Enter to skip): " CF_TUNNEL_TOKEN
 CF_TUNNEL_TOKEN="$(clean_env_value "Tunnel token" "$CF_TUNNEL_TOKEN")"
+TRUST_PROXY_VALUE=false
+if [[ -n "$CF_TUNNEL_TOKEN" ]]; then
+  TRUST_PROXY_VALUE=loopback
+fi
 
 DASHBOARD_TOKEN="$(node -e "const c=require('crypto');console.log(c.randomBytes(32).toString('hex'))")"
 DOWNLOAD_SIGNING_SECRET="$(node -e "const c=require('crypto');console.log(c.randomBytes(32).toString('hex'))")"
@@ -109,7 +113,9 @@ STATION_IDENTITY=$STATION_IDENTITY
 CREATOR_NAME=$CREATOR_NAME
 CREATOR_DESC=$CREATOR_DESC
 
+HOST=127.0.0.1
 PORT=3000
+TRUST_PROXY=$TRUST_PROXY_VALUE
 
 VAULT_PATH=$VAULT_PATH
 VAULT_MODE=$VAULT_MODE

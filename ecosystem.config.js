@@ -26,6 +26,8 @@ const apps = [
     time: true,
     env: {
       NODE_ENV: 'production',
+      HOST: process.env.HOST || '127.0.0.1',
+      TRUST_PROXY: process.env.TRUST_PROXY || (tunnelToken ? 'loopback' : 'false'),
     },
   },
 ];

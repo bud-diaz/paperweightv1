@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const config = require('../config');
+const { log } = require('../db');
 
 const CONCAT_DIR = path.join(config.paths.hlsOutput, 'work');
 const CONCAT_PATH = path.join(CONCAT_DIR, 'concat.txt');
@@ -16,7 +17,13 @@ function writeConcatManifest(tracks) {
   const lines = ['ffconcat version 1.0'];
 
   for (const track of tracks) {
-    lines.push(`file '${escapePath(track.filepath)}'`);
+    const filepath = String(track.filepath || '');
+    if (/[\r\n]/.test(filepath)) {
+      const label = track.id ? `id=${track.id}` : 'unknown track';
+      log('warn', 'broadcast', `Skipped unsafe concat filepath containing CR/LF (${label})`);
+      continue;
+    }
+    lines.push(`file '${escapePath(filepath)}'`);
     if (track.duration) {
       lines.push(`duration ${track.duration.toFixed(6)}`);
     }

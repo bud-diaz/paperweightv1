@@ -11,7 +11,7 @@ const path = require('path');
 const { freshDb, seedMedia, seedListener, seedToken, futureIso } = require('./helpers');
 const { createApp } = require('../src/index');
 const config = require('../src/config');
-const { parseEnvValue } = require('../src/config');
+const { parseEnvValue, parseTrustProxy } = require('../src/config');
 const { resolveAvailableUploadPath, sanitizeUploadName } = require('../src/api/dashboard');
 
 async function withServer(fn) {
@@ -40,6 +40,7 @@ test('health and local HLS asset are served', async () => {
     const health = await request(baseUrl, '/api/health');
     assert.equal(health.res.status, 200);
     assert.equal(health.body.status, 'ok');
+    assert.equal(health.body.version, undefined);
 
     const hls = await request(baseUrl, '/vendor/hls.min.js');
     assert.equal(hls.res.status, 200);
@@ -242,4 +243,12 @@ test('env parser keeps hash characters inside quoted values', () => {
   assert.equal(parseEnvValue("'abc#123' # comment"), 'abc#123');
   assert.equal(parseEnvValue('abc#123'), 'abc#123');
   assert.equal(parseEnvValue('abc # comment'), 'abc');
+});
+
+test('trust proxy parser supports booleans, hop counts, and named proxy ranges', () => {
+  assert.equal(parseTrustProxy('true'), true);
+  assert.equal(parseTrustProxy('false'), false);
+  assert.equal(parseTrustProxy('1'), true);
+  assert.equal(parseTrustProxy('2'), 2);
+  assert.equal(parseTrustProxy('loopback'), 'loopback');
 });

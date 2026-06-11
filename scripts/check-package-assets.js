@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { buildClientBundleSource } = require('./generate-client-bundle');
 
 const ROOT = path.resolve(__dirname, '..');
 let ok = true;
@@ -53,6 +54,17 @@ if (fs.existsSync(migrationsBundle)) {
 const clientBundle = path.join(ROOT, 'src/client-bundle.js');
 if (fs.existsSync(clientBundle)) {
   pass('client assets bundled: src/client-bundle.js exists');
+  try {
+    const actual = fs.readFileSync(clientBundle);
+    const expected = Buffer.from(buildClientBundleSource().source, 'utf8');
+    if (Buffer.compare(actual, expected) === 0) {
+      pass('client assets bundled: src/client-bundle.js is current');
+    } else {
+      fail('client bundle stale: run node scripts/generate-client-bundle.js');
+    }
+  } catch (err) {
+    fail(`client bundle check failed: ${err.message}`);
+  }
 } else {
   fail('client bundle missing: run node scripts/generate-client-bundle.js');
 }
