@@ -1031,6 +1031,52 @@
 
           <div class="dash-divider"></div>
 
+          <!-- Library -->
+          <div class="dash-section">
+            <details>
+              <summary class="dash-section-label dash-section-toggle">LIBRARY <span class="ds-chev">▾</span></summary>
+              <div id="dash-lib-list"></div>
+            </details>
+          </div>
+
+          <div class="dash-divider"></div>
+
+          <!-- Projects -->
+          <div class="dash-section">
+            <div class="dash-section-label">PROJECTS</div>
+            <div id="dash-proj-list"></div>
+            <details id="dash-new-proj">
+              <summary class="dash-summary">+ NEW PROJECT</summary>
+              <div style="padding:10px 14px 12px;">
+                <div class="dash-edit-label">NAME</div>
+                <input class="dash-input" id="new-proj-name" type="text" placeholder="Project name" style="margin-bottom:8px;"/>
+                <div class="dash-edit-label">DESCRIPTION (OPTIONAL)</div>
+                <textarea class="dash-input" id="new-proj-desc" placeholder="Description…" style="margin-bottom:8px;"></textarea>
+                <div class="dash-edit-label">PRICING</div>
+                <div class="dash-proj-price-grid">
+                  <div>
+                    <div class="dash-edit-label">SUGGESTED ($)</div>
+                    <input class="dash-input-sm" id="new-proj-sugg" type="number" step="0.01" min="0" placeholder="5.00"/>
+                  </div>
+                  <div>
+                    <div class="dash-edit-label">MINIMUM ($)</div>
+                    <input class="dash-input-sm" id="new-proj-min" type="number" step="0.01" min="0" placeholder="1.00"/>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+                  <input type="checkbox" id="new-proj-free"/>
+                  <label for="new-proj-free" style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.4);cursor:pointer;">Allow free / pay-what-you-want</label>
+                </div>
+                <div class="dash-form-row">
+                  <span id="new-proj-msg" style="font-family:'Space Mono',monospace;font-size:8px;flex:1;"></span>
+                  <button class="mgmt-btn" id="btn-new-proj">CREATE PROJECT</button>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div class="dash-divider"></div>
+
           <!-- Analytics -->
           <div class="dash-section">
             <div class="dash-section-label">ANALYTICS</div>
@@ -1108,52 +1154,6 @@
                 </select>
                 <button class="mgmt-btn" id="btn-add-sched">ADD</button>
               </div>
-            </details>
-          </div>
-
-          <div class="dash-divider"></div>
-
-          <!-- Projects -->
-          <div class="dash-section">
-            <div class="dash-section-label">PROJECTS</div>
-            <div id="dash-proj-list"></div>
-            <details id="dash-new-proj">
-              <summary class="dash-summary">+ NEW PROJECT</summary>
-              <div style="padding:10px 14px 12px;">
-                <div class="dash-edit-label">NAME</div>
-                <input class="dash-input" id="new-proj-name" type="text" placeholder="Project name" style="margin-bottom:8px;"/>
-                <div class="dash-edit-label">DESCRIPTION (OPTIONAL)</div>
-                <textarea class="dash-input" id="new-proj-desc" placeholder="Description…" style="margin-bottom:8px;"></textarea>
-                <div class="dash-edit-label">PRICING</div>
-                <div class="dash-proj-price-grid">
-                  <div>
-                    <div class="dash-edit-label">SUGGESTED ($)</div>
-                    <input class="dash-input-sm" id="new-proj-sugg" type="number" step="0.01" min="0" placeholder="5.00"/>
-                  </div>
-                  <div>
-                    <div class="dash-edit-label">MINIMUM ($)</div>
-                    <input class="dash-input-sm" id="new-proj-min" type="number" step="0.01" min="0" placeholder="1.00"/>
-                  </div>
-                </div>
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
-                  <input type="checkbox" id="new-proj-free"/>
-                  <label for="new-proj-free" style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.4);cursor:pointer;">Allow free / pay-what-you-want</label>
-                </div>
-                <div class="dash-form-row">
-                  <span id="new-proj-msg" style="font-family:'Space Mono',monospace;font-size:8px;flex:1;"></span>
-                  <button class="mgmt-btn" id="btn-new-proj">CREATE PROJECT</button>
-                </div>
-              </div>
-            </details>
-          </div>
-
-          <div class="dash-divider"></div>
-
-          <!-- Library -->
-          <div class="dash-section">
-            <details open>
-              <summary class="dash-section-label dash-section-toggle">LIBRARY <span class="ds-chev">▾</span></summary>
-              <div id="dash-lib-list"></div>
             </details>
           </div>
 
