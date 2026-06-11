@@ -350,6 +350,15 @@
     }
     .stat-val { font-family:'DM Serif Display',serif; font-size:22px; color:#fff; line-height:1; }
     .stat-key { font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.3); letter-spacing:.08em; margin-top:4px; }
+    .vault-stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .vault-stat-btn {
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
+      border-radius:10px; padding:12px 10px; text-align:center;
+      cursor:pointer; transition:background .15s, border-color .15s; width:100%;
+    }
+    .vault-stat-btn:hover { background:rgba(255,255,255,.08); }
+    .vault-stat-btn.active { background:rgba(255,255,255,.09); border-color:rgba(255,255,255,.22); }
+    .vault-panel { padding-top:10px; }
     .dash-divider { height:1px; background:rgba(255,255,255,.05); margin:14px 16px 0; }
     .sched-row {
       display:flex; align-items:center; justify-content:space-between;
@@ -1026,17 +1035,45 @@
           <!-- Vault Stats -->
           <div class="dash-section">
             <div class="dash-section-label">VAULT</div>
-            <div class="stat-grid" id="dash-vault-stats"></div>
-          </div>
-
-          <div class="dash-divider"></div>
-
-          <!-- Library -->
-          <div class="dash-section">
-            <details>
-              <summary class="dash-section-label dash-section-toggle">LIBRARY <span class="ds-chev">▾</span></summary>
+            <div class="vault-stat-grid">
+              <button class="vault-stat-btn" id="vsb-tracks">
+                <div class="stat-val" id="vs-tracks">—</div>
+                <div class="stat-key">TRACKS</div>
+              </button>
+              <button class="vault-stat-btn" id="vsb-locked">
+                <div class="stat-val" id="vs-locked" style="color:rgba(57,255,20,.85);">—</div>
+                <div class="stat-key">LOCKED</div>
+              </button>
+              <button class="vault-stat-btn" id="vsb-tokens">
+                <div class="stat-val" id="vs-tokens">—</div>
+                <div class="stat-key">TOKENS</div>
+              </button>
+            </div>
+            <div class="vault-panel" id="vault-panel-tracks" hidden>
               <div id="dash-lib-list"></div>
-            </details>
+            </div>
+            <div class="vault-panel" id="vault-panel-locked" hidden>
+              <div id="dash-locked-list"></div>
+            </div>
+            <div class="vault-panel" id="vault-panel-tokens" hidden>
+              <div id="dash-token-list"></div>
+              <div class="dash-form-row" style="margin-top:10px;padding:0 14px;">
+                <input type="text" class="dash-input dash-input-sm" id="new-token-label" placeholder="Label (e.g. Maria)" style="flex:1;min-width:80px;"/>
+                <select class="dash-select dash-input-sm" id="new-token-tier" style="width:auto;">
+                  <option value="subscriber">Subscriber</option>
+                  <option value="pro">Pro</option>
+                  <option value="all_access">All-Access</option>
+                </select>
+                <button class="mgmt-btn" id="btn-create-token">CREATE</button>
+              </div>
+              <div class="dash-form-row" style="margin-top:6px;padding:0 14px;">
+                <div style="flex:1;position:relative;">
+                  <input type="text" class="dash-input dash-input-sm" id="new-token-email" placeholder="Assign to account (optional email)" style="width:100%;box-sizing:border-box;" autocomplete="off"/>
+                  <div class="typeahead-drop" id="new-token-email-drop" hidden></div>
+                </div>
+              </div>
+              <div id="new-token-result" style="padding:0 14px;margin-top:6px;margin-bottom:4px;"></div>
+            </div>
           </div>
 
           <div class="dash-divider"></div>
@@ -1185,32 +1222,6 @@
               </div>
               <div id="dash-upload-msg" style="margin-top:6px;font-size:9px;font-family:'Space Mono',monospace;"></div>
             </div>
-          </div>
-
-          <div class="dash-divider"></div>
-
-          <!-- Tokens -->
-          <div class="dash-section">
-            <details open>
-              <summary class="dash-section-label dash-section-toggle">TOKENS <span class="ds-chev">▾</span></summary>
-              <div id="dash-token-list"></div>
-              <div class="dash-form-row" style="margin-top:10px;padding:0 14px;">
-                <input type="text" class="dash-input dash-input-sm" id="new-token-label" placeholder="Label (e.g. Maria)" style="flex:1;min-width:80px;"/>
-                <select class="dash-select dash-input-sm" id="new-token-tier" style="width:auto;">
-                  <option value="subscriber">Subscriber</option>
-                  <option value="pro">Pro</option>
-                  <option value="all_access">All-Access</option>
-                </select>
-                <button class="mgmt-btn" id="btn-create-token">CREATE</button>
-              </div>
-              <div class="dash-form-row" style="margin-top:6px;padding:0 14px;">
-                <div style="flex:1;position:relative;">
-                  <input type="text" class="dash-input dash-input-sm" id="new-token-email" placeholder="Assign to account (optional email)" style="width:100%;box-sizing:border-box;" autocomplete="off"/>
-                  <div class="typeahead-drop" id="new-token-email-drop" hidden></div>
-                </div>
-              </div>
-              <div id="new-token-result" style="padding:0 14px;margin-top:6px;margin-bottom:4px;"></div>
-            </details>
           </div>
 
           <div class="dash-divider"></div>
@@ -2659,17 +2670,53 @@ async function loadDashPaymentConfig() {
 }
 
 async function loadDashVaultStats() {
+  ['tracks', 'locked', 'tokens'].forEach(n => {
+    el('vsb-' + n).onclick = () => openVaultPanel(n);
+  });
   try {
-    const d = await dashFetch('/api/dashboard/vault').then(r => r.json());
-    el('dash-vault-stats').innerHTML =
-      `<div class="stat-card"><div class="stat-val">${d.totalFiles||0}</div><div class="stat-key">UPLOADS</div></div>` +
-      `<div class="stat-card"><div class="stat-val">${d.totalHours||0}h</div><div class="stat-key">RUNTIME</div></div>` +
-      Object.entries(d.byCategory || {}).slice(0, 1).map(([cat, n]) =>
-        `<div class="stat-card"><div class="stat-val">${n}</div><div class="stat-key">${esc(cat.toUpperCase())}</div></div>`
-      ).join('');
-  } catch {
-    el('dash-vault-stats').innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;">Could not load stats</div>';
+    const [mediaItems, tokens] = await Promise.all([
+      dashFetch('/api/dashboard/media').then(r => r.json()),
+      dashFetch('/api/dashboard/tokens').then(r => r.json()),
+    ]);
+    const lockedCount = mediaItems.filter(it => it.visibility === 'vault' || it.visibility === 'supporters_only').length;
+    el('vs-tracks').textContent = mediaItems.length;
+    el('vs-locked').textContent = lockedCount;
+    el('vs-tokens').textContent = tokens.length;
+  } catch {}
+}
+
+let _activeVaultPanel = null;
+function openVaultPanel(name) {
+  if (_activeVaultPanel === name) {
+    el('vault-panel-' + name).hidden = true;
+    el('vsb-' + name).classList.remove('active');
+    _activeVaultPanel = null;
+    return;
   }
+  if (_activeVaultPanel) {
+    el('vault-panel-' + _activeVaultPanel).hidden = true;
+    el('vsb-' + _activeVaultPanel).classList.remove('active');
+  }
+  _activeVaultPanel = name;
+  el('vault-panel-' + name).hidden = false;
+  el('vsb-' + name).classList.add('active');
+  if (name === 'tracks') loadDashLibrary();
+  else if (name === 'locked') loadDashLockedTracks();
+  else if (name === 'tokens') loadDashTokens();
+}
+
+async function loadDashLockedTracks() {
+  try {
+    const items = await dashFetch('/api/dashboard/media').then(r => r.json());
+    const locked = items.filter(it => it.visibility === 'vault' || it.visibility === 'supporters_only');
+    const list = el('dash-locked-list');
+    list.innerHTML = '';
+    if (!locked.length) {
+      list.innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No locked tracks.</div>';
+      return;
+    }
+    for (const item of locked) list.appendChild(buildDashLibItem(item, 'track', item.id, false));
+  } catch {}
 }
 
 async function loadDashBroadcast() {
