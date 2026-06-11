@@ -6,9 +6,13 @@ const { log } = require('../db');
 const { buildShuffleBatch, buildSequentialBatch, homogenizeBatch, isVideoTrack } = require('./playlist');
 const { resolveCurrentBlock } = require('./scheduler');
 const { writeConcatManifest } = require('./concat');
+const { installHint } = require('../runtime/ffmpeg');
 
 const STATE_PATH = path.join(config.paths.hlsOutput, 'state.json');
 const HLS_STREAM_DIR = path.join(config.paths.hlsOutput, 'stream');
+const FFMPEG_BACKOFF_INITIAL_MS = 3000;
+const FFMPEG_BACKOFF_MAX_MS = 60000;
+const FFMPEG_KILL_ESCALATE_MS = 5000;
 
 // ─── Engine state (in-process) ───────────────────────────────────────────────
 let state = {
@@ -108,6 +112,21 @@ function buildTrackOffsets(batch) {
   return offsets;
 }
 
+function nextSegmentNumber() {
+  let maxSeen = -1;
+  try {
+    if (fs.existsSync(HLS_STREAM_DIR)) {
+      for (const name of fs.readdirSync(HLS_STREAM_DIR)) {
+        const match = name.match(/^seg_(\d+)\.ts$/);
+        if (match) maxSeen = Math.max(maxSeen, parseInt(match[1], 10));
+      }
+    }
+  } catch (err) {
+    log('warn', 'broadcast', `Could not inspect HLS segment numbers: ${err.message}`);
+  }
+  return Math.max(state.segmentCounter, maxSeen + 1, 0);
+}
+
 // ─── Batch resolution ────────────────────────────────────────────────────────
 
 function resolveBatch() {
@@ -129,6 +148,9 @@ function resolveBatch() {
 // ─── FFmpeg ──────────────────────────────────────────────────────────────────
 
 function buildFFmpegArgs(concatPath, hasVideo = false) {
+  const startNumber = nextSegmentNumber();
+  state.segmentCounter = startNumber;
+
   const videoArgs = hasVideo
     ? [
         '-c:v', 'libx264',
@@ -160,7 +182,7 @@ function buildFFmpegArgs(concatPath, hasVideo = false) {
     '-hls_time', '6',
     '-hls_list_size', '10',
     '-hls_flags', 'delete_segments+append_list',
-    '-start_number', String(state.segmentCounter),
+    '-start_number', String(startNumber),
     '-hls_segment_filename', path.join(HLS_STREAM_DIR, 'seg_%05d.ts').replace(/\\/g, '/'),
     path.join(HLS_STREAM_DIR, 'index.m3u8').replace(/\\/g, '/'),
   ];
@@ -196,7 +218,7 @@ function runFFmpeg(batch) {
       settled = true;
       clearInterval(state.nowPlayingTimer);
       state.nowPlayingTimer = null;
-      state.ffmpegProc = null;
+      if (state.ffmpegProc === proc) state.ffmpegProc = null;
       fn(val);
     }
 
@@ -217,19 +239,28 @@ function runFFmpeg(batch) {
 
     proc.on('error', err => {
       if (err.code === 'ENOENT') {
-        settle(reject, new Error('ffmpeg not found — install with: sudo apt install ffmpeg'));
+        settle(reject, new Error(`ffmpeg not found. ${installHint()}`));
       } else {
         settle(reject, err);
       }
     });
 
-    proc.on('close', code => {
-      // Advance global segment counter so the next batch doesn't reuse filenames
-      const totalDuration = batch.reduce((sum, t) => sum + (t.duration || 0), 0);
-      state.segmentCounter += Math.ceil(totalDuration / 6) + 5;
+    proc.on('close', (code, signal) => {
+      state.segmentCounter = nextSegmentNumber();
 
-      // 0 = natural end, null/undefined = killed by stop()
-      settle(resolve, code);
+      if (code === 0 || proc.paperweightIntentionalExit) {
+        settle(resolve, { code, signal });
+        return;
+      }
+
+      const err = new Error(
+        code === null || code === undefined
+          ? `ffmpeg exited by signal ${signal || 'unknown'}`
+          : `ffmpeg exited with code ${code}`
+      );
+      err.exitCode = code;
+      err.signal = signal;
+      settle(reject, err);
     });
   });
 }
@@ -254,7 +285,29 @@ function cleanHlsStreamDir() {
   }
 }
 
+function terminateFFmpegProc(proc, reason) {
+  if (!proc) return;
+  proc.paperweightIntentionalExit = true;
+  try {
+    proc.kill('SIGTERM');
+  } catch (err) {
+    log('warn', 'broadcast', `Could not terminate FFmpeg for ${reason}: ${err.message}`);
+    return;
+  }
+
+  const timer = setTimeout(() => {
+    if (proc.exitCode === null && proc.signalCode === null) {
+      log('warn', 'broadcast', `FFmpeg did not exit after ${reason}; forcing SIGKILL`);
+      try { proc.kill('SIGKILL'); } catch {}
+    }
+  }, FFMPEG_KILL_ESCALATE_MS);
+  timer.unref?.();
+  proc.once('close', () => clearTimeout(timer));
+}
+
 async function broadcastLoop() {
+  let ffmpegBackoffMs = FFMPEG_BACKOFF_INITIAL_MS;
+
   while (state.isRunning) {
     let batch, source;
 
@@ -277,6 +330,7 @@ async function broadcastLoop() {
 
     try {
       await runFFmpeg(batch);
+      ffmpegBackoffMs = FFMPEG_BACKOFF_INITIAL_MS;
     } catch (err) {
       log('error', 'broadcast', `FFmpeg error: ${err.message}`);
       if (err.message.includes('not found')) {
@@ -284,7 +338,10 @@ async function broadcastLoop() {
         state.isRunning = false;
         break;
       }
-      await sleep(3000);
+      const delay = ffmpegBackoffMs;
+      ffmpegBackoffMs = Math.min(ffmpegBackoffMs * 2, FFMPEG_BACKOFF_MAX_MS);
+      log('warn', 'broadcast', `Retrying FFmpeg in ${Math.round(delay / 1000)}s`);
+      await sleep(delay);
     }
   }
 
@@ -322,8 +379,7 @@ function stop() {
     state.nowPlayingTimer = null;
   }
   if (state.ffmpegProc) {
-    state.ffmpegProc.kill('SIGTERM');
-    state.ffmpegProc = null;
+    terminateFFmpegProc(state.ffmpegProc, 'stop');
   }
   writeStateFile({ isLive: false, nowPlaying: null });
   log('info', 'broadcast', 'Broadcast stop requested');
@@ -337,7 +393,7 @@ function setMode(mode) {
   log('info', 'broadcast', `Mode changed to: ${mode}`);
   // Kill current FFmpeg batch so the loop picks up the new mode immediately
   if (state.isRunning && state.ffmpegProc) {
-    state.ffmpegProc.kill('SIGTERM');
+    terminateFFmpegProc(state.ffmpegProc, 'mode change');
   }
 }
 

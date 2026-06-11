@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config');
 const { log } = require('../db');
+const { installHint } = require('../runtime/ffmpeg');
 
 const LIVE_DIR = path.join(config.paths.hlsOutput, 'live');
 const STATE_PATH = path.join(config.paths.hlsOutput, 'live_state.json');
@@ -83,9 +84,17 @@ function startLive() {
     }
   });
 
+  proc.stdin.on('error', err => {
+    log('warn', 'live', `FFmpeg stdin error: ${err.message}`);
+  });
+
   proc.on('error', err => {
-    log('error', 'live', `FFmpeg spawn error: ${err.message}`);
+    const message = err.code === 'ENOENT'
+      ? `FFmpeg spawn error: ffmpeg not found. ${installHint()}`
+      : `FFmpeg spawn error: ${err.message}`;
+    log('error', 'live', message);
     state.isLive = false;
+    state.startedAt = null;
     state.ffmpegProc = null;
     writeLiveState();
   });
@@ -93,6 +102,7 @@ function startLive() {
   proc.on('close', code => {
     log('info', 'live', `FFmpeg exited (code ${code})`);
     state.isLive = false;
+    state.startedAt = null;
     state.ffmpegProc = null;
     writeLiveState();
   });

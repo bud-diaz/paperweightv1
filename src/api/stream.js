@@ -9,9 +9,11 @@ const { getDb, log } = require('../db');
 const activeListeners = new Map();
 const LISTENER_TTL_MS = 60_000;
 const MAX_PING_DELTA_SEC = 45;
+const DAILY_STATS_REFRESH_MS = 60_000;
+let lastDailyStatsRefreshMs = 0;
 
 function listenerHash(req) {
-  const raw = `${req.ip || ''}:${req.headers['user-agent'] || ''}`;
+  const raw = req.ip || req.socket?.remoteAddress || '';
   return crypto.createHash('sha256').update(raw).digest('hex');
 }
 
@@ -63,6 +65,12 @@ function refreshDailyStats(date = todaySqlDate()) {
   `).run(date, totals.unique_listeners || 0, totals.total_listen_sec || 0, top?.media_id || null);
 }
 
+function maybeRefreshDailyStats(nowMs) {
+  if (nowMs - lastDailyStatsRefreshMs < DAILY_STATS_REFRESH_MS) return;
+  lastDailyStatsRefreshMs = nowMs;
+  refreshDailyStats();
+}
+
 function recordListenEvent(req, state, nowMs) {
   const mediaId = state?.nowPlaying?.id;
   if (!mediaId) return null;
@@ -82,7 +90,7 @@ function recordListenEvent(req, state, nowMs) {
     existing.lastPingMs = nowMs;
     existing.lastMediaStartedAt = state.nowPlaying.startedAt || null;
     activeListeners.set(hash, existing);
-    return existing.eventId;
+    return { eventId: existing.eventId, secondsDelta: deltaSec };
   }
 
   const info = db.prepare(
@@ -96,7 +104,7 @@ function recordListenEvent(req, state, nowMs) {
     lastMediaStartedAt: state.nowPlaying.startedAt || null,
   });
 
-  return info.lastInsertRowid;
+  return { eventId: info.lastInsertRowid, secondsDelta: 0 };
 }
 
 function recordPing(req) {
@@ -106,10 +114,10 @@ function recordPing(req) {
 
   const state = broadcast.getState();
   try {
-    const eventId = recordListenEvent(req, state, nowMs);
-    if (eventId) {
-      refreshDailyStats();
-    } else {
+    const event = recordListenEvent(req, state, nowMs);
+    if (event?.eventId && event.secondsDelta > 0) {
+      maybeRefreshDailyStats(nowMs);
+    } else if (!event?.eventId) {
       const session = activeListeners.get(hash) || {};
       session.lastPingMs = nowMs;
       activeListeners.set(hash, session);

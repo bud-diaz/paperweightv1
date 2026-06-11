@@ -74,7 +74,9 @@ function loadEnv() {
         `DASHBOARD_TOKEN=${token}`,
         `DOWNLOAD_SIGNING_SECRET=${signingSecret}`,
         'STATION_NAME=My Station',
+        'HOST=127.0.0.1',
         'PORT=3000',
+        'TRUST_PROXY=false',
         '',
       ].join('\n');
       fs.writeFileSync(envPath, defaults, 'utf8');
@@ -101,6 +103,16 @@ function loadEnv() {
 loadEnv();
 
 const hasEnvValue = key => !!(process.env[key] && process.env[key].trim());
+
+function parseTrustProxy(raw) {
+  if (!raw || !String(raw).trim()) return false;
+  const value = String(raw).trim();
+  const lower = value.toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(lower)) return true;
+  if (['false', '0', 'no', 'off'].includes(lower)) return false;
+  if (/^\d+$/.test(value)) return parseInt(value, 10);
+  return value;
+}
 
 // Returns a stable secret for `key`. If it is missing, generate one and persist
 // it to .env (when a writable .env exists) so it survives restarts instead of
@@ -137,7 +149,9 @@ function ensurePersistedSecret(key, bytes, label) {
 const config = {
   version: loadPackageVersion(),
 
+  host: process.env.HOST || '127.0.0.1',
   port: parseInt(process.env.PORT || '3000', 10),
+  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
 
   station: {
     name:        process.env.STATION_NAME        || 'Paperweight Station',
@@ -228,3 +242,4 @@ function warnStartupConfig() {
 warnStartupConfig();
 
 module.exports.parseEnvValue = parseEnvValue;
+module.exports.parseTrustProxy = parseTrustProxy;

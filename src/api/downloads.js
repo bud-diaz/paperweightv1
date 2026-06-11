@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { getDb } = require('../db');
 const { canDownloadMedia } = require('../auth/access');
+const { normalizeUnlockOptions } = require('./vault');
 
 const TOKEN_TTL_HOURS = parseInt(process.env.DOWNLOAD_TOKEN_TTL_HOURS || '48', 10);
 
@@ -29,7 +30,7 @@ router.get('/library/:id/signed-url', (req, res) => {
 
   const access = canDownloadMedia(req, media, getProjectId(db, media.id));
   if (!access.allowed) {
-    return res.status(403).json({ error: access.error, unlockOptions: access.unlockOptions });
+    return res.status(403).json({ error: access.error, unlockOptions: normalizeUnlockOptions(access.unlockOptions) });
   }
 
   if (!req.tokenRow?.listener_id) {

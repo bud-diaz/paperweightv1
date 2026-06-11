@@ -997,6 +997,7 @@
 
         <!-- Dashboard content (shown after auth) -->
         <div id="dash-content" hidden>
+          <div id="dash-runtime-alert" hidden style="margin:0 14px 12px;padding:8px 10px;border:1px solid rgba(255,68,102,.35);background:rgba(255,68,102,.08);color:#ff6680;font-family:'Space Mono',monospace;font-size:9px;line-height:1.45;border-radius:6px;"></div>
 
           <!-- Station -->
           <div class="dash-section">
@@ -1301,7 +1302,6 @@ const HLS_LIVE_URL       = '/hls/live/index.m3u8';
 let   currentLiveActive  = false;
 const STATUS_INTERVAL_MS = 10_000;
 const PING_INTERVAL_MS   = 30_000;
-const SESSION_KEY        = 'pw_dash_token';
 let   dashboardLoaded    = false;
 
 function enterDashboard() {
@@ -2323,8 +2323,6 @@ document.querySelectorAll('.view-tab').forEach(btn => {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 function dashFetch(url, opts = {}) {
-  const token = sessionStorage.getItem(SESSION_KEY);
-  if (token) opts.headers = { ...(opts.headers || {}), 'X-Dashboard-Token': token };
   return fetch(url, opts);
 }
 
@@ -2358,12 +2356,7 @@ let dashboardInitialized = false;
 async function initDashboard() {
   if (dashboardInitialized) return;
   dashboardInitialized = true;
-  const token = sessionStorage.getItem(SESSION_KEY);
-  if (token) {
-    const ok = await tryDashAuth();
-    if (ok) { showDashContent(); return; }
-    sessionStorage.removeItem(SESSION_KEY);
-  }
+  if (await tryDashAuth()) { showDashContent(); return; }
   showDashAuthGate();
 }
 
@@ -2388,10 +2381,6 @@ el('dash-token-btn').addEventListener('click', async () => {
       el('dash-auth-msg').textContent = data.error || 'Invalid token';
       return;
     }
-
-    // Keep token in sessionStorage so dashFetch can still send it as a header
-    // for backward-compat (requireDashboard accepts it when 2FA is off).
-    sessionStorage.setItem(SESSION_KEY, token);
 
     if (data.requires2FA) {
       pendingChallenge = data.challenge;
@@ -2523,6 +2512,7 @@ function makeTypeahead(inputEl, dropEl, accounts) {
 }
 
 function loadDashboard() {
+  loadDashRuntime();
   loadDashStation();
   loadDashVaultStats();
   loadDashBroadcast();
@@ -2536,6 +2526,22 @@ function loadDashboard() {
   loadDash2FA();
   loadDashPaymentConfig();
   loadDashTipConfig();
+}
+
+async function loadDashRuntime() {
+  const alert = el('dash-runtime-alert');
+  try {
+    const data = await dashFetch('/api/dashboard/runtime').then(r => r.json());
+    if (data.ffmpeg && data.ffmpeg.ok === false) {
+      alert.textContent = data.ffmpeg.message || 'FFmpeg is not available. Broadcasts and previews cannot be generated.';
+      alert.hidden = false;
+    } else {
+      alert.hidden = true;
+      alert.textContent = '';
+    }
+  } catch {
+    alert.hidden = true;
+  }
 }
 
 async function loadDashStation() {
@@ -3296,7 +3302,7 @@ el('dash-upload-submit').addEventListener('click', async () => {
   }
   uploadFiles = [];
   el('dash-upload-form').hidden = true;
-  setTimeout(() => { loadDashVaultStats(); loadDashMedia(); loadLibrary(); }, 1500);
+  setTimeout(() => { loadDashVaultStats(); loadDashLibrary(); loadLibrary(); }, 1500);
 });
 
 async function loadDashTokens() {
@@ -3710,13 +3716,10 @@ async function init() {
   // Tip presets for modal
   loadTipConfig();
 
-  // Silently restore creator session — reveals toggle, hides tip button, no navigation
+  // Silently restore creator session from the httpOnly dashboard cookie.
   (async () => {
-    const stored = sessionStorage.getItem(SESSION_KEY);
-    if (!stored) return;
     const ok = await tryDashAuth();
     if (ok) { showDashContent(); }
-    else    { sessionStorage.removeItem(SESSION_KEY); }
   })();
 
   // Initial render

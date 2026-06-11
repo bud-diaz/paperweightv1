@@ -11,7 +11,9 @@ const http = require('http');
 const { exec } = require('child_process');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
-const url = `http://localhost:${PORT}`;
+const HOST = process.env.HOST || '127.0.0.1';
+const browserHost = HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
+const url = `http://${browserHost}:${PORT}`;
 
 const app = require('./index');
 

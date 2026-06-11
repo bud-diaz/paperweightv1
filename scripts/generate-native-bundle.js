@@ -15,6 +15,7 @@
 
 const fs   = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const ROOT      = path.resolve(__dirname, '..');
 const NODE_FILE = path.join(ROOT, 'node_modules', 'better-sqlite3', 'build', 'Release', 'better_sqlite3.node');
@@ -26,6 +27,7 @@ if (!fs.existsSync(NODE_FILE)) {
 }
 
 const b64  = fs.readFileSync(NODE_FILE).toString('base64');
+const hash = crypto.createHash('sha256').update(fs.readFileSync(NODE_FILE)).digest('hex');
 const size = (fs.statSync(NODE_FILE).size / 1024).toFixed(0);
 
 const content = [
@@ -35,7 +37,12 @@ const content = [
   '',
   '\'use strict\';',
   '',
-  `module.exports = Buffer.from(${JSON.stringify(b64)}, 'base64');`,
+  'module.exports = {',
+  `  data: Buffer.from(${JSON.stringify(b64)}, 'base64'),`,
+  `  sha256: ${JSON.stringify(hash)},`,
+  `  platform: ${JSON.stringify(process.platform)},`,
+  `  arch: ${JSON.stringify(process.arch)},`,
+  '};',
   '',
 ].join('\n');
 

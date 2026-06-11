@@ -6,9 +6,13 @@ const { spawn } = require('child_process');
 const { getDb } = require('../db');
 const { isSubscriberTier, canAccessMedia, canDownloadMedia } = require('../auth/access');
 const config = require('../config');
+const { installHint } = require('../runtime/ffmpeg');
+const { normalizeUnlockOptions } = require('./vault');
+const { previewLimiter } = require('../middleware/rateLimiter');
 
 const PREVIEW_DIR = path.join(config.paths.hlsOutput, 'previews');
 const PREVIEW_DURATION = 60;
+const previewJobs = new Map();
 
 function signingSecret() {
   return config.auth.downloadSigningSecret;
@@ -108,6 +112,83 @@ function getProjectId(mediaId) {
   return row?.project_id ?? null;
 }
 
+function unlinkIfExists(filepath) {
+  try {
+    if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+  } catch {}
+}
+
+function buildPreviewArgs(row, isVideo, previewPath) {
+  return isVideo
+    ? [
+        '-y',
+        '-i', row.filepath,
+        '-t', String(PREVIEW_DURATION),
+        '-c:v', 'libx264',
+        '-crf', '23',
+        '-preset', 'fast',
+        '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-ac', '2',
+        '-movflags', '+faststart',
+        previewPath,
+      ]
+    : [
+        '-y',
+        '-i', row.filepath,
+        '-t', String(PREVIEW_DURATION),
+        '-vn',
+        '-c:a', 'aac',
+        '-b:a', '96k',
+        '-ac', '2',
+        previewPath,
+      ];
+}
+
+function generatePreview(row, isVideo, previewPath) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('ffmpeg', buildPreviewArgs(row, isVideo, previewPath), {
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+
+    let settled = false;
+    function settle(fn, value) {
+      if (settled) return;
+      settled = true;
+      fn(value);
+    }
+
+    proc.on('error', err => {
+      if (err.code === 'ENOENT') {
+        settle(reject, new Error(`Preview generation unavailable. ${installHint()}`));
+      } else {
+        settle(reject, err);
+      }
+    });
+
+    proc.on('close', code => {
+      if (code === 0 && fs.existsSync(previewPath)) {
+        settle(resolve);
+        return;
+      }
+      unlinkIfExists(previewPath);
+      settle(reject, new Error('Preview generation failed'));
+    });
+  });
+}
+
+function getPreviewJob(key, row, isVideo, previewPath) {
+  let job = previewJobs.get(key);
+  if (!job) {
+    job = generatePreview(row, isVideo, previewPath)
+      .finally(() => previewJobs.delete(key));
+    previewJobs.set(key, job);
+  }
+  return job;
+}
+
 router.get('/structure', (req, res) => {
   const db = getDb();
   const { conditions, params } = buildMediaQuery({ tier: req.tier });
@@ -172,13 +253,13 @@ router.get('/:id', (req, res) => {
 
   const access = canAccessMedia(req, row, getProjectId(row.id));
   if (!access.allowed) {
-    return res.status(403).json({ error: access.error, unlockOptions: access.unlockOptions });
+    return res.status(403).json({ error: access.error, unlockOptions: normalizeUnlockOptions(access.unlockOptions) });
   }
 
   res.json(formatItem(row, req.tier));
 });
 
-router.get('/:id/preview', (req, res) => {
+router.get('/:id/preview', previewLimiter, async (req, res) => {
   // Public short previews are intentional for public/supporters_only items.
   // Vault previews stay unavailable until a separate paid-preview policy exists.
   const row = getDb().prepare(
@@ -193,7 +274,7 @@ router.get('/:id/preview', (req, res) => {
 
   const altExt = isVideo ? 'm4a' : 'mp4';
   const altPath = path.join(PREVIEW_DIR, `${row.id}.${altExt}`);
-  if (fs.existsSync(altPath)) fs.unlinkSync(altPath);
+  unlinkIfExists(altPath);
 
   if (fs.existsSync(previewPath)) {
     return res.sendFile(previewPath);
@@ -201,50 +282,15 @@ router.get('/:id/preview', (req, res) => {
 
   fs.mkdirSync(PREVIEW_DIR, { recursive: true });
 
-  const args = isVideo
-    ? [
-        '-y',
-        '-i', row.filepath,
-        '-t', String(PREVIEW_DURATION),
-        '-c:v', 'libx264',
-        '-crf', '23',
-        '-preset', 'fast',
-        '-pix_fmt', 'yuv420p',
-        '-c:a', 'aac',
-        '-b:a', '128k',
-        '-ac', '2',
-        '-movflags', '+faststart',
-        previewPath,
-      ]
-    : [
-        '-y',
-        '-i', row.filepath,
-        '-t', String(PREVIEW_DURATION),
-        '-vn',
-        '-c:a', 'aac',
-        '-b:a', '96k',
-        '-ac', '2',
-        previewPath,
-      ];
-
-  const proc = spawn('ffmpeg', args, { stdio: 'ignore', windowsHide: true });
-
-  proc.on('error', err => {
+  try {
+    await getPreviewJob(`${row.id}:${previewExt}`, row, isVideo, previewPath);
+    return res.sendFile(previewPath);
+  } catch (err) {
     if (!res.headersSent) {
-      res.status(503).json({ error: 'Preview generation unavailable (ffmpeg not installed)' });
+      const status = err.message.includes('unavailable') ? 503 : 500;
+      res.status(status).json({ error: err.message });
     }
-  });
-
-  proc.on('close', code => {
-    if (code === 0 && fs.existsSync(previewPath)) {
-      res.sendFile(previewPath);
-    } else {
-      if (fs.existsSync(previewPath)) fs.unlinkSync(previewPath);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Preview generation failed' });
-      }
-    }
-  });
+  }
 });
 
 router.get('/:id/download', (req, res) => {
@@ -256,7 +302,7 @@ router.get('/:id/download', (req, res) => {
 
   const access = canDownloadMedia(req, row, getProjectId(row.id));
   if (!access.allowed) {
-    return res.status(403).json({ error: access.error, unlockOptions: access.unlockOptions });
+    return res.status(403).json({ error: access.error, unlockOptions: normalizeUnlockOptions(access.unlockOptions) });
   }
 
   if (!fs.existsSync(row.filepath)) {

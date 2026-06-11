@@ -15,6 +15,7 @@ const live = require('../broadcast/live');
 const config = require('../config');
 const { probe } = require('../scanner/probe');
 const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCode } = require('../auth/totp');
+const { getFFmpegStatus } = require('../runtime/ffmpeg');
 
 router.use(requireDashboard);
 
@@ -416,6 +417,17 @@ router.get('/station', (req, res) => {
     url:       row.url,
     claimedAt: row.claimed_at,
     updatedAt: row.updated_at,
+  });
+});
+
+// GET /api/dashboard/runtime
+// Dashboard-only deployment/runtime diagnostics.
+router.get('/runtime', (req, res) => {
+  res.json({
+    version: config.version,
+    host: config.host,
+    trustProxy: config.trustProxy,
+    ffmpeg: getFFmpegStatus(),
   });
 });
 

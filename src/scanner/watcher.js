@@ -16,6 +16,7 @@ function startWatcher(vaultPath, adapter) {
 
   watcherInstance = chokidar.watch(vaultPath, {
     persistent: true,
+    followSymlinks: false,
     ignoreInitial: false,
     awaitWriteFinish: {
       stabilityThreshold: 2000,

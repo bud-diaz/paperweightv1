@@ -1,5 +1,6 @@
 const { spawn } = require('child_process');
 const path = require('path');
+const { installHint } = require('../runtime/ffmpeg');
 
 const SUPPORTED_EXTENSIONS = new Set([
   '.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.aiff', '.opus',
@@ -70,7 +71,7 @@ function probe(filepath) {
 
     proc.on('error', err => {
       if (err.code === 'ENOENT') {
-        reject(new Error('ffprobe not found. Install ffmpeg: sudo apt install ffmpeg'));
+        reject(new Error(`ffprobe not found. ${installHint()}`));
       } else {
         reject(err);
       }
