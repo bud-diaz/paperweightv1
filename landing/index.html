@@ -326,43 +326,44 @@ body::before{
 }
 .wf-zoom-footer .live-dot{width:6px;height:6px}
 
-/* ── S3: Library drawer ──────────────────────────────────────────────────── */
-.mc-drawer{
-  border-top:1px solid rgba(255,255,255,.06);
-  overflow:hidden;max-height:260px;
-  transition:max-height .32s cubic-bezier(.4,0,.2,1);
-}
-.mc-drawer.closed{max-height:0}
-.mc-drawer-label{
+/* ── S3: Token access panel ──────────────────────────────────────────────── */
+.dash-studio-panel{padding:0 0 8px}
+.dash-vault-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;border-top:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06)}
+.dash-stat-cell{padding:10px 14px;background:rgba(255,255,255,.015)}
+.dash-stat-val{font-family:var(--serif);font-size:18px;color:var(--text)}
+.dash-stat-key{font-family:var(--mono);font-size:8px;letter-spacing:.1em;color:var(--t-muted);text-transform:uppercase;margin-top:2px}
+.dash-section-lbl{
   font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--t-muted);
-  padding:8px 16px 4px;text-transform:uppercase;
+  padding:10px 14px 6px;text-transform:uppercase;
+  display:flex;align-items:center;justify-content:space-between;
 }
-.mc-drawer-scroll{max-height:210px;overflow-y:auto;padding:4px 8px 8px}
-.mc-proj-header{
-  display:flex;align-items:center;gap:7px;padding:7px 8px;
-  border-left:2px solid rgba(255,255,255,.22);margin-bottom:2px;
+.dash-section-lbl .ds-chev{font-size:10px;opacity:.4}
+.tok-row{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 14px;margin:0 0 1px;
+  background:rgba(255,255,255,.025);
 }
-.mc-proj-sym{font-size:10px;color:var(--t-muted)}
-.mc-proj-name{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:rgba(255,255,255,.5);flex:1}
-.mc-proj-count{font-family:var(--mono);font-size:8px;color:var(--t-dim)}
-.mc-lib-row{
-  display:flex;align-items:center;gap:9px;padding:7px 8px;
-  border-radius:7px;margin-bottom:2px;background:rgba(255,255,255,.03);
+.tok-row:last-child{margin-bottom:0}
+.tok-info{flex:1;min-width:0}
+.tok-label{font-family:var(--serif);font-size:12px;color:rgba(255,255,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tok-assignee{font-family:var(--mono);font-size:8px;color:var(--t-muted);margin-top:2px;letter-spacing:.04em}
+.tok-tier{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.08em;padding:2px 7px;border-radius:3px;flex-shrink:0;text-transform:uppercase}
+.tok-tier-all{background:rgba(57,255,20,.15);border:1px solid rgba(57,255,20,.35);color:var(--neon)}
+.tok-tier-sub{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5)}
+.tok-grant-row{
+  display:flex;align-items:center;gap:8px;padding:8px 14px;
+  border-top:1px solid rgba(255,255,255,.06);margin-top:2px;
 }
-.mc-lib-row.active{background:rgba(255,255,255,.07)}
-.mc-lib-thumb{
-  width:28px;height:28px;border-radius:5px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--t-mid);
-  border:1px solid rgba(57,255,20,.22);
-  background:linear-gradient(135deg,rgba(57,255,20,.25),rgba(57,255,20,.06));
+.tok-grant-input{
+  flex:1;font-family:var(--mono);font-size:9px;color:var(--t-dim);
+  background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.12);
+  border-radius:5px;padding:5px 9px;outline:none;pointer-events:none;
 }
-.mc-lib-info{flex:1;min-width:0}
-.mc-lib-title{font-family:var(--serif);font-size:12px;color:rgba(255,255,255,.65);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mc-lib-title.active{color:var(--text)}
-.mc-lib-meta{font-family:var(--mono);font-size:8px;color:var(--t-muted);margin-top:1px}
-.mc-badge{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 6px;border-radius:3px;flex-shrink:0}
-.mc-badge-live{background:var(--neon);color:#000}
-.mc-badge-up{background:rgba(255,255,255,.08);color:rgba(255,255,255,.4)}
+.tok-grant-btn{
+  font-family:var(--mono);font-size:8px;letter-spacing:.1em;color:rgba(57,255,20,.7);
+  background:rgba(57,255,20,.1);border:1px solid rgba(57,255,20,.25);
+  border-radius:4px;padding:4px 9px;cursor:default;flex-shrink:0;
+}
 
 /* ── S4: Payment modal ───────────────────────────────────────────────────── */
 .s-monetize{
@@ -649,98 +650,79 @@ footer{
   </div>
 </section>
 
-<!-- ── S3: Your Archive — library drawer ─────────────────────────────────── -->
+<!-- ── S3: Access Control — token panel ───────────────────────────────────── -->
 <section class="s-library">
   <div class="tilt-wrap reveal" data-tilt-card data-base-rx="-6" data-base-ry="6">
     <div class="mock-card" style="max-width:360px">
       <div class="mc-topbar">
         <span class="mc-wordmark">Paperweight</span>
-        <div class="mc-view-toggle"><span class="mc-view-tab active">Play</span><span class="mc-view-tab">Studio</span></div>
+        <div class="mc-view-toggle"><span class="mc-view-tab">Play</span><span class="mc-view-tab active">Studio</span></div>
         <div style="justify-self:end"><div class="mc-live-badge"><div class="mc-live-badge-dot"></div>Live</div></div>
       </div>
-      <!-- Compressed art -->
-      <div class="mc-art" style="aspect-ratio:16/4;margin:10px 16px 0">
-        <svg class="mc-art-svg" viewBox="0 0 480 120" preserveAspectRatio="xMidYMid slice">
-          <defs><radialGradient id="rg-l1" cx="35%" cy="50%"><stop offset="0%" stop-color="#39ff14" stop-opacity=".22"/><stop offset="100%" stop-color="#39ff14" stop-opacity="0"/></radialGradient></defs>
-          <rect width="480" height="120" fill="url(#rg-l1)"/>
-          <ellipse cx="240" cy="60" rx="180" ry="80" fill="none" stroke="#39ff14" stroke-opacity=".08" stroke-width="1"/>
-        </svg>
-        <div class="mc-art-meta" style="padding:12px 12px 8px">
-          <div class="mc-track-title" style="font-size:14px">Late Night Session, Vol. 3</div>
-          <div class="mc-track-creator">The Archive</div>
+      <!-- Vault stats -->
+      <div class="dash-studio-panel">
+        <div class="dash-section-lbl" style="padding-top:12px">VAULT <span class="ds-chev">▾</span></div>
+        <div class="dash-vault-stats">
+          <div class="dash-stat-cell">
+            <div class="dash-stat-val">142</div>
+            <div class="dash-stat-key">Tracks</div>
+          </div>
+          <div class="dash-stat-cell">
+            <div class="dash-stat-val" style="color:rgba(57,255,20,.8)">38</div>
+            <div class="dash-stat-key">Locked</div>
+          </div>
+          <div class="dash-stat-cell">
+            <div class="dash-stat-val">12</div>
+            <div class="dash-stat-key">Tokens</div>
+          </div>
         </div>
-      </div>
-      <!-- Mini waveform -->
-      <div class="mc-wf-section">
-        <div class="mc-wf" style="height:24px" data-waveform="2" data-progress="0.31" data-animated="false"></div>
-      </div>
-      <!-- Controls -->
-      <div class="mc-controls" style="padding:8px 16px 8px">
-        <button class="mc-drawer-btn active" id="lib-drawer-btn" title="Library">≡</button>
-        <div class="mc-play-btn" style="width:42px;height:42px"><svg viewBox="0 0 24 24" width="14" height="14"><path d="M8 5v14l11-7z"/></svg></div>
-        <button class="mc-drawer-btn" title="Queue">≡</button>
-      </div>
-      <!-- Library drawer (open) -->
-      <div class="mc-drawer" id="lib-drawer">
-        <div class="mc-drawer-label">Library</div>
-        <div class="mc-drawer-scroll">
-          <div class="mc-proj-header">
-            <span class="mc-proj-sym">⬡</span>
-            <span class="mc-proj-name">Rolling Woods Archive</span>
-            <span class="mc-proj-count">8</span>
-            <span style="font-size:10px;color:var(--t-dim)">›</span>
+        <!-- Tokens section -->
+        <div class="dash-section-lbl" style="padding-top:10px">TOKENS <span class="ds-chev">▾</span></div>
+        <div class="tok-row">
+          <div class="tok-info">
+            <div class="tok-label">Early Access Pass</div>
+            <div class="tok-assignee">alex@example.com</div>
           </div>
-          <div class="mc-lib-row active">
-            <div class="mc-lib-thumb">♪</div>
-            <div class="mc-lib-info">
-              <div class="mc-lib-title active">Late Night Session, Vol. 3</div>
-              <div class="mc-lib-meta">Jun 8 · 3:24</div>
-            </div>
-            <span class="mc-badge mc-badge-live">Live</span>
+          <span class="tok-tier tok-tier-all">All-Access</span>
+        </div>
+        <div class="tok-row">
+          <div class="tok-info">
+            <div class="tok-label">Press Pass</div>
+            <div class="tok-assignee">media@magazine.com</div>
           </div>
-          <div class="mc-lib-row">
-            <div class="mc-lib-thumb">♪</div>
-            <div class="mc-lib-info">
-              <div class="mc-lib-title">Before The Drop</div>
-              <div class="mc-lib-meta">Jun 6 · 4:12</div>
-            </div>
-            <span class="mc-badge mc-badge-up">Up</span>
+          <span class="tok-tier tok-tier-sub">Subscriber</span>
+        </div>
+        <div class="tok-row">
+          <div class="tok-info">
+            <div class="tok-label">VIP Listener</div>
+            <div class="tok-assignee" style="color:rgba(57,255,20,.45)">Shareable link · unassigned</div>
           </div>
-          <div class="mc-lib-row">
-            <div class="mc-lib-thumb">♪</div>
-            <div class="mc-lib-info">
-              <div class="mc-lib-title">Dusk Interlude</div>
-              <div class="mc-lib-meta">Jun 4 · 2:58</div>
-            </div>
-            <span class="mc-badge mc-badge-up">Up</span>
+          <span class="tok-tier tok-tier-all">All-Access</span>
+        </div>
+        <div class="tok-row">
+          <div class="tok-info">
+            <div class="tok-label">Promo Code</div>
+            <div class="tok-assignee">support@label.com</div>
           </div>
-          <div class="mc-proj-header" style="margin-top:6px">
-            <span class="mc-proj-sym">⬡</span>
-            <span class="mc-proj-name">Unreleased Beats</span>
-            <span class="mc-proj-count">12</span>
-            <span style="font-size:10px;color:var(--t-dim)">›</span>
-          </div>
-          <div class="mc-lib-row">
-            <div class="mc-lib-thumb">♪</div>
-            <div class="mc-lib-info">
-              <div class="mc-lib-title">Loop 004 — Rainy Day</div>
-              <div class="mc-lib-meta">May 30</div>
-            </div>
-            <span class="mc-badge mc-badge-up">Up</span>
-          </div>
+          <span class="tok-tier tok-tier-sub">Subscriber</span>
+        </div>
+        <!-- Grant row hint -->
+        <div class="tok-grant-row">
+          <input class="tok-grant-input" placeholder="Label (e.g. Maria)" readonly tabindex="-1"/>
+          <div class="tok-grant-btn">GRANT</div>
         </div>
       </div>
       <div class="mc-accent"></div>
     </div>
   </div>
   <div class="feat-copy reveal-late">
-    <div class="eyebrow">Your Catalog</div>
-    <h2>Every track.<br>Forever yours.</h2>
-    <p>Platform terms of service can pull your catalog at any moment. Paperweight reads your local vault — no takedowns, no expiry, no storage limits. Your entire discography, live and browsable, on your terms.</p>
+    <div class="eyebrow">Access Control</div>
+    <h2>You decide<br>who gets in.</h2>
+    <p>Issue access tokens to hand-pick your audience. Grant early access to superfans, press passes to media, or lock vault content behind a subscription — all from your Studio dashboard.</p>
     <div class="feat-detail">
-      <div class="feat-detail-item">No upload limits or format restrictions</div>
-      <div class="feat-detail-item">Auto-scans your vault as files change</div>
-      <div class="feat-detail-item">Full metadata: BPM, duration, artwork</div>
+      <div class="feat-detail-item">Issue tokens by email or shareable link</div>
+      <div class="feat-detail-item">Set per-token tiers: subscriber, all-access</div>
+      <div class="feat-detail-item">Gate individual tracks, projects, or your full vault</div>
     </div>
   </div>
 </section>
