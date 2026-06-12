@@ -7,6 +7,7 @@ const { initDb, closeDb, log } = require('./db');
 const { startScanner, stopScanner } = require('./scanner');
 const broadcast = require('./broadcast');
 const live = require('./broadcast/live');
+const ascilineManager = require('./broadcast/asciline');
 const apiRouter = require('./api/router');
 const { csrfCheck } = require('./middleware/csrfCheck');
 const asyncHandler = require('./middleware/asyncHandler');
@@ -172,6 +173,7 @@ async function start() {
   }
   startScanner();
   broadcast.start('shuffle');
+  ascilineManager.start();
 
   const app = createApp();
   server = app.listen(config.port, config.host);
@@ -208,6 +210,7 @@ function shutdown() {
 
   try { log('info', 'server', 'Shutting down...'); } catch {}
   live.stopLive();
+  ascilineManager.stop();
   broadcast.stop();
   stopScanner();
 

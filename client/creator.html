@@ -242,6 +242,20 @@
     .skip-btn:hover { color: var(--t1); background: var(--raised); }
     .skip-btn.hidden { display: none; }
 
+    #ascii-mode-row {
+      padding: 0 20px 12px;
+      display: flex;
+      justify-content: center;
+    }
+    #ascii-mode-btn {
+      font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--t3); text-decoration: none;
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 4px 10px;
+      transition: color .12s, border-color .12s;
+    }
+    #ascii-mode-btn:hover { color: var(--t1); border-color: var(--border-strong); }
+
     #play-btn {
       width: 60px; height: 60px; border-radius: 50%; border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -989,6 +1003,11 @@
           <button class="drawer-btn" id="queue-btn" title="Schedule">≡</button>
         </div>
 
+        <!-- ASCII mode link — shown only when asciline is running and broadcast is video -->
+        <div id="ascii-mode-row" hidden>
+          <a id="ascii-mode-btn" target="_blank" rel="noopener">ASCII MODE ↗</a>
+        </div>
+
         <!-- Library drawer -->
         <div class="drawer" id="lib-drawer">
           <div class="drawer-inner">
@@ -1553,6 +1572,20 @@ async function fetchStreamStatus() {
     }
     state.nowPlaying    = data.nowPlaying || null;
     state.listenerCount = data.listenerCount || 0;
+
+    // ASCII mode button: only surfaced for video broadcasts when asciline is running
+    const asciRow = el('ascii-mode-row');
+    const asciBtn = el('ascii-mode-btn');
+    if (asciRow && asciBtn) {
+      const asci = data.asciline || {};
+      if (asci.running && data.isVideo) {
+        asciBtn.href = `http://${location.hostname}:${asci.port}`;
+        asciRow.hidden = false;
+      } else {
+        asciRow.hidden = true;
+      }
+    }
+
     render();
   } catch {}
 }
