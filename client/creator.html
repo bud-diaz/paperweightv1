@@ -569,6 +569,46 @@
     }
     body.creator-mode #floating-tip { display: none !important; pointer-events: none; }
 
+    /* ── Radio Host Mode ── */
+    body.radio-host-mode #dash-upload-section { display: none !important; }
+    body.radio-host-mode #vsb-tokens { display: none !important; }
+    body.radio-host-mode #vault-panel-tokens { display: none !important; }
+    body.radio-host-mode #new-proj-pricing-block { display: none !important; }
+    body.radio-host-mode .dash-proj-pricing { display: none !important; }
+    body:not(.radio-host-mode) #dash-ext-search-section { display: none !important; }
+
+    /* External search panel styles */
+    #dash-ext-search-section .ext-search-tabs { display:flex; gap:6px; margin-bottom:10px; }
+    #dash-ext-search-section .ext-tab-btn {
+      font-family:'Space Mono',monospace; font-size:9px; padding:4px 10px;
+      background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+      border-radius:4px; color:rgba(255,255,255,.5); cursor:pointer; letter-spacing:.05em;
+    }
+    #dash-ext-search-section .ext-tab-btn.active {
+      background:rgba(57,255,20,.12); border-color:#39ff14; color:#39ff14;
+    }
+    #dash-ext-search-section .ext-results { margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+    #dash-ext-search-section .ext-result-item {
+      display:flex; align-items:center; gap:8px; padding:6px 10px;
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:6px;
+    }
+    #dash-ext-search-section .ext-result-item img {
+      width:36px; height:36px; object-fit:cover; border-radius:3px; flex-shrink:0;
+      background:rgba(255,255,255,.06);
+    }
+    #dash-ext-search-section .ext-result-meta { flex:1; min-width:0; }
+    #dash-ext-search-section .ext-result-title {
+      font-family:'Space Mono',monospace; font-size:9px; color:#fff;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    #dash-ext-search-section .ext-result-artist {
+      font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.4);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;
+    }
+    #dash-ext-search-section .ext-result-dur {
+      font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.3); flex-shrink:0;
+    }
+
     /* ── Modal ── */
     #modal-backdrop {
       display: none; position: fixed; inset: 0; z-index: 100;
@@ -1167,6 +1207,7 @@
                 <input class="dash-input" id="new-proj-name" type="text" placeholder="Project name" style="margin-bottom:8px;"/>
                 <div class="dash-edit-label">DESCRIPTION (OPTIONAL)</div>
                 <textarea class="dash-input" id="new-proj-desc" placeholder="Description…" style="margin-bottom:8px;"></textarea>
+                <div id="new-proj-pricing-block">
                 <div class="dash-edit-label">PRICING</div>
                 <div class="dash-proj-price-grid">
                   <div>
@@ -1181,6 +1222,7 @@
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
                   <input type="checkbox" id="new-proj-free"/>
                   <label for="new-proj-free" style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.4);cursor:pointer;">Allow free / pay-what-you-want</label>
+                </div>
                 </div>
                 <div class="dash-form-row">
                   <span id="new-proj-msg" style="font-family:'Space Mono',monospace;font-size:8px;color:var(--t3);flex:1;"></span>
@@ -1268,7 +1310,7 @@
           <div class="dash-divider"></div>
 
           <!-- Upload -->
-          <div class="dash-section">
+          <div class="dash-section" id="dash-upload-section">
             <div class="dash-section-label">UPLOAD</div>
             <div class="dash-upload-zone" id="dash-upload-zone">
               <div class="dash-upload-label">DROP FILES OR CLICK TO BROWSE</div>
@@ -1292,6 +1334,26 @@
                 <button class="mgmt-btn" id="dash-upload-submit">UPLOAD</button>
               </div>
               <div id="dash-upload-msg" style="margin-top:6px;font-size:9px;font-family:'Space Mono',monospace;"></div>
+            </div>
+          </div>
+
+          <div class="dash-divider"></div>
+
+          <!-- Search & Add Content (radio host mode only) -->
+          <div class="dash-section" id="dash-ext-search-section">
+            <div class="dash-section-label">SEARCH &amp; ADD CONTENT</div>
+            <div style="padding:0 14px 4px;">
+              <div class="ext-search-tabs">
+                <button class="ext-tab-btn active" data-ext-platform="youtube">YOUTUBE</button>
+                <button class="ext-tab-btn" data-ext-platform="soundcloud">SOUNDCLOUD</button>
+                <button class="ext-tab-btn" data-ext-platform="library">STATION LIBRARY</button>
+              </div>
+              <div class="dash-form-row" style="gap:6px;">
+                <input type="text" class="dash-input dash-input-sm" id="ext-search-input" placeholder="Search…" style="flex:1;"/>
+                <button class="mgmt-btn" id="btn-ext-search">SEARCH</button>
+              </div>
+              <div id="ext-search-msg" style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.35);margin-top:4px;"></div>
+              <div class="ext-results" id="ext-results-list"></div>
             </div>
           </div>
 
@@ -2656,6 +2718,7 @@ function makeTypeahead(inputEl, dropEl, accounts) {
 
 function loadDashboard() {
   bindVaultStatButtons();
+  loadCreatorType();
   loadDashRuntime();
   loadDashStation();
   loadDashVaultStats();
@@ -3704,6 +3767,142 @@ el('btn-save-tip-cfg').addEventListener('click', async () => {
     msg.textContent = 'FAILED';
   }
 });
+
+// ─── Creator type / Radio Host Mode ───────────────────────────────────────────
+
+let currentExtPlatform = 'youtube';
+
+async function loadCreatorType() {
+  try {
+    const data = await dashFetch('/api/dashboard/creator-type').then(r => r.json());
+    if (data.creatorType === 'radio_host') {
+      document.body.classList.add('radio-host-mode');
+      initExtSearchPanel();
+    }
+  } catch {}
+}
+
+function initExtSearchPanel() {
+  document.querySelectorAll('.ext-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentExtPlatform = btn.dataset.extPlatform;
+      document.querySelectorAll('.ext-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      el('ext-results-list').innerHTML = '';
+      el('ext-search-msg').textContent = '';
+    });
+  });
+
+  el('btn-ext-search').addEventListener('click', runExtSearch);
+  el('ext-search-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runExtSearch();
+  });
+}
+
+async function runExtSearch() {
+  const q = el('ext-search-input').value.trim();
+  const msg = el('ext-search-msg');
+  const list = el('ext-results-list');
+  if (!q) return;
+  msg.textContent = 'Searching…';
+  list.innerHTML = '';
+
+  try {
+    if (currentExtPlatform === 'library') {
+      const allTracks = [
+        ...(LIBRARY_STRUCTURE.standalone || []),
+        ...(LIBRARY_STRUCTURE.projects || []).flatMap(p => p.items || []),
+      ];
+      const lq = q.toLowerCase();
+      const results = allTracks.filter(t =>
+        (t.title || '').toLowerCase().includes(lq) ||
+        (t.artist || '').toLowerCase().includes(lq)
+      ).slice(0, 20);
+      msg.textContent = results.length ? '' : 'No matches in station library.';
+      renderExtResults(results.map(t => ({
+        id:          String(t.id),
+        title:       t.title || t.filename || '',
+        artist:      t.artist || '',
+        thumbnail:   '',
+        duration:    t.duration || null,
+        externalUrl: null,
+        platform:    'library',
+        libraryId:   t.id,
+      })));
+    } else {
+      const r = await dashFetch(`/api/dashboard/external-search?platform=${currentExtPlatform}&q=${encodeURIComponent(q)}`).then(r => r.json());
+      if (!r.items || !r.items.length) {
+        msg.textContent = r.items ? 'No results found.' : 'API key not configured for this platform.';
+        return;
+      }
+      msg.textContent = '';
+      renderExtResults(r.items);
+    }
+  } catch {
+    msg.textContent = 'Search failed.';
+  }
+}
+
+function renderExtResults(items) {
+  const list = el('ext-results-list');
+  list.innerHTML = '';
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'ext-result-item';
+    const dur = item.duration ? fmtDuration(item.duration) : '';
+    div.innerHTML = `
+      ${item.thumbnail ? `<img src="${esc(item.thumbnail)}" alt="" loading="lazy"/>` : `<div style="width:36px;height:36px;background:rgba(255,255,255,.06);border-radius:3px;flex-shrink:0;"></div>`}
+      <div class="ext-result-meta">
+        <div class="ext-result-title">${esc(item.title)}</div>
+        <div class="ext-result-artist">${esc(item.artist || '')}</div>
+      </div>
+      ${dur ? `<div class="ext-result-dur">${esc(dur)}</div>` : ''}
+    `;
+    if (item.platform !== 'library') {
+      const addBtn = document.createElement('button');
+      addBtn.className = 'mgmt-btn';
+      addBtn.textContent = 'ADD';
+      addBtn.addEventListener('click', async () => {
+        addBtn.textContent = '…';
+        addBtn.disabled = true;
+        const ok = await addExternalTrack(item);
+        addBtn.textContent = ok ? 'ADDED' : 'FAIL';
+        if (ok) addBtn.style.color = '#39ff14';
+      });
+      div.appendChild(addBtn);
+    }
+    list.appendChild(div);
+  });
+}
+
+async function addExternalTrack(item) {
+  try {
+    const res = await dashFetch('/api/dashboard/media/external', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title:       item.title,
+        artist:      item.artist || '',
+        platform:    item.platform,
+        externalUrl: item.externalUrl,
+        duration:    item.duration || null,
+      }),
+    });
+    if (!res.ok) return false;
+    loadDashLibrary();
+    loadDashVaultStats();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function fmtDuration(secs) {
+  if (!secs) return '';
+  const m = Math.floor(secs / 60);
+  const s = String(Math.floor(secs % 60)).padStart(2, '0');
+  return `${m}:${s}`;
+}
 
 // ─── Listener auth ────────────────────────────────────────────────────────────
 

@@ -686,6 +686,102 @@ router.post('/live/stop', (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /api/dashboard/creator-type
+router.get('/creator-type', (req, res) => {
+  res.json({ creatorType: config.station.creatorType });
+});
+
+// GET /api/dashboard/external-search?platform=youtube|soundcloud&q=...
+router.get('/external-search', asyncHandler(async (req, res) => {
+  const { platform, q } = req.query;
+  if (!q || !q.trim()) return res.json({ items: [] });
+
+  if (platform === 'youtube') {
+    const apiKey = config.externalSearch.youtubeApiKey;
+    if (!apiKey) return res.json({ items: [] });
+
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=10&q=${encodeURIComponent(q)}&key=${encodeURIComponent(apiKey)}`;
+    const searchData = await new Promise((resolve, reject) => {
+      https.get(searchUrl, r => {
+        let buf = '';
+        r.on('data', d => { buf += d; });
+        r.on('end', () => { try { resolve(JSON.parse(buf)); } catch (e) { reject(e); } });
+      }).on('error', reject);
+    });
+
+    if (!searchData.items || !searchData.items.length) return res.json({ items: [] });
+
+    const ids = searchData.items.map(i => i.id.videoId).join(',');
+    const detailUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=${encodeURIComponent(ids)}&key=${encodeURIComponent(apiKey)}`;
+    const detailData = await new Promise((resolve, reject) => {
+      https.get(detailUrl, r => {
+        let buf = '';
+        r.on('data', d => { buf += d; });
+        r.on('end', () => { try { resolve(JSON.parse(buf)); } catch (e) { reject(e); } });
+      }).on('error', reject);
+    });
+
+    const items = (detailData.items || []).map(v => {
+      const dur = v.contentDetails?.duration || '';
+      const m = dur.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+      const secs = m ? (parseInt(m[1]||0)*3600 + parseInt(m[2]||0)*60 + parseInt(m[3]||0)) : null;
+      return {
+        id:          v.id,
+        title:       v.snippet?.title || '',
+        artist:      v.snippet?.channelTitle || '',
+        thumbnail:   v.snippet?.thumbnails?.default?.url || '',
+        duration:    secs,
+        externalUrl: `https://www.youtube.com/watch?v=${v.id}`,
+        platform:    'youtube',
+      };
+    });
+    return res.json({ items });
+  }
+
+  if (platform === 'soundcloud') {
+    const clientId = config.externalSearch.soundcloudClientId;
+    if (!clientId) return res.json({ items: [] });
+
+    const scUrl = `https://api.soundcloud.com/tracks?q=${encodeURIComponent(q)}&client_id=${encodeURIComponent(clientId)}&limit=10`;
+    const scData = await new Promise((resolve, reject) => {
+      https.get(scUrl, r => {
+        let buf = '';
+        r.on('data', d => { buf += d; });
+        r.on('end', () => { try { resolve(JSON.parse(buf)); } catch (e) { reject(e); } });
+      }).on('error', reject);
+    });
+
+    const items = (Array.isArray(scData) ? scData : []).map(t => ({
+      id:          String(t.id),
+      title:       t.title || '',
+      artist:      t.user?.username || '',
+      thumbnail:   t.artwork_url || '',
+      duration:    t.duration ? Math.round(t.duration / 1000) : null,
+      externalUrl: t.permalink_url || '',
+      platform:    'soundcloud',
+    }));
+    return res.json({ items });
+  }
+
+  res.json({ items: [] });
+}));
+
+// POST /api/dashboard/media/external
+router.post('/media/external', asyncHandler(async (req, res) => {
+  const { title, artist, platform, externalUrl, duration } = req.body || {};
+  if (!title || !platform || !externalUrl) {
+    return res.status(400).json({ error: 'title, platform, and externalUrl are required' });
+  }
+  const safeId   = crypto.randomBytes(8).toString('hex');
+  const filepath = `external://${platform}/${safeId}`;
+  const db = getDb();
+  const row = db.prepare(`
+    INSERT INTO media (filepath, filename, category, title, artist, duration, visibility, source_platform, external_url, is_active)
+    VALUES (?, ?, 'music', ?, ?, ?, 'public', ?, ?, 1)
+  `).run(filepath, title.trim(), title.trim(), artist || null, duration || null, platform, externalUrl);
+  res.json({ id: row.lastInsertRowid, title: title.trim() });
+}));
+
 module.exports = router;
 module.exports.sanitizeUploadName = sanitizeUploadName;
 module.exports.resolveAvailableUploadPath = resolveAvailableUploadPath;

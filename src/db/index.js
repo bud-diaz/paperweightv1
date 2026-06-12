@@ -92,6 +92,16 @@ function runMigrations(database) {
       column: 'credits',
       sql:    'ALTER TABLE media ADD COLUMN credits TEXT',
     },
+    {
+      table:  'media',
+      column: 'source_platform',
+      sql:    'ALTER TABLE media ADD COLUMN source_platform TEXT',
+    },
+    {
+      table:  'media',
+      column: 'external_url',
+      sql:    'ALTER TABLE media ADD COLUMN external_url TEXT',
+    },
   ];
 
   for (const guard of alterGuards) {

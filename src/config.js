@@ -156,10 +156,16 @@ const config = {
   station: {
     name:        process.env.STATION_NAME        || 'Paperweight Station',
     identity:    process.env.STATION_IDENTITY    || 'creator',
+    creatorType: process.env.CREATOR_TYPE        || 'creator',
     creatorName: process.env.CREATOR_NAME        || '',
     creatorDesc: process.env.CREATOR_DESC        || '',
     slug:        process.env.STATION_SLUG        || '',
     publicUrl:   process.env.STATION_PUBLIC_URL  || '',
+  },
+
+  externalSearch: {
+    youtubeApiKey:      process.env.YOUTUBE_API_KEY      || '',
+    soundcloudClientId: process.env.SOUNDCLOUD_CLIENT_ID || '',
   },
 
   vault: {
