@@ -38,4 +38,6 @@ router.use('/dashboard/vault', vaultModule.dashRouter);
 //   GET /download/:token         (mounted at / so becomes /api/download/:token)
 router.use('/',          require('./downloads'));
 
+router.use('/asciline', require('./asciline'));
+
 module.exports = router;
