@@ -16,6 +16,11 @@ const PREVIEW_DIR = path.join(config.paths.hlsOutput, 'previews');
 const PREVIEW_DURATION = 60;
 const previewJobs = new Map();
 
+// In-memory artwork cache: id → Buffer|null (null = confirmed no artwork)
+const artworkCache = new Map();
+const artworkPending = new Map(); // id → [res, ...]
+const MAX_ARTWORK_CACHE = 60;
+
 function signingSecret() {
   return config.auth.downloadSigningSecret;
 }
@@ -317,6 +322,68 @@ router.get('/:id/download', (req, res) => {
   }
 
   res.json(signDownloadUrl(row.id));
+});
+
+router.get('/:id/artwork', (req, res) => {
+  const row = getDb().prepare(
+    'SELECT id, filepath FROM media WHERE id = ? AND is_active = 1'
+  ).get(req.params.id);
+  if (!row) return res.status(404).end();
+
+  const id = String(row.id);
+
+  if (artworkCache.has(id)) {
+    const buf = artworkCache.get(id);
+    if (!buf) return res.status(404).end();
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.end(buf);
+  }
+
+  const filepath = safeVaultPath(row.filepath);
+  if (!filepath || !fs.existsSync(filepath)) {
+    artworkCache.set(id, null);
+    return res.status(404).end();
+  }
+
+  if (artworkPending.has(id)) {
+    artworkPending.get(id).push(res);
+    return;
+  }
+  artworkPending.set(id, [res]);
+
+  const chunks = [];
+  const proc = spawn('ffmpeg', [
+    '-i', filepath,
+    '-map', '0:v:0',
+    '-vframes', '1',
+    '-f', 'image2pipe',
+    '-vcodec', 'mjpeg',
+    '-',
+  ], { stdio: ['ignore', 'pipe', 'ignore'] });
+
+  proc.stdout.on('data', chunk => chunks.push(chunk));
+
+  function finish(buf) {
+    const pending = artworkPending.get(id) || [];
+    artworkPending.delete(id);
+    if (artworkCache.size >= MAX_ARTWORK_CACHE) {
+      artworkCache.delete(artworkCache.keys().next().value);
+    }
+    artworkCache.set(id, buf);
+    for (const r of pending) {
+      if (!buf) { r.status(404).end(); continue; }
+      r.setHeader('Content-Type', 'image/jpeg');
+      r.setHeader('Cache-Control', 'public, max-age=3600');
+      r.end(buf);
+    }
+  }
+
+  proc.on('close', code => {
+    if (code !== 0 || chunks.length === 0) return finish(null);
+    finish(Buffer.concat(chunks));
+  });
+  proc.on('error', () => finish(null));
 });
 
 router.get('/:id/file', (req, res) => {

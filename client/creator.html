@@ -1461,94 +1461,209 @@ function esc(str) {
   return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ─── Asciline inline renderer ────────────────────────────────────────────────
-const ASCI_CHAR_LUT = " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
-let asciWs = null, asciState = null, asciCtx = null, asciImgData = null;
-let asciFrameBuf = [], asciRafId = null, asciClockRef = null;
+// ─── ASCII renderer (audio terminal card + video frame conversion) ────────────
+const ASCII_DENSITY = " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+let asciiMode    = null;  // 'audio' | 'video'
+let asciiRafId   = null;
+let asciiAnalyser = null;
+let asciiAudioCtx = null;
+let asciiAudioSrc = null;
+let asciiArtImg  = null;
+let asciiArtId   = null;  // track id for which asciiArtImg was loaded
+let asciiVidOff  = null;  // offscreen canvas for video frame sampling
 
-function asciConnect(port) {
-  if (asciWs) return;
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  asciWs = new WebSocket(`${proto}//${location.hostname}:${port}/ws`);
-  asciWs.binaryType = 'arraybuffer';
-  asciWs.onmessage = (e) => {
-    if (typeof e.data === 'string') {
-      if (!e.data.startsWith('INIT:')) return;
-      const p = e.data.slice(5).split(':');
-      asciState = { fps: parseFloat(p[0]) || 24, renderMode: parseInt(p[1]) || 5,
-                    cols: parseInt(p[2]) || 80, rows: parseInt(p[3]) || 40, pixelMode: p[4] === '1' };
-      asciSetupCanvas();
-      asciFrameBuf = []; asciClockRef = null;
-      if (!asciRafId) asciRafId = requestAnimationFrame(asciTick);
-    } else {
-      if (!asciState) return;
-      const view = new Uint8Array(e.data);
-      const idx  = (view[0] << 24) | (view[1] << 16) | (view[2] << 8) | view[3];
-      asciFrameBuf.push({ idx, time: idx / asciState.fps, data: new Uint8Array(e.data, 4) });
-      if (asciFrameBuf.length > 20) asciFrameBuf.shift();
-      if (!asciRafId) asciRafId = requestAnimationFrame(asciTick);
-    }
-  };
-  asciWs.onclose = () => { asciWs = null; };
-  asciWs.onerror = () => { try { asciWs.close(); } catch {} };
-}
-
-function asciDisconnect() {
-  if (asciWs) { try { asciWs.close(); } catch {} asciWs = null; }
-  if (asciRafId) { cancelAnimationFrame(asciRafId); asciRafId = null; }
-  asciFrameBuf = []; asciState = null; asciClockRef = null;
-}
-
-function asciSetupCanvas() {
-  const { cols, rows, pixelMode } = asciState;
+function asciiStart(mode) {
+  if (asciiMode === mode) return;
+  asciiMode = mode;
   const canvas = el('asci-canvas');
-  canvas.width  = pixelMode ? cols : cols * 8;
-  canvas.height = pixelMode ? rows : rows * 8;
-  asciCtx = canvas.getContext('2d');
-  asciImgData = null;
-  if (pixelMode) {
-    asciImgData = asciCtx.createImageData(cols, rows);
-    const d = asciImgData.data;
-    for (let i = 3; i < d.length; i += 4) d[i] = 255;
+  canvas.width  = 480;
+  canvas.height = 210;
+  el('asci-wrap').hidden  = false;
+  el('art-svg').style.display = 'none';
+  el('video-el').hidden   = true;
+  // audio mode: art-meta is rendered in the canvas; video mode: keep overlay
+  el('art-meta').style.display = mode === 'video' ? '' : 'none';
+  if (!asciiRafId) asciiRafId = requestAnimationFrame(asciiFrame);
+}
+
+function asciiStop() {
+  asciiMode = null;
+  if (asciiRafId) { cancelAnimationFrame(asciiRafId); asciiRafId = null; }
+  el('asci-wrap').hidden = true;
+  el('art-svg').style.display  = '';
+  el('art-meta').style.display = '';
+  const vidEl = el('video-el');
+  if (vidEl) vidEl.hidden = !currentIsVideo;
+}
+
+function asciiFrame() {
+  asciiRafId = null;
+  if (!asciiMode) return;
+  const canvas = el('asci-canvas');
+  const ctx = canvas.getContext('2d');
+  if (asciiMode === 'audio') drawAudioCard(canvas, ctx);
+  else                       drawVideoAscii(canvas, ctx);
+  asciiRafId = requestAnimationFrame(asciiFrame);
+}
+
+function asciiInitAudio() {
+  if (asciiAudioSrc) return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    asciiAudioCtx = new AudioCtx();
+    const src = asciiAudioCtx.createMediaElementSource(el('audio-el'));
+    asciiAudioSrc = src;
+    asciiAnalyser = asciiAudioCtx.createAnalyser();
+    asciiAnalyser.fftSize = 256;
+    src.connect(asciiAnalyser);
+    asciiAnalyser.connect(asciiAudioCtx.destination);
+  } catch(e) { asciiAnalyser = null; }
+}
+
+function asciiLoadArtwork(id) {
+  if (!id || asciiArtId === id) return;
+  asciiArtId = id; asciiArtImg = null;
+  const img = new Image();
+  img.onload = () => { if (asciiArtId === id) asciiArtImg = img; };
+  img.src = `/api/library/${id}/artwork`;
+}
+
+function asciiAccent() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--color').trim() || '#00cc88';
+}
+
+function drawAudioCard(canvas, ctx) {
+  const W = canvas.width, H = canvas.height;
+  const np = state.nowPlaying;
+  const accent = asciiAccent();
+  const P = 18;
+
+  ctx.fillStyle = '#050505';
+  ctx.fillRect(0, 0, W, H);
+
+  // Station name
+  ctx.font = 'bold 10px "Courier New",monospace';
+  ctx.fillStyle = accent;
+  ctx.textBaseline = 'top';
+  ctx.fillText((stationName || 'PAPERWEIGHT').toUpperCase(), P, P);
+
+  // Separator
+  ctx.fillStyle = accent + '33';
+  ctx.fillRect(P, P + 14, W - P * 2, 1);
+
+  // Cover art area (left column)
+  const AX = P, AY = P + 22, AW = 88, AH = 88;
+  if (asciiArtImg) {
+    drawAsciiArt(ctx, asciiArtImg, AX, AY, AW, AH);
   } else {
-    asciCtx.font = 'bold 8px "Courier New",monospace';
-    asciCtx.textBaseline = 'top';
+    ctx.fillStyle = accent + '18';
+    ctx.fillRect(AX, AY, AW, AH);
+    ctx.font = `bold 44px "Courier New",monospace`;
+    ctx.fillStyle = accent + '55';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(((np?.title || stationName || '?')[0] || '?').toUpperCase(), AX + AW / 2, AY + AH / 2);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   }
+
+  // Track info (right of art)
+  if (np) {
+    const TX = AX + AW + 14, TW = W - TX - P;
+    ctx.font = `bold 15px "Courier New",monospace`;
+    ctx.fillStyle = '#fff';
+    ctx.fillText(ellipsisText(ctx, np.title || '---', TW), TX, AY + 4);
+
+    ctx.font = `10px "Courier New",monospace`;
+    ctx.fillStyle = 'rgba(255,255,255,.5)';
+    ctx.fillText(ellipsisText(ctx, np.artist || '', TW), TX, AY + 26);
+
+    ctx.fillStyle = accent + '99';
+    ctx.fillText(ellipsisText(ctx, np.category || '', TW), TX, AY + 44);
+  }
+
+  // Waveform
+  const WY = H - 50, WH = 36;
+  drawWaveBars(ctx, P, WY, W - P * 2, WH, accent);
+
+  // Bottom rule
+  ctx.fillStyle = accent + '22';
+  ctx.fillRect(P, H - 10, W - P * 2, 1);
 }
 
-function asciTick(now) {
-  asciRafId = null;
-  if (!asciState || !asciFrameBuf.length) return;
-  if (!asciClockRef) asciClockRef = now;
-  const clock = (now - asciClockRef) / 1000;
-  while (asciFrameBuf.length > 1 && asciFrameBuf[0].time < clock - 0.1) asciFrameBuf.shift();
-  const frame = asciFrameBuf[0];
-  if (!frame || frame.time > clock + 0.05) { asciRafId = requestAnimationFrame(asciTick); return; }
-  asciDrawFrame(frame.data);
-  asciFrameBuf.shift();
-  asciRafId = requestAnimationFrame(asciTick);
-}
-
-function asciDrawFrame(data) {
-  const { cols, rows, pixelMode } = asciState;
-  if (pixelMode) {
-    const d = asciImgData.data;
-    for (let s = 0, p = 0; s < data.length; s += 3, p += 4) {
-      d[p] = data[s + 2]; d[p + 1] = data[s + 1]; d[p + 2] = data[s]; // BGR→RGB
+function drawWaveBars(ctx, x, y, w, h, accent) {
+  const COUNT = 52, barW = w / COUNT;
+  if (asciiAnalyser) {
+    const data = new Uint8Array(asciiAnalyser.frequencyBinCount);
+    asciiAnalyser.getByteFrequencyData(data);
+    for (let i = 0; i < COUNT; i++) {
+      const bin = Math.floor(i / COUNT * asciiAnalyser.frequencyBinCount * 0.65);
+      const amp = data[bin] / 255;
+      const bh = Math.max(2, Math.round(amp * h));
+      ctx.fillStyle = accent + Math.round((0.35 + amp * 0.65) * 255).toString(16).padStart(2, '0');
+      ctx.fillRect(x + i * barW, y + h - bh, barW - 1, bh);
     }
-    asciCtx.putImageData(asciImgData, 0, 0);
-    return;
+  } else {
+    ctx.fillStyle = accent + '22';
+    ctx.fillRect(x, y + h - 2, w, 2);
   }
-  asciCtx.fillStyle = '#050505';
-  asciCtx.fillRect(0, 0, cols * 8, rows * 8);
-  let prevPacked = -1, col = 0, row = 0;
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i + 1], g = data[i + 2], b = data[i + 3];
-    const packed = (r << 16) | (g << 8) | b;
-    if (packed !== prevPacked) { asciCtx.fillStyle = `rgb(${r},${g},${b})`; prevPacked = packed; }
-    asciCtx.fillText(ASCI_CHAR_LUT[data[i]] ?? ' ', col * 8, row * 8);
-    if (++col >= cols) { col = 0; row++; }
+}
+
+function drawVideoAscii(canvas, ctx) {
+  const vidEl = el('video-el');
+  if (!vidEl || vidEl.readyState < 2) return;
+  const W = canvas.width, H = canvas.height;
+  const COLS = 60, ROWS = 26;
+  const cw = W / COLS, ch = H / ROWS;
+  if (!asciiVidOff) {
+    asciiVidOff = document.createElement('canvas');
+    asciiVidOff.width = COLS; asciiVidOff.height = ROWS;
   }
+  const off = asciiVidOff.getContext('2d', { willReadFrequently: true });
+  off.drawImage(vidEl, 0, 0, COLS, ROWS);
+  const px = off.getImageData(0, 0, COLS, ROWS).data;
+  ctx.fillStyle = '#050505';
+  ctx.fillRect(0, 0, W, H);
+  ctx.font = `bold ${Math.ceil(ch)}px "Courier New",monospace`;
+  ctx.textBaseline = 'top';
+  let prev = '';
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const i = (r * COLS + c) * 4;
+      const R = px[i], G = px[i+1], B = px[i+2];
+      const br = (0.299*R + 0.587*G + 0.114*B) / 255;
+      const ch2 = ASCII_DENSITY[Math.floor(br * (ASCII_DENSITY.length - 1))];
+      const col = `rgb(${R},${G},${B})`;
+      if (col !== prev) { ctx.fillStyle = col; prev = col; }
+      ctx.fillText(ch2, c * cw, r * ch);
+    }
+  }
+}
+
+function drawAsciiArt(ctx, img, x, y, w, h) {
+  const C = 22, R = 11;
+  const tmp = document.createElement('canvas');
+  tmp.width = C; tmp.height = R;
+  const tc = tmp.getContext('2d', { willReadFrequently: true });
+  tc.drawImage(img, 0, 0, C, R);
+  const px = tc.getImageData(0, 0, C, R).data;
+  const SIMP = ' .:-=+*#%@';
+  const cw = w / C, ch = h / R;
+  ctx.font = `bold ${Math.ceil(ch)}px "Courier New",monospace`;
+  ctx.textBaseline = 'top';
+  for (let r = 0; r < R; r++) {
+    for (let c = 0; c < C; c++) {
+      const i = (r * C + c) * 4;
+      const br = (0.299*px[i] + 0.587*px[i+1] + 0.114*px[i+2]) / 255;
+      ctx.fillStyle = `rgb(${px[i]},${px[i+1]},${px[i+2]})`;
+      ctx.fillText(SIMP[Math.floor(br * (SIMP.length - 1))], x + c * cw, y + r * ch);
+    }
+  }
+}
+
+function ellipsisText(ctx, text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return text;
+  while (text.length > 1 && ctx.measureText(text + '…').width > maxW) text = text.slice(0, -1);
+  return text + '…';
 }
 
 // ─── Stream status ─────────────────────────────────────────────────────────────
@@ -1590,20 +1705,13 @@ async function fetchStreamStatus() {
     state.nowPlaying    = data.nowPlaying || null;
     state.listenerCount = data.listenerCount || 0;
 
-    // Asciline inline canvas: show inside the art card for video tracks, hide for audio
-    const asci = data.asciline || {};
-    const showAsci = asci.running && !!data.nowPlaying?.isVideo;
-    const asciWrap = el('asci-wrap');
-    if (showAsci) {
-      asciConnect(asci.port);
-      asciWrap.hidden = false;
-      el('art-svg').style.display = 'none';
-      el('video-el').hidden = true;
+    // ASCII renderer: always on when playing
+    if (state.playing && data.nowPlaying) {
+      const mode = data.nowPlaying.isVideo ? 'video' : 'audio';
+      asciiStart(mode);
+      if (mode === 'audio') asciiLoadArtwork(data.nowPlaying.id);
     } else {
-      if (asciWs) asciDisconnect();
-      asciWrap.hidden = true;
-      el('art-svg').style.display = '';
-      if (currentIsVideo) el('video-el').hidden = false;
+      asciiStop();
     }
 
     render();
@@ -1711,6 +1819,7 @@ function togglePlay() {
     }
     media.play().then(() => {
       state.playing = true;
+      asciiInitAudio();
       render();
       if (!pingInterval) pingInterval = setInterval(ping, PING_INTERVAL_MS);
       ping();
