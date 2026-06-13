@@ -1533,6 +1533,7 @@ let asciiAudioSrc = null;
 let asciiArtImg  = null;
 let asciiArtId   = null;  // track id for which asciiArtImg was loaded
 let asciiVidOff  = null;  // offscreen canvas for video frame sampling
+let asciiStartTime = null;  // ms timestamp when audio card animation began
 
 function asciiStart(mode) {
   if (asciiMode === mode) return;
@@ -1550,6 +1551,7 @@ function asciiStart(mode) {
 
 function asciiStop() {
   asciiMode = null;
+  asciiStartTime = null;
   if (asciiRafId) { cancelAnimationFrame(asciiRafId); asciiRafId = null; }
   el('asci-wrap').hidden = true;
   el('art-svg').style.display  = '';
@@ -1599,57 +1601,103 @@ function drawAudioCard(canvas, ctx) {
   const W = canvas.width, H = canvas.height;
   const np = state.nowPlaying;
   const accent = asciiAccent();
-  const P = 18;
 
+  if (!asciiStartTime) asciiStartTime = performance.now();
+  const elapsed = performance.now() - asciiStartTime;
+
+  const TICKER_H = H - 42;  // top zone for scrolling layers
+  const ART_W = 130, ART_H = 130;
+  const ART_Y = Math.round((TICKER_H - ART_H) / 2);
+
+  // Background
   ctx.fillStyle = '#050505';
   ctx.fillRect(0, 0, W, H);
 
-  // Station name
-  ctx.font = 'bold 10px "Courier New",monospace';
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, W, TICKER_H);
+  ctx.clip();
+
+  // Layer 1: station name watermark (20px/sec)
+  const stn = (stationName || 'PAPERWEIGHT').toUpperCase() + '  ◆  ';
+  ctx.font = 'bold 11px "Courier New",monospace';
+  ctx.textBaseline = 'middle';
+  const patW = ctx.measureText(stn).width;
+  const bg1X = -(elapsed * 20 / 1000 % patW);
+  ctx.globalAlpha = 0.07;
   ctx.fillStyle = accent;
-  ctx.textBaseline = 'top';
-  ctx.fillText((stationName || 'PAPERWEIGHT').toUpperCase(), P, P);
+  for (let x = bg1X; x < W + patW; x += patW) {
+    ctx.fillText(stn, x, TICKER_H / 2);
+  }
+  ctx.globalAlpha = 1;
 
-  // Separator
-  ctx.fillStyle = accent + '33';
-  ctx.fillRect(P, P + 14, W - P * 2, 1);
-
-  // Cover art area (left column)
-  const AX = P, AY = P + 22, AW = 88, AH = 88;
+  // Layer 2: cover art block (50px/sec)
+  const artPeriod = ART_W + W + 40;
+  const artX = Math.round(W - (elapsed * 50 / 1000 % artPeriod));
   if (asciiArtImg) {
-    drawAsciiArt(ctx, asciiArtImg, AX, AY, AW, AH);
+    drawAsciiArt(ctx, asciiArtImg, artX, ART_Y, ART_W, ART_H);
   } else {
     ctx.fillStyle = accent + '18';
-    ctx.fillRect(AX, AY, AW, AH);
-    ctx.font = `bold 44px "Courier New",monospace`;
+    ctx.fillRect(artX, ART_Y, ART_W, ART_H);
+    ctx.font = `bold 56px "Courier New",monospace`;
     ctx.fillStyle = accent + '55';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(((np?.title || stationName || '?')[0] || '?').toUpperCase(), AX + AW / 2, AY + AH / 2);
+    ctx.fillText(((np?.title || stationName || '?')[0] || '?').toUpperCase(), artX + ART_W / 2, ART_Y + ART_H / 2);
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   }
 
-  // Track info (right of art)
+  // Layer 3: track info text (62.5px/sec)
   if (np) {
-    const TX = AX + AW + 14, TW = W - TX - P;
-    ctx.font = `bold 15px "Courier New",monospace`;
-    ctx.fillStyle = '#fff';
-    ctx.fillText(ellipsisText(ctx, np.title || '---', TW), TX, AY + 4);
+    ctx.textBaseline = 'top';
+    const title = np.title || '---';
+    const artist = np.artist || '';
+    const category = np.category || '';
+    ctx.font = `bold 22px "Courier New",monospace`;
+    const tw = ctx.measureText(title).width;
+    ctx.font = `11px "Courier New",monospace`;
+    const aw = ctx.measureText(artist).width;
+    ctx.font = `10px "Courier New",monospace`;
+    const cw = ctx.measureText(category).width;
+    const INFO_W = Math.max(tw, aw, cw);
+    const infoPeriod = INFO_W + W + 40;
+    const infoX = Math.round(W - (elapsed * 62.5 / 1000 % infoPeriod));
+    const midY = Math.round(TICKER_H / 2);
+
+    ctx.font = `bold 22px "Courier New",monospace`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(title, infoX, midY - 24);
+
+    ctx.font = `11px "Courier New",monospace`;
+    ctx.fillStyle = 'rgba(255,255,255,.5)';
+    ctx.fillText(artist, infoX, midY + 4);
 
     ctx.font = `10px "Courier New",monospace`;
-    ctx.fillStyle = 'rgba(255,255,255,.5)';
-    ctx.fillText(ellipsisText(ctx, np.artist || '', TW), TX, AY + 26);
-
     ctx.fillStyle = accent + '99';
-    ctx.fillText(ellipsisText(ctx, np.category || '', TW), TX, AY + 44);
+    ctx.fillText(category, infoX, midY + 21);
   }
 
-  // Waveform
-  const WY = H - 50, WH = 36;
-  drawWaveBars(ctx, P, WY, W - P * 2, WH, accent);
+  // Edge vignette
+  const vigW = 44;
+  const leftG = ctx.createLinearGradient(0, 0, vigW, 0);
+  leftG.addColorStop(0, '#050505');
+  leftG.addColorStop(1, 'transparent');
+  ctx.fillStyle = leftG;
+  ctx.fillRect(0, 0, vigW, TICKER_H);
+
+  const rightG = ctx.createLinearGradient(W - vigW, 0, W, 0);
+  rightG.addColorStop(0, 'transparent');
+  rightG.addColorStop(1, '#050505');
+  ctx.fillStyle = rightG;
+  ctx.fillRect(W - vigW, 0, vigW, TICKER_H);
+
+  ctx.restore();
+
+  // Waveform (fixed)
+  drawWaveBars(ctx, 8, H - 42, W - 16, 32, accent);
 
   // Bottom rule
   ctx.fillStyle = accent + '22';
-  ctx.fillRect(P, H - 10, W - P * 2, 1);
+  ctx.fillRect(8, H - 8, W - 16, 1);
 }
 
 function drawWaveBars(ctx, x, y, w, h, accent) {
