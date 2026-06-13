@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Download Paperweight</title>
+  <meta name="description" content="Download Paperweight and launch your own streaming station. Runs on Windows, macOS, Linux, and Raspberry Pi." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:clip;scroll-behavior:smooth}
+a{text-decoration:none;color:inherit}
+button{border:none;cursor:pointer;background:none;font:inherit}
+ul{list-style:none}
+
+/* ── Tokens ──────────────────────────────────────────────────────────────── */
+:root{
+  --bg:#080808;--bg2:#0d0d0d;
+  --neon:#39ff14;
+  --border:rgba(255,255,255,.08);--border-hi:rgba(255,255,255,.14);
+  --text:#fff;--t-mid:rgba(255,255,255,.45);
+  --t-muted:rgba(255,255,255,.25);--t-dim:rgba(255,255,255,.13);
+  --discord:#5865F2;
+  --serif:'DM Serif Display',Georgia,serif;
+  --mono:'Space Mono',monospace;
+}
+
+body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh}
+
+/* ── Nav ─────────────────────────────────────────────────────────────────── */
+.nav{
+  position:sticky;top:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 32px;height:52px;
+  background:rgba(8,8,8,.88);
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+}
+@supports not (backdrop-filter:blur(1px)){.nav{background:#0a0a0a}}
+.nav-brand{font-family:var(--serif);font-size:15px;letter-spacing:-.02em;color:var(--text)}
+.nav-links{display:flex;align-items:center;gap:28px}
+.nav-link{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--t-muted);text-transform:uppercase;transition:color .15s}
+.nav-link:hover{color:var(--t-mid)}
+.nav-cta{
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  background:var(--neon);color:#000;font-weight:700;
+  padding:7px 16px;border-radius:5px;
+  box-shadow:0 0 16px rgba(57,255,20,.3);
+  transition:box-shadow .2s,transform .12s;
+}
+.nav-cta:hover{box-shadow:0 0 28px rgba(57,255,20,.6);transform:translateY(-1px)}
+
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+.hero{
+  min-height:36vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:72px 24px 56px;text-align:center;position:relative;
+}
+.hero::before{
+  content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:600px;height:300px;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 0%,rgba(57,255,20,.07),transparent 65%);
+}
+.hero-version{
+  font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--neon);
+  border:1px solid rgba(57,255,20,.3);border-radius:4px;padding:4px 12px;
+  display:inline-block;margin-bottom:24px;text-transform:uppercase;
+}
+.hero-title{
+  font-family:var(--serif);font-size:clamp(3rem,8vw,5.5rem);font-weight:400;
+  letter-spacing:-.025em;line-height:1.02;margin-bottom:20px;
+}
+.hero-sub{
+  font-family:var(--mono);font-size:12px;color:var(--t-mid);
+  line-height:1.8;max-width:440px;margin:0 auto;
+}
+
+/* ── Platform grid ───────────────────────────────────────────────────────── */
+.platform-section{
+  max-width:1100px;margin:0 auto;padding:0 32px 80px;
+}
+.platform-grid{
+  display:flex;gap:12px;flex-wrap:wrap;justify-content:center;
+}
+.p-card{
+  background:linear-gradient(160deg,#141414,#0d0d0d);
+  border:1px solid var(--border);border-radius:14px;
+  padding:24px 20px;flex:1;min-width:180px;max-width:210px;
+  cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .15s;
+  position:relative;display:flex;flex-direction:column;gap:14px;
+}
+.p-card:hover{
+  border-color:var(--border-hi);transform:translateY(-2px);
+  box-shadow:0 16px 40px rgba(0,0,0,.6);
+}
+.p-card.active{
+  border-color:rgba(57,255,20,.5);
+  box-shadow:0 0 0 1px rgba(57,255,20,.15),0 16px 40px rgba(0,0,0,.6);
+}
+.p-card.detected::before{
+  content:'Your system';position:absolute;top:-1px;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;
+  background:var(--neon);color:#000;font-weight:700;
+  padding:2px 10px;border-radius:0 0 6px 6px;white-space:nowrap;
+}
+.p-icon{
+  width:36px;height:36px;fill:var(--t-muted);
+  transition:fill .2s;
+}
+.p-card.active .p-icon,.p-card:hover .p-icon{fill:var(--text)}
+.p-name{font-family:var(--serif);font-size:16px;color:rgba(255,255,255,.85)}
+.p-arch{
+  font-family:var(--mono);font-size:9px;letter-spacing:.08em;
+  color:var(--t-muted);margin-top:-10px;
+}
+.p-reqs{
+  font-family:var(--mono);font-size:9px;color:var(--t-dim);
+  line-height:1.6;flex:1;
+}
+.p-dl-btn{
+  font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+  background:var(--neon);color:#000;
+  border-radius:6px;padding:8px 14px;text-align:center;
+  transition:box-shadow .2s,transform .12s;display:block;
+}
+.p-dl-btn:hover{box-shadow:0 0 20px rgba(57,255,20,.55);transform:translateY(-1px);color:#000}
+
+/* ── Terminal ────────────────────────────────────────────────────────────── */
+.install-section{
+  max-width:800px;margin:0 auto;padding:0 32px 80px;
+}
+.install-heading{
+  font-family:var(--serif);font-size:clamp(1.6rem,3vw,2.2rem);
+  font-weight:400;letter-spacing:-.02em;margin-bottom:8px;
+}
+.install-sub{
+  font-family:var(--mono);font-size:11px;color:var(--t-muted);
+  margin-bottom:32px;line-height:1.7;
+}
+.terminal{
+  background:#0a0a0a;border:1px solid rgba(255,255,255,.1);border-radius:12px;
+  overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.7);
+}
+.terminal-bar{
+  background:#111;border-bottom:1px solid rgba(255,255,255,.07);
+  padding:10px 16px;display:flex;align-items:center;gap:8px;
+}
+.t-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.12)}
+.t-dot:nth-child(1){background:#ff5f57}
+.t-dot:nth-child(2){background:#febc2e}
+.t-dot:nth-child(3){background:#28c840}
+.terminal-label{
+  font-family:var(--mono);font-size:10px;color:var(--t-muted);
+  margin-left:8px;letter-spacing:.08em;
+}
+.terminal-body{padding:24px 24px 28px}
+.t-step{margin-bottom:20px}
+.t-step:last-child{margin-bottom:0}
+.t-comment{
+  font-family:var(--mono);font-size:11px;color:var(--t-dim);
+  margin-bottom:6px;letter-spacing:.04em;
+}
+.t-cmd{
+  font-family:var(--mono);font-size:13px;color:var(--text);
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+}
+.t-prompt{color:var(--neon);font-weight:700;flex-shrink:0}
+.t-out{
+  font-family:var(--mono);font-size:11px;color:rgba(57,255,20,.55);
+  margin-top:6px;line-height:1.6;padding-left:22px;
+}
+
+/* ── Requirements strip ──────────────────────────────────────────────────── */
+.reqs-section{
+  border-top:1px solid var(--border);
+  padding:56px 32px;
+}
+.reqs-inner{max-width:800px;margin:0 auto;}
+.reqs-eyebrow{
+  font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--neon);
+  text-transform:uppercase;margin-bottom:16px;
+}
+.reqs-title{
+  font-family:var(--serif);font-size:clamp(1.4rem,2.5vw,1.9rem);
+  font-weight:400;letter-spacing:-.02em;margin-bottom:28px;
+}
+.reqs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.req-card{
+  background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:10px;
+  padding:16px;
+}
+.req-key{
+  font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--t-muted);
+  text-transform:uppercase;margin-bottom:6px;
+}
+.req-val{font-family:var(--serif);font-size:15px;color:rgba(255,255,255,.8)}
+.req-note{font-family:var(--mono);font-size:9px;color:var(--t-dim);margin-top:4px}
+
+/* ── What's next ─────────────────────────────────────────────────────────── */
+.next-section{
+  border-top:1px solid var(--border);
+  padding:72px 32px;
+}
+.next-inner{max-width:800px;margin:0 auto;}
+.next-eyebrow{
+  font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--neon);
+  text-transform:uppercase;margin-bottom:16px;
+}
+.next-title{
+  font-family:var(--serif);font-size:clamp(1.6rem,3vw,2.4rem);
+  font-weight:400;letter-spacing:-.02em;margin-bottom:40px;
+}
+.next-steps{display:flex;flex-direction:column;gap:0}
+.next-step{
+  display:flex;gap:24px;align-items:flex-start;
+  padding:24px 0;border-bottom:1px solid var(--border);
+}
+.next-step:last-child{border-bottom:none}
+.next-num{
+  font-family:var(--serif);font-size:2.2rem;color:rgba(57,255,20,.25);
+  line-height:1;flex-shrink:0;width:40px;
+}
+.next-body{}
+.next-step-title{
+  font-family:var(--serif);font-size:18px;color:rgba(255,255,255,.85);
+  margin-bottom:6px;
+}
+.next-step-body{
+  font-family:var(--mono);font-size:11px;color:var(--t-muted);line-height:1.75;
+}
+
+/* ── Discord CTA ─────────────────────────────────────────────────────────── */
+.discord-section{
+  border-top:1px solid var(--border);
+  padding:80px 24px;text-align:center;
+}
+.discord-icon{color:var(--discord);margin-bottom:20px}
+.discord-title{
+  font-family:var(--serif);font-size:clamp(1.8rem,4vw,2.8rem);
+  font-weight:400;letter-spacing:-.025em;line-height:1.06;margin-bottom:14px;
+}
+.discord-sub{
+  font-family:var(--mono);font-size:12px;color:var(--t-mid);
+  line-height:1.8;max-width:380px;margin:0 auto 36px;
+}
+.btn-discord{
+  display:inline-flex;align-items:center;gap:10px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+  background:var(--discord);color:#fff;
+  padding:13px 28px;border-radius:7px;
+  transition:box-shadow .2s,transform .12s;
+}
+.btn-discord:hover{box-shadow:0 0 32px rgba(88,101,242,.6);transform:translateY(-1px)}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+footer{
+  border-top:1px solid var(--border);padding:24px 32px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;
+}
+.footer-brand{font-family:var(--serif);font-size:14px;color:var(--t-dim);letter-spacing:-.015em}
+.footer-links{display:flex;gap:24px}
+.footer-link{
+  font-family:var(--mono);font-size:10px;color:var(--t-muted);
+  transition:color .15s;letter-spacing:.06em;
+}
+.footer-link:hover{color:var(--t-mid)}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media(max-width:768px){
+  .nav{padding:0 20px}
+  .hero{padding:56px 20px 40px}
+  .platform-section{padding:0 20px 60px}
+  .p-card{min-width:calc(50% - 6px);max-width:none}
+  .install-section{padding:0 20px 60px}
+  .reqs-section,.next-section{padding:48px 20px}
+  .discord-section{padding:64px 20px}
+  footer{padding:20px}
+  .nav-links .nav-link{display:none}
+}
+@media(max-width:480px){
+  .p-card{min-width:100%;max-width:none}
+}
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <a href="/" class="nav-brand">Paperweight</a>
+  <div class="nav-links">
+    <a href="https://discord.gg/XQaX3Nwp" class="nav-link" target="_blank" rel="noopener">Discord</a>
+    <a href="https://discord.gg/XQaX3Nwp" class="nav-cta" target="_blank" rel="noopener">Get Access →</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-version">v1.5.1 — Available Now</div>
+  <h1 class="hero-title">Get Paperweight.</h1>
+  <p class="hero-sub">Pick your platform. Run the installer. You'll be live in under five minutes.</p>
+</section>
+
+<!-- Platform grid -->
+<section class="platform-section">
+  <div class="platform-grid">
+
+    <!-- Windows -->
+    <div class="p-card" data-platform="win" onclick="selectPlatform('win')">
+      <svg class="p-icon" viewBox="0 0 24 24">
+        <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.551H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
+      </svg>
+      <div>
+        <div class="p-name">Windows</div>
+        <div class="p-arch">x64 · Win 10 / 11</div>
+      </div>
+      <div class="p-reqs">PowerShell installer<br>FFmpeg included</div>
+      <a href="https://discord.gg/XQaX3Nwp" class="p-dl-btn" target="_blank" rel="noopener" onclick="event.stopPropagation()">Get Download →</a>
+    </div>
+
+    <!-- macOS AS -->
+    <div class="p-card" data-platform="mac-arm64" onclick="selectPlatform('mac-arm64')">
+      <svg class="p-icon" viewBox="0 0 24 24">
+        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98l-.09.06c-.22.14-2.22 1.3-2.2 3.88.03 3.02 2.65 4.03 2.68 4.04l-.03.09M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+      </svg>
+      <div>
+        <div class="p-name">macOS</div>
+        <div class="p-arch">Apple Silicon · M1 / M2 / M3</div>
+      </div>
+      <div class="p-reqs">Homebrew installer<br>macOS 13+</div>
+      <a href="https://discord.gg/XQaX3Nwp" class="p-dl-btn" target="_blank" rel="noopener" onclick="event.stopPropagation()">Get Download →</a>
+    </div>
+
+    <!-- macOS Intel -->
+    <div class="p-card" data-platform="mac-x64" onclick="selectPlatform('mac-x64')">
+      <svg class="p-icon" viewBox="0 0 24 24">
+        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98l-.09.06c-.22.14-2.22 1.3-2.2 3.88.03 3.02 2.65 4.03 2.68 4.04l-.03.09M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+      </svg>
+      <div>
+        <div class="p-name">macOS</div>
+        <div class="p-arch">Intel · 2020 and older</div>
+      </div>
+      <div class="p-reqs">Homebrew installer<br>macOS 13+</div>
+      <a href="https://discord.gg/XQaX3Nwp" class="p-dl-btn" target="_blank" rel="noopener" onclick="event.stopPropagation()">Get Download →</a>
+    </div>
+
+    <!-- Linux x64 -->
+    <div class="p-card" data-platform="linux-x64" onclick="selectPlatform('linux-x64')">
+      <svg class="p-icon" viewBox="0 0 24 24">
+        <path d="M12.504 0c-.155 0-.315.008-.48.021C7.576.328 3.24 3.575 1.573 8.228c-.595 1.685-.77 3.42-.525 5.13C.35 15.444.752 17.37 1.7 19.044a9.89 9.89 0 0 0 4.037 3.964 10.5 10.5 0 0 0 4.98 1.2c.63 0 1.26-.058 1.88-.174 2.026-.38 3.905-1.39 5.404-2.92 1.5-1.532 2.494-3.487 2.83-5.6.15-.923.195-1.852.133-2.783a10.5 10.5 0 0 0-.484-2.538c-.927-2.844-2.9-5.195-5.508-6.595A10.25 10.25 0 0 0 12.504 0zm3.355 5.604a8.64 8.64 0 0 1 1.447.578c.83.437 1.57 1.053 2.17 1.804l-1.135 1.09c-.44-.628-.98-1.178-1.598-1.628l-.884-1.844zm-7.7.578c.45-.234.92-.415 1.408-.538l-.86 1.82c-.63.452-1.175 1.008-1.617 1.645l-1.136-1.1c.61-.754 1.354-1.374 2.205-1.827zm7.154 1.37l.847 1.77c.38.62.63 1.31.74 2.025l-1.946.42c-.105-.52-.296-1.02-.565-1.48l.924-2.735zM8.61 7.16l.918 2.72c-.27.46-.462.96-.565 1.48l-1.946-.42c.11-.715.36-1.405.74-2.025l.853-1.755zm6.6 3.56l-1.95.42c-.09.494-.27.97-.53 1.404l1.43 1.37a6.4 6.4 0 0 0 .856-2.097 6.3 6.3 0 0 0 .194-1.097zM8.787 11.14c-.26-.435-.44-.91-.528-1.404l-1.95-.42a6.3 6.3 0 0 0 .194 1.097c.202.733.523 1.428.95 2.063l1.334-1.336zm3.716-1.404h.002c.51 0 .922.414.922.924s-.413.924-.922.924a.924.924 0 0 1 0-1.848zm-2.765 3.18l-1.43-1.37a6.4 6.4 0 0 0-.682 2.054l1.95.42a4.4 4.4 0 0 1 .162-1.104zm5.53 0c.085.36.132.73.14 1.104l1.948-.42a6.4 6.4 0 0 0-.683-2.053l-1.406 1.37zm-4.37 1.67a4.5 4.5 0 0 1-.86-.61l-1.334 1.335a6.4 6.4 0 0 0 1.705 1.095l.49-1.82zm3.21 0l.49 1.82a6.4 6.4 0 0 0 1.705-1.095l-1.334-1.335c-.264.236-.556.44-.86.61zm-2.29.725c-.333 0-.66-.04-.976-.116l-.49 1.82a6.4 6.4 0 0 0 1.466.17c.49 0 .976-.056 1.447-.17l-.49-1.82a4.5 4.5 0 0 1-.957.116z"/>
+      </svg>
+      <div>
+        <div class="p-name">Linux</div>
+        <div class="p-arch">x64 · Ubuntu / Debian</div>
+      </div>
+      <div class="p-reqs">Bash installer<br>2 GB RAM min</div>
+      <a href="https://discord.gg/XQaX3Nwp" class="p-dl-btn" target="_blank" rel="noopener" onclick="event.stopPropagation()">Get Download →</a>
+    </div>
+
+    <!-- Raspberry Pi -->
+    <div class="p-card" data-platform="linux-arm64" onclick="selectPlatform('linux-arm64')">
+      <svg class="p-icon" viewBox="0 0 24 24">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-5h2v2h-2zm0-8h2v6h-2z"/>
+      </svg>
+      <div>
+        <div class="p-name">Raspberry Pi</div>
+        <div class="p-arch">ARM64 · Pi 4 / 5</div>
+      </div>
+      <div class="p-reqs">Bash installer<br>Pi OS 64-bit</div>
+      <a href="https://discord.gg/XQaX3Nwp" class="p-dl-btn" target="_blank" rel="noopener" onclick="event.stopPropagation()">Get Download →</a>
+    </div>
+
+  </div>
+</section>
+
+<!-- Install steps -->
+<section class="install-section">
+  <h2 class="install-heading">Install in three steps.</h2>
+  <p class="install-sub" id="install-sub">Select a platform above, or follow the steps for your detected OS.</p>
+
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="t-dot"></div>
+      <div class="t-dot"></div>
+      <div class="t-dot"></div>
+      <span class="terminal-label" id="term-label">Terminal</span>
+    </div>
+    <div class="terminal-body" id="term-body">
+      <!-- injected by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- Requirements -->
+<section class="reqs-section">
+  <div class="reqs-inner">
+    <div class="reqs-eyebrow">Requirements</div>
+    <h2 class="reqs-title">What you need to run it.</h2>
+    <div class="reqs-grid">
+      <div class="req-card">
+        <div class="req-key">Node.js</div>
+        <div class="req-val">v20 or newer</div>
+        <div class="req-note">Installed automatically by the installer</div>
+      </div>
+      <div class="req-card">
+        <div class="req-key">FFmpeg</div>
+        <div class="req-val">Any recent build</div>
+        <div class="req-note">Installed automatically by the installer</div>
+      </div>
+      <div class="req-card">
+        <div class="req-key">RAM</div>
+        <div class="req-val">2 GB min</div>
+        <div class="req-note">4 GB recommended for comfortable streaming</div>
+      </div>
+      <div class="req-card">
+        <div class="req-key">Storage</div>
+        <div class="req-val">Your vault</div>
+        <div class="req-note">Point Paperweight at any folder — no limits</div>
+      </div>
+      <div class="req-card">
+        <div class="req-key">Network</div>
+        <div class="req-val">Any connection</div>
+        <div class="req-note">Cloudflare Tunnel included for public streams</div>
+      </div>
+      <div class="req-card">
+        <div class="req-key">OS</div>
+        <div class="req-val">Win 10+ / macOS 13+</div>
+        <div class="req-note">Debian / Ubuntu / Raspberry Pi OS 64-bit</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- What's next -->
+<section class="next-section">
+  <div class="next-inner">
+    <div class="next-eyebrow">After Install</div>
+    <h2 class="next-title">You'll be live in minutes.</h2>
+    <div class="next-steps">
+      <div class="next-step">
+        <div class="next-num">1</div>
+        <div class="next-body">
+          <div class="next-step-title">Point it at your vault</div>
+          <div class="next-step-body">Run <code style="color:var(--neon);font-size:10px">bash scripts/setup.sh</code> and enter the path to your music folder. Paperweight scans it immediately — no upload required.</div>
+        </div>
+      </div>
+      <div class="next-step">
+        <div class="next-num">2</div>
+        <div class="next-body">
+          <div class="next-step-title">Open your Studio dashboard</div>
+          <div class="next-step-body">Visit <code style="color:var(--neon);font-size:10px">localhost:3000/#dashboard</code> and unlock Studio with your token. Configure your station name, set up your schedule, and toggle tracks live.</div>
+        </div>
+      </div>
+      <div class="next-step">
+        <div class="next-num">3</div>
+        <div class="next-body">
+          <div class="next-step-title">Share your station</div>
+          <div class="next-step-body">Enable the Cloudflare Tunnel from Studio and your station gets a public URL — no port-forwarding, no static IP. Issue access tokens to let listeners in.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Discord -->
+<section class="discord-section">
+  <div class="discord-icon">
+    <svg viewBox="0 0 24 24" fill="currentColor" width="40" height="40">
+      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+    </svg>
+  </div>
+  <h2 class="discord-title">Questions? We're in Discord.</h2>
+  <p class="discord-sub">Get help with setup, share your station, and connect with other Paperweight creators.</p>
+  <a href="https://discord.gg/XQaX3Nwp" class="btn-discord" target="_blank" rel="noopener noreferrer">
+    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true">
+      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+    </svg>
+    Join Discord
+  </a>
+</section>
+
+<footer>
+  <a href="/" class="footer-brand">Paperweight</a>
+  <div class="footer-links">
+    <a href="/" class="footer-link">Home</a>
+    <a href="https://discord.gg/XQaX3Nwp" class="footer-link" target="_blank" rel="noopener">Discord</a>
+  </div>
+</footer>
+
+<script>
+const PLATFORMS = {
+  'win': {
+    label: 'Windows (PowerShell)',
+    steps: [
+      {
+        comment: '# Run the installer as Administrator',
+        cmd: '.\\scripts\\install.ps1',
+        prompt: 'PS C:\\Paperweight>',
+        out: 'Installing Node.js, FFmpeg, PM2… done.'
+      },
+      {
+        comment: '# Configure your station',
+        cmd: 'bash scripts/setup.sh',
+        prompt: 'PS C:\\Paperweight>',
+        out: 'Dashboard token: pw_xxxxxxxxxxxxxxxx\nVault path set.'
+      },
+      {
+        comment: '# Start Paperweight',
+        cmd: 'npm start',
+        prompt: 'PS C:\\Paperweight>',
+        out: '● Paperweight v1.5.1 running on http://localhost:3000'
+      }
+    ]
+  },
+  'mac-arm64': {
+    label: 'macOS Apple Silicon (zsh)',
+    steps: [
+      {
+        comment: '# Install Node.js, FFmpeg via Homebrew',
+        cmd: 'bash scripts/install-macos.sh',
+        prompt: '$',
+        out: 'Homebrew packages installed.'
+      },
+      {
+        comment: '# Configure your station',
+        cmd: 'bash scripts/setup.sh',
+        prompt: '$',
+        out: 'Dashboard token: pw_xxxxxxxxxxxxxxxx\nVault path set.'
+      },
+      {
+        comment: '# Start Paperweight',
+        cmd: 'npm start',
+        prompt: '$',
+        out: '● Paperweight v1.5.1 running on http://localhost:3000'
+      }
+    ]
+  },
+  'mac-x64': {
+    label: 'macOS Intel (zsh)',
+    steps: [
+      {
+        comment: '# Install Node.js, FFmpeg via Homebrew',
+        cmd: 'bash scripts/install-macos.sh',
+        prompt: '$',
+        out: 'Homebrew packages installed.'
+      },
+      {
+        comment: '# Configure your station',
+        cmd: 'bash scripts/setup.sh',
+        prompt: '$',
+        out: 'Dashboard token: pw_xxxxxxxxxxxxxxxx\nVault path set.'
+      },
+      {
+        comment: '# Start Paperweight',
+        cmd: 'npm start',
+        prompt: '$',
+        out: '● Paperweight v1.5.1 running on http://localhost:3000'
+      }
+    ]
+  },
+  'linux-x64': {
+    label: 'Linux x64 (bash)',
+    steps: [
+      {
+        comment: '# Install Node.js, FFmpeg, PM2',
+        cmd: 'bash scripts/install.sh',
+        prompt: '$',
+        out: 'apt packages installed. PM2 configured.'
+      },
+      {
+        comment: '# Configure your station',
+        cmd: 'bash scripts/setup.sh',
+        prompt: '$',
+        out: 'Dashboard token: pw_xxxxxxxxxxxxxxxx\nVault path set.'
+      },
+      {
+        comment: '# Start Paperweight',
+        cmd: 'npm start',
+        prompt: '$',
+        out: '● Paperweight v1.5.1 running on http://localhost:3000'
+      }
+    ]
+  },
+  'linux-arm64': {
+    label: 'Raspberry Pi ARM64 (bash)',
+    steps: [
+      {
+        comment: '# Install Node.js, FFmpeg, PM2 + configure tmpfs',
+        cmd: 'bash scripts/install.sh',
+        prompt: '$',
+        out: 'apt packages installed. tmpfs mounted. PM2 configured.'
+      },
+      {
+        comment: '# Configure your station',
+        cmd: 'bash scripts/setup.sh',
+        prompt: '$',
+        out: 'Dashboard token: pw_xxxxxxxxxxxxxxxx\nVault path set.'
+      },
+      {
+        comment: '# Start Paperweight',
+        cmd: 'npm start',
+        prompt: '$',
+        out: '● Paperweight v1.5.1 running on http://localhost:3000'
+      }
+    ]
+  }
+};
+
+function renderTerminal(platformKey) {
+  const p = PLATFORMS[platformKey];
+  if (!p) return;
+  document.getElementById('term-label').textContent = p.label;
+  const body = document.getElementById('term-body');
+  body.innerHTML = p.steps.map(s => `
+    <div class="t-step">
+      <div class="t-comment">${s.comment}</div>
+      <div class="t-cmd"><span class="t-prompt">${s.prompt}</span> ${s.cmd}</div>
+      <div class="t-out">${s.out}</div>
+    </div>
+  `).join('');
+}
+
+function selectPlatform(key) {
+  document.querySelectorAll('.p-card').forEach(c => c.classList.remove('active'));
+  const card = document.querySelector(`.p-card[data-platform="${key}"]`);
+  if (card) card.classList.add('active');
+  renderTerminal(key);
+  document.getElementById('install-sub').textContent =
+    'Showing install steps for ' + PLATFORMS[key].label.split(' (')[0] + '.';
+}
+
+function detectOS() {
+  const ua = navigator.userAgent;
+  if (/Windows/.test(ua)) return 'win';
+  if (/Macintosh|Mac OS/.test(ua)) {
+    // Apple Silicon Macs report as Intel in most browsers; default to AS
+    return 'mac-arm64';
+  }
+  if (/Linux/.test(ua) && /aarch64|arm64/.test(ua)) return 'linux-arm64';
+  if (/Linux/.test(ua)) return 'linux-x64';
+  return null;
+}
+
+const detected = detectOS();
+if (detected) {
+  document.querySelector(`.p-card[data-platform="${detected}"]`)?.classList.add('detected');
+  selectPlatform(detected);
+} else {
+  selectPlatform('linux-x64');
+}
+</script>
+
+</body>
+</html>
