@@ -242,19 +242,12 @@
     .skip-btn:hover { color: var(--t1); background: var(--raised); }
     .skip-btn.hidden { display: none; }
 
-    #ascii-mode-row {
-      padding: 0 20px 12px;
-      display: flex;
-      justify-content: center;
+    #asci-wrap {
+      position: absolute; inset: 0; z-index: 2;
+      display: flex; align-items: center; justify-content: center;
+      background: #050505;
     }
-    #ascii-mode-btn {
-      font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
-      color: var(--t3); text-decoration: none;
-      border: 1px solid var(--border); border-radius: var(--radius-sm);
-      padding: 4px 10px;
-      transition: color .12s, border-color .12s;
-    }
-    #ascii-mode-btn:hover { color: var(--t1); border-color: var(--border-strong); }
+    #asci-canvas { max-width: 100%; max-height: 100%; display: block; image-rendering: pixelated; }
 
     #play-btn {
       width: 60px; height: 60px; border-radius: 50%; border: none; cursor: pointer;
@@ -914,6 +907,7 @@
               <rect width="480" height="210" fill="url(#dot-fade)"/>
             </svg>
             <video id="video-el" hidden playsinline></video>
+            <div id="asci-wrap" hidden><canvas id="asci-canvas"></canvas></div>
             <div class="pulse-ring" id="pr1"></div>
             <div class="pulse-ring" id="pr2"></div>
             <div id="on-air-badge">
@@ -961,11 +955,6 @@
             <button class="skip-btn hidden" id="skip-next" title="Next">⏭</button>
           </div>
           <button class="drawer-btn" id="queue-btn" title="Schedule">≡</button>
-        </div>
-
-        <!-- ASCII mode link — shown only when asciline is running and broadcast is video -->
-        <div id="ascii-mode-row" hidden>
-          <a id="ascii-mode-btn" target="_blank" rel="noopener">ASCII MODE ↗</a>
         </div>
 
         <!-- Library drawer -->
@@ -1472,6 +1461,96 @@ function esc(str) {
   return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ─── Asciline inline renderer ────────────────────────────────────────────────
+const ASCI_CHAR_LUT = " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+let asciWs = null, asciState = null, asciCtx = null, asciImgData = null;
+let asciFrameBuf = [], asciRafId = null, asciClockRef = null;
+
+function asciConnect(port) {
+  if (asciWs) return;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  asciWs = new WebSocket(`${proto}//${location.hostname}:${port}/ws`);
+  asciWs.binaryType = 'arraybuffer';
+  asciWs.onmessage = (e) => {
+    if (typeof e.data === 'string') {
+      if (!e.data.startsWith('INIT:')) return;
+      const p = e.data.slice(5).split(':');
+      asciState = { fps: parseFloat(p[0]) || 24, renderMode: parseInt(p[1]) || 5,
+                    cols: parseInt(p[2]) || 80, rows: parseInt(p[3]) || 40, pixelMode: p[4] === '1' };
+      asciSetupCanvas();
+      asciFrameBuf = []; asciClockRef = null;
+      if (!asciRafId) asciRafId = requestAnimationFrame(asciTick);
+    } else {
+      if (!asciState) return;
+      const view = new Uint8Array(e.data);
+      const idx  = (view[0] << 24) | (view[1] << 16) | (view[2] << 8) | view[3];
+      asciFrameBuf.push({ idx, time: idx / asciState.fps, data: new Uint8Array(e.data, 4) });
+      if (asciFrameBuf.length > 20) asciFrameBuf.shift();
+      if (!asciRafId) asciRafId = requestAnimationFrame(asciTick);
+    }
+  };
+  asciWs.onclose = () => { asciWs = null; };
+  asciWs.onerror = () => { try { asciWs.close(); } catch {} };
+}
+
+function asciDisconnect() {
+  if (asciWs) { try { asciWs.close(); } catch {} asciWs = null; }
+  if (asciRafId) { cancelAnimationFrame(asciRafId); asciRafId = null; }
+  asciFrameBuf = []; asciState = null; asciClockRef = null;
+}
+
+function asciSetupCanvas() {
+  const { cols, rows, pixelMode } = asciState;
+  const canvas = el('asci-canvas');
+  canvas.width  = pixelMode ? cols : cols * 8;
+  canvas.height = pixelMode ? rows : rows * 8;
+  asciCtx = canvas.getContext('2d');
+  asciImgData = null;
+  if (pixelMode) {
+    asciImgData = asciCtx.createImageData(cols, rows);
+    const d = asciImgData.data;
+    for (let i = 3; i < d.length; i += 4) d[i] = 255;
+  } else {
+    asciCtx.font = 'bold 8px "Courier New",monospace';
+    asciCtx.textBaseline = 'top';
+  }
+}
+
+function asciTick(now) {
+  asciRafId = null;
+  if (!asciState || !asciFrameBuf.length) return;
+  if (!asciClockRef) asciClockRef = now;
+  const clock = (now - asciClockRef) / 1000;
+  while (asciFrameBuf.length > 1 && asciFrameBuf[0].time < clock - 0.1) asciFrameBuf.shift();
+  const frame = asciFrameBuf[0];
+  if (!frame || frame.time > clock + 0.05) { asciRafId = requestAnimationFrame(asciTick); return; }
+  asciDrawFrame(frame.data);
+  asciFrameBuf.shift();
+  asciRafId = requestAnimationFrame(asciTick);
+}
+
+function asciDrawFrame(data) {
+  const { cols, rows, pixelMode } = asciState;
+  if (pixelMode) {
+    const d = asciImgData.data;
+    for (let s = 0, p = 0; s < data.length; s += 3, p += 4) {
+      d[p] = data[s + 2]; d[p + 1] = data[s + 1]; d[p + 2] = data[s]; // BGR→RGB
+    }
+    asciCtx.putImageData(asciImgData, 0, 0);
+    return;
+  }
+  asciCtx.fillStyle = '#050505';
+  asciCtx.fillRect(0, 0, cols * 8, rows * 8);
+  let prevPacked = -1, col = 0, row = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i + 1], g = data[i + 2], b = data[i + 3];
+    const packed = (r << 16) | (g << 8) | b;
+    if (packed !== prevPacked) { asciCtx.fillStyle = `rgb(${r},${g},${b})`; prevPacked = packed; }
+    asciCtx.fillText(ASCI_CHAR_LUT[data[i]] ?? ' ', col * 8, row * 8);
+    if (++col >= cols) { col = 0; row++; }
+  }
+}
+
 // ─── Stream status ─────────────────────────────────────────────────────────────
 async function fetchStreamStatus() {
   try {
@@ -1511,17 +1590,20 @@ async function fetchStreamStatus() {
     state.nowPlaying    = data.nowPlaying || null;
     state.listenerCount = data.listenerCount || 0;
 
-    // ASCII mode button: only surfaced for video broadcasts when asciline is running
-    const asciRow = el('ascii-mode-row');
-    const asciBtn = el('ascii-mode-btn');
-    if (asciRow && asciBtn) {
-      const asci = data.asciline || {};
-      if (asci.running && data.nowPlaying?.isVideo) {
-        asciBtn.href = `http://${location.hostname}:${asci.port}`;
-        asciRow.hidden = false;
-      } else {
-        asciRow.hidden = true;
-      }
+    // Asciline inline canvas: show inside the art card for video tracks, hide for audio
+    const asci = data.asciline || {};
+    const showAsci = asci.running && !!data.nowPlaying?.isVideo;
+    const asciWrap = el('asci-wrap');
+    if (showAsci) {
+      asciConnect(asci.port);
+      asciWrap.hidden = false;
+      el('art-svg').style.display = 'none';
+      el('video-el').hidden = true;
+    } else {
+      if (asciWs) asciDisconnect();
+      asciWrap.hidden = true;
+      el('art-svg').style.display = '';
+      if (currentIsVideo) el('video-el').hidden = false;
     }
 
     render();
