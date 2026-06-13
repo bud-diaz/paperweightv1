@@ -52,6 +52,7 @@ function writeStateFile(overrides = {}) {
       artist: track.artist || null,
       category: track.category || null,
       duration: track.duration || null,
+      isVideo: isVideoTrack(track),
       startedAt: trackStart ? trackStart.toISOString() : null,
     } : null,
     updatedAt: new Date().toISOString(),

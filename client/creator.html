@@ -1578,7 +1578,7 @@ async function fetchStreamStatus() {
     const asciBtn = el('ascii-mode-btn');
     if (asciRow && asciBtn) {
       const asci = data.asciline || {};
-      if (asci.running && data.isVideo && !data.liveActive) {
+      if (asci.running && data.nowPlaying?.isVideo) {
         asciBtn.href = `http://${location.hostname}:${asci.port}`;
         asciRow.hidden = false;
       } else {
