@@ -242,19 +242,12 @@
     .skip-btn:hover { color: var(--t1); background: var(--raised); }
     .skip-btn.hidden { display: none; }
 
-    #ascii-mode-row {
-      padding: 0 20px 12px;
-      display: flex;
-      justify-content: center;
+    #asci-wrap {
+      position: absolute; inset: 0; z-index: 2;
+      display: flex; align-items: center; justify-content: center;
+      background: #050505;
     }
-    #ascii-mode-btn {
-      font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
-      color: var(--t3); text-decoration: none;
-      border: 1px solid var(--border); border-radius: var(--radius-sm);
-      padding: 4px 10px;
-      transition: color .12s, border-color .12s;
-    }
-    #ascii-mode-btn:hover { color: var(--t1); border-color: var(--border-strong); }
+    #asci-canvas { max-width: 100%; max-height: 100%; display: block; image-rendering: pixelated; }
 
     #play-btn {
       width: 60px; height: 60px; border-radius: 50%; border: none; cursor: pointer;
@@ -954,6 +947,7 @@
               <rect width="480" height="210" fill="url(#dot-fade)"/>
             </svg>
             <video id="video-el" hidden playsinline></video>
+            <div id="asci-wrap" hidden><canvas id="asci-canvas"></canvas></div>
             <div class="pulse-ring" id="pr1"></div>
             <div class="pulse-ring" id="pr2"></div>
             <div id="on-air-badge">
@@ -1001,11 +995,6 @@
             <button class="skip-btn hidden" id="skip-next" title="Next">⏭</button>
           </div>
           <button class="drawer-btn" id="queue-btn" title="Schedule">≡</button>
-        </div>
-
-        <!-- ASCII mode link — shown only when asciline is running and broadcast is video -->
-        <div id="ascii-mode-row" hidden>
-          <a id="ascii-mode-btn" target="_blank" rel="noopener">ASCII MODE ↗</a>
         </div>
 
         <!-- Library drawer -->
@@ -1534,6 +1523,211 @@ function esc(str) {
   return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ─── ASCII renderer (audio terminal card + video frame conversion) ────────────
+const ASCII_DENSITY = " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+let asciiMode    = null;  // 'audio' | 'video'
+let asciiRafId   = null;
+let asciiAnalyser = null;
+let asciiAudioCtx = null;
+let asciiAudioSrc = null;
+let asciiArtImg  = null;
+let asciiArtId   = null;  // track id for which asciiArtImg was loaded
+let asciiVidOff  = null;  // offscreen canvas for video frame sampling
+
+function asciiStart(mode) {
+  if (asciiMode === mode) return;
+  asciiMode = mode;
+  const canvas = el('asci-canvas');
+  canvas.width  = 480;
+  canvas.height = 210;
+  el('asci-wrap').hidden  = false;
+  el('art-svg').style.display = 'none';
+  el('video-el').hidden   = true;
+  // audio mode: art-meta is rendered in the canvas; video mode: keep overlay
+  el('art-meta').style.display = mode === 'video' ? '' : 'none';
+  if (!asciiRafId) asciiRafId = requestAnimationFrame(asciiFrame);
+}
+
+function asciiStop() {
+  asciiMode = null;
+  if (asciiRafId) { cancelAnimationFrame(asciiRafId); asciiRafId = null; }
+  el('asci-wrap').hidden = true;
+  el('art-svg').style.display  = '';
+  el('art-meta').style.display = '';
+  const vidEl = el('video-el');
+  if (vidEl) vidEl.hidden = !currentIsVideo;
+}
+
+function asciiFrame() {
+  asciiRafId = null;
+  if (!asciiMode) return;
+  const canvas = el('asci-canvas');
+  const ctx = canvas.getContext('2d');
+  if (asciiMode === 'audio') drawAudioCard(canvas, ctx);
+  else                       drawVideoAscii(canvas, ctx);
+  asciiRafId = requestAnimationFrame(asciiFrame);
+}
+
+function asciiInitAudio() {
+  if (asciiAudioSrc) return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    asciiAudioCtx = new AudioCtx();
+    const src = asciiAudioCtx.createMediaElementSource(el('audio-el'));
+    asciiAudioSrc = src;
+    asciiAnalyser = asciiAudioCtx.createAnalyser();
+    asciiAnalyser.fftSize = 256;
+    src.connect(asciiAnalyser);
+    asciiAnalyser.connect(asciiAudioCtx.destination);
+  } catch(e) { asciiAnalyser = null; }
+}
+
+function asciiLoadArtwork(id) {
+  if (!id || asciiArtId === id) return;
+  asciiArtId = id; asciiArtImg = null;
+  const img = new Image();
+  img.onload = () => { if (asciiArtId === id) asciiArtImg = img; };
+  img.src = `/api/library/${id}/artwork`;
+}
+
+function asciiAccent() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--color').trim() || '#00cc88';
+}
+
+function drawAudioCard(canvas, ctx) {
+  const W = canvas.width, H = canvas.height;
+  const np = state.nowPlaying;
+  const accent = asciiAccent();
+  const P = 18;
+
+  ctx.fillStyle = '#050505';
+  ctx.fillRect(0, 0, W, H);
+
+  // Station name
+  ctx.font = 'bold 10px "Courier New",monospace';
+  ctx.fillStyle = accent;
+  ctx.textBaseline = 'top';
+  ctx.fillText((stationName || 'PAPERWEIGHT').toUpperCase(), P, P);
+
+  // Separator
+  ctx.fillStyle = accent + '33';
+  ctx.fillRect(P, P + 14, W - P * 2, 1);
+
+  // Cover art area (left column)
+  const AX = P, AY = P + 22, AW = 88, AH = 88;
+  if (asciiArtImg) {
+    drawAsciiArt(ctx, asciiArtImg, AX, AY, AW, AH);
+  } else {
+    ctx.fillStyle = accent + '18';
+    ctx.fillRect(AX, AY, AW, AH);
+    ctx.font = `bold 44px "Courier New",monospace`;
+    ctx.fillStyle = accent + '55';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(((np?.title || stationName || '?')[0] || '?').toUpperCase(), AX + AW / 2, AY + AH / 2);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  }
+
+  // Track info (right of art)
+  if (np) {
+    const TX = AX + AW + 14, TW = W - TX - P;
+    ctx.font = `bold 15px "Courier New",monospace`;
+    ctx.fillStyle = '#fff';
+    ctx.fillText(ellipsisText(ctx, np.title || '---', TW), TX, AY + 4);
+
+    ctx.font = `10px "Courier New",monospace`;
+    ctx.fillStyle = 'rgba(255,255,255,.5)';
+    ctx.fillText(ellipsisText(ctx, np.artist || '', TW), TX, AY + 26);
+
+    ctx.fillStyle = accent + '99';
+    ctx.fillText(ellipsisText(ctx, np.category || '', TW), TX, AY + 44);
+  }
+
+  // Waveform
+  const WY = H - 50, WH = 36;
+  drawWaveBars(ctx, P, WY, W - P * 2, WH, accent);
+
+  // Bottom rule
+  ctx.fillStyle = accent + '22';
+  ctx.fillRect(P, H - 10, W - P * 2, 1);
+}
+
+function drawWaveBars(ctx, x, y, w, h, accent) {
+  const COUNT = 52, barW = w / COUNT;
+  if (asciiAnalyser) {
+    const data = new Uint8Array(asciiAnalyser.frequencyBinCount);
+    asciiAnalyser.getByteFrequencyData(data);
+    for (let i = 0; i < COUNT; i++) {
+      const bin = Math.floor(i / COUNT * asciiAnalyser.frequencyBinCount * 0.65);
+      const amp = data[bin] / 255;
+      const bh = Math.max(2, Math.round(amp * h));
+      ctx.fillStyle = accent + Math.round((0.35 + amp * 0.65) * 255).toString(16).padStart(2, '0');
+      ctx.fillRect(x + i * barW, y + h - bh, barW - 1, bh);
+    }
+  } else {
+    ctx.fillStyle = accent + '22';
+    ctx.fillRect(x, y + h - 2, w, 2);
+  }
+}
+
+function drawVideoAscii(canvas, ctx) {
+  const vidEl = el('video-el');
+  if (!vidEl || vidEl.readyState < 2) return;
+  const W = canvas.width, H = canvas.height;
+  const COLS = 60, ROWS = 26;
+  const cw = W / COLS, ch = H / ROWS;
+  if (!asciiVidOff) {
+    asciiVidOff = document.createElement('canvas');
+    asciiVidOff.width = COLS; asciiVidOff.height = ROWS;
+  }
+  const off = asciiVidOff.getContext('2d', { willReadFrequently: true });
+  off.drawImage(vidEl, 0, 0, COLS, ROWS);
+  const px = off.getImageData(0, 0, COLS, ROWS).data;
+  ctx.fillStyle = '#050505';
+  ctx.fillRect(0, 0, W, H);
+  ctx.font = `bold ${Math.ceil(ch)}px "Courier New",monospace`;
+  ctx.textBaseline = 'top';
+  let prev = '';
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const i = (r * COLS + c) * 4;
+      const R = px[i], G = px[i+1], B = px[i+2];
+      const br = (0.299*R + 0.587*G + 0.114*B) / 255;
+      const ch2 = ASCII_DENSITY[Math.floor(br * (ASCII_DENSITY.length - 1))];
+      const col = `rgb(${R},${G},${B})`;
+      if (col !== prev) { ctx.fillStyle = col; prev = col; }
+      ctx.fillText(ch2, c * cw, r * ch);
+    }
+  }
+}
+
+function drawAsciiArt(ctx, img, x, y, w, h) {
+  const C = 22, R = 11;
+  const tmp = document.createElement('canvas');
+  tmp.width = C; tmp.height = R;
+  const tc = tmp.getContext('2d', { willReadFrequently: true });
+  tc.drawImage(img, 0, 0, C, R);
+  const px = tc.getImageData(0, 0, C, R).data;
+  const SIMP = ' .:-=+*#%@';
+  const cw = w / C, ch = h / R;
+  ctx.font = `bold ${Math.ceil(ch)}px "Courier New",monospace`;
+  ctx.textBaseline = 'top';
+  for (let r = 0; r < R; r++) {
+    for (let c = 0; c < C; c++) {
+      const i = (r * C + c) * 4;
+      const br = (0.299*px[i] + 0.587*px[i+1] + 0.114*px[i+2]) / 255;
+      ctx.fillStyle = `rgb(${px[i]},${px[i+1]},${px[i+2]})`;
+      ctx.fillText(SIMP[Math.floor(br * (SIMP.length - 1))], x + c * cw, y + r * ch);
+    }
+  }
+}
+
+function ellipsisText(ctx, text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return text;
+  while (text.length > 1 && ctx.measureText(text + '…').width > maxW) text = text.slice(0, -1);
+  return text + '…';
+}
+
 // ─── Stream status ─────────────────────────────────────────────────────────────
 async function fetchStreamStatus() {
   try {
@@ -1573,17 +1767,13 @@ async function fetchStreamStatus() {
     state.nowPlaying    = data.nowPlaying || null;
     state.listenerCount = data.listenerCount || 0;
 
-    // ASCII mode button: only surfaced for video broadcasts when asciline is running
-    const asciRow = el('ascii-mode-row');
-    const asciBtn = el('ascii-mode-btn');
-    if (asciRow && asciBtn) {
-      const asci = data.asciline || {};
-      if (asci.running && data.nowPlaying?.isVideo) {
-        asciBtn.href = `http://${location.hostname}:${asci.port}`;
-        asciRow.hidden = false;
-      } else {
-        asciRow.hidden = true;
-      }
+    // ASCII renderer: always on when playing
+    if (state.playing && data.nowPlaying) {
+      const mode = data.nowPlaying.isVideo ? 'video' : 'audio';
+      asciiStart(mode);
+      if (mode === 'audio') asciiLoadArtwork(data.nowPlaying.id);
+    } else {
+      asciiStop();
     }
 
     render();
@@ -1691,6 +1881,7 @@ function togglePlay() {
     }
     media.play().then(() => {
       state.playing = true;
+      asciiInitAudio();
       render();
       if (!pingInterval) pingInterval = setInterval(ping, PING_INTERVAL_MS);
       ping();

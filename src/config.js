@@ -210,16 +210,6 @@ const config = {
     enabled: process.env.PAPERWEIGHT_CLOUD === 'true',
   },
 
-  // ASCII Mode — optional asciline integration. Requires Python 3 and the asciline
-  // repo cloned at ASCILINE_PATH. Off by default; set ASCILINE_ENABLED=true to use.
-  asciline: {
-    enabled: process.env.ASCILINE_ENABLED === 'true',
-    port:    parseInt(process.env.ASCILINE_PORT || '8765', 10),
-    path:    process.env.ASCILINE_PATH || '',
-    mode:    process.env.ASCILINE_MODE || 'grayscale',
-    cols:    parseInt(process.env.ASCILINE_COLS || '120', 10),
-  },
-
   // true when the server is behind TLS (enables secure cookies, HTTPS redirects)
   https: process.env.HTTPS === 'true',
 };
