@@ -89,10 +89,11 @@ function formatItem(row, tier) {
   const base = {
     id: row.id,
     title: row.title || row.filename,
-    artist:   row.artist   || null,
-    album:    row.album    || null,
-    producer: row.producer || null,
-    credits:  row.credits  || null,
+    artist:     row.artist     || null,
+    album:      row.album      || null,
+    producer:   row.producer   || null,
+    credits:    row.credits    || null,
+    artwork_url: row.artwork_url || null,
     category: row.category,
     duration: row.duration,
     bpm: row.bpm || null,
@@ -326,7 +327,7 @@ router.get('/:id/download', (req, res) => {
 
 router.get('/:id/artwork', (req, res) => {
   const row = getDb().prepare(
-    'SELECT id, filepath FROM media WHERE id = ? AND is_active = 1'
+    'SELECT id, filepath, artwork_url FROM media WHERE id = ? AND is_active = 1'
   ).get(req.params.id);
   if (!row) return res.status(404).end();
 
@@ -367,6 +368,11 @@ router.get('/:id/artwork', (req, res) => {
   function finish(buf) {
     const pending = artworkPending.get(id) || [];
     artworkPending.delete(id);
+    if (!buf && row.artwork_url) {
+      // Fall back to the manually specified artwork URL
+      for (const r of pending) r.redirect(302, row.artwork_url);
+      return;
+    }
     if (artworkCache.size >= MAX_ARTWORK_CACHE) {
       artworkCache.delete(artworkCache.keys().next().value);
     }

@@ -182,7 +182,7 @@ router.post('/upload', (req, res) => {
 router.get('/media', (req, res) => {
   const items = getDb().prepare(`
     SELECT id, title, filename, category, visibility, duration,
-           artist, album, producer, credits, indexed_at
+           artist, album, producer, credits, artwork_url, indexed_at
     FROM media
     WHERE is_active = 1
     ORDER BY indexed_at DESC
@@ -689,6 +689,88 @@ router.post('/live/stop', (req, res) => {
 // GET /api/dashboard/creator-type
 router.get('/creator-type', (req, res) => {
   res.json({ creatorType: config.station.creatorType });
+});
+
+// ─── Broadcast queue ──────────────────────────────────────────────────────────
+// GET /api/dashboard/broadcast/queue
+router.get('/broadcast/queue', (req, res) => {
+  const queue = broadcast.getStationQueue();
+  const db = getDb();
+  const items = queue.map(mediaId => {
+    const row = db.prepare('SELECT id, title, filename, artist FROM media WHERE id = ? AND is_active = 1').get(mediaId);
+    return row ? { id: row.id, title: row.title || row.filename, artist: row.artist || null } : null;
+  }).filter(Boolean);
+  res.json({ queue: items });
+});
+
+// POST /api/dashboard/broadcast/queue
+// Body: { mediaId }
+router.post('/broadcast/queue', (req, res) => {
+  const { mediaId } = req.body;
+  if (!mediaId) return res.status(400).json({ error: 'mediaId required' });
+  const row = getDb().prepare('SELECT id FROM media WHERE id = ? AND is_active = 1').get(mediaId);
+  if (!row) return res.status(404).json({ error: 'Track not found' });
+  const ok = broadcast.addToStationQueue(Number(mediaId));
+  if (!ok) return res.status(400).json({ error: 'Queue is full (max 5)' });
+  const queue = broadcast.getStationQueue();
+  res.json({ ok: true, queueLength: queue.length });
+});
+
+// DELETE /api/dashboard/broadcast/queue/:idx
+router.delete('/broadcast/queue/:idx', (req, res) => {
+  const idx = parseInt(req.params.idx, 10);
+  broadcast.removeFromStationQueue(idx);
+  res.json({ ok: true });
+});
+
+// ─── Radio Host mode toggle ───────────────────────────────────────────────────
+// GET /api/dashboard/radio-host
+router.get('/radio-host', (req, res) => {
+  const creatorType = config.station.creatorType;
+  const isRadioHost = creatorType === 'radio_host';
+  const switches    = parseInt(process.env.RADIO_HOST_SWITCHES || '0', 10);
+  const locked      = switches >= 3;
+  res.json({ radioHost: isRadioHost, switches, locked });
+});
+
+// POST /api/dashboard/radio-host
+// Toggles CREATOR_TYPE between 'creator' and 'radio_host', tracks switch count.
+router.post('/radio-host', (req, res) => {
+  const envPath = require('path').join(config.paths.root, '.env');
+  const currentType = config.station.creatorType;
+  const switches    = parseInt(process.env.RADIO_HOST_SWITCHES || '0', 10);
+
+  if (switches >= 3) {
+    return res.status(403).json({ error: 'Mode locked after 3 switches. Edit CREATOR_TYPE in .env to change.' });
+  }
+
+  const newType    = currentType === 'radio_host' ? 'creator' : 'radio_host';
+  const newSwitches = switches + 1;
+
+  try {
+    let envContents = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
+
+    function setEnvKey(contents, key, value) {
+      const re = new RegExp(`^${key}=.*$`, 'm');
+      const line = `${key}=${value}`;
+      return re.test(contents)
+        ? contents.replace(re, line)
+        : contents + (contents.endsWith('\n') ? '' : '\n') + line + '\n';
+    }
+
+    envContents = setEnvKey(envContents, 'CREATOR_TYPE', newType);
+    envContents = setEnvKey(envContents, 'RADIO_HOST_SWITCHES', String(newSwitches));
+
+    fs.writeFileSync(envPath, envContents, 'utf8');
+
+    process.env.CREATOR_TYPE       = newType;
+    process.env.RADIO_HOST_SWITCHES = String(newSwitches);
+    config.station.creatorType      = newType;
+  } catch (err) {
+    return res.status(500).json({ error: `Could not update .env: ${err.message}` });
+  }
+
+  res.json({ radioHost: newType === 'radio_host', switches: newSwitches, locked: newSwitches >= 3 });
 });
 
 // GET /api/dashboard/external-search?platform=youtube|soundcloud&q=...

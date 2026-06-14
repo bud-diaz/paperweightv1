@@ -107,6 +107,16 @@ function runMigrations(database) {
       column: 'external_url',
       sql:    'ALTER TABLE media ADD COLUMN external_url TEXT',
     },
+    {
+      table:  'schedule_blocks',
+      column: 'target_type',
+      sql:    'ALTER TABLE schedule_blocks ADD COLUMN target_type TEXT',
+    },
+    {
+      table:  'schedule_blocks',
+      column: 'target_id',
+      sql:    'ALTER TABLE schedule_blocks ADD COLUMN target_id INTEGER',
+    },
   ];
 
   for (const guard of alterGuards) {

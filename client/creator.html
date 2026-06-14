@@ -384,14 +384,86 @@
     /* ── Bottom chrome ── */
     #card-spacer { flex: 1; min-height: 0; }
     #share-tab {
-      display: flex; align-items: center; justify-content: center; gap: 7px;
-      padding: 10px 20px; border-top: 1px solid var(--border);
-      cursor: pointer; transition: background .15s; user-select: none; flex-shrink: 0;
+      display: flex; align-items: stretch;
+      border-top: 1px solid var(--border);
+      user-select: none; flex-shrink: 0;
     }
-    #share-tab:hover { background: rgba(255,255,255,.025); }
     #share-tab.locked { cursor: default; opacity: .25; pointer-events: none; }
+    #share-area, #account-area {
+      display: flex; align-items: center; gap: 7px;
+      padding: 10px 14px; cursor: pointer; transition: background .15s;
+      flex: 1; justify-content: center;
+    }
+    #share-area:hover, #account-area:hover { background: rgba(255,255,255,.025); }
+    #share-tab-divider { width: 1px; background: var(--border); flex-shrink: 0; }
     #share-tab-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .14em; }
+    #account-tab-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .14em; }
     #share-chevron { transition: transform .25s; }
+
+    /* Library queue button */
+    .lib-thumb { position: relative; }
+    .lib-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; display: block; }
+    .lib-queue-btn {
+      position: absolute; inset: 0; display: none;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,.6); color: var(--color, #39ff14);
+      font-size: 18px; font-weight: 700; border: none; cursor: pointer;
+      border-radius: 8px; line-height: 1;
+    }
+    .lib-thumb:hover .lib-queue-btn { display: flex; }
+    .lib-queue-btn:hover { background: rgba(0,0,0,.8); }
+
+    /* Station queue panel */
+    #station-queue-panel { padding: 8px 14px 4px; }
+    .sq-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+    .sq-item:last-child { border-bottom: none; }
+    .sq-title { font-family: 'DM Serif Display', serif; font-size: 12px; color: var(--t2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sq-remove { background: none; border: none; color: var(--t4); font-size: 14px; cursor: pointer; padding: 0 4px; line-height: 1; transition: color .12s; }
+    .sq-remove:hover { color: #ff5566; }
+    .sq-empty { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .06em; padding: 4px 0 8px; }
+
+    /* Listener queue pill */
+    #listener-queue-pill {
+      display: none; align-items: center; gap: 5px;
+      font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: .08em;
+      color: var(--color, #39ff14); cursor: pointer;
+    }
+    #listener-queue-pill.visible { display: flex; }
+    #lq-count {
+      background: var(--color, #39ff14); color: #000; border-radius: 50%;
+      width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 700;
+    }
+
+    /* Broadcast collapse */
+    #broadcast-advanced { overflow: hidden; max-height: 0; transition: max-height .25s ease; }
+    #broadcast-advanced.open { max-height: 200px; }
+    #broadcast-header-toggle {
+      display: flex; align-items: center; gap: 7px; cursor: pointer;
+      font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3);
+      letter-spacing: .08em; padding: 4px 0 8px; user-select: none;
+    }
+    #broadcast-header-toggle:hover { color: var(--t2); }
+    #broadcast-header-toggle .bh-chev { font-size: 9px; transition: transform .18s; }
+    #broadcast-header-toggle.open .bh-chev { transform: rotate(90deg); }
+    .rh-toggle-row { display: flex; align-items: center; gap: 10px; padding: 8px 0 4px; }
+    .rh-toggle-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .06em; flex: 1; }
+    .rh-switch {
+      width: 36px; height: 20px; border-radius: 10px;
+      background: rgba(255,255,255,.1); border: 1px solid var(--border);
+      cursor: pointer; position: relative; transition: background .2s, border-color .2s;
+      flex-shrink: 0;
+    }
+    .rh-switch::after {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: rgba(255,255,255,.4); transition: transform .2s, background .2s;
+    }
+    .rh-switch.on { background: rgba(57,255,20,.2); border-color: rgba(57,255,20,.4); }
+    .rh-switch.on::after { transform: translateX(16px); background: #39ff14; }
+    .rh-switch.locked { opacity: .4; cursor: not-allowed; }
+    .rh-switches-used { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .04em; padding-bottom: 6px; }
+    .rh-lock-msg { font-family: 'Space Mono', monospace; font-size: 8px; color: rgba(255,100,100,.6); letter-spacing: .04em; padding-bottom: 6px; }
     #bottom-accent { height: 3px; opacity: .9; transition: background .5s; flex-shrink: 0; }
 
     /* ── Slide panels ── */
@@ -509,6 +581,13 @@
     }
     .dash-input:focus { border-color: var(--border-strong); }
     .dash-input-sm { font-size: 9px; padding: 6px 9px; }
+    input[type="number"].dash-input-sm {
+      -moz-appearance: textfield;
+      background: var(--inset); border: 1px solid var(--border);
+      color: var(--t1); border-radius: var(--radius-sm);
+    }
+    input[type="number"].dash-input-sm::-webkit-inner-spin-button,
+    input[type="number"].dash-input-sm::-webkit-outer-spin-button { -webkit-appearance: none; }
     .dash-select {
       background: var(--inset); border: 1px solid var(--border);
       border-radius: var(--radius-sm); color: var(--t2); font-family: 'Space Mono', monospace;
@@ -1001,6 +1080,10 @@
             <button class="skip-btn hidden" id="skip-next" title="Next">⏭</button>
           </div>
           <button class="drawer-btn" id="queue-btn" title="Schedule">≡</button>
+          <div id="listener-queue-pill" title="Personal queue — click to clear">
+            <div id="lq-count">0</div>
+            <span>IN QUEUE</span>
+          </div>
         </div>
 
         <!-- Library drawer -->
@@ -1094,20 +1177,26 @@
         <!-- Bottom accent -->
         <div id="bottom-accent"></div>
 
-        <!-- Share tab strip -->
+        <!-- Share tab strip (split: SHARE left | ACCOUNT right) -->
         <div id="share-tab">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <circle cx="10" cy="2"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
-            <circle cx="2"  cy="6"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
-            <circle cx="10" cy="10" r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
-            <line x1="3.3" y1="5.2" x2="8.7" y2="2.8"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
-            <line x1="3.3" y1="6.8" x2="8.7" y2="9.2"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
-          </svg>
-          <span id="share-tab-label">SHARE</span>
-          <div id="auth-badge"><span id="auth-badge-dot"></span><span id="auth-badge-text">LOGGED IN</span></div>
-          <svg id="share-chevron" width="8" height="8" viewBox="0 0 8 8">
-            <path d="M1 3l3 3 3-3" stroke="rgba(255,255,255,.25)" stroke-width="1.2" fill="none"/>
-          </svg>
+          <div id="share-area">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <circle cx="10" cy="2"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+              <circle cx="2"  cy="6"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+              <circle cx="10" cy="10" r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+              <line x1="3.3" y1="5.2" x2="8.7" y2="2.8"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
+              <line x1="3.3" y1="6.8" x2="8.7" y2="9.2"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
+            </svg>
+            <span id="share-tab-label">SHARE</span>
+            <svg id="share-chevron" width="8" height="8" viewBox="0 0 8 8">
+              <path d="M1 3l3 3 3-3" stroke="rgba(255,255,255,.25)" stroke-width="1.2" fill="none"/>
+            </svg>
+          </div>
+          <div id="share-tab-divider"></div>
+          <div id="account-area">
+            <div id="auth-badge"><span id="auth-badge-dot"></span><span id="auth-badge-text"></span></div>
+            <span id="account-tab-label">ACCOUNT</span>
+          </div>
         </div>
 
       </div><!-- /panel-player -->
@@ -1271,24 +1360,43 @@
                 <button class="mgmt-btn" id="btn-restart">RESTART</button>
               </div>
             </div>
-            <div id="live-idle" style="padding:10px 0 12px;">
-              <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--t3);margin-bottom:10px;line-height:1.7;">
-                Go live from your mic. Listeners switch to your feed in real time.
-              </div>
-              <button id="btn-go-live">● GO LIVE</button>
-              <div id="live-idle-msg" style="margin-top:8px;font-size:9px;font-family:'Space Mono',monospace;color:var(--t3);"></div>
+
+            <!-- Station queue panel -->
+            <div id="station-queue-panel" style="padding:0 0 4px;">
+              <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--t3);letter-spacing:.1em;padding:6px 0 4px;">STATION QUEUE</div>
+              <div id="sq-list"><div class="sq-empty">Queue is empty — add tracks from the library below.</div></div>
             </div>
-            <div id="live-onair" hidden style="padding:10px 0 12px;">
-              <div class="broadcast-row" style="margin:0;">
-                <div class="broadcast-info">
-                  <div class="broadcast-np" id="live-timer">0:00</div>
-                  <div class="broadcast-mode-badge" style="color:#ff5555;border:1px solid rgba(255,60,60,.2);border-radius:4px;padding:1px 6px;display:inline-block;background:rgba(255,40,40,.08);">● ON AIR</div>
+
+            <!-- Advanced collapse: Radio Host toggle + live controls -->
+            <div id="broadcast-header-toggle">
+              <span class="bh-chev">›</span>
+              <span>GO LIVE / RADIO HOST</span>
+            </div>
+            <div id="broadcast-advanced">
+              <div id="live-idle" style="padding:0 0 8px;">
+                <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--t3);margin-bottom:10px;line-height:1.7;">
+                  Go live from your mic. Listeners switch to your feed in real time.
                 </div>
-                <div class="broadcast-actions">
-                  <button class="mgmt-btn danger" id="btn-end-live">END BROADCAST</button>
-                </div>
+                <button id="btn-go-live">● GO LIVE</button>
+                <div id="live-idle-msg" style="margin-top:8px;font-size:9px;font-family:'Space Mono',monospace;color:var(--t3);"></div>
               </div>
-              <div id="live-meter" style="display:flex;gap:2px;height:18px;align-items:flex-end;margin-top:10px;"></div>
+              <div id="live-onair" hidden style="padding:0 0 8px;">
+                <div class="broadcast-row" style="margin:0;">
+                  <div class="broadcast-info">
+                    <div class="broadcast-np" id="live-timer">0:00</div>
+                    <div class="broadcast-mode-badge" style="color:#ff5555;border:1px solid rgba(255,60,60,.2);border-radius:4px;padding:1px 6px;display:inline-block;background:rgba(255,40,40,.08);">● ON AIR</div>
+                  </div>
+                  <div class="broadcast-actions">
+                    <button class="mgmt-btn danger" id="btn-end-live">END BROADCAST</button>
+                  </div>
+                </div>
+                <div id="live-meter" style="display:flex;gap:2px;height:18px;align-items:flex-end;margin-top:10px;"></div>
+              </div>
+              <div class="rh-toggle-row">
+                <span class="rh-toggle-label">RADIO HOST MODE</span>
+                <button id="rh-switch" class="rh-switch" title="Toggle Radio Host mode"></button>
+              </div>
+              <div id="rh-switches-info" class="rh-switches-used"></div>
             </div>
           </div>
 
@@ -1497,6 +1605,7 @@ let selectedTipCents = null;
 
 let previewAudio   = null;
 let authState      = { loggedIn: false, email: '', tier: 'free', hasPassword: false };
+let listenerQueue  = [];
 let authTab        = 'login';
 let authOpen       = false;
 let previewTimer   = null;
@@ -1650,7 +1759,21 @@ function drawAudioCard(canvas, ctx) {
   const artPeriod = ART_W + W + 40;
   const artX = Math.round(W - (elapsed * 50 / 1000 % artPeriod));
   if (asciiArtImg) {
-    drawAsciiArt(ctx, asciiArtImg, artX, ART_Y, ART_W, ART_H);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(asciiArtImg, artX, ART_Y, ART_W, ART_H);
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = '#000';
+    const DOT = 4;
+    for (let dy = 0; dy < ART_H; dy += DOT) {
+      for (let dx = 0; dx < ART_W; dx += DOT) {
+        ctx.beginPath();
+        ctx.arc(artX + dx + DOT/2, ART_Y + dy + DOT/2, DOT * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
   } else {
     ctx.fillStyle = accent + '18';
     ctx.fillRect(artX, ART_Y, ART_W, ART_H);
@@ -2045,7 +2168,7 @@ function setColor(c) {
     btn.style.border     = active ? `1px solid ${c}44` : '1px solid transparent';
   });
   el('share-tab-label').style.color = state.showShare ? c : 'rgba(255,255,255,.25)';
-  el('auth-badge').classList.toggle('visible', authState.loggedIn && !state.showShare);
+  el('auth-badge').classList.toggle('visible', authState.loggedIn);
 }
 
 function render() {
@@ -2126,12 +2249,34 @@ function render() {
   // share tab
   const shareUnlocked = !state.showLib && !state.showQueue;
   el('share-tab').classList.toggle('locked', !shareUnlocked);
-  el('share-tab-label').textContent =
-    !shareUnlocked ? 'CLOSE DRAWERS TO SHARE' : (state.showShare ? 'CLOSE' : 'SHARE');
+  el('share-tab-label').textContent = state.showShare ? 'CLOSE' : 'SHARE';
+  el('account-tab-label').textContent = state.showShare ? 'CLOSE' : 'ACCOUNT';
   el('share-chevron').style.transform =
     state.showShare && shareUnlocked ? 'rotate(180deg)' : 'none';
 
   setColor(t.color);
+}
+
+function showToast(msg, ms = 2200) {
+  let t = document.getElementById('pw-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'pw-toast';
+    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(10,10,10,.92);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.85);font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.06em;padding:7px 16px;border-radius:6px;z-index:9999;pointer-events:none;transition:opacity .25s;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, ms);
+}
+
+function updateListenerQueuePill() {
+  const pill = el('listener-queue-pill');
+  if (!pill) return;
+  const count = listenerQueue.length;
+  el('lq-count').textContent = count;
+  pill.classList.toggle('visible', count > 0);
 }
 
 function setDrawer(id, open) {
@@ -2170,6 +2315,7 @@ function normalizeTrack(item) {
     creator:    item.artist || '',
     visibility: item.visibility || 'public',
     isLive:     false,
+    artworkUrl: item.artwork_url || null,
     waveform:   generateWaveform(item.id),
   };
 }
@@ -2180,8 +2326,11 @@ function buildLibRow(t) {
   const isActive = state.track && state.track.id === t.id;
   if (isActive) { row.classList.add('active'); row.style.borderLeftColor = t.color; }
   const isGated = t.visibility === 'supporters_only' || t.visibility === 'vault';
+  const thumbContent = t.artworkUrl
+    ? `<img src="/api/library/${t.id}/artwork" loading="lazy" onerror="this.style.display='none'"/>`
+    : `<span>${t.type==='video'?'▶':'♪'}</span>`;
   row.innerHTML = `
-    <div class="lib-thumb" style="background:linear-gradient(135deg,${t.color}44,${t.color}11);border:1px solid ${t.color}33;">${t.type==='video'?'▶':'♪'}</div>
+    <div class="lib-thumb" style="background:linear-gradient(135deg,${t.color}44,${t.color}11);border:1px solid ${t.color}33;">${thumbContent}<button class="lib-queue-btn" data-id="${t.id}" data-title="${esc(t.title)}" data-artist="${esc(t.creator)}" title="Add to queue">+</button></div>
     <div class="lib-info">
       <div class="lib-title${isActive?' active':''}">
         ${esc(t.title)}${isGated ? '<span class="lib-lock">⬡</span>' : ''}
@@ -2202,6 +2351,28 @@ function buildLibRow(t) {
   row.addEventListener('click', () => selectVOD(t));
   return row;
 }
+
+// ─── Listener queue (player context) ──────────────────────────────────────────
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.lib-queue-btn');
+  if (!btn) return;
+  if (document.body.classList.contains('dash-active')) return;
+  e.stopPropagation();
+  if (!authState.loggedIn || authState.tier === 'free') {
+    openModal(); setModalTab('subscribe');
+    return;
+  }
+  if (listenerQueue.length >= 5) { showToast('Queue full (5/5)'); return; }
+  listenerQueue.push({ id: parseInt(btn.dataset.id), title: btn.dataset.title, artist: btn.dataset.artist });
+  updateListenerQueuePill();
+  showToast(`Added to queue (${listenerQueue.length}/5)`);
+});
+
+el('listener-queue-pill').addEventListener('click', () => {
+  listenerQueue = [];
+  updateListenerQueuePill();
+  showToast('Queue cleared');
+});
 
 function buildLibrary() {
   const list = el('lib-list');
@@ -2704,7 +2875,16 @@ el('skip-next').addEventListener('click', () => skipTrack(1));
 el('back-live-btn').addEventListener('click', goLive);
 el('lib-btn').addEventListener('click', () => toggleDrawer('lib'));
 el('queue-btn').addEventListener('click', () => toggleDrawer('queue'));
-el('share-tab').addEventListener('click', toggleShare);
+el('share-area').addEventListener('click', toggleShare);
+el('account-area').addEventListener('click', () => {
+  if (state.showLib || state.showQueue) return;
+  state.showShare = true;
+  render();
+  setTimeout(() => {
+    const authToggle = el('auth-toggle');
+    if (authToggle) authToggle.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 50);
+});
 el('waveform').addEventListener('click', seekWaveform);
 el('art-flip').addEventListener('click', () => {
   artFlipped = !artFlipped;

@@ -2,7 +2,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const config = require('../config');
-const { log } = require('../db');
+const { log, getDb } = require('../db');
 const { buildShuffleBatch, buildSequentialBatch, homogenizeBatch, isVideoTrack } = require('./playlist');
 const { resolveCurrentBlock } = require('./scheduler');
 const { writeConcatManifest } = require('./concat');
@@ -16,6 +16,23 @@ const FFMPEG_BACKOFF_MAX_MS = 60000;
 const FFMPEG_KILL_ESCALATE_MS = 5000;
 const STDERR_BUFFER_MAX = 64 * 1024;
 const STDERR_BUFFER_KEEP = 32 * 1024;
+
+// ─── Station queue (in-memory, max 5 track IDs) ──────────────────────────────
+let stationQueue = [];
+
+function getStationQueue() { return [...stationQueue]; }
+
+function addToStationQueue(mediaId) {
+  if (stationQueue.length >= 5) return false;
+  stationQueue.push(mediaId);
+  return true;
+}
+
+function removeFromStationQueue(idx) {
+  if (idx >= 0 && idx < stationQueue.length) {
+    stationQueue.splice(idx, 1);
+  }
+}
 
 // ─── Engine state (in-process) ───────────────────────────────────────────────
 let state = {
@@ -134,6 +151,18 @@ function nextSegmentNumber() {
 // ─── Batch resolution ────────────────────────────────────────────────────────
 
 function resolveBatch() {
+  // Station queue takes priority — play one queued track at a time
+  if (stationQueue.length > 0) {
+    const trackId = stationQueue.shift();
+    try {
+      const track = getDb().prepare('SELECT * FROM media WHERE id = ? AND is_active = 1').get(trackId);
+      if (track) {
+        const tracks = homogenizeBatch([track]);
+        if (tracks.length > 0) return { tracks, source: `queue:${trackId}` };
+      }
+    } catch {}
+  }
+
   if (state.mode === 'scheduled') {
     const block = resolveCurrentBlock();
     if (block) {
@@ -447,4 +476,4 @@ function isRunning() {
   return state.isRunning;
 }
 
-module.exports = { start, stop, setMode, getState, isRunning, cleanHlsStreamDir };
+module.exports = { start, stop, setMode, getState, isRunning, cleanHlsStreamDir, getStationQueue, addToStationQueue, removeFromStationQueue };
