@@ -41,6 +41,9 @@ function validateBlockInput(input, existing = null) {
     return { error: 'mode must be shuffle or sequential' };
   }
 
+  const targetType = input.target_type !== undefined ? (input.target_type || null) : (existing?.target_type ?? null);
+  const targetId   = input.target_id   !== undefined ? (input.target_id   != null ? Number(input.target_id) : null) : (existing?.target_id ?? null);
+
   return {
     value: {
       day_of_week: dayOfWeek,
@@ -53,6 +56,8 @@ function validateBlockInput(input, existing = null) {
       mode,
       label: input.label ?? existing?.label ?? null,
       priority: input.priority ?? existing?.priority ?? 0,
+      target_type: targetType,
+      target_id:   targetId,
     },
   };
 }
@@ -80,8 +85,8 @@ router.post('/blocks', (req, res) => {
   if (validated.error) return res.status(400).json({ error: validated.error });
 
   const result = getDb().prepare(`
-    INSERT INTO schedule_blocks (day_of_week, start_time, end_time, category, tags_filter, mode, label, priority)
-    VALUES (:day_of_week, :start_time, :end_time, :category, :tags_filter, :mode, :label, :priority)
+    INSERT INTO schedule_blocks (day_of_week, start_time, end_time, category, tags_filter, mode, label, priority, target_type, target_id)
+    VALUES (:day_of_week, :start_time, :end_time, :category, :tags_filter, :mode, :label, :priority, :target_type, :target_id)
   `).run(validated.value);
 
   const block = getDb().prepare('SELECT * FROM schedule_blocks WHERE id = ?').get(result.lastInsertRowid);
@@ -105,7 +110,9 @@ router.put('/blocks/:id', (req, res) => {
         tags_filter = :tags_filter,
         mode        = :mode,
         label       = :label,
-        priority    = :priority
+        priority    = :priority,
+        target_type = :target_type,
+        target_id   = :target_id
     WHERE id = :id
   `).run({ ...validated.value, id: req.params.id });
 

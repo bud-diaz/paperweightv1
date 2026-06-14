@@ -94,6 +94,11 @@ function runMigrations(database) {
     },
     {
       table:  'media',
+      column: 'artwork_url',
+      sql:    'ALTER TABLE media ADD COLUMN artwork_url TEXT',
+    },
+    {
+      table:  'media',
       column: 'source_platform',
       sql:    'ALTER TABLE media ADD COLUMN source_platform TEXT',
     },
@@ -101,6 +106,16 @@ function runMigrations(database) {
       table:  'media',
       column: 'external_url',
       sql:    'ALTER TABLE media ADD COLUMN external_url TEXT',
+    },
+    {
+      table:  'schedule_blocks',
+      column: 'target_type',
+      sql:    'ALTER TABLE schedule_blocks ADD COLUMN target_type TEXT',
+    },
+    {
+      table:  'schedule_blocks',
+      column: 'target_id',
+      sql:    'ALTER TABLE schedule_blocks ADD COLUMN target_id INTEGER',
     },
   ];
 

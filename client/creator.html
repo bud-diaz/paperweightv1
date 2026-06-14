@@ -384,14 +384,86 @@
     /* ── Bottom chrome ── */
     #card-spacer { flex: 1; min-height: 0; }
     #share-tab {
-      display: flex; align-items: center; justify-content: center; gap: 7px;
-      padding: 10px 20px; border-top: 1px solid var(--border);
-      cursor: pointer; transition: background .15s; user-select: none; flex-shrink: 0;
+      display: flex; align-items: stretch;
+      border-top: 1px solid var(--border);
+      user-select: none; flex-shrink: 0;
     }
-    #share-tab:hover { background: rgba(255,255,255,.025); }
     #share-tab.locked { cursor: default; opacity: .25; pointer-events: none; }
+    #share-area, #account-area {
+      display: flex; align-items: center; gap: 7px;
+      padding: 10px 14px; cursor: pointer; transition: background .15s;
+      flex: 1; justify-content: center;
+    }
+    #share-area:hover, #account-area:hover { background: rgba(255,255,255,.025); }
+    #share-tab-divider { width: 1px; background: var(--border); flex-shrink: 0; }
     #share-tab-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .14em; }
+    #account-tab-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .14em; }
     #share-chevron { transition: transform .25s; }
+
+    /* Library queue button */
+    .lib-thumb { position: relative; }
+    .lib-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; display: block; }
+    .lib-queue-btn {
+      position: absolute; inset: 0; display: none;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,.6); color: var(--color, #39ff14);
+      font-size: 18px; font-weight: 700; border: none; cursor: pointer;
+      border-radius: 8px; line-height: 1;
+    }
+    .lib-thumb:hover .lib-queue-btn { display: flex; }
+    .lib-queue-btn:hover { background: rgba(0,0,0,.8); }
+
+    /* Station queue panel */
+    #station-queue-panel { padding: 8px 14px 4px; }
+    .sq-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+    .sq-item:last-child { border-bottom: none; }
+    .sq-title { font-family: 'DM Serif Display', serif; font-size: 12px; color: var(--t2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sq-remove { background: none; border: none; color: var(--t4); font-size: 14px; cursor: pointer; padding: 0 4px; line-height: 1; transition: color .12s; }
+    .sq-remove:hover { color: #ff5566; }
+    .sq-empty { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .06em; padding: 4px 0 8px; }
+
+    /* Listener queue pill */
+    #listener-queue-pill {
+      display: none; align-items: center; gap: 5px;
+      font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: .08em;
+      color: var(--color, #39ff14); cursor: pointer;
+    }
+    #listener-queue-pill.visible { display: flex; }
+    #lq-count {
+      background: var(--color, #39ff14); color: #000; border-radius: 50%;
+      width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 700;
+    }
+
+    /* Broadcast collapse */
+    #broadcast-advanced { overflow: hidden; max-height: 0; transition: max-height .25s ease; }
+    #broadcast-advanced.open { max-height: 200px; }
+    #broadcast-header-toggle {
+      display: flex; align-items: center; gap: 7px; cursor: pointer;
+      font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3);
+      letter-spacing: .08em; padding: 4px 0 8px; user-select: none;
+    }
+    #broadcast-header-toggle:hover { color: var(--t2); }
+    #broadcast-header-toggle .bh-chev { font-size: 9px; transition: transform .18s; }
+    #broadcast-header-toggle.open .bh-chev { transform: rotate(90deg); }
+    .rh-toggle-row { display: flex; align-items: center; gap: 10px; padding: 8px 0 4px; }
+    .rh-toggle-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .06em; flex: 1; }
+    .rh-switch {
+      width: 36px; height: 20px; border-radius: 10px;
+      background: rgba(255,255,255,.1); border: 1px solid var(--border);
+      cursor: pointer; position: relative; transition: background .2s, border-color .2s;
+      flex-shrink: 0;
+    }
+    .rh-switch::after {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: rgba(255,255,255,.4); transition: transform .2s, background .2s;
+    }
+    .rh-switch.on { background: rgba(57,255,20,.2); border-color: rgba(57,255,20,.4); }
+    .rh-switch.on::after { transform: translateX(16px); background: #39ff14; }
+    .rh-switch.locked { opacity: .4; cursor: not-allowed; }
+    .rh-switches-used { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .04em; padding-bottom: 6px; }
+    .rh-lock-msg { font-family: 'Space Mono', monospace; font-size: 8px; color: rgba(255,100,100,.6); letter-spacing: .04em; padding-bottom: 6px; }
     #bottom-accent { height: 3px; opacity: .9; transition: background .5s; flex-shrink: 0; }
 
     /* ── Slide panels ── */
@@ -509,6 +581,13 @@
     }
     .dash-input:focus { border-color: var(--border-strong); }
     .dash-input-sm { font-size: 9px; padding: 6px 9px; }
+    input[type="number"].dash-input-sm {
+      -moz-appearance: textfield;
+      background: var(--inset); border: 1px solid var(--border);
+      color: var(--t1); border-radius: var(--radius-sm);
+    }
+    input[type="number"].dash-input-sm::-webkit-inner-spin-button,
+    input[type="number"].dash-input-sm::-webkit-outer-spin-button { -webkit-appearance: none; }
     .dash-select {
       background: var(--inset); border: 1px solid var(--border);
       border-radius: var(--radius-sm); color: var(--t2); font-family: 'Space Mono', monospace;
@@ -525,13 +604,19 @@
     /* ── Broadcast row ── */
     .broadcast-row {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 14px; background: var(--raised);
-      border: 1px solid var(--border); border-radius: var(--radius-md); margin: 0 0 0 0;
+      padding: 10px 14px; background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.06); border-radius: 8px; margin: 0 0 6px;
     }
     .broadcast-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; margin-right: 12px; }
-    .broadcast-np { font-family: 'DM Serif Display', serif; font-size: 13px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .broadcast-mode-badge { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .12em; }
-    .broadcast-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
+    .broadcast-np { font-family: 'DM Serif Display', serif; font-size: 14px; color: rgba(255,255,255,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+    .broadcast-mode-badge { font-family: 'Space Mono', monospace; font-size: 8px; color: rgba(255,255,255,.35); letter-spacing: .1em; }
+    .broadcast-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+    #btn-go-live {
+      font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: .06em;
+      padding: 5px 10px; border-radius: 5px;
+      border: 1px solid rgba(57,255,20,.3); color: rgba(57,255,20,.8);
+      background: none; cursor: pointer;
+    }
 
     /* ── Upload zone ── */
     .dash-upload-zone {
@@ -995,6 +1080,10 @@
             <button class="skip-btn hidden" id="skip-next" title="Next">⏭</button>
           </div>
           <button class="drawer-btn" id="queue-btn" title="Schedule">≡</button>
+          <div id="listener-queue-pill" title="Personal queue — click to clear">
+            <div id="lq-count">0</div>
+            <span>IN QUEUE</span>
+          </div>
         </div>
 
         <!-- Library drawer -->
@@ -1088,20 +1177,26 @@
         <!-- Bottom accent -->
         <div id="bottom-accent"></div>
 
-        <!-- Share tab strip -->
+        <!-- Share tab strip (split: SHARE left | ACCOUNT right) -->
         <div id="share-tab">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <circle cx="10" cy="2"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
-            <circle cx="2"  cy="6"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
-            <circle cx="10" cy="10" r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
-            <line x1="3.3" y1="5.2" x2="8.7" y2="2.8"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
-            <line x1="3.3" y1="6.8" x2="8.7" y2="9.2"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
-          </svg>
-          <span id="share-tab-label">SHARE</span>
-          <div id="auth-badge"><span id="auth-badge-dot"></span><span id="auth-badge-text">LOGGED IN</span></div>
-          <svg id="share-chevron" width="8" height="8" viewBox="0 0 8 8">
-            <path d="M1 3l3 3 3-3" stroke="rgba(255,255,255,.25)" stroke-width="1.2" fill="none"/>
-          </svg>
+          <div id="share-area">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <circle cx="10" cy="2"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+              <circle cx="2"  cy="6"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+              <circle cx="10" cy="10" r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+              <line x1="3.3" y1="5.2" x2="8.7" y2="2.8"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
+              <line x1="3.3" y1="6.8" x2="8.7" y2="9.2"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
+            </svg>
+            <span id="share-tab-label">SHARE</span>
+            <svg id="share-chevron" width="8" height="8" viewBox="0 0 8 8">
+              <path d="M1 3l3 3 3-3" stroke="rgba(255,255,255,.25)" stroke-width="1.2" fill="none"/>
+            </svg>
+          </div>
+          <div id="share-tab-divider"></div>
+          <div id="account-area">
+            <div id="auth-badge"><span id="auth-badge-dot"></span><span id="auth-badge-text"></span></div>
+            <span id="account-tab-label">ACCOUNT</span>
+          </div>
         </div>
 
       </div><!-- /panel-player -->
@@ -1215,6 +1310,8 @@
                 <input class="dash-input" id="new-proj-name" type="text" placeholder="Project name" style="margin-bottom:8px;"/>
                 <div class="dash-edit-label">DESCRIPTION (OPTIONAL)</div>
                 <textarea class="dash-input" id="new-proj-desc" placeholder="Description…" style="margin-bottom:8px;"></textarea>
+                <div class="dash-edit-label">ALBUM ART URL</div>
+                <input class="dash-input" id="new-proj-art" type="url" placeholder="https://… (optional)" style="margin-bottom:8px;"/>
                 <div id="new-proj-pricing-block">
                 <div class="dash-edit-label">PRICING</div>
                 <div class="dash-proj-price-grid">
@@ -1263,24 +1360,43 @@
                 <button class="mgmt-btn" id="btn-restart">RESTART</button>
               </div>
             </div>
-            <div id="live-idle" style="padding:10px 0 12px;">
-              <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--t3);margin-bottom:10px;line-height:1.7;">
-                Go live from your mic. Listeners switch to your feed in real time.
-              </div>
-              <button class="mgmt-btn" id="btn-go-live" style="border-color:rgba(57,255,20,.4);color:#39ff14;letter-spacing:.12em;">● GO LIVE</button>
-              <div id="live-idle-msg" style="margin-top:8px;font-size:9px;font-family:'Space Mono',monospace;color:var(--t3);"></div>
+
+            <!-- Station queue panel -->
+            <div id="station-queue-panel" style="padding:0 0 4px;">
+              <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--t3);letter-spacing:.1em;padding:6px 0 4px;">STATION QUEUE</div>
+              <div id="sq-list"><div class="sq-empty">Queue is empty — add tracks from the library below.</div></div>
             </div>
-            <div id="live-onair" hidden style="padding:10px 0 12px;">
-              <div class="broadcast-row" style="margin:0;">
-                <div class="broadcast-info">
-                  <div class="broadcast-np" id="live-timer">0:00</div>
-                  <div class="broadcast-mode-badge" style="color:#ff5555;border:1px solid rgba(255,60,60,.2);border-radius:4px;padding:1px 6px;display:inline-block;background:rgba(255,40,40,.08);">● ON AIR</div>
+
+            <!-- Advanced collapse: Radio Host toggle + live controls -->
+            <div id="broadcast-header-toggle">
+              <span class="bh-chev">›</span>
+              <span>GO LIVE / RADIO HOST</span>
+            </div>
+            <div id="broadcast-advanced">
+              <div id="live-idle" style="padding:0 0 8px;">
+                <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--t3);margin-bottom:10px;line-height:1.7;">
+                  Go live from your mic. Listeners switch to your feed in real time.
                 </div>
-                <div class="broadcast-actions">
-                  <button class="mgmt-btn danger" id="btn-end-live">END BROADCAST</button>
-                </div>
+                <button id="btn-go-live">● GO LIVE</button>
+                <div id="live-idle-msg" style="margin-top:8px;font-size:9px;font-family:'Space Mono',monospace;color:var(--t3);"></div>
               </div>
-              <div id="live-meter" style="display:flex;gap:2px;height:18px;align-items:flex-end;margin-top:10px;"></div>
+              <div id="live-onair" hidden style="padding:0 0 8px;">
+                <div class="broadcast-row" style="margin:0;">
+                  <div class="broadcast-info">
+                    <div class="broadcast-np" id="live-timer">0:00</div>
+                    <div class="broadcast-mode-badge" style="color:#ff5555;border:1px solid rgba(255,60,60,.2);border-radius:4px;padding:1px 6px;display:inline-block;background:rgba(255,40,40,.08);">● ON AIR</div>
+                  </div>
+                  <div class="broadcast-actions">
+                    <button class="mgmt-btn danger" id="btn-end-live">END BROADCAST</button>
+                  </div>
+                </div>
+                <div id="live-meter" style="display:flex;gap:2px;height:18px;align-items:flex-end;margin-top:10px;"></div>
+              </div>
+              <div class="rh-toggle-row">
+                <span class="rh-toggle-label">RADIO HOST MODE</span>
+                <button id="rh-switch" class="rh-switch" title="Toggle Radio Host mode"></button>
+              </div>
+              <div id="rh-switches-info" class="rh-switches-used"></div>
             </div>
           </div>
 
@@ -1317,6 +1433,14 @@
                   <option value="shuffle">Shuffle</option>
                   <option value="sequential">Sequential</option>
                 </select>
+              </div>
+              <div class="dash-form-row" style="margin-top:4px;">
+                <select class="dash-select" id="sched-source" style="min-width:140px;">
+                  <option value="">From category</option>
+                  <option value="vault_item">Vault item</option>
+                  <option value="vault_project">Vault project</option>
+                </select>
+                <input type="number" class="dash-input dash-input-sm" id="sched-target-id" placeholder="Target ID" style="width:100px;"/>
                 <button class="mgmt-btn" id="btn-add-sched">ADD</button>
               </div>
             </details>
@@ -1489,6 +1613,7 @@ let selectedTipCents = null;
 
 let previewAudio   = null;
 let authState      = { loggedIn: false, email: '', tier: 'free', hasPassword: false };
+let listenerQueue  = [];
 let authTab        = 'login';
 let authOpen       = false;
 let previewTimer   = null;
@@ -1642,7 +1767,21 @@ function drawAudioCard(canvas, ctx) {
   const artPeriod = ART_W + W + 40;
   const artX = Math.round(W - (elapsed * 50 / 1000 % artPeriod));
   if (asciiArtImg) {
-    drawAsciiArt(ctx, asciiArtImg, artX, ART_Y, ART_W, ART_H);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(asciiArtImg, artX, ART_Y, ART_W, ART_H);
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = '#000';
+    const DOT = 4;
+    for (let dy = 0; dy < ART_H; dy += DOT) {
+      for (let dx = 0; dx < ART_W; dx += DOT) {
+        ctx.beginPath();
+        ctx.arc(artX + dx + DOT/2, ART_Y + dy + DOT/2, DOT * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
   } else {
     ctx.fillStyle = accent + '18';
     ctx.fillRect(artX, ART_Y, ART_W, ART_H);
@@ -2037,7 +2176,7 @@ function setColor(c) {
     btn.style.border     = active ? `1px solid ${c}44` : '1px solid transparent';
   });
   el('share-tab-label').style.color = state.showShare ? c : 'rgba(255,255,255,.25)';
-  el('auth-badge').classList.toggle('visible', authState.loggedIn && !state.showShare);
+  el('auth-badge').classList.toggle('visible', authState.loggedIn);
 }
 
 function render() {
@@ -2118,12 +2257,34 @@ function render() {
   // share tab
   const shareUnlocked = !state.showLib && !state.showQueue;
   el('share-tab').classList.toggle('locked', !shareUnlocked);
-  el('share-tab-label').textContent =
-    !shareUnlocked ? 'CLOSE DRAWERS TO SHARE' : (state.showShare ? 'CLOSE' : 'SHARE');
+  el('share-tab-label').textContent = state.showShare ? 'CLOSE' : 'SHARE';
+  el('account-tab-label').textContent = state.showShare ? 'CLOSE' : 'ACCOUNT';
   el('share-chevron').style.transform =
     state.showShare && shareUnlocked ? 'rotate(180deg)' : 'none';
 
   setColor(t.color);
+}
+
+function showToast(msg, ms = 2200) {
+  let t = document.getElementById('pw-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'pw-toast';
+    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(10,10,10,.92);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.85);font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.06em;padding:7px 16px;border-radius:6px;z-index:9999;pointer-events:none;transition:opacity .25s;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, ms);
+}
+
+function updateListenerQueuePill() {
+  const pill = el('listener-queue-pill');
+  if (!pill) return;
+  const count = listenerQueue.length;
+  el('lq-count').textContent = count;
+  pill.classList.toggle('visible', count > 0);
 }
 
 function setDrawer(id, open) {
@@ -2162,6 +2323,7 @@ function normalizeTrack(item) {
     creator:    item.artist || '',
     visibility: item.visibility || 'public',
     isLive:     false,
+    artworkUrl: item.artwork_url || null,
     waveform:   generateWaveform(item.id),
   };
 }
@@ -2172,8 +2334,11 @@ function buildLibRow(t) {
   const isActive = state.track && state.track.id === t.id;
   if (isActive) { row.classList.add('active'); row.style.borderLeftColor = t.color; }
   const isGated = t.visibility === 'supporters_only' || t.visibility === 'vault';
+  const thumbContent = t.artworkUrl
+    ? `<img src="/api/library/${t.id}/artwork" loading="lazy" onerror="this.style.display='none'"/>`
+    : `<span>${t.type==='video'?'▶':'♪'}</span>`;
   row.innerHTML = `
-    <div class="lib-thumb" style="background:linear-gradient(135deg,${t.color}44,${t.color}11);border:1px solid ${t.color}33;">${t.type==='video'?'▶':'♪'}</div>
+    <div class="lib-thumb" style="background:linear-gradient(135deg,${t.color}44,${t.color}11);border:1px solid ${t.color}33;">${thumbContent}<button class="lib-queue-btn" data-id="${t.id}" data-title="${esc(t.title)}" data-artist="${esc(t.creator)}" title="Add to queue">+</button></div>
     <div class="lib-info">
       <div class="lib-title${isActive?' active':''}">
         ${esc(t.title)}${isGated ? '<span class="lib-lock">⬡</span>' : ''}
@@ -2194,6 +2359,28 @@ function buildLibRow(t) {
   row.addEventListener('click', () => selectVOD(t));
   return row;
 }
+
+// ─── Listener queue (player context) ──────────────────────────────────────────
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.lib-queue-btn');
+  if (!btn) return;
+  if (document.body.classList.contains('dash-active')) return;
+  e.stopPropagation();
+  if (!authState.loggedIn || authState.tier === 'free') {
+    openModal(); setModalTab('subscribe');
+    return;
+  }
+  if (listenerQueue.length >= 5) { showToast('Queue full (5/5)'); return; }
+  listenerQueue.push({ id: parseInt(btn.dataset.id), title: btn.dataset.title, artist: btn.dataset.artist });
+  updateListenerQueuePill();
+  showToast(`Added to queue (${listenerQueue.length}/5)`);
+});
+
+el('listener-queue-pill').addEventListener('click', () => {
+  listenerQueue = [];
+  updateListenerQueuePill();
+  showToast('Queue cleared');
+});
 
 function buildLibrary() {
   const list = el('lib-list');
@@ -2689,6 +2876,44 @@ function closeVaultGate() {
 el('vg-close').addEventListener('click', closeVaultGate);
 el('vault-gate-backdrop').addEventListener('click', e => { if (e.target === e.currentTarget) closeVaultGate(); });
 
+// ─── Broadcast section collapse (dashboard) ─────────────────────────────────────
+document.addEventListener('click', e => {
+  if (e.target.closest('#broadcast-header-toggle')) {
+    const adv = el('broadcast-advanced');
+    const tog = el('broadcast-header-toggle');
+    if (!adv || !tog) return;
+    const open = adv.classList.toggle('open');
+    tog.classList.toggle('open', open);
+    if (open) loadRadioHostStatus();
+  }
+});
+
+document.addEventListener('click', e => {
+  const sw = e.target.closest('#rh-switch');
+  if (!sw || sw.classList.contains('locked')) return;
+  dashFetch('/api/dashboard/radio-host', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { showToast(data.error); return; }
+      sw.classList.toggle('on', data.radioHost);
+      sw.classList.toggle('locked', data.locked);
+      const info = el('rh-switches-info');
+      if (info) {
+        info.textContent = data.locked
+          ? `Switches used: ${data.switches}/3 — locked. Edit CREATOR_TYPE in .env to change.`
+          : `Switches used: ${data.switches}/3`;
+      }
+      if (data.radioHost) {
+        document.body.classList.add('radio-host-mode');
+        initExtSearchPanel();
+      } else {
+        document.body.classList.remove('radio-host-mode');
+      }
+      showToast(data.radioHost ? 'Radio Host mode ON' : 'Radio Host mode OFF');
+    })
+    .catch(() => showToast('Toggle failed'));
+});
+
 // ─── Player event bindings ─────────────────────────────────────────────────────
 el('play-btn').addEventListener('click', togglePlay);
 el('skip-prev').addEventListener('click', () => skipTrack(-1));
@@ -2696,7 +2921,16 @@ el('skip-next').addEventListener('click', () => skipTrack(1));
 el('back-live-btn').addEventListener('click', goLive);
 el('lib-btn').addEventListener('click', () => toggleDrawer('lib'));
 el('queue-btn').addEventListener('click', () => toggleDrawer('queue'));
-el('share-tab').addEventListener('click', toggleShare);
+el('share-area').addEventListener('click', toggleShare);
+el('account-area').addEventListener('click', () => {
+  if (state.showLib || state.showQueue) return;
+  state.showShare = true;
+  render();
+  setTimeout(() => {
+    const authToggle = el('auth-toggle');
+    if (authToggle) authToggle.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 50);
+});
 el('waveform').addEventListener('click', seekWaveform);
 el('art-flip').addEventListener('click', () => {
   artFlipped = !artFlipped;
@@ -3003,6 +3237,7 @@ function loadDashboard() {
   loadDashVaultStats();
   loadDashBroadcast();
   loadDashLive();
+  loadRadioHostStatus();
   loadDashSchedule();
   loadDashProjects();
   loadDashLibrary();
@@ -3222,6 +3457,30 @@ async function loadDashBroadcast() {
       setTimeout(() => { el('btn-restart').textContent = 'RESTART'; loadDashBroadcast(); }, 1500);
     };
   } catch {}
+  loadDashBroadcastQueue();
+}
+
+async function loadDashBroadcastQueue() {
+  try {
+    const q = await dashFetch('/api/dashboard/broadcast/queue').then(r => r.json());
+    const list = el('sq-list');
+    if (!list) return;
+    if (!q.length) {
+      list.innerHTML = '<div class="sq-empty">Queue is empty — add tracks from the library below.</div>';
+      return;
+    }
+    list.innerHTML = q.map((item, i) => `
+      <div class="sq-item">
+        <span class="sq-title">${esc(item.title || 'Track ' + item.mediaId)}</span>
+        <button class="sq-remove mgmt-btn danger" data-sq-idx="${i}" title="Remove">×</button>
+      </div>`).join('');
+    list.querySelectorAll('[data-sq-idx]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await dashFetch(`/api/dashboard/broadcast/queue/${btn.dataset.sqIdx}`, { method: 'DELETE' });
+        loadDashBroadcastQueue();
+      });
+    });
+  } catch {}
 }
 
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -3260,30 +3519,127 @@ async function loadDashSchedule() {
     }
 
     const list = el('dash-sched-list');
-    list.innerHTML = blocks.length
-      ? blocks.map(b => {
-          const day = b.day_of_week != null ? DAY_NAMES[b.day_of_week] : 'Daily';
-          return `<div class="sched-row">
-            <div class="sched-info">
-              <div class="sched-title">${esc(b.label || '—')}</div>
-              <div class="sched-meta">${day} · ${b.start_time}–${b.end_time} · ${b.category||'any'} · ${b.mode}</div>
+    if (!blocks.length) {
+      list.innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No schedule blocks.</div>';
+    } else {
+      list.innerHTML = '';
+      for (const b of blocks) {
+        const dayLabel  = b.day_of_week != null ? DAY_NAMES[b.day_of_week] : 'Daily';
+        const timeRange = `${b.start_time}–${b.end_time}`;
+        const label     = esc(b.label || '—');
+        const targetInfo = b.target_type ? ` · ${b.target_type.replace('_', ' ')} #${b.target_id}` : '';
+        const row = document.createElement('div');
+        row.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-radius:7px;margin-bottom:1px;">
+            <div>
+              <div style="font-family:'DM Serif Display',serif;font-size:13px;color:rgba(255,255,255,.78);">${label}</div>
+              <div style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.3);margin-top:2px;">${dayLabel} · ${timeRange} · ${b.category||'any'} · ${b.mode}${targetInfo}</div>
             </div>
-            <button class="mgmt-btn danger" data-del-block="${b.id}">DEL</button>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button class="mgmt-btn" data-edit-block="${b.id}">EDIT</button>
+              <button class="mgmt-btn danger" data-del-block="${b.id}">DEL</button>
+            </div>
+          </div>
+          <div class="sched-edit-form" id="sched-edit-${b.id}" hidden style="padding:0 14px 10px;display:none;">
+            <div class="dash-form-row" style="flex-wrap:wrap;gap:6px;margin-bottom:6px;">
+              <input type="text" class="dash-input dash-input-sm" id="se-label-${b.id}" placeholder="Label…" value="${esc(b.label||'')}" style="flex:2;min-width:80px;"/>
+              <select class="dash-select" id="se-day-${b.id}">
+                <option value="">Daily</option>
+                <option value="0"${b.day_of_week===0?' selected':''}>Sun</option>
+                <option value="1"${b.day_of_week===1?' selected':''}>Mon</option>
+                <option value="2"${b.day_of_week===2?' selected':''}>Tue</option>
+                <option value="3"${b.day_of_week===3?' selected':''}>Wed</option>
+                <option value="4"${b.day_of_week===4?' selected':''}>Thu</option>
+                <option value="5"${b.day_of_week===5?' selected':''}>Fri</option>
+                <option value="6"${b.day_of_week===6?' selected':''}>Sat</option>
+              </select>
+              <input type="time" class="dash-input dash-input-sm" id="se-start-${b.id}" value="${esc(b.start_time||'')}"/>
+              <input type="time" class="dash-input dash-input-sm" id="se-end-${b.id}" value="${esc(b.end_time||'')}"/>
+              <select class="dash-select" id="se-cat-${b.id}">
+                <option value="">Any</option>
+                <option value="music"${b.category==='music'?' selected':''}>Music</option>
+                <option value="beats"${b.category==='beats'?' selected':''}>Beats</option>
+                <option value="podcasts"${b.category==='podcasts'?' selected':''}>Podcasts</option>
+                <option value="videos"${b.category==='videos'?' selected':''}>Videos</option>
+              </select>
+              <select class="dash-select" id="se-mode-${b.id}">
+                <option value="shuffle"${b.mode==='shuffle'?' selected':''}>Shuffle</option>
+                <option value="sequential"${b.mode==='sequential'?' selected':''}>Sequential</option>
+              </select>
+            </div>
+            <div class="dash-form-row" style="gap:6px;margin-bottom:6px;">
+              <select class="dash-select" id="se-src-${b.id}" style="min-width:140px;">
+                <option value="">From category</option>
+                <option value="vault_item"${b.target_type==='vault_item'?' selected':''}>Vault item</option>
+                <option value="vault_project"${b.target_type==='vault_project'?' selected':''}>Vault project</option>
+              </select>
+              <input type="number" class="dash-input dash-input-sm" id="se-tid-${b.id}" placeholder="Target ID" value="${b.target_id||''}" style="width:100px;"/>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;">
+              <span id="se-msg-${b.id}" style="font-family:'Space Mono',monospace;font-size:8px;flex:1;"></span>
+              <button class="mgmt-btn" id="se-save-${b.id}">SAVE</button>
+            </div>
           </div>`;
-        }).join('')
-      : '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No schedule blocks.</div>';
+        list.appendChild(row);
 
-    list.querySelectorAll('[data-del-block]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        await dashFetch(`/api/schedule/blocks/${btn.dataset.delBlock}`, { method: 'DELETE' });
-        loadDashSchedule();
-      });
-    });
+        row.querySelector(`[data-edit-block="${b.id}"]`).addEventListener('click', () => {
+          const form = row.querySelector(`#sched-edit-${b.id}`);
+          const isHidden = form.style.display === 'none' || form.hidden;
+          form.style.display = isHidden ? '' : 'none';
+          form.hidden = !isHidden;
+        });
+
+        row.querySelector(`[data-del-block="${b.id}"]`).addEventListener('click', async () => {
+          await dashFetch(`/api/schedule/blocks/${b.id}`, { method: 'DELETE' });
+          loadDashSchedule();
+        });
+
+        row.querySelector(`#se-save-${b.id}`).addEventListener('click', async () => {
+          const saveBtn = row.querySelector(`#se-save-${b.id}`);
+          const msgEl   = row.querySelector(`#se-msg-${b.id}`);
+          const dayVal  = row.querySelector(`#se-day-${b.id}`).value;
+          const srcType = row.querySelector(`#se-src-${b.id}`).value;
+          const tidVal  = row.querySelector(`#se-tid-${b.id}`).value;
+          const body = {
+            label:       row.querySelector(`#se-label-${b.id}`).value.trim() || null,
+            day_of_week: dayVal !== '' ? parseInt(dayVal, 10) : null,
+            start_time:  row.querySelector(`#se-start-${b.id}`).value,
+            end_time:    row.querySelector(`#se-end-${b.id}`).value,
+            category:    row.querySelector(`#se-cat-${b.id}`).value || null,
+            mode:        row.querySelector(`#se-mode-${b.id}`).value,
+            target_type: srcType || null,
+            target_id:   srcType && tidVal ? parseInt(tidVal, 10) : null,
+          };
+          saveBtn.disabled = true; saveBtn.textContent = '…';
+          try {
+            const res = await dashFetch(`/api/schedule/blocks/${b.id}`, {
+              method: 'PUT', headers: {'Content-Type':'application/json'},
+              body: JSON.stringify(body),
+            });
+            if (res.ok) {
+              saveBtn.textContent = '✓';
+              msgEl.textContent = '';
+              setTimeout(() => { loadDashSchedule(); }, 800);
+            } else {
+              const d = await res.json().catch(() => ({}));
+              msgEl.textContent = d.error || 'Save failed';
+              msgEl.style.color = '#ff6b6b';
+              saveBtn.textContent = 'SAVE'; saveBtn.disabled = false;
+            }
+          } catch {
+            msgEl.textContent = 'Network error';
+            saveBtn.textContent = 'SAVE'; saveBtn.disabled = false;
+          }
+        });
+      }
+    }
   } catch {}
 }
 
 el('btn-add-sched').addEventListener('click', async () => {
-  const dayVal = el('sched-day').value;
+  const dayVal  = el('sched-day').value;
+  const srcType = el('sched-source') ? el('sched-source').value : '';
+  const tidVal  = el('sched-target-id') ? el('sched-target-id').value : '';
   const body   = {
     label:       el('sched-label').value.trim() || null,
     day_of_week: dayVal !== '' ? parseInt(dayVal, 10) : null,
@@ -3291,6 +3647,8 @@ el('btn-add-sched').addEventListener('click', async () => {
     end_time:    el('sched-end').value,
     category:    el('sched-category').value || null,
     mode:        el('sched-mode').value,
+    target_type: srcType || null,
+    target_id:   srcType && tidVal ? parseInt(tidVal, 10) : null,
   };
   if (!body.start_time || !body.end_time) return;
   await dashFetch('/api/schedule/blocks', {
@@ -3317,6 +3675,7 @@ el('btn-new-proj').addEventListener('click', async () => {
     body: JSON.stringify({
       name,
       description:     desc || null,
+      cover_art_path:  el('new-proj-art').value.trim() || null,
       suggested_price: Math.round(suggRaw * 100),
       minimum_price:   Math.round(minRaw  * 100),
       allow_free:      allowFree,
@@ -3326,6 +3685,7 @@ el('btn-new-proj').addEventListener('click', async () => {
   if (res.ok) {
     el('new-proj-name').value  = '';
     el('new-proj-desc').value  = '';
+    el('new-proj-art').value   = '';
     el('new-proj-sugg').value  = '';
     el('new-proj-min').value   = '';
     el('new-proj-free').checked = false;
@@ -3337,6 +3697,22 @@ el('btn-new-proj').addEventListener('click', async () => {
     msgEl.style.color = '#ff6b6b';
     msgEl.textContent = 'Error creating project';
   }
+});
+
+// Station queue button (dashboard context)
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.lib-queue-btn');
+  if (!btn) return;
+  if (!document.body.classList.contains('dash-active')) return;
+  e.stopPropagation();
+  dashFetch('/api/dashboard/broadcast/queue', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ mediaId: parseInt(btn.dataset.id) }),
+  }).then(r => r.json()).then(data => {
+    if (data.error) { showToast(data.error); return; }
+    showToast(`Queued for broadcast (${data.count}/5)`);
+    loadDashBroadcastQueue();
+  }).catch(() => showToast('Queue error'));
 });
 
 // ─── Dashboard Library ─────────────────────────────────────────────────────────
@@ -3353,7 +3729,7 @@ function buildDashLibItem(item, scopeType, scopeId, nested = false) {
 
   wrap.innerHTML = `
     <div class="mgmt-row">
-      <div class="mgmt-thumb" style="background:linear-gradient(135deg,${c}44,${c}11);border:1px solid ${c}33;">${item.category==='videos'?'▶':'♪'}</div>
+      <div class="mgmt-thumb" style="background:linear-gradient(135deg,${c}44,${c}11);border:1px solid ${c}33;position:relative;overflow:hidden;">${item.artwork_url?`<img src="/api/library/${item.id}/artwork" loading="lazy" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;"/>`:(item.category==='videos'?'▶':'♪')}<button class="lib-queue-btn" data-id="${item.id}" data-title="${esc(item.title||'')}" data-artist="${esc(item.artist||'')}" title="Queue for broadcast">+</button></div>
       <div class="mgmt-info">
         <div class="mgmt-title">${esc(item.title||item.filename)}</div>
         <div class="mgmt-meta">${esc(item.category)}</div>
@@ -3396,6 +3772,10 @@ function buildDashLibItem(item, scopeType, scopeId, nested = false) {
           <input class="dash-input dash-input-sm" id="edit-producer-${item.id}" value="${esc(item.producer||'')}" placeholder="Produced by…"/>
         </div>
       </div>
+      <div>
+        <div class="dash-edit-label">ART URL</div>
+        <input class="dash-input dash-input-sm" id="edit-art-${item.id}" value="${esc(item.artwork_url||'')}" placeholder="https://… (album art)"/>
+      </div>
       <div class="dash-edit-label">CREDITS</div>
       <textarea class="dash-input dash-input-sm" id="edit-credits-${item.id}" placeholder="Mixed by, mastered by, features, etc.">${esc(item.credits||'')}</textarea>
       <div class="dash-form-row" style="margin-top:8px;justify-content:flex-end;gap:8px;">
@@ -3428,11 +3808,12 @@ function buildDashLibItem(item, scopeType, scopeId, nested = false) {
     const saveBtn = wrap.querySelector(`#edit-save-${item.id}`);
     const msgEl   = wrap.querySelector(`#edit-msg-${item.id}`);
     const body = {
-      title:    wrap.querySelector(`#edit-title-${item.id}`).value.trim() || null,
-      artist:   wrap.querySelector(`#edit-artist-${item.id}`).value.trim() || null,
-      album:    wrap.querySelector(`#edit-album-${item.id}`).value.trim() || null,
-      producer: wrap.querySelector(`#edit-producer-${item.id}`).value.trim() || null,
-      credits:  wrap.querySelector(`#edit-credits-${item.id}`).value.trim() || null,
+      title:       wrap.querySelector(`#edit-title-${item.id}`).value.trim() || null,
+      artist:      wrap.querySelector(`#edit-artist-${item.id}`).value.trim() || null,
+      album:       wrap.querySelector(`#edit-album-${item.id}`).value.trim() || null,
+      producer:    wrap.querySelector(`#edit-producer-${item.id}`).value.trim() || null,
+      credits:     wrap.querySelector(`#edit-credits-${item.id}`).value.trim() || null,
+      artwork_url: wrap.querySelector(`#edit-art-${item.id}`).value.trim() || null,
     };
     saveBtn.disabled = true; saveBtn.textContent = '…';
     try {
@@ -4087,6 +4468,26 @@ async function loadCreatorType() {
     if (data.creatorType === 'radio_host') {
       document.body.classList.add('radio-host-mode');
       initExtSearchPanel();
+      // Auto-expand broadcast advanced section for radio hosts
+      const adv = el('broadcast-advanced');
+      const tog = el('broadcast-header-toggle');
+      if (adv && tog) { adv.classList.add('open'); tog.classList.add('open'); }
+    }
+  } catch {}
+}
+
+async function loadRadioHostStatus() {
+  try {
+    const data = await dashFetch('/api/dashboard/radio-host').then(r => r.json());
+    const sw = el('rh-switch');
+    const info = el('rh-switches-info');
+    if (!sw) return;
+    sw.classList.toggle('on', data.radioHost);
+    sw.classList.toggle('locked', data.locked);
+    if (info) {
+      info.textContent = data.locked
+        ? `Switches used: ${data.switches}/3 — locked. Edit CREATOR_TYPE in .env to change.`
+        : `Switches used: ${data.switches}/3`;
     }
   } catch {}
 }
@@ -4247,7 +4648,7 @@ function renderAuthSection() {
   el('auth-logged-in').hidden  = !loggedIn;
 
   // Logged-in badge (in share tab — hidden when drawer is open)
-  el('auth-badge').classList.toggle('visible', loggedIn && !state.showShare);
+  el('auth-badge').classList.toggle('visible', loggedIn);
 
   // Disable login/register tabs and form when already logged in
   document.querySelectorAll('.auth-tab').forEach(b => { b.disabled = loggedIn; });

@@ -28,6 +28,13 @@ button{border:none;cursor:pointer;background:none;font:inherit}
 }
 body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh}
 
+/* Brand name glow */
+.pw{
+  font-family:var(--serif);font-style:italic;
+  text-shadow:0 0 12px rgba(57,255,20,.55),0 0 28px rgba(57,255,20,.2);
+  letter-spacing:-.01em;
+}
+
 /* ── Animations ──────────────────────────────────────────────────────────── */
 @keyframes live-pulse{
   0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 8px #39ff14}
@@ -283,6 +290,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:1
 .req-card{
   background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:10px;
   padding:16px;
+  transition:box-shadow .18s,border-color .18s,transform .12s;
+  cursor:default;
+}
+.req-card:hover{
+  box-shadow:0 0 18px rgba(57,255,20,.25),0 0 6px rgba(57,255,20,.1);
+  border-color:rgba(57,255,20,.3);
+}
+.req-card:active{
+  transform:scale(1.04);
+  box-shadow:0 0 28px rgba(57,255,20,.4);
 }
 .req-key{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--t-muted);text-transform:uppercase;margin-bottom:6px}
 .req-val{font-family:var(--serif);font-size:15px;color:rgba(255,255,255,.8)}
@@ -294,7 +311,15 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:1
 .next-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--neon);text-transform:uppercase;margin-bottom:16px}
 .next-title{font-family:var(--serif);font-size:clamp(1.6rem,3vw,2.4rem);font-weight:400;letter-spacing:-.02em;margin-bottom:40px}
 .next-steps{display:flex;flex-direction:column}
-.next-step{display:flex;gap:24px;align-items:flex-start;padding:24px 0;border-bottom:1px solid var(--border)}
+.next-step{display:flex;gap:24px;align-items:flex-start;padding:24px 0;border-bottom:1px solid var(--border);
+  transition:background .15s,box-shadow .18s;
+  border-radius:8px;
+  padding:24px 12px;
+}
+.next-step:hover{
+  background:rgba(57,255,20,.025);
+  box-shadow:0 0 24px rgba(57,255,20,.1);
+}
 .next-step:last-child{border-bottom:none}
 .next-num{font-family:var(--serif);font-size:2.2rem;color:rgba(57,255,20,.22);line-height:1;flex-shrink:0;width:40px}
 .next-step-title{font-family:var(--serif);font-size:18px;color:rgba(255,255,255,.85);margin-bottom:6px}
@@ -318,12 +343,22 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:1
 /* ── Footer ──────────────────────────────────────────────────────────────── */
 footer{
   border-top:1px solid var(--border);padding:24px 32px;
-  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;
+  display:grid;grid-template-columns:1fr auto 1fr;
+  align-items:center;gap:16px;
 }
-.footer-brand{font-family:var(--serif);font-size:14px;color:var(--t-dim);letter-spacing:-.015em}
-.footer-links{display:flex;gap:24px}
+.footer-brand{font-family:var(--mono);font-size:11px;color:var(--t-dim);letter-spacing:.06em}
+.footer-center{text-align:center}
+.footer-center-mark{font-family:var(--serif);font-size:13px;color:var(--t-dim);letter-spacing:-.015em;line-height:1.4;display:block}
+.footer-center-sub{font-family:var(--mono);font-size:9px;color:var(--t-muted);letter-spacing:.1em;margin-top:2px;display:block}
+.footer-right{text-align:right}
+.footer-links{display:flex;gap:24px;justify-content:flex-end}
 .footer-link{font-family:var(--mono);font-size:10px;color:var(--t-muted);letter-spacing:.06em;transition:color .15s}
 .footer-link:hover{color:var(--t-mid)}
+@media(max-width:600px){
+  footer{grid-template-columns:1fr;text-align:center}
+  .footer-right{text-align:center}
+  .footer-links{justify-content:center}
+}
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media(max-width:600px){
@@ -353,7 +388,7 @@ footer{
 <!-- Hero -->
 <section class="hero">
   <div class="hero-version">v1.5.1 — Available Now</div>
-  <h1 class="hero-title">Get Paperweight.</h1>
+  <h1 class="hero-title">Get <span class="pw">Paperweight</span>.</h1>
   <p class="hero-sub">Pick your platform. You'll be live in minutes.</p>
 </section>
 
@@ -486,16 +521,6 @@ footer{
     <h2 class="reqs-title">What you need to run it.</h2>
     <div class="reqs-grid">
       <div class="req-card">
-        <div class="req-key">Node.js</div>
-        <div class="req-val">Bundled</div>
-        <div class="req-note">Nothing to install — included inside the executable</div>
-      </div>
-      <div class="req-card">
-        <div class="req-key">FFmpeg</div>
-        <div class="req-val">Bundled</div>
-        <div class="req-note">Nothing to install — included inside the executable</div>
-      </div>
-      <div class="req-card">
         <div class="req-key">RAM</div>
         <div class="req-val">2 GB minimum</div>
         <div class="req-note">4 GB recommended for video streaming</div>
@@ -529,7 +554,7 @@ footer{
         <div class="next-num">1</div>
         <div>
           <div class="next-step-title">Add your music</div>
-          <div class="next-step-body">On first run, Paperweight creates a <code>vault/</code> folder next to the executable. Drop your audio files in and they're indexed instantly — no upload, no waiting.</div>
+          <div class="next-step-body">On first run, <span class="pw">Paperweight</span> creates a <code>vault/</code> folder next to the executable. Drop your audio files in and they're indexed instantly — no upload, no waiting.</div>
         </div>
       </div>
       <div class="next-step">
@@ -568,9 +593,12 @@ footer{
 </section>
 
 <footer>
-  <a href="/" class="footer-brand">Paperweight</a>
-  <div class="footer-links">
-    <a href="/" class="footer-link">Home</a>
+  <span class="footer-brand">Paperweight Systems LLC • 2026</span>
+  <div class="footer-center">
+    <span class="footer-center-mark">Paperweight</span>
+    <span class="footer-center-sub">Core • Play • Studio</span>
+  </div>
+  <div class="footer-right footer-links">
     <a href="https://discord.gg/XQaX3Nwp" class="footer-link" target="_blank" rel="noopener">Discord</a>
   </div>
 </footer>

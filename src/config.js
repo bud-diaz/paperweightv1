@@ -66,7 +66,19 @@ function loadEnv() {
     }
 
     if (isPackaged) {
-      // First run: create a default .env next to the exe so the user can edit it.
+      // First run: ask one setup question then create a default .env.
+      let isRadioHost = false;
+      try {
+        process.stdout.write('\nAre you a radio host? (y/n): ');
+        const buf = Buffer.alloc(4);
+        const n = fs.readSync(0, buf, 0, 4);
+        const answer = buf.slice(0, n).toString('utf8').trim().toLowerCase();
+        isRadioHost = answer === 'y' || answer === 'yes';
+        process.stdout.write('\n');
+      } catch {
+        // Non-interactive (piped stdin, CI, etc.) — default to creator mode
+      }
+
       const token = crypto.randomBytes(16).toString('hex');
       const signingSecret = crypto.randomBytes(32).toString('hex');
       const defaults = [
@@ -77,6 +89,8 @@ function loadEnv() {
         'HOST=127.0.0.1',
         'PORT=3000',
         'TRUST_PROXY=false',
+        `CREATOR_TYPE=${isRadioHost ? 'radio_host' : 'creator'}`,
+        'RADIO_HOST_SWITCHES=0',
         '',
       ].join('\n');
       fs.writeFileSync(envPath, defaults, 'utf8');
