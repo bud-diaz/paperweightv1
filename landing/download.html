@@ -806,6 +806,20 @@ document.getElementById('gate-chk-license').addEventListener('change', updateGat
 document.getElementById('gate-chk-content').addEventListener('change', updateGate);
 document.getElementById('gate-email').addEventListener('input', updateGate);
 
+document.getElementById('dl-btn').addEventListener('click', function(e) {
+  if (this.classList.contains('gated')) return;
+  e.preventDefault();
+  const href = this.href;
+  const email = (document.getElementById('gate-email').value || '').trim();
+  fetch('/api/download-lead', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, platform: activePlatform }),
+  }).finally(() => {
+    window.open(href, '_blank', 'noopener,noreferrer');
+  });
+});
+
 /* ── Init ─────────────────────────────────────────────────────────────────── */
 const detected = detectOS();
 selectPlatform(detected);
