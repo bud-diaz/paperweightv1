@@ -238,6 +238,9 @@ dashRouter.put('/projects/:id', (req, res) => {
   const minCents = parseInt(minimum_price, 10) || 0;
   const freeAllowed = allow_free ? 1 : 0;
 
+  if (!name || !String(name).trim()) {
+    return res.status(400).json({ error: 'name is required' });
+  }
   if (!freeAllowed && minCents < 1) {
     return res.status(400).json({ error: 'minimum_price must be >= 1 cent when allow_free is false' });
   }
@@ -255,7 +258,7 @@ dashRouter.put('/projects/:id', (req, res) => {
       updated_at         = ?
     WHERE id = ?
   `).run(
-    name ? name.trim() : null,
+    String(name).trim(),
     description || null,
     cover_art_path || null,
     parseInt(suggested_price, 10) || 0,

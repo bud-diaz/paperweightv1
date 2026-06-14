@@ -189,16 +189,7 @@ async function handlePayPalCheckout(req, res, tier) {
   }
 
   try {
-    // Get PayPal access token
-    const tokenRes = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-      },
-      body: 'grant_type=client_credentials',
-    });
-    const { access_token } = await tokenRes.json();
+    const access_token = await getPayPalAccessToken(clientId, clientSecret);
 
     // Create subscription
     const subRes = await fetch('https://api-m.paypal.com/v1/billing/subscriptions', {
@@ -758,7 +749,13 @@ async function stripeWebhookHandler(req, res) {
       if (!email || !session.subscription) break;
 
       // Stripe API call happens HERE, outside the transaction.
-      const sub = await stripe.subscriptions.retrieve(session.subscription);
+      let sub;
+      try {
+        sub = await stripe.subscriptions.retrieve(session.subscription);
+      } catch (err) {
+        log('error', 'payment', `stripe.subscriptions.retrieve failed for ${session.subscription}: ${err.message}`);
+        break;
+      }
       if (!isStripeSubscriptionActive(sub) || !currentPeriodEndIso(sub)) break;
       outcome = 'ok';
       mutate = () => {

@@ -17,6 +17,8 @@ router.get('/launch-status', (req, res) => {
 });
 
 // POST /api/system/launch-accept — records acceptance
+// No auth gate: the creator is the only one running this server, and the modal
+// appears on first load before dashboard login is possible.
 router.post('/launch-accept', (req, res) => {
   getDb().prepare(`
     UPDATE launch_acceptance

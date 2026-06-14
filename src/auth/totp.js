@@ -60,7 +60,8 @@ function computeTOTP(secret, counter) {
 
 // tolerance: how many 30s windows either side to accept (handles clock skew)
 function verifyTOTP(secret, code, tolerance = 1) {
-  const codeStr = String(code || '').replace(/\s/g, '').padStart(6, '0');
+  const codeStr = String(code || '').replace(/\s/g, '');
+  if (!/^\d{6}$/.test(codeStr)) return false;
   const counter = Math.floor(Date.now() / 1000 / 30);
   for (let i = -tolerance; i <= tolerance; i++) {
     if (computeTOTP(secret, counter + i) === codeStr) return true;
