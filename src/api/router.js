@@ -39,6 +39,9 @@ router.use('/creator',   require('./creator'));
 // First-launch legal acceptance
 router.use('/system',    require('./system'));
 
+// Download page email capture (public, no auth required)
+router.use('/download-lead', require('./download-lead'));
+
 // downloads.js defines two routes:
 //   GET /library/:id/signed-url  (mounted at / so becomes /api/library/:id/signed-url)
 //   GET /download/:token         (mounted at / so becomes /api/download/:token)

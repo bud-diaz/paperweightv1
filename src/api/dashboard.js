@@ -381,6 +381,17 @@ router.delete('/tokens/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Download leads ───────────────────────────────────────────────────────────
+
+// GET /api/dashboard/download-leads
+// Returns all emails captured on the download page, newest first.
+router.get('/download-leads', (req, res) => {
+  const rows = getDb().prepare(
+    'SELECT id, email, platform, created_at FROM download_leads ORDER BY created_at DESC'
+  ).all();
+  res.json(rows);
+});
+
 // ─── Listener accounts list ──────────────────────────────────────────────────
 
 // GET /api/dashboard/accounts

@@ -398,4 +398,21 @@ CREATE TABLE IF NOT EXISTS launch_acceptance (
 INSERT OR IGNORE INTO launch_acceptance (id) VALUES (1);
 `,
   },
+  {
+    filename: "015_download_leads.sql",
+    sql: `-- Migration 015: Download page email capture
+-- Stores emails submitted on the /landing/download page before a download starts.
+-- Allows duplicates so each download event is independently recorded.
+
+CREATE TABLE IF NOT EXISTS download_leads (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  email      TEXT    NOT NULL,
+  platform   TEXT,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_download_leads_email ON download_leads(email);
+CREATE INDEX IF NOT EXISTS idx_download_leads_created ON download_leads(created_at);
+`,
+  },
 ];
