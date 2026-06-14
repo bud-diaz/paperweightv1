@@ -192,9 +192,9 @@ router.get('/media', (req, res) => {
 });
 
 // PATCH /api/dashboard/media/:id
-// Body: any subset of { visibility, title, artist, album, producer, credits }
+// Body: any subset of { visibility, title, artist, album, producer, credits, artwork_url }
 router.patch('/media/:id', (req, res) => {
-  const { visibility, title, artist, album, producer, credits } = req.body;
+  const { visibility, title, artist, album, producer, credits, artwork_url } = req.body;
   const setClauses = [];
   const params     = [];
 
@@ -206,7 +206,7 @@ router.patch('/media/:id', (req, res) => {
     params.push(visibility);
   }
 
-  for (const [field, val] of Object.entries({ title, artist, album, producer, credits })) {
+  for (const [field, val] of Object.entries({ title, artist, album, producer, credits, artwork_url })) {
     if (val !== undefined) {
       setClauses.push(`${field} = ?`);
       params.push(val === '' ? null : val);

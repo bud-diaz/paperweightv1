@@ -525,13 +525,19 @@
     /* ── Broadcast row ── */
     .broadcast-row {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 14px; background: var(--raised);
-      border: 1px solid var(--border); border-radius: var(--radius-md); margin: 0 0 0 0;
+      padding: 10px 14px; background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.06); border-radius: 8px; margin: 0 0 6px;
     }
     .broadcast-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; margin-right: 12px; }
-    .broadcast-np { font-family: 'DM Serif Display', serif; font-size: 13px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .broadcast-mode-badge { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .12em; }
-    .broadcast-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
+    .broadcast-np { font-family: 'DM Serif Display', serif; font-size: 14px; color: rgba(255,255,255,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+    .broadcast-mode-badge { font-family: 'Space Mono', monospace; font-size: 8px; color: rgba(255,255,255,.35); letter-spacing: .1em; }
+    .broadcast-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+    #btn-go-live {
+      font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: .06em;
+      padding: 5px 10px; border-radius: 5px;
+      border: 1px solid rgba(57,255,20,.3); color: rgba(57,255,20,.8);
+      background: none; cursor: pointer;
+    }
 
     /* ── Upload zone ── */
     .dash-upload-zone {
@@ -1215,6 +1221,8 @@
                 <input class="dash-input" id="new-proj-name" type="text" placeholder="Project name" style="margin-bottom:8px;"/>
                 <div class="dash-edit-label">DESCRIPTION (OPTIONAL)</div>
                 <textarea class="dash-input" id="new-proj-desc" placeholder="Description…" style="margin-bottom:8px;"></textarea>
+                <div class="dash-edit-label">ALBUM ART URL</div>
+                <input class="dash-input" id="new-proj-art" type="url" placeholder="https://… (optional)" style="margin-bottom:8px;"/>
                 <div id="new-proj-pricing-block">
                 <div class="dash-edit-label">PRICING</div>
                 <div class="dash-proj-price-grid">
@@ -1267,7 +1275,7 @@
               <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--t3);margin-bottom:10px;line-height:1.7;">
                 Go live from your mic. Listeners switch to your feed in real time.
               </div>
-              <button class="mgmt-btn" id="btn-go-live" style="border-color:rgba(57,255,20,.4);color:#39ff14;letter-spacing:.12em;">● GO LIVE</button>
+              <button id="btn-go-live">● GO LIVE</button>
               <div id="live-idle-msg" style="margin-top:8px;font-size:9px;font-family:'Space Mono',monospace;color:var(--t3);"></div>
             </div>
             <div id="live-onair" hidden style="padding:10px 0 12px;">
@@ -3262,13 +3270,19 @@ async function loadDashSchedule() {
     const list = el('dash-sched-list');
     list.innerHTML = blocks.length
       ? blocks.map(b => {
-          const day = b.day_of_week != null ? DAY_NAMES[b.day_of_week] : 'Daily';
-          return `<div class="sched-row">
-            <div class="sched-info">
-              <div class="sched-title">${esc(b.label || '—')}</div>
-              <div class="sched-meta">${day} · ${b.start_time}–${b.end_time} · ${b.category||'any'} · ${b.mode}</div>
+          const dayLabel   = b.day_of_week != null ? DAY_NAMES[b.day_of_week] : 'Daily';
+          const timeRange  = `${b.start_time}–${b.end_time}`;
+          const label      = esc(b.label || '—');
+          const isActive   = false;
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-radius:7px;border-left:2px solid ${isActive?'var(--neon)':'transparent'};background:${isActive?'rgba(255,255,255,.03)':'none'};margin-bottom:1px;">
+            <div>
+              <div style="font-family:'DM Serif Display',serif;font-size:13px;color:rgba(255,255,255,.78);">${label}</div>
+              <div style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.3);margin-top:2px;">${dayLabel} · ${timeRange} · ${b.category||'any'} · ${b.mode}</div>
             </div>
-            <button class="mgmt-btn danger" data-del-block="${b.id}">DEL</button>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-family:'Space Mono',monospace;font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 7px;border-radius:3px;${isActive?'background:var(--neon);color:#000;':'background:rgba(255,255,255,.08);color:rgba(255,255,255,.4);'}">${isActive?'ON':'UP'}</span>
+              <button class="mgmt-btn danger" data-del-block="${b.id}">DEL</button>
+            </div>
           </div>`;
         }).join('')
       : '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No schedule blocks.</div>';
@@ -3317,6 +3331,7 @@ el('btn-new-proj').addEventListener('click', async () => {
     body: JSON.stringify({
       name,
       description:     desc || null,
+      cover_art_path:  el('new-proj-art').value.trim() || null,
       suggested_price: Math.round(suggRaw * 100),
       minimum_price:   Math.round(minRaw  * 100),
       allow_free:      allowFree,
@@ -3326,6 +3341,7 @@ el('btn-new-proj').addEventListener('click', async () => {
   if (res.ok) {
     el('new-proj-name').value  = '';
     el('new-proj-desc').value  = '';
+    el('new-proj-art').value   = '';
     el('new-proj-sugg').value  = '';
     el('new-proj-min').value   = '';
     el('new-proj-free').checked = false;
@@ -3396,6 +3412,10 @@ function buildDashLibItem(item, scopeType, scopeId, nested = false) {
           <input class="dash-input dash-input-sm" id="edit-producer-${item.id}" value="${esc(item.producer||'')}" placeholder="Produced by…"/>
         </div>
       </div>
+      <div>
+        <div class="dash-edit-label">ART URL</div>
+        <input class="dash-input dash-input-sm" id="edit-art-${item.id}" value="${esc(item.artwork_url||'')}" placeholder="https://… (album art)"/>
+      </div>
       <div class="dash-edit-label">CREDITS</div>
       <textarea class="dash-input dash-input-sm" id="edit-credits-${item.id}" placeholder="Mixed by, mastered by, features, etc.">${esc(item.credits||'')}</textarea>
       <div class="dash-form-row" style="margin-top:8px;justify-content:flex-end;gap:8px;">
@@ -3428,11 +3448,12 @@ function buildDashLibItem(item, scopeType, scopeId, nested = false) {
     const saveBtn = wrap.querySelector(`#edit-save-${item.id}`);
     const msgEl   = wrap.querySelector(`#edit-msg-${item.id}`);
     const body = {
-      title:    wrap.querySelector(`#edit-title-${item.id}`).value.trim() || null,
-      artist:   wrap.querySelector(`#edit-artist-${item.id}`).value.trim() || null,
-      album:    wrap.querySelector(`#edit-album-${item.id}`).value.trim() || null,
-      producer: wrap.querySelector(`#edit-producer-${item.id}`).value.trim() || null,
-      credits:  wrap.querySelector(`#edit-credits-${item.id}`).value.trim() || null,
+      title:       wrap.querySelector(`#edit-title-${item.id}`).value.trim() || null,
+      artist:      wrap.querySelector(`#edit-artist-${item.id}`).value.trim() || null,
+      album:       wrap.querySelector(`#edit-album-${item.id}`).value.trim() || null,
+      producer:    wrap.querySelector(`#edit-producer-${item.id}`).value.trim() || null,
+      credits:     wrap.querySelector(`#edit-credits-${item.id}`).value.trim() || null,
+      artwork_url: wrap.querySelector(`#edit-art-${item.id}`).value.trim() || null,
     };
     saveBtn.disabled = true; saveBtn.textContent = '…';
     try {

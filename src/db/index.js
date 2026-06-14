@@ -94,6 +94,11 @@ function runMigrations(database) {
     },
     {
       table:  'media',
+      column: 'artwork_url',
+      sql:    'ALTER TABLE media ADD COLUMN artwork_url TEXT',
+    },
+    {
+      table:  'media',
       column: 'source_platform',
       sql:    'ALTER TABLE media ADD COLUMN source_platform TEXT',
     },
