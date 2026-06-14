@@ -21,6 +21,22 @@ const artworkCache = new Map();
 const artworkPending = new Map(); // id → [res, ...]
 const MAX_ARTWORK_CACHE = 60;
 
+const ARTWORK_DIR = path.join(config.paths.data, 'artwork');
+const ARTWORK_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+const ARTWORK_MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif' };
+
+function findUploadedArtwork(id) {
+  for (const ext of ARTWORK_EXTS) {
+    const p = path.join(ARTWORK_DIR, `${id}${ext}`);
+    if (fs.existsSync(p)) return { filepath: p, mime: ARTWORK_MIME[ext] };
+  }
+  return null;
+}
+
+function clearArtworkCache(id) {
+  artworkCache.delete(String(id));
+}
+
 function signingSecret() {
   return config.auth.downloadSigningSecret;
 }
@@ -333,6 +349,14 @@ router.get('/:id/artwork', (req, res) => {
 
   const id = String(row.id);
 
+  // Check for a manually uploaded artwork file first (overrides embedded + url)
+  const uploaded = findUploadedArtwork(id);
+  if (uploaded) {
+    res.setHeader('Content-Type', uploaded.mime);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.end(fs.readFileSync(uploaded.filepath));
+  }
+
   if (artworkCache.has(id)) {
     const buf = artworkCache.get(id);
     if (!buf) return res.status(404).end();
@@ -420,3 +444,5 @@ router.get('/:id/file', (req, res) => {
 });
 
 module.exports = router;
+module.exports.clearArtworkCache = clearArtworkCache;
+module.exports.ARTWORK_DIR = ARTWORK_DIR;
