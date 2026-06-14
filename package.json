@@ -16,6 +16,7 @@
     "test": "node --test test/scheduler.test.js test/access.test.js test/payment.test.js test/http.test.js test/auth.test.js",
     "check:clean": "node scripts/check-release-clean.js",
     "release:check": "node scripts/check-release-clean.js && npm test && node scripts/preflight.js && node scripts/check-migrations.js && node scripts/check-scheduler.js && node scripts/check-analytics.js && node scripts/check-package-assets.js && npm audit --omit=dev",
+    "fetch:ffmpeg": "node scripts/fetch-ffmpeg.js",
     "build:exe": "node scripts/build-exe.js"
   },
   "dependencies": {
@@ -49,6 +50,7 @@
       "scripts/smoke-exe.js"
     ],
     "assets": [
+      "vendor/ffmpeg/**",
       "package.json"
     ],
     "targets": [

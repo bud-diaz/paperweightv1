@@ -30,6 +30,9 @@ logs/
 # Build output
 dist/
 
+# Bundled FFmpeg binaries — downloaded at build time by scripts/fetch-ffmpeg.js
+vendor/ffmpeg/
+
 # Platform-specific native binding bundle — generated at build time, NOT committed
 src/native-bundle.js
 

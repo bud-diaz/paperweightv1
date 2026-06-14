@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config');
 const { log } = require('../db');
-const { installHint } = require('../runtime/ffmpeg');
+const { ffmpegPath, installHint } = require('../runtime/ffmpeg');
 const { writeJsonAtomic } = require('./stateFile');
 
 const LIVE_DIR = path.join(config.paths.hlsOutput, 'live');
@@ -80,7 +80,7 @@ function startLive() {
     hlsPath,
   ];
 
-  const proc = spawn('ffmpeg', args, {
+  const proc = spawn(ffmpegPath, args, {
     stdio: ['pipe', 'ignore', 'pipe'],
     windowsHide: true,
   });

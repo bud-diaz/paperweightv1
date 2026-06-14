@@ -1,6 +1,6 @@
 const { spawn } = require('child_process');
 const path = require('path');
-const { installHint } = require('../runtime/ffmpeg');
+const { ffprobePath, installHint } = require('../runtime/ffmpeg');
 
 const SUPPORTED_EXTENSIONS = new Set([
   '.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.aiff', '.opus',
@@ -62,7 +62,7 @@ function probe(filepath) {
       filepath,
     ];
 
-    const proc = spawn('ffprobe', args, { windowsHide: true });
+    const proc = spawn(ffprobePath, args, { windowsHide: true });
     let stdout = '';
     let stderr = '';
 
