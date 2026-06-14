@@ -487,13 +487,13 @@ footer{
     <div class="reqs-grid">
       <div class="req-card">
         <div class="req-key">Node.js</div>
-        <div class="req-val">v20 or newer</div>
-        <div class="req-note">Installed automatically by the setup script</div>
+        <div class="req-val">Bundled</div>
+        <div class="req-note">Nothing to install — included inside the executable</div>
       </div>
       <div class="req-card">
         <div class="req-key">FFmpeg</div>
-        <div class="req-val">Any recent build</div>
-        <div class="req-note">Installed automatically by the setup script</div>
+        <div class="req-val">Bundled</div>
+        <div class="req-note">Nothing to install — included inside the executable</div>
       </div>
       <div class="req-card">
         <div class="req-key">RAM</div>
@@ -528,15 +528,15 @@ footer{
       <div class="next-step">
         <div class="next-num">1</div>
         <div>
-          <div class="next-step-title">Point it at your vault</div>
-          <div class="next-step-body">Run <code>bash scripts/setup.sh</code> and enter the path to your music folder. Paperweight scans everything immediately — no upload, no waiting.</div>
+          <div class="next-step-title">Add your music</div>
+          <div class="next-step-body">On first run, Paperweight creates a <code>vault/</code> folder next to the executable. Drop your audio files in and they're indexed instantly — no upload, no waiting.</div>
         </div>
       </div>
       <div class="next-step">
         <div class="next-num">2</div>
         <div>
           <div class="next-step-title">Open Studio and go live</div>
-          <div class="next-step-body">Visit <code>localhost:3000/#dashboard</code>, unlock with your token, and hit Go Live. Your station is on air within seconds.</div>
+          <div class="next-step-body">Visit <code>localhost:3000/#dashboard</code>, unlock with your dashboard token (printed in the terminal on first run), and hit Go Live. Your station is on air within seconds.</div>
         </div>
       </div>
       <div class="next-step">
@@ -585,62 +585,60 @@ const PLATFORMS = {
     href: 'https://discord.gg/XQaX3Nwp', // replace with real URL
     prompt: 'PS>',
     steps: [
-      { comment: '# Run installer as Administrator',    cmd: '.\\scripts\\install.ps1' },
-      { comment: '# Configure your station',           cmd: 'bash scripts/setup.sh' },
-      { comment: '# Start Paperweight',                cmd: 'npm start',
-        out: '● Paperweight v1.5.1 on http://localhost:3000' }
+      { comment: '# Double-click the exe, or run from terminal:',
+        cmd: '.\\paperweight-win-x64.exe',
+        out: '[Paperweight] Dashboard token: a1b2c3d4… (saved to .env)' },
+      { comment: '# Station is live — open Studio to configure:',
+        cmd: 'start http://localhost:3000/#dashboard' },
+      { comment: '# No Node.js or FFmpeg to install — everything is bundled', cmd: '' }
     ]
   },
   'mac-arm64': {
     name: 'macOS Apple Silicon',
     arch: 'ARM64 · M1 / M2 / M3',
-    file: 'paperweight-macos-arm64.zip',
+    file: 'paperweight-macos-arm64',
     href: 'https://discord.gg/XQaX3Nwp',
     prompt: '$',
     steps: [
-      { comment: '# Install via Homebrew',             cmd: 'bash scripts/install-macos.sh' },
-      { comment: '# Configure your station',           cmd: 'bash scripts/setup.sh' },
-      { comment: '# Start Paperweight',                cmd: 'npm start',
-        out: '● Paperweight v1.5.1 on http://localhost:3000' }
+      { comment: '# macOS build coming soon',
+        cmd: '# Join Discord to get notified on release →' }
     ]
   },
   'mac-x64': {
     name: 'macOS Intel',
     arch: 'x64 · 2020 and older',
-    file: 'paperweight-macos-x64.zip',
+    file: 'paperweight-macos-x64',
     href: 'https://discord.gg/XQaX3Nwp',
     prompt: '$',
     steps: [
-      { comment: '# Install via Homebrew',             cmd: 'bash scripts/install-macos.sh' },
-      { comment: '# Configure your station',           cmd: 'bash scripts/setup.sh' },
-      { comment: '# Start Paperweight',                cmd: 'npm start',
-        out: '● Paperweight v1.5.1 on http://localhost:3000' }
+      { comment: '# macOS build coming soon',
+        cmd: '# Join Discord to get notified on release →' }
     ]
   },
   'linux-x64': {
     name: 'Linux',
     arch: 'x64 · Ubuntu / Debian',
-    file: 'paperweight-linux-x64.zip',
+    file: 'paperweight-linux-x64',
     href: 'https://discord.gg/XQaX3Nwp',
     prompt: '$',
     steps: [
-      { comment: '# Install Node.js, FFmpeg, PM2',     cmd: 'bash scripts/install.sh' },
-      { comment: '# Configure your station',           cmd: 'bash scripts/setup.sh' },
-      { comment: '# Start Paperweight',                cmd: 'npm start',
-        out: '● Paperweight v1.5.1 on http://localhost:3000' }
+      { comment: '# Make executable and run:',
+        cmd: 'chmod +x paperweight-linux-x64 && ./paperweight-linux-x64',
+        out: '[Paperweight] Dashboard token: a1b2c3d4… (saved to .env)' },
+      { comment: '# Open Studio to configure your station:',
+        cmd: 'xdg-open http://localhost:3000/#dashboard' },
+      { comment: '# No Node.js or FFmpeg to install — everything is bundled', cmd: '' }
     ]
   },
   'linux-arm64': {
     name: 'Raspberry Pi',
     arch: 'ARM64 · Pi 4 / Pi 5',
-    file: 'paperweight-linux-arm64.zip',
+    file: 'paperweight-linux-arm64',
     href: 'https://discord.gg/XQaX3Nwp',
     prompt: '$',
     steps: [
-      { comment: '# Install + configure tmpfs for Pi', cmd: 'bash scripts/install.sh' },
-      { comment: '# Configure your station',           cmd: 'bash scripts/setup.sh' },
-      { comment: '# Start Paperweight',                cmd: 'npm start',
-        out: '● Paperweight v1.5.1 on http://localhost:3000' }
+      { comment: '# Raspberry Pi build coming soon',
+        cmd: '# Join Discord to get notified on release →' }
     ]
   }
 };
