@@ -140,8 +140,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:1
 /* terminal content inside art zone */
 .dl-term{
   position:absolute;inset:0;
-  padding:16px 18px 56px;
-  display:flex;flex-direction:column;justify-content:center;gap:10px;
+  padding:14px 18px 56px;
+  display:flex;flex-direction:column;justify-content:center;gap:8px;
   z-index:1;
 }
 .dl-step{}
@@ -522,28 +522,28 @@ footer{
 <!-- After install steps -->
 <section class="next-section">
   <div class="next-inner">
-    <div class="next-eyebrow">After Install</div>
-    <h2 class="next-title">Three steps to your first broadcast.</h2>
+    <div class="next-eyebrow">What Happens Next</div>
+    <h2 class="next-title">From install to live in minutes.</h2>
     <div class="next-steps">
       <div class="next-step">
         <div class="next-num">1</div>
         <div>
-          <div class="next-step-title">Point it at your vault</div>
-          <div class="next-step-body">Run <code>bash scripts/setup.sh</code> and enter the path to your music folder. Paperweight scans everything immediately — no upload, no waiting.</div>
+          <div class="next-step-title">setup.sh configures everything</div>
+          <div class="next-step-body"><code>bash scripts/setup.sh</code> walks you through your station name, public slug (<code>slug.paperweighthq.com</code>), vault path, and optional Cloudflare Tunnel token. It prints your dashboard token at the end — save it.</div>
         </div>
       </div>
       <div class="next-step">
         <div class="next-num">2</div>
         <div>
-          <div class="next-step-title">Open Studio and go live</div>
-          <div class="next-step-body">Visit <code>localhost:3000/#dashboard</code>, unlock with your token, and hit Go Live. Your station is on air within seconds.</div>
+          <div class="next-step-title">Preflight checks your environment</div>
+          <div class="next-step-body"><code>npm run preflight</code> validates Node.js, FFmpeg, your vault path, and your <code>.env</code> before you go live. If anything is missing it tells you exactly what to fix.</div>
         </div>
       </div>
       <div class="next-step">
         <div class="next-num">3</div>
         <div>
-          <div class="next-step-title">Share your station</div>
-          <div class="next-step-body">Enable the Cloudflare Tunnel from Studio — your station gets a public URL instantly. Issue access tokens to hand-pick who gets in.</div>
+          <div class="next-step-title">Start up and open Studio</div>
+          <div class="next-step-body">Run <code>npm start</code>, then open <code>localhost:3000/#dashboard</code> and unlock with your token. Drop files in your vault, hit Go Live, and your station is on air.</div>
         </div>
       </div>
     </div>
@@ -581,13 +581,13 @@ const PLATFORMS = {
   'win': {
     name: 'Windows',
     arch: 'x64 · Windows 10 / 11',
-    file: 'paperweight-win-x64.exe',
+    file: 'paperweight-win-x64.zip',
     href: 'https://discord.gg/XQaX3Nwp', // replace with real URL
-    prompt: 'PS>',
     steps: [
-      { comment: '# Run installer as Administrator',    cmd: '.\\scripts\\install.ps1' },
-      { comment: '# Configure your station',           cmd: 'bash scripts/setup.sh' },
-      { comment: '# Start Paperweight',                cmd: 'npm start',
+      { prompt: 'PS>',  comment: '# Run as Administrator in PowerShell',  cmd: '.\\scripts\\install.ps1' },
+      { prompt: '$',    comment: '# Configure station, vault & slug',      cmd: 'bash scripts/setup.sh' },
+      { prompt: '$',    comment: '# Verify environment',                   cmd: 'npm run preflight' },
+      { prompt: '$',    comment: '# Start Paperweight',                    cmd: 'npm start',
         out: '● Paperweight v1.5.1 on http://localhost:3000' }
     ]
   },
@@ -596,11 +596,11 @@ const PLATFORMS = {
     arch: 'ARM64 · M1 / M2 / M3',
     file: 'paperweight-macos-arm64.zip',
     href: 'https://discord.gg/XQaX3Nwp',
-    prompt: '$',
     steps: [
-      { comment: '# Install via Homebrew',             cmd: 'bash scripts/install-macos.sh' },
-      { comment: '# Configure your station',           cmd: 'bash scripts/setup.sh' },
-      { comment: '# Start Paperweight',                cmd: 'npm start',
+      { prompt: '$', comment: '# Install deps (requires Homebrew)',    cmd: 'bash scripts/install-macos.sh' },
+      { prompt: '$', comment: '# Configure station, vault & slug',     cmd: 'bash scripts/setup.sh' },
+      { prompt: '$', comment: '# Verify environment',                  cmd: 'npm run preflight' },
+      { prompt: '$', comment: '# Start Paperweight',                   cmd: 'npm start',
         out: '● Paperweight v1.5.1 on http://localhost:3000' }
     ]
   },
@@ -609,11 +609,11 @@ const PLATFORMS = {
     arch: 'x64 · 2020 and older',
     file: 'paperweight-macos-x64.zip',
     href: 'https://discord.gg/XQaX3Nwp',
-    prompt: '$',
     steps: [
-      { comment: '# Install via Homebrew',             cmd: 'bash scripts/install-macos.sh' },
-      { comment: '# Configure your station',           cmd: 'bash scripts/setup.sh' },
-      { comment: '# Start Paperweight',                cmd: 'npm start',
+      { prompt: '$', comment: '# Install deps (requires Homebrew)',    cmd: 'bash scripts/install-macos.sh' },
+      { prompt: '$', comment: '# Configure station, vault & slug',     cmd: 'bash scripts/setup.sh' },
+      { prompt: '$', comment: '# Verify environment',                  cmd: 'npm run preflight' },
+      { prompt: '$', comment: '# Start Paperweight',                   cmd: 'npm start',
         out: '● Paperweight v1.5.1 on http://localhost:3000' }
     ]
   },
@@ -622,11 +622,11 @@ const PLATFORMS = {
     arch: 'x64 · Ubuntu / Debian',
     file: 'paperweight-linux-x64.zip',
     href: 'https://discord.gg/XQaX3Nwp',
-    prompt: '$',
     steps: [
-      { comment: '# Install Node.js, FFmpeg, PM2',     cmd: 'bash scripts/install.sh' },
-      { comment: '# Configure your station',           cmd: 'bash scripts/setup.sh' },
-      { comment: '# Start Paperweight',                cmd: 'npm start',
+      { prompt: '$', comment: '# Install Node.js, FFmpeg, PM2',        cmd: 'bash scripts/install.sh' },
+      { prompt: '$', comment: '# Configure station, vault & slug',      cmd: 'bash scripts/setup.sh' },
+      { prompt: '$', comment: '# Verify environment',                   cmd: 'npm run preflight' },
+      { prompt: '$', comment: '# Start Paperweight',                    cmd: 'npm start',
         out: '● Paperweight v1.5.1 on http://localhost:3000' }
     ]
   },
@@ -635,11 +635,11 @@ const PLATFORMS = {
     arch: 'ARM64 · Pi 4 / Pi 5',
     file: 'paperweight-linux-arm64.zip',
     href: 'https://discord.gg/XQaX3Nwp',
-    prompt: '$',
     steps: [
-      { comment: '# Install + configure tmpfs for Pi', cmd: 'bash scripts/install.sh' },
-      { comment: '# Configure your station',           cmd: 'bash scripts/setup.sh' },
-      { comment: '# Start Paperweight',                cmd: 'npm start',
+      { prompt: '$', comment: '# Install + mount tmpfs for Pi',        cmd: 'bash scripts/install.sh' },
+      { prompt: '$', comment: '# Configure station, vault & slug',     cmd: 'bash scripts/setup.sh' },
+      { prompt: '$', comment: '# Verify environment',                  cmd: 'npm run preflight' },
+      { prompt: '$', comment: '# Start Paperweight',                   cmd: 'npm start',
         out: '● Paperweight v1.5.1 on http://localhost:3000' }
     ]
   }
@@ -654,7 +654,7 @@ function renderTerm(key) {
   const html = p.steps.map(s => `
     <div class="dl-step">
       <div class="dl-comment">${s.comment}</div>
-      <div class="dl-cmd"><span class="dl-prompt">${p.prompt}</span> ${s.cmd}</div>
+      <div class="dl-cmd"><span class="dl-prompt">${s.prompt}</span> ${s.cmd}</div>
       ${s.out ? `<div class="dl-out">${s.out}</div>` : ''}
     </div>
   `).join('');
