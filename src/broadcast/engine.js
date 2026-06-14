@@ -6,7 +6,7 @@ const { log } = require('../db');
 const { buildShuffleBatch, buildSequentialBatch, homogenizeBatch, isVideoTrack } = require('./playlist');
 const { resolveCurrentBlock } = require('./scheduler');
 const { writeConcatManifest } = require('./concat');
-const { installHint } = require('../runtime/ffmpeg');
+const { ffmpegPath, installHint } = require('../runtime/ffmpeg');
 const { writeJsonAtomic } = require('./stateFile');
 
 const STATE_PATH = path.join(config.paths.hlsOutput, 'state.json');
@@ -203,7 +203,7 @@ function runFFmpeg(batch) {
     const concatPath = writeConcatManifest(batch);
     const args = buildFFmpegArgs(concatPath, hasVideo);
 
-    const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
+    const proc = spawn(ffmpegPath, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
     state.ffmpegProc = proc;
     state.currentBatch = batch;
     state.batchStartedAt = new Date();

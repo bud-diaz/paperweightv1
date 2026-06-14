@@ -133,6 +133,9 @@ run('node scripts/generate-client-bundle.js');
 // package asset check can fail fast on a missing packaged native bundle.
 run('node scripts/generate-native-bundle.js');
 
+// Download FFmpeg/ffprobe for this platform into vendor/ffmpeg/ (skips if present).
+run('node scripts/fetch-ffmpeg.js');
+
 run('npm run release:check');
 
 const pkgBin = path.join(ROOT, 'node_modules', '.bin', 'pkg');

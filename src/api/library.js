@@ -6,7 +6,7 @@ const { spawn } = require('child_process');
 const { getDb } = require('../db');
 const { isSubscriberTier, canAccessMedia, canDownloadMedia } = require('../auth/access');
 const config = require('../config');
-const { installHint } = require('../runtime/ffmpeg');
+const { ffmpegPath, installHint } = require('../runtime/ffmpeg');
 const { normalizeUnlockOptions } = require('./vault');
 const { previewLimiter } = require('../middleware/rateLimiter');
 const { safeVaultPath } = require('./safeVaultPath');
@@ -155,7 +155,7 @@ function buildPreviewArgs(row, isVideo, previewPath) {
 
 function generatePreview(row, isVideo, previewPath) {
   return new Promise((resolve, reject) => {
-    const proc = spawn('ffmpeg', buildPreviewArgs(row, isVideo, previewPath), {
+    const proc = spawn(ffmpegPath, buildPreviewArgs(row, isVideo, previewPath), {
       stdio: 'ignore',
       windowsHide: true,
     });
@@ -353,7 +353,7 @@ router.get('/:id/artwork', (req, res) => {
   artworkPending.set(id, [res]);
 
   const chunks = [];
-  const proc = spawn('ffmpeg', [
+  const proc = spawn(ffmpegPath, [
     '-i', filepath,
     '-map', '0:v:0',
     '-vframes', '1',
