@@ -361,4 +361,41 @@ CREATE TABLE IF NOT EXISTS dashboard_2fa (
 );
 `,
   },
+  {
+    filename: "013_creator_profile.sql",
+    sql: `-- Migration 013: Creator bio landing page profile
+-- Single-row table (id = 1) for creator public profile data.
+-- bio_enabled = 0 means station goes directly to player; = 1 shows the bio landing page.
+
+CREATE TABLE IF NOT EXISTS creator_profile (
+  id                INTEGER PRIMARY KEY CHECK (id = 1),
+  bio_enabled       INTEGER NOT NULL DEFAULT 0,
+  bio               TEXT,
+  profile_pic_url   TEXT,
+  social_instagram  TEXT,
+  social_twitter    TEXT,
+  social_youtube    TEXT,
+  social_soundcloud TEXT,
+  social_spotify    TEXT,
+  social_bandcamp   TEXT,
+  updated_at        TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+INSERT OR IGNORE INTO creator_profile (id) VALUES (1);
+`,
+  },
+  {
+    filename: "014_launch_acceptance.sql",
+    sql: `-- Migration 014: First-launch legal acceptance record
+-- Single-row table. accepted_at NULL means not yet accepted.
+
+CREATE TABLE IF NOT EXISTS launch_acceptance (
+  id          INTEGER PRIMARY KEY CHECK (id = 1),
+  accepted_at TEXT,
+  version     TEXT
+);
+
+INSERT OR IGNORE INTO launch_acceptance (id) VALUES (1);
+`,
+  },
 ];
