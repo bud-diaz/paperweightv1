@@ -1289,8 +1289,15 @@
           <!-- Schedule -->
           <div class="dash-section">
             <div class="dash-section-label">SCHEDULE</div>
-            <div id="dash-sched-list"></div>
-            <details style="margin:8px 0 0;">
+            <div id="sched-mode-bar" style="display:flex;align-items:center;gap:8px;padding:4px 14px 8px;font-size:9px;font-family:'Space Mono',monospace;color:rgba(255,255,255,.4);">
+              BROADCAST MODE: <span id="sched-broadcast-mode" style="font-weight:700;">SHUFFLE</span>
+              <button class="mgmt-btn" id="btn-sched-mode-toggle" style="padding:2px 8px;font-size:8px;display:none;"></button>
+            </div>
+            <details id="sched-blocks-details" open style="margin:0 0 4px;">
+              <summary class="dash-summary">VIEW BLOCKS</summary>
+              <div id="dash-sched-list"></div>
+            </details>
+            <details style="margin:4px 0 0;">
               <summary class="dash-summary">+ ADD BLOCK</summary>
               <div class="dash-form-row" style="margin-top:8px;">
                 <input type="text"  class="dash-input dash-input-sm" id="sched-label" placeholder="Label…" style="flex:2;min-width:80px;"/>
@@ -3221,8 +3228,38 @@ const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 async function loadDashSchedule() {
   try {
-    const blocks = await dashFetch('/api/schedule').then(r => r.json());
-    const list   = el('dash-sched-list');
+    const [blocks, status] = await Promise.all([
+      dashFetch('/api/schedule').then(r => r.json()),
+      fetch('/api/stream/status').then(r => r.json()).catch(() => ({})),
+    ]);
+
+    // Update mode status bar
+    const mode = (status.mode || 'shuffle').toUpperCase();
+    const modeEl = el('sched-broadcast-mode');
+    const toggleBtn = el('btn-sched-mode-toggle');
+    if (modeEl) {
+      modeEl.textContent = mode;
+      modeEl.style.color = mode === 'SCHEDULED' ? '#4caf50' : '#ff9800';
+    }
+    if (toggleBtn) {
+      if (mode === 'SCHEDULED') {
+        toggleBtn.textContent = 'SWITCH TO SHUFFLE';
+        toggleBtn.style.display = '';
+      } else {
+        toggleBtn.textContent = 'ENABLE SCHEDULED MODE';
+        toggleBtn.style.display = blocks.length ? '' : 'none';
+      }
+      toggleBtn.onclick = async () => {
+        const newMode = mode === 'SCHEDULED' ? 'shuffle' : 'scheduled';
+        await dashFetch('/api/dashboard/broadcast/mode', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ mode: newMode }),
+        });
+        loadDashSchedule();
+      };
+    }
+
+    const list = el('dash-sched-list');
     list.innerHTML = blocks.length
       ? blocks.map(b => {
           const day = b.day_of_week != null ? DAY_NAMES[b.day_of_week] : 'Daily';

@@ -349,6 +349,21 @@ async function broadcastLoop() {
 
     log('info', 'broadcast', `Batch ready [${source}]: ${batch.length} tracks`);
 
+    // In scheduled mode, poll every 30 s and cut the batch if the active block changes.
+    let schedWatcher = null;
+    if (state.mode === 'scheduled') {
+      const batchSource = source;
+      schedWatcher = setInterval(() => {
+        if (!state.isRunning || state.mode !== 'scheduled' || !state.ffmpegProc) return;
+        const active = resolveCurrentBlock();
+        const activeSource = active ? `block:${active.id}` : 'shuffle';
+        if (activeSource !== batchSource) {
+          log('info', 'broadcast', `Schedule changed (${batchSource} → ${activeSource}); cutting batch`);
+          terminateFFmpegProc(state.ffmpegProc, 'schedule change');
+        }
+      }, 30 * 1000);
+    }
+
     try {
       await runFFmpeg(batch);
       ffmpegBackoffMs = FFMPEG_BACKOFF_INITIAL_MS;
@@ -363,6 +378,8 @@ async function broadcastLoop() {
       ffmpegBackoffMs = Math.min(ffmpegBackoffMs * 2, FFMPEG_BACKOFF_MAX_MS);
       log('warn', 'broadcast', `Retrying FFmpeg in ${Math.round(delay / 1000)}s`);
       await sleep(delay);
+    } finally {
+      if (schedWatcher) clearInterval(schedWatcher);
     }
   }
 
