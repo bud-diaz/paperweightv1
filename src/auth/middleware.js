@@ -53,7 +53,8 @@ function attachTier(req, res, next) {
         req.tier = 'free';
       }
     } catch {
-      req.tier = 'free';
+      // Leave req.tier at row.tier on DB errors — downgrading a paying subscriber
+      // on a transient DB hiccup would incorrectly lock them out of content.
     }
   }
 

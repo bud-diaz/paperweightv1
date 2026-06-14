@@ -3724,10 +3724,10 @@ async function loadDashBroadcast() {
 
 async function loadDashBroadcastQueue() {
   try {
-    const q = await dashFetch('/api/dashboard/broadcast/queue').then(r => r.json());
+    const { queue: q } = await dashFetch('/api/dashboard/broadcast/queue').then(r => r.json());
     const list = el('sq-list');
     if (!list) return;
-    if (!q.length) {
+    if (!q || !q.length) {
       list.innerHTML = '<div class="sq-empty">Queue is empty — add tracks from the library below.</div>';
       return;
     }
@@ -5151,9 +5151,6 @@ async function init() {
     }
   } catch {}
 
-  // First-launch legal acceptance check
-  checkLaunchAcceptance();
-
   // Creator bio landing page (parallel — non-blocking)
   loadBioPanel();
 
@@ -5172,9 +5169,14 @@ async function init() {
   loadTipConfig();
 
   // Silently restore creator session from the httpOnly dashboard cookie.
+  // Only show the launch acceptance modal if the creator is logged in — it is
+  // not meaningful to show it to public listeners who cannot dismiss it.
   (async () => {
     const ok = await tryDashAuth();
-    if (ok) { showDashContent(); }
+    if (ok) {
+      showDashContent();
+      checkLaunchAcceptance();
+    }
   })();
 
   // Initial render
@@ -5505,16 +5507,18 @@ async function loadBioPanel() {
     const socialRow = el('bio-social-row');
     const socialMap = { instagram: 'Instagram', twitter: 'Twitter / X', youtube: 'YouTube', soundcloud: 'SoundCloud', spotify: 'Spotify', bandcamp: 'Bandcamp' };
     for (const [key, label] of Object.entries(socialMap)) {
-      if (d.social && d.social[key]) {
-        const a = document.createElement('a');
-        a.className = 'bio-social-btn';
-        a.href = d.social[key];
-        a.target = '_blank';
-        a.rel = 'noopener';
-        a.title = label;
-        a.innerHTML = SOCIAL_ICONS[key] || '';
-        socialRow.appendChild(a);
-      }
+      const rawUrl = d.social && d.social[key];
+      if (!rawUrl) continue;
+      const safeUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : null;
+      if (!safeUrl) continue;
+      const a = document.createElement('a');
+      a.className = 'bio-social-btn';
+      a.href = safeUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.title = label;
+      a.innerHTML = SOCIAL_ICONS[key] || '';
+      socialRow.appendChild(a);
     }
 
     // Latest track card
