@@ -17,6 +17,7 @@ const { probe } = require('../scanner/probe');
 const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCode } = require('../auth/totp');
 const { getFFmpegStatus } = require('../runtime/ffmpeg');
 const asyncHandler = require('../middleware/asyncHandler');
+const { clearArtworkCache, ARTWORK_DIR } = require('./library');
 
 router.use(requireDashboard);
 
@@ -83,6 +84,29 @@ const upload = multer({
     } else {
       cb(new Error(`Unsupported file type: ${file.mimetype}. Only audio and video files are accepted.`));
     }
+  },
+});
+
+const ARTWORK_IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const ARTWORK_IMG_EXTS = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif' };
+
+const artworkStorage = multer.diskStorage({
+  destination(req, file, cb) {
+    fs.mkdirSync(ARTWORK_DIR, { recursive: true });
+    cb(null, ARTWORK_DIR);
+  },
+  filename(req, file, cb) {
+    const ext = ARTWORK_IMG_EXTS[file.mimetype] || '.jpg';
+    cb(null, `${req.params.id}_tmp_${Date.now()}${ext}`);
+  },
+});
+
+const uploadArtwork = multer({
+  storage: artworkStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter(req, file, cb) {
+    if (ARTWORK_IMAGE_MIMES.has(file.mimetype)) cb(null, true);
+    else cb(new Error('Only image files are accepted for artwork'));
   },
 });
 
@@ -226,6 +250,32 @@ router.patch('/media/:id', (req, res) => {
   if (info.changes === 0) return res.status(404).json({ error: 'Not found' });
   log('info', 'dashboard', `Media ${req.params.id} updated`);
   res.json({ ok: true, id: Number(req.params.id) });
+});
+
+// POST /api/dashboard/media/:id/artwork — upload an image file as artwork
+router.post('/media/:id/artwork', uploadArtwork.single('artwork'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No image file provided' });
+
+  const id    = req.params.id;
+  const ext   = ARTWORK_IMG_EXTS[req.file.mimetype] || '.jpg';
+  // Remove any existing uploaded artwork for this id (all extensions)
+  for (const e of Object.values(ARTWORK_IMG_EXTS)) {
+    const old = path.join(ARTWORK_DIR, `${id}${e}`);
+    if (fs.existsSync(old)) { try { fs.unlinkSync(old); } catch {} }
+  }
+
+  // Move tmp file to canonical name
+  const dest = path.join(ARTWORK_DIR, `${id}${ext}`);
+  try {
+    fs.renameSync(req.file.path, dest);
+  } catch {
+    fs.copyFileSync(req.file.path, dest);
+    fs.unlinkSync(req.file.path);
+  }
+
+  clearArtworkCache(id);
+  log('info', 'dashboard', `Artwork uploaded for media ${id}`);
+  res.json({ ok: true, artworkUrl: `/api/library/${id}/artwork` });
 });
 
 // ─── Tip configuration ────────────────────────────────────────────────────────

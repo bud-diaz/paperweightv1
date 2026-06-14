@@ -1310,7 +1310,7 @@
                 <input class="dash-input" id="new-proj-name" type="text" placeholder="Project name" style="margin-bottom:8px;"/>
                 <div class="dash-edit-label">DESCRIPTION (OPTIONAL)</div>
                 <textarea class="dash-input" id="new-proj-desc" placeholder="Description…" style="margin-bottom:8px;"></textarea>
-                <div class="dash-edit-label">ALBUM ART URL</div>
+                <div class="dash-edit-label">ALBUM ART URL <span style="font-size:7px;opacity:.5;">or use file picker after saving</span></div>
                 <input class="dash-input" id="new-proj-art" type="url" placeholder="https://… (optional)" style="margin-bottom:8px;"/>
                 <div id="new-proj-pricing-block">
                 <div class="dash-edit-label">PRICING</div>
@@ -3773,8 +3773,20 @@ function buildDashLibItem(item, scopeType, scopeId, nested = false) {
         </div>
       </div>
       <div>
-        <div class="dash-edit-label">ART URL</div>
-        <input class="dash-input dash-input-sm" id="edit-art-${item.id}" value="${esc(item.artwork_url||'')}" placeholder="https://… (album art)"/>
+        <div class="dash-edit-label">ART URL <span style="font-size:7px;opacity:.5;">or upload below</span></div>
+        <input class="dash-input dash-input-sm" id="edit-art-${item.id}" value="${esc(item.artwork_url||'')}" placeholder="https://… (optional)"/>
+      </div>
+      <div style="margin-top:4px;">
+        <div class="dash-edit-label">UPLOAD ART</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label id="art-upload-label-${item.id}" style="font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.06em;padding:4px 10px;background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;color:var(--t3);white-space:nowrap;">
+            BROWSE…
+            <input type="file" id="edit-art-file-${item.id}" accept="image/*" style="display:none;"/>
+          </label>
+          <span id="art-filename-${item.id}" style="font-family:'Space Mono',monospace;font-size:8px;color:var(--t4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          <button class="mgmt-btn" id="art-upload-btn-${item.id}" style="display:none;">UPLOAD</button>
+        </div>
+        <div id="art-upload-msg-${item.id}" style="font-family:'Space Mono',monospace;font-size:8px;margin-top:3px;"></div>
       </div>
       <div class="dash-edit-label">CREDITS</div>
       <textarea class="dash-input dash-input-sm" id="edit-credits-${item.id}" placeholder="Mixed by, mastered by, features, etc.">${esc(item.credits||'')}</textarea>
@@ -3840,6 +3852,47 @@ function buildDashLibItem(item, scopeType, scopeId, nested = false) {
       saveBtn.textContent = 'SAVE CHANGES';
     }
     saveBtn.disabled = false;
+  });
+
+  // Artwork file upload
+  const artFileInput = wrap.querySelector(`#edit-art-file-${item.id}`);
+  const artFilename  = wrap.querySelector(`#art-filename-${item.id}`);
+  const artUploadBtn = wrap.querySelector(`#art-upload-btn-${item.id}`);
+  const artUploadMsg = wrap.querySelector(`#art-upload-msg-${item.id}`);
+  artFileInput.addEventListener('change', () => {
+    const f = artFileInput.files[0];
+    if (!f) return;
+    artFilename.textContent = f.name;
+    artUploadBtn.style.display = '';
+  });
+  artUploadBtn.addEventListener('click', async () => {
+    const f = artFileInput.files[0];
+    if (!f) return;
+    artUploadBtn.disabled = true; artUploadBtn.textContent = '…';
+    artUploadMsg.textContent = ''; artUploadMsg.style.color = '';
+    const fd = new FormData();
+    fd.append('artwork', f);
+    try {
+      const res = await dashFetch(`/api/dashboard/media/${item.id}/artwork`, { method: 'POST', body: fd });
+      const data = await res.json();
+      if (res.ok) {
+        artUploadMsg.textContent = '✓ Art uploaded';
+        artUploadMsg.style.color = '#39ff14';
+        artUploadBtn.textContent = '✓';
+        // Update mgmt-thumb preview if possible
+        const thumb = wrap.querySelector('.mgmt-thumb img');
+        if (thumb) { thumb.src = data.artworkUrl + '?t=' + Date.now(); thumb.style.display = ''; }
+        setTimeout(() => { artUploadBtn.textContent = 'UPLOAD'; artUploadBtn.disabled = false; }, 2000);
+      } else {
+        artUploadMsg.textContent = data.error || 'Upload failed';
+        artUploadMsg.style.color = '#ff6b6b';
+        artUploadBtn.textContent = 'UPLOAD'; artUploadBtn.disabled = false;
+      }
+    } catch {
+      artUploadMsg.textContent = 'Network error';
+      artUploadMsg.style.color = '#ff6b6b';
+      artUploadBtn.textContent = 'UPLOAD'; artUploadBtn.disabled = false;
+    }
   });
 
   wrap.querySelector(`#tok-tog-${panelId}`).addEventListener('click', async () => {
