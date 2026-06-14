@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Content Responsibility — Paperweight</title>
+  <meta name="description" content="Paperweight Content Responsibility and Acceptable Use Policy."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"/>
+  <style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:clip;scroll-behavior:smooth}
+a{text-decoration:none;color:inherit}
+button{border:none;cursor:pointer;background:none;font:inherit}
+
+:root{
+  --bg:#080808;--bg2:#0d0d0d;
+  --neon:#39ff14;
+  --border:rgba(255,255,255,.08);--border-hi:rgba(255,255,255,.14);
+  --text:#fff;--t-mid:rgba(255,255,255,.45);
+  --t-muted:rgba(255,255,255,.25);--t-dim:rgba(255,255,255,.13);
+  --serif:'DM Serif Display',Georgia,serif;
+  --mono:'Space Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh}
+
+.nav{
+  position:sticky;top:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 32px;height:52px;
+  background:rgba(8,8,8,.88);
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+}
+.nav-brand{font-family:var(--serif);font-size:15px;letter-spacing:-.02em;color:var(--text)}
+.nav-links{display:flex;align-items:center;gap:28px}
+.nav-link{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--t-muted);text-transform:uppercase;transition:color .15s}
+.nav-link:hover{color:var(--t-mid)}
+
+.page-hero{
+  padding:64px 32px 40px;
+  max-width:760px;margin:0 auto;
+}
+.page-eyebrow{
+  font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--neon);
+  text-transform:uppercase;margin-bottom:12px;
+}
+.page-title{
+  font-family:var(--serif);font-size:clamp(2rem,5vw,3rem);
+  font-weight:400;letter-spacing:-.02em;margin-bottom:8px;
+}
+.page-subtitle{
+  font-family:var(--mono);font-size:10px;color:var(--t-muted);
+  letter-spacing:.04em;
+}
+
+.doc-body{
+  max-width:760px;margin:0 auto;
+  padding:0 32px 80px;
+}
+.doc-section{
+  border-top:1px solid var(--border);
+  padding:32px 0 0;
+  margin-bottom:32px;
+}
+.doc-section-title{
+  font-family:var(--mono);font-size:9px;letter-spacing:.18em;
+  color:var(--neon);text-transform:uppercase;margin-bottom:16px;
+}
+.doc-p{
+  font-family:var(--mono);font-size:10px;color:var(--t-mid);
+  line-height:1.9;margin-bottom:12px;
+}
+.doc-list{
+  list-style:none;padding-left:12px;margin-bottom:12px;
+}
+.doc-list li{
+  font-family:var(--mono);font-size:10px;color:var(--t-mid);
+  line-height:1.9;padding:2px 0;
+}
+.doc-list li::before{content:'• ';color:rgba(57,255,20,.5);}
+.doc-callout{
+  background:rgba(57,255,20,.05);border:1px solid rgba(57,255,20,.2);
+  border-radius:8px;padding:16px 18px;margin-bottom:20px;
+}
+.doc-callout p{font-family:var(--mono);font-size:10px;color:var(--t-mid);line-height:1.8;}
+
+footer{
+  border-top:1px solid var(--border);
+  padding:24px 32px;
+  display:flex;align-items:center;justify-content:space-between;
+  font-family:var(--mono);font-size:9px;color:var(--t-dim);
+  flex-wrap:wrap;gap:12px;
+}
+.footer-links{display:flex;gap:20px;}
+.footer-link{color:var(--t-dim);transition:color .15s;}
+.footer-link:hover{color:var(--t-mid);}
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-brand">Paperweight</a>
+  <div class="nav-links">
+    <a href="/landing/download" class="nav-link">Download</a>
+    <a href="/landing/license" class="nav-link">License</a>
+  </div>
+</nav>
+
+<div class="page-hero">
+  <div class="page-eyebrow">Legal</div>
+  <h1 class="page-title">Content Responsibility</h1>
+  <p class="page-subtitle">Acceptable Use Notice · Paperweight Systems LLC</p>
+</div>
+
+<div class="doc-body">
+
+  <div class="doc-callout">
+    <p>Paperweight is a software platform for media storage, management, broadcasting, streaming, playback, administration, and distribution. Paperweight Systems LLC does not create, review, verify, monitor, endorse, approve, or guarantee user content.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">User Responsibility</div>
+    <p class="doc-p">Users are solely responsible for all content uploaded, imported, stored, managed, organized, streamed, broadcast, distributed, archived, displayed, transmitted, monetized, or otherwise made available through any component of the Paperweight Platform.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">Ownership and Rights</div>
+    <p class="doc-p">By using the Software, you represent and warrant that you own the content or possess all rights, permissions, licenses, and authorizations necessary to use it.</p>
+    <p class="doc-p">Users remain solely responsible for obtaining:</p>
+    <ul class="doc-list">
+      <li>Copyright permissions</li>
+      <li>Performance rights</li>
+      <li>Synchronization rights</li>
+      <li>Mechanical licenses</li>
+      <li>Distribution rights</li>
+      <li>Royalty obligations</li>
+      <li>Trademark permissions</li>
+      <li>Any other required legal authorization</li>
+    </ul>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">No Content Verification</div>
+    <p class="doc-p">Paperweight Systems LLC does not verify ownership, originality, copyright status, trademark status, licensing status, fair use eligibility, public domain status, or AI-generated content rights.</p>
+    <p class="doc-p">Use of the Software does not grant rights to copyrighted material.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">AI-Generated Content</div>
+    <p class="doc-p">Users are solely responsible for determining whether content obtained from artificial intelligence systems, third-party services, websites, social platforms, datasets, repositories, or other sources may legally be used, distributed, archived, monetized, rebroadcast, or sold.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">Interconnected Components</div>
+    <p class="doc-p">Components of the Paperweight Platform may communicate with one another to facilitate storage, management, broadcasting, playback, analytics, administration, or distribution. Such communication does not transfer ownership, authorship, licensing rights, legal responsibility, or liability for user content to Paperweight Systems LLC.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">Limitation of Liability</div>
+    <p class="doc-p">Paperweight Systems LLC shall not be liable for any copyright claim, trademark dispute, royalty dispute, licensing dispute, takedown request, copyright strike, privacy claim, publicity rights claim, regulatory action, lawsuit, penalty, or loss arising from user-generated or user-distributed content.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">Indemnification</div>
+    <p class="doc-p">You agree to defend, indemnify, and hold harmless Paperweight Systems LLC, its owners, officers, employees, contractors, affiliates, successors, and assigns from and against any claims, damages, liabilities, judgments, penalties, settlements, losses, costs, and expenses, including reasonable attorneys' fees, arising from:</p>
+    <ul class="doc-list">
+      <li>Your use of the Software.</li>
+      <li>Your content.</li>
+      <li>Your violation of applicable law.</li>
+      <li>Your violation of third-party rights.</li>
+      <li>Your infringement of intellectual property rights.</li>
+      <li>Any content made available through your use of the Paperweight Platform.</li>
+    </ul>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">Acceptable Use</div>
+    <p class="doc-p">Users may not knowingly use the Software to:</p>
+    <ul class="doc-list">
+      <li>Distribute stolen content.</li>
+      <li>Infringe intellectual property rights.</li>
+      <li>Circumvent licensing restrictions.</li>
+      <li>Impersonate another individual or organization.</li>
+      <li>Violate applicable laws.</li>
+    </ul>
+    <p class="doc-p">Violation may result in termination of license rights.</p>
+  </div>
+
+</div>
+
+<footer>
+  <span>Paperweight Systems LLC · 2026</span>
+  <div class="footer-links">
+    <a href="/landing/download" class="footer-link">Download</a>
+    <a href="/landing/license" class="footer-link">License</a>
+  </div>
+</footer>
+
+</body>
+</html>

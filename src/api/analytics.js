@@ -60,4 +60,18 @@ router.get('/top', (req, res) => {
   res.json(rows);
 });
 
+// GET /api/analytics/playcounts — all-time play count per media id
+router.get('/playcounts', (req, res) => {
+  const rows = getDb().prepare(`
+    SELECT media_id, COUNT(*) AS plays
+    FROM listen_events
+    WHERE media_id IS NOT NULL
+    GROUP BY media_id
+  `).all();
+
+  const map = {};
+  for (const r of rows) map[r.media_id] = r.plays;
+  res.json(map);
+});
+
 module.exports = router;

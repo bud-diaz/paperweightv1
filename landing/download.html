@@ -257,6 +257,34 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:1
 }
 .dl-plat-row.active .dl-plat-check{opacity:1}
 
+/* ── Download gate ──────────────────────────────────────────────────────── */
+.dl-gate{
+  border-top:1px solid rgba(255,255,255,.06);
+  padding:14px 16px 10px;
+  display:flex;flex-direction:column;gap:9px;
+}
+.dl-gate-check{
+  display:flex;align-items:flex-start;gap:9px;
+  font-family:var(--mono);font-size:9px;color:var(--t-muted);line-height:1.6;cursor:pointer;
+}
+.dl-gate-check input{margin-top:2px;accent-color:var(--neon);flex-shrink:0;}
+.dl-gate-check a{color:rgba(57,255,20,.7);text-decoration:underline;text-underline-offset:2px;}
+.dl-gate-check a:hover{color:var(--neon);}
+.dl-gate-email-wrap{display:flex;flex-direction:column;gap:4px;}
+.dl-gate-email{
+  width:100%;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  border-radius:5px;padding:7px 10px;
+  font-family:var(--mono);font-size:9px;color:var(--text);
+  outline:none;transition:border-color .15s;
+}
+.dl-gate-email:focus{border-color:rgba(57,255,20,.35);}
+.dl-gate-email::placeholder{color:var(--t-dim);}
+.dl-gate-disclaimer{font-family:var(--mono);font-size:8px;color:var(--t-dim);letter-spacing:.03em;}
+
+/* Download button disabled state */
+.dl-dl-btn.gated{opacity:.3;pointer-events:none;}
+
 /* ── Bottom accent ───────────────────────────────────────────────────────── */
 .mc-accent{height:2px;background:linear-gradient(to right,transparent,var(--neon),transparent);opacity:.55}
 
@@ -443,7 +471,7 @@ footer{
       <!-- Controls -->
       <div class="mc-controls">
         <button class="mc-drawer-btn active" id="dl-plat-btn" title="Platforms" onclick="toggleDrawer()">≡</button>
-        <a class="dl-dl-btn" id="dl-btn" href="https://discord.gg/XQaX3Nwp" target="_blank" rel="noopener" title="Download">
+        <a class="dl-dl-btn gated" id="dl-btn" href="https://discord.gg/XQaX3Nwp" target="_blank" rel="noopener" title="Download">
           <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5z"/></svg>
         </a>
         <a class="mc-help-btn" href="https://discord.gg/XQaX3Nwp" target="_blank" rel="noopener" title="Get help on Discord">
@@ -503,6 +531,22 @@ footer{
         </div>
 
       </div><!-- /dl-drawer -->
+
+      <!-- Legal gate -->
+      <div class="dl-gate">
+        <label class="dl-gate-check">
+          <input type="checkbox" id="gate-chk-license">
+          I have read and agree to the <a href="license.html" target="_blank" rel="noopener">Paperweight License Agreement</a>
+        </label>
+        <label class="dl-gate-check">
+          <input type="checkbox" id="gate-chk-content">
+          I understand and accept the <a href="content-responsibility.html" target="_blank" rel="noopener">Content Responsibility Policy</a>
+        </label>
+        <div class="dl-gate-email-wrap">
+          <input type="email" id="gate-email" class="dl-gate-email" placeholder="your@email.com (for important updates)">
+          <div class="dl-gate-disclaimer">No spam. No marketing. We never sell or share your data.</div>
+        </div>
+      </div>
 
       <div class="mc-accent"></div>
     </div><!-- /mock-card -->
@@ -750,6 +794,17 @@ function applyTilt() {
   card.style.transform = `perspective(1200px) rotateX(${curRx.toFixed(2)}deg) rotateY(${curRy.toFixed(2)}deg)`;
   requestAnimationFrame(applyTilt);
 }
+
+/* ── Download gate ────────────────────────────────────────────────────────── */
+function updateGate() {
+  const ok = document.getElementById('gate-chk-license').checked &&
+             document.getElementById('gate-chk-content').checked &&
+             /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((document.getElementById('gate-email').value || '').trim());
+  document.getElementById('dl-btn').classList.toggle('gated', !ok);
+}
+document.getElementById('gate-chk-license').addEventListener('change', updateGate);
+document.getElementById('gate-chk-content').addEventListener('change', updateGate);
+document.getElementById('gate-email').addEventListener('input', updateGate);
 
 /* ── Init ─────────────────────────────────────────────────────────────────── */
 const detected = detectOS();

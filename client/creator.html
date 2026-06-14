@@ -880,9 +880,156 @@
     .dash-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-bottom: 8px; }
     .dash-edit-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .08em; margin-bottom: 3px; }
     textarea.dash-input { resize: vertical; min-height: 46px; line-height: 1.4; }
+
+    /* ── Bio landing panel ── */
+    #panel-bio {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      overflow-y: auto;
+      transform: translateX(-100%);
+      transition: transform .35s cubic-bezier(.4,0,.2,1);
+      background: var(--card);
+    }
+    #player-card.bio-landing #panel-bio    { transform: translateX(0); }
+    #player-card.bio-landing #panel-player { transform: translateX(100%); }
+    .bio-inner { padding: 20px 20px 28px; display: flex; flex-direction: column; align-items: center; gap: 14px; flex: 1; }
+    .bio-pic-wrap {
+      width: 80px; height: 80px; border-radius: 50%;
+      border: 1px solid var(--border-strong);
+      background: var(--inset);
+      overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    }
+    .bio-pic-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .bio-pic-placeholder { font-size: 28px; color: var(--t4); }
+    .bio-creator-name { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--t1); text-align: center; letter-spacing: -.02em; }
+    .bio-station-name { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t3); letter-spacing: .12em; text-transform: uppercase; text-align: center; }
+    .bio-text { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t2); line-height: 1.7; text-align: center; max-width: 340px; }
+    .bio-social-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    .bio-social-btn {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--raised); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--t3); transition: color .15s, border-color .15s, box-shadow .15s;
+      text-decoration: none;
+    }
+    .bio-social-btn:hover { color: #39ff14; border-color: rgba(57,255,20,.4); box-shadow: 0 0 10px rgba(57,255,20,.2); }
+    .bio-social-btn svg { width: 14px; height: 14px; fill: currentColor; }
+    .bio-cards-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+    .bio-card {
+      background: var(--inset); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 12px 14px;
+    }
+    .bio-card-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .1em; margin-bottom: 4px; }
+    .bio-card-val { font-family: 'DM Serif Display', serif; font-size: 13px; color: var(--t1); }
+    .bio-card-sub { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); margin-top: 2px; }
+    .bio-enter-btn {
+      width: 100%; padding: 14px;
+      background: #39ff14; color: #000;
+      font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: .14em;
+      border: none; border-radius: var(--radius-md); cursor: pointer;
+      box-shadow: 0 0 24px rgba(57,255,20,.35);
+      transition: box-shadow .2s, transform .12s;
+    }
+    .bio-enter-btn:hover { box-shadow: 0 0 40px rgba(57,255,20,.6); transform: translateY(-1px); }
+
+    /* ── Launch modal ── */
+    #launch-backdrop {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,.88);
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    #launch-backdrop[hidden] { display: none !important; }
+    #launch-modal {
+      background: var(--card); border: 1px solid var(--border-strong);
+      border-radius: var(--radius-card); padding: 28px 24px 24px;
+      max-width: 400px; width: 100%;
+    }
+    .launch-wordmark { font-family: 'DM Serif Display', serif; font-style: italic; font-size: 18px; color: var(--t1); margin-bottom: 16px; }
+    .launch-title { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--t1); margin-bottom: 12px; line-height: 1.1; }
+    .launch-body { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t2); line-height: 1.8; margin-bottom: 20px; }
+    .launch-checks { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+    .launch-check-label {
+      display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+      font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t2); line-height: 1.5;
+    }
+    .launch-check-label input { margin-top: 2px; accent-color: #39ff14; flex-shrink: 0; }
+    .launch-check-label a { color: #39ff14; text-decoration: underline; text-underline-offset: 2px; }
+    #launch-continue {
+      width: 100%; padding: 12px;
+      background: #39ff14; color: #000;
+      font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: .12em;
+      border: none; border-radius: var(--radius-md); cursor: pointer;
+      transition: opacity .15s, box-shadow .2s;
+    }
+    #launch-continue:disabled { opacity: .3; cursor: not-allowed; }
+    #launch-continue:not(:disabled):hover { box-shadow: 0 0 28px rgba(57,255,20,.5); }
+
+    /* ── Dashboard toggle switch ── */
+    .dash-section-header { display: flex; align-items: center; justify-content: space-between; }
+    .toggle-sw { position: relative; display: inline-flex; align-items: center; cursor: pointer; gap: 6px; }
+    .toggle-sw input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      width: 30px; height: 16px; border-radius: 8px;
+      background: var(--raised); border: 1px solid var(--border);
+      position: relative; transition: background .2s, border-color .2s;
+    }
+    .toggle-track::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--t4); transition: transform .2s, background .2s;
+    }
+    .toggle-sw input:checked + .toggle-track { background: rgba(57,255,20,.2); border-color: rgba(57,255,20,.5); }
+    .toggle-sw input:checked + .toggle-track::after { transform: translateX(14px); background: #39ff14; }
+    .toggle-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .06em; }
+
+    /* ── Play count badge on tracks ── */
+    .track-plays { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); white-space: nowrap; flex-shrink: 0; margin-left: 4px; }
+
+    /* ── Collapsible analytics ── */
+    #analytics-details { width: 100%; }
+    #analytics-details > summary { list-style: none; cursor: pointer; }
+    #analytics-details > summary::-webkit-details-marker { display: none; }
+    #analytics-details > summary .dash-section-label { display: flex; align-items: center; justify-content: space-between; }
+    #analytics-details > summary .dash-section-label::after { content: '▸'; font-size: 9px; color: var(--t4); transition: transform .2s; }
+    #analytics-details[open] > summary .dash-section-label::after { transform: rotate(90deg); }
+    #analytics-expanded { margin-top: 12px; }
+    .analytics-history { display: flex; align-items: flex-end; gap: 2px; height: 48px; margin-bottom: 10px; }
+    .analytics-history-bar { flex: 1; border-radius: 2px; background: rgba(57,255,20,.25); min-width: 2px; transition: background .2s; }
+    .analytics-history-bar:hover { background: rgba(57,255,20,.6); }
+    .analytics-top-list { margin-top: 8px; }
+    .analytics-top-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+    .analytics-top-title { font-family: 'DM Serif Display', serif; font-size: 11px; color: var(--t2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .analytics-top-count { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); flex-shrink: 0; }
+
+    /* ── Creator bio dashboard section ── */
+    .bio-dash-blocked { pointer-events: none; opacity: .35; }
+    .bio-pic-preview { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); display: none; }
+    .bio-pic-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
   </style>
 </head>
 <body>
+
+<!-- First-launch legal acceptance modal -->
+<div id="launch-backdrop" hidden>
+  <div id="launch-modal">
+    <div class="launch-wordmark">Paperweight</div>
+    <div class="launch-title">Before you begin.</div>
+    <p class="launch-body">By using Paperweight, you agree to the Paperweight License Agreement and acknowledge that you are solely responsible for the legality and ownership of all content distributed through the software.</p>
+    <div class="launch-checks">
+      <label class="launch-check-label">
+        <input type="checkbox" id="launch-chk-license">
+        I have read and agree to the <a href="/landing/license" target="_blank" rel="noopener">Paperweight License Agreement</a>
+      </label>
+      <label class="launch-check-label">
+        <input type="checkbox" id="launch-chk-content">
+        I understand and accept my <a href="/landing/content-responsibility" target="_blank" rel="noopener">Content Responsibility</a>
+      </label>
+    </div>
+    <button id="launch-continue" disabled>CONTINUE →</button>
+  </div>
+</div>
 
 <!-- Ambient glow -->
 <div id="ambient"></div>
@@ -980,6 +1127,39 @@
 
     <!-- Sliding panels wrapper -->
     <div id="card-panels">
+
+      <!-- PANEL: Creator Bio Landing -->
+      <div id="panel-bio">
+        <div id="topbar" style="position:sticky;top:0;z-index:5;background:var(--card);">
+          <span class="pw-wordmark">Paperweight</span>
+          <div></div>
+          <div></div>
+        </div>
+        <div class="bio-inner">
+          <div class="bio-pic-wrap">
+            <img id="bio-pic-img" src="" alt="" hidden onerror="this.hidden=true;document.getElementById('bio-pic-ph').hidden=false;">
+            <div class="bio-pic-placeholder" id="bio-pic-ph">♪</div>
+          </div>
+          <div>
+            <div class="bio-creator-name" id="bio-creator-name"></div>
+            <div class="bio-station-name" id="bio-station-name"></div>
+          </div>
+          <div class="bio-text" id="bio-text" hidden></div>
+          <div class="bio-social-row" id="bio-social-row"></div>
+          <div class="bio-cards-row" id="bio-cards-row">
+            <div class="bio-card" id="bio-latest-card" hidden>
+              <div class="bio-card-label">LATEST RELEASE</div>
+              <div class="bio-card-val" id="bio-latest-title">—</div>
+              <div class="bio-card-sub" id="bio-latest-sub"></div>
+            </div>
+            <div class="bio-card" id="bio-since-card" hidden>
+              <div class="bio-card-label">CORE CREATOR SINCE</div>
+              <div class="bio-card-val" id="bio-since-val">—</div>
+            </div>
+          </div>
+          <button class="bio-enter-btn" id="bio-enter-btn">ENTER STATION →</button>
+        </div>
+      </div>
 
       <!-- PANEL: Player -->
       <div id="panel-player">
@@ -1253,6 +1433,76 @@
 
           <div class="dash-divider"></div>
 
+          <!-- Creator Bio -->
+          <div class="dash-section" id="dash-bio-section">
+            <div class="dash-section-header">
+              <div class="dash-section-label">CREATOR BIO</div>
+              <label class="toggle-sw" title="Toggle creator bio landing page">
+                <input type="checkbox" id="bio-toggle">
+                <span class="toggle-track"></span>
+                <span class="toggle-label">LANDING PAGE</span>
+              </label>
+            </div>
+            <details id="bio-details" style="margin-top:10px;">
+              <summary class="dash-summary" id="bio-summary">EDIT PROFILE</summary>
+              <div style="padding:10px 0 4px;" id="bio-edit-body">
+                <!-- Profile pic -->
+                <div class="bio-pic-row">
+                  <img id="dash-bio-pic-preview" class="bio-pic-preview" src="" alt="" onerror="this.style.display='none'">
+                  <div style="flex:1;">
+                    <div class="dash-edit-label">PROFILE PICTURE</div>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
+                      <label style="font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.06em;padding:4px 10px;background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;color:var(--t3);white-space:nowrap;">
+                        BROWSE…
+                        <input type="file" id="bio-pic-file" accept="image/*" style="display:none;">
+                      </label>
+                      <span id="bio-pic-filename" style="font-family:'Space Mono',monospace;font-size:8px;color:var(--t4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+                      <button class="mgmt-btn" id="bio-pic-upload-btn" style="display:none;">UPLOAD</button>
+                    </div>
+                    <div id="bio-pic-msg" style="font-family:'Space Mono',monospace;font-size:8px;margin-top:3px;"></div>
+                  </div>
+                </div>
+                <!-- Bio text -->
+                <div class="dash-edit-label">BIO</div>
+                <textarea class="dash-input" id="bio-bio-input" placeholder="Tell listeners about yourself…" style="margin-bottom:10px;min-height:72px;"></textarea>
+                <!-- Social links -->
+                <div class="dash-edit-label" style="margin-bottom:6px;">SOCIAL LINKS (OPTIONAL)</div>
+                <div class="dash-edit-grid" style="grid-template-columns:1fr 1fr;">
+                  <div>
+                    <div class="dash-edit-label">INSTAGRAM</div>
+                    <input class="dash-input dash-input-sm" id="bio-instagram" type="url" placeholder="https://instagram.com/…">
+                  </div>
+                  <div>
+                    <div class="dash-edit-label">TWITTER / X</div>
+                    <input class="dash-input dash-input-sm" id="bio-twitter" type="url" placeholder="https://x.com/…">
+                  </div>
+                  <div>
+                    <div class="dash-edit-label">YOUTUBE</div>
+                    <input class="dash-input dash-input-sm" id="bio-youtube" type="url" placeholder="https://youtube.com/…">
+                  </div>
+                  <div>
+                    <div class="dash-edit-label">SOUNDCLOUD</div>
+                    <input class="dash-input dash-input-sm" id="bio-soundcloud" type="url" placeholder="https://soundcloud.com/…">
+                  </div>
+                  <div>
+                    <div class="dash-edit-label">SPOTIFY</div>
+                    <input class="dash-input dash-input-sm" id="bio-spotify" type="url" placeholder="https://open.spotify.com/…">
+                  </div>
+                  <div>
+                    <div class="dash-edit-label">BANDCAMP</div>
+                    <input class="dash-input dash-input-sm" id="bio-bandcamp" type="url" placeholder="https://…bandcamp.com">
+                  </div>
+                </div>
+                <div class="dash-form-row" style="margin-top:10px;">
+                  <span id="bio-save-msg" style="font-family:'Space Mono',monospace;font-size:8px;color:var(--t3);flex:1;"></span>
+                  <button class="mgmt-btn" id="bio-save-btn">SAVE PROFILE</button>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div class="dash-divider"></div>
+
           <!-- Vault Stats -->
           <div class="dash-section">
             <div class="dash-section-label">VAULT</div>
@@ -1341,8 +1591,18 @@
 
           <!-- Analytics -->
           <div class="dash-section">
-            <div class="dash-section-label">ANALYTICS</div>
-            <div class="stat-grid" id="dash-analytics"></div>
+            <details id="analytics-details">
+              <summary>
+                <div class="dash-section-label">ANALYTICS</div>
+              </summary>
+              <div class="stat-grid" id="dash-analytics" style="margin-top:10px;"></div>
+              <div id="analytics-expanded">
+                <div class="dash-edit-label" style="margin:12px 0 4px;letter-spacing:.12em;">7-DAY LISTENERS</div>
+                <div class="analytics-history" id="analytics-history-bars"></div>
+                <div class="dash-edit-label" style="margin:10px 0 4px;letter-spacing:.12em;">TOP TRACKS</div>
+                <div class="analytics-top-list" id="analytics-top-list"></div>
+              </div>
+            </details>
           </div>
 
           <div class="dash-divider"></div>
@@ -3247,6 +3507,8 @@ function loadDashboard() {
   loadDash2FA();
   loadDashPaymentConfig();
   loadDashTipConfig();
+  loadDashBio();
+  loadPlayCounts();
 }
 
 async function loadDashRuntime() {
@@ -3732,7 +3994,10 @@ function buildDashLibItem(item, scopeType, scopeId, nested = false) {
       <div class="mgmt-thumb" style="background:linear-gradient(135deg,${c}44,${c}11);border:1px solid ${c}33;position:relative;overflow:hidden;">${item.artwork_url?`<img src="/api/library/${item.id}/artwork" loading="lazy" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;"/>`:(item.category==='videos'?'▶':'♪')}<button class="lib-queue-btn" data-id="${item.id}" data-title="${esc(item.title||'')}" data-artist="${esc(item.artist||'')}" title="Queue for broadcast">+</button></div>
       <div class="mgmt-info">
         <div class="mgmt-title">${esc(item.title||item.filename)}</div>
-        <div class="mgmt-meta">${esc(item.category)}</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="mgmt-meta">${esc(item.category)}</div>
+          <span class="track-plays" id="plays-${item.id}">▶ ${(window._playCounts && window._playCounts[item.id]) ? window._playCounts[item.id] : 0}</span>
+        </div>
       </div>
       <div class="mgmt-actions">
         <select class="dash-select" id="vis-${item.id}">
@@ -4474,6 +4739,42 @@ async function loadDashAnalytics() {
   } catch {}
 }
 
+let _analyticsExpandedLoaded = false;
+async function loadAnalyticsExpanded() {
+  if (_analyticsExpandedLoaded) return;
+  _analyticsExpandedLoaded = true;
+  try {
+    const [histData, topData] = await Promise.all([
+      dashFetch('/api/analytics/history?days=7').then(r => r.json()),
+      dashFetch('/api/analytics/top?limit=5&period=30d').then(r => r.json()),
+    ]);
+    // 7-day bar chart
+    const barsEl = el('analytics-history-bars');
+    if (histData.length) {
+      const maxListeners = Math.max(1, ...histData.map(d => d.unique_listeners));
+      barsEl.innerHTML = histData.map(d => {
+        const h = Math.max(8, Math.round((d.unique_listeners / maxListeners) * 100));
+        const label = new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' });
+        return `<div class="analytics-history-bar" title="${label}: ${d.unique_listeners} listeners" style="height:${h}%;"></div>`;
+      }).join('');
+    } else {
+      barsEl.innerHTML = '<div style="font-family:\'Space Mono\',monospace;font-size:8px;color:var(--t4);">No data yet</div>';
+    }
+    // Top tracks
+    const topEl = el('analytics-top-list');
+    if (topData.length) {
+      topEl.innerHTML = topData.map((t, i) =>
+        `<div class="analytics-top-row">
+          <div class="analytics-top-title">${esc(t.title||t.filename)}</div>
+          <div class="analytics-top-count">▶ ${t.play_count}</div>
+        </div>`
+      ).join('');
+    } else {
+      topEl.innerHTML = '<div style="font-family:\'Space Mono\',monospace;font-size:8px;color:var(--t4);">No plays recorded yet</div>';
+    }
+  } catch {}
+}
+
 async function loadDashTipConfig() {
   try {
     const d    = await dashFetch('/api/dashboard/tip-config').then(r => r.json());
@@ -4850,6 +5151,12 @@ async function init() {
     }
   } catch {}
 
+  // First-launch legal acceptance check
+  checkLaunchAcceptance();
+
+  // Creator bio landing page (parallel — non-blocking)
+  loadBioPanel();
+
   // Stream status + polling
   await fetchStreamStatus();
   statusInterval = setInterval(fetchStreamStatus, STATUS_INTERVAL_MS);
@@ -5135,6 +5442,209 @@ async function stopGoLive() {
 
 el('btn-go-live').addEventListener('click', startGoLive);
 el('btn-end-live').addEventListener('click', stopGoLive);
+
+// ─── Analytics details toggle ──────────────────────────────────────────────────
+el('analytics-details').addEventListener('toggle', () => {
+  if (el('analytics-details').open) loadAnalyticsExpanded();
+});
+
+// ─── Launch acceptance modal ───────────────────────────────────────────────────
+async function checkLaunchAcceptance() {
+  try {
+    const d = await fetch('/api/system/launch-status').then(r => r.json());
+    if (!d.accepted) {
+      el('launch-backdrop').hidden = false;
+    }
+  } catch {}
+}
+
+function updateLaunchContinue() {
+  el('launch-continue').disabled = !(el('launch-chk-license').checked && el('launch-chk-content').checked);
+}
+el('launch-chk-license').addEventListener('change', updateLaunchContinue);
+el('launch-chk-content').addEventListener('change', updateLaunchContinue);
+el('launch-continue').addEventListener('click', async () => {
+  try {
+    await fetch('/api/system/launch-accept', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+  } catch {}
+  el('launch-backdrop').hidden = true;
+});
+
+// ─── Creator bio landing panel ─────────────────────────────────────────────────
+const SOCIAL_ICONS = {
+  instagram:  `<svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>`,
+  twitter:    `<svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`,
+  youtube:    `<svg viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`,
+  soundcloud: `<svg viewBox="0 0 24 24"><path d="M1.175 12.225C.528 12.225 0 12.772 0 13.432v.215C0 14.308.528 14.84 1.175 14.84h.058l.002-.014.026-.229c.037-.328.037-.64 0-.97l-.026-.23-.002-.014-.058-.002zm.625-2.124c-.11 0-.213.014-.31.04a6.74 6.74 0 0 0-.05.906c0 .305.017.608.05.906.097.025.2.04.31.04.583 0 1.055-.472 1.055-1.055 0-.582-.472-1.054-1.055-1.054zm1.48-1.148a7.27 7.27 0 0 0-.067 1.006c0 .338.025.67.067 1.003.04.05.09.09.14.126v-2.265a.95.95 0 0 0-.14.13zm1.14-.667c-.168 0-.33.023-.485.062a8.014 8.014 0 0 0-.114 1.374c0 .484.04.956.114 1.411.155.04.317.063.485.063.803 0 1.455-.65 1.455-1.455 0-.803-.652-1.455-1.455-1.455zm8.525-4.7C11.86 2.127 10.306 1.5 8.624 1.5c-2.61 0-4.844 1.667-5.62 4.02a3.625 3.625 0 0 0-.524-.038C1.12 5.482 0 6.603 0 7.965c0 .07.003.14.01.21C.003 8.34 0 8.508 0 8.68v.007c0 .034.001.069.002.103.037 1.54 1.302 2.775 2.854 2.775h.001V9.327c0-.803.65-1.455 1.455-1.455.215 0 .418.05.601.136.166-.85.51-1.636 1.004-2.317-.148-.193-.23-.43-.23-.687 0-.643.52-1.163 1.163-1.163.285 0 .547.103.748.27C8.3 3.8 9.152 3.5 10.07 3.5c2.396 0 4.347 1.862 4.466 4.226a.825.825 0 0 1 .29-.052c.456 0 .826.37.826.826 0 .437-.34.794-.77.822-.007.06-.01.122-.01.184 0 1.327 1.076 2.404 2.404 2.404h.002v-1.66c0-.85-.69-1.54-1.54-1.54-.042 0-.084.002-.125.005a5.47 5.47 0 0 0-.37-1.44 3.01 3.01 0 0 0 .035-.47c0-1.663-1.35-3.012-3.013-3.012-.49 0-.955.117-1.367.326z"/></svg>`,
+  spotify:    `<svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>`,
+  bandcamp:   `<svg viewBox="0 0 24 24"><path d="M0 18.75l7.437-13.5H24l-7.438 13.5z"/></svg>`,
+};
+
+async function loadBioPanel() {
+  try {
+    const d = await fetch('/api/creator/profile').then(r => r.json());
+    if (!d.enabled) return;
+
+    el('player-card').classList.add('bio-landing');
+
+    if (d.profilePicUrl) {
+      const img = el('bio-pic-img');
+      img.src = '/api/creator/pic?' + Date.now();
+      img.hidden = false;
+      el('bio-pic-ph').hidden = true;
+    }
+    el('bio-creator-name').textContent = d.creatorName || d.stationName || 'Creator';
+    el('bio-station-name').textContent = d.stationName || '';
+
+    if (d.bio) {
+      el('bio-text').textContent = d.bio;
+      el('bio-text').hidden = false;
+    }
+
+    // Social buttons
+    const socialRow = el('bio-social-row');
+    const socialMap = { instagram: 'Instagram', twitter: 'Twitter / X', youtube: 'YouTube', soundcloud: 'SoundCloud', spotify: 'Spotify', bandcamp: 'Bandcamp' };
+    for (const [key, label] of Object.entries(socialMap)) {
+      if (d.social && d.social[key]) {
+        const a = document.createElement('a');
+        a.className = 'bio-social-btn';
+        a.href = d.social[key];
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.title = label;
+        a.innerHTML = SOCIAL_ICONS[key] || '';
+        socialRow.appendChild(a);
+      }
+    }
+
+    // Latest track card
+    if (d.latestTrack) {
+      el('bio-latest-title').textContent = d.latestTrack.title || '—';
+      const sub = [d.latestTrack.artist, d.latestTrack.category].filter(Boolean).join(' · ');
+      el('bio-latest-sub').textContent = sub;
+      el('bio-latest-card').hidden = false;
+    }
+
+    // Creator since card
+    if (d.creatorSince) {
+      const yr = new Date(d.creatorSince).getFullYear();
+      el('bio-since-val').textContent = isNaN(yr) ? d.creatorSince.slice(0, 10) : String(yr);
+      el('bio-since-card').hidden = false;
+    }
+  } catch {}
+}
+
+el('bio-enter-btn').addEventListener('click', () => {
+  el('player-card').classList.remove('bio-landing');
+});
+
+// ─── Dashboard creator bio ─────────────────────────────────────────────────────
+async function loadDashBio() {
+  try {
+    const d = await dashFetch('/api/creator/dashboard/profile').then(r => r.json());
+    el('bio-toggle').checked = !!d.bio_enabled;
+    updateBioSectionState();
+    if (d.bio) el('bio-bio-input').value = d.bio;
+    if (d.social_instagram) el('bio-instagram').value = d.social_instagram;
+    if (d.social_twitter)   el('bio-twitter').value   = d.social_twitter;
+    if (d.social_youtube)   el('bio-youtube').value   = d.social_youtube;
+    if (d.social_soundcloud)el('bio-soundcloud').value= d.social_soundcloud;
+    if (d.social_spotify)   el('bio-spotify').value   = d.social_spotify;
+    if (d.social_bandcamp)  el('bio-bandcamp').value  = d.social_bandcamp;
+    if (d.profile_pic_url) {
+      const prev = el('dash-bio-pic-preview');
+      prev.src = '/api/creator/pic?' + Date.now();
+      prev.style.display = 'block';
+    }
+  } catch {}
+}
+
+function updateBioSectionState() {
+  const on = el('bio-toggle').checked;
+  el('bio-details').style.pointerEvents = on ? '' : 'none';
+  el('bio-edit-body').classList.toggle('bio-dash-blocked', !on);
+}
+
+el('bio-toggle').addEventListener('change', async () => {
+  updateBioSectionState();
+  const on = el('bio-toggle').checked;
+  if (on) el('bio-details').open = true;
+  try {
+    await dashFetch('/api/creator/dashboard/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bio_enabled: on ? 1 : 0 }),
+    });
+  } catch {}
+});
+
+el('bio-save-btn').addEventListener('click', async () => {
+  const msg = el('bio-save-msg');
+  try {
+    const body = {
+      bio_enabled:      el('bio-toggle').checked ? 1 : 0,
+      bio:              el('bio-bio-input').value.trim() || null,
+      social_instagram: el('bio-instagram').value.trim()  || null,
+      social_twitter:   el('bio-twitter').value.trim()    || null,
+      social_youtube:   el('bio-youtube').value.trim()    || null,
+      social_soundcloud:el('bio-soundcloud').value.trim() || null,
+      social_spotify:   el('bio-spotify').value.trim()    || null,
+      social_bandcamp:  el('bio-bandcamp').value.trim()   || null,
+    };
+    await dashFetch('/api/creator/dashboard/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    msg.textContent = 'SAVED'; msg.style.color = '#39ff14';
+    setTimeout(() => { msg.textContent = ''; }, 2000);
+  } catch {
+    msg.textContent = 'FAILED'; msg.style.color = '#ff6b6b';
+  }
+});
+
+el('bio-pic-file').addEventListener('change', () => {
+  const f = el('bio-pic-file').files[0];
+  if (!f) return;
+  el('bio-pic-filename').textContent = f.name;
+  el('bio-pic-upload-btn').style.display = '';
+});
+
+el('bio-pic-upload-btn').addEventListener('click', async () => {
+  const f = el('bio-pic-file').files[0];
+  if (!f) return;
+  const msg = el('bio-pic-msg');
+  const btn = el('bio-pic-upload-btn');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const fd = new FormData();
+    fd.append('pic', f);
+    const res = await dashFetch('/api/creator/dashboard/pic', { method: 'POST', body: fd });
+    if (res.ok) {
+      msg.textContent = 'UPLOADED'; msg.style.color = '#39ff14';
+      const prev = el('dash-bio-pic-preview');
+      prev.src = '/api/creator/pic?' + Date.now();
+      prev.style.display = 'block';
+      btn.textContent = 'UPLOAD'; btn.disabled = false;
+      setTimeout(() => { msg.textContent = ''; }, 2000);
+    } else throw new Error();
+  } catch {
+    msg.textContent = 'FAILED'; msg.style.color = '#ff6b6b';
+    btn.textContent = 'UPLOAD'; btn.disabled = false;
+  }
+});
+
+// ─── Play counts ───────────────────────────────────────────────────────────────
+async function loadPlayCounts() {
+  try {
+    const data = await dashFetch('/api/analytics/playcounts').then(r => r.json());
+    window._playCounts = data;
+    document.querySelectorAll('[id^="plays-"]').forEach(el => {
+      const id = el.id.replace('plays-', '');
+      el.textContent = '▶ ' + (data[id] || 0);
+    });
+  } catch {}
+}
 
 init();
 </script>

@@ -33,6 +33,12 @@ const vaultModule = require('./vault');
 router.use('/vault',           vaultModule);
 router.use('/dashboard/vault', vaultModule.dashRouter);
 
+// Creator bio landing page (public profile + dashboard management)
+router.use('/creator',   require('./creator'));
+
+// First-launch legal acceptance
+router.use('/system',    require('./system'));
+
 // downloads.js defines two routes:
 //   GET /library/:id/signed-url  (mounted at / so becomes /api/library/:id/signed-url)
 //   GET /download/:token         (mounted at / so becomes /api/download/:token)

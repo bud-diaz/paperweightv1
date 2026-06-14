@@ -92,6 +92,17 @@ function createApp() {
     res.sendFile(path.join(config.paths.app, 'client', 'index.html'));
   });
 
+  // Legal pages
+  app.get('/landing/license', (req, res) => {
+    res.sendFile(path.join(config.paths.app, 'landing', 'license.html'));
+  });
+  app.get('/landing/content-responsibility', (req, res) => {
+    res.sendFile(path.join(config.paths.app, 'landing', 'content-responsibility.html'));
+  });
+  app.get('/landing/download', (req, res) => {
+    res.sendFile(path.join(config.paths.app, 'landing', 'download.html'));
+  });
+
   app.get('/manifest.json', (req, res) => {
     const name = config.station.name || 'Paperweight';
     res.json({
