@@ -1433,6 +1433,14 @@
                   <option value="shuffle">Shuffle</option>
                   <option value="sequential">Sequential</option>
                 </select>
+              </div>
+              <div class="dash-form-row" style="margin-top:4px;">
+                <select class="dash-select" id="sched-source" style="min-width:140px;">
+                  <option value="">From category</option>
+                  <option value="vault_item">Vault item</option>
+                  <option value="vault_project">Vault project</option>
+                </select>
+                <input type="number" class="dash-input dash-input-sm" id="sched-target-id" placeholder="Target ID" style="width:100px;"/>
                 <button class="mgmt-btn" id="btn-add-sched">ADD</button>
               </div>
             </details>
@@ -2868,6 +2876,44 @@ function closeVaultGate() {
 el('vg-close').addEventListener('click', closeVaultGate);
 el('vault-gate-backdrop').addEventListener('click', e => { if (e.target === e.currentTarget) closeVaultGate(); });
 
+// ─── Broadcast section collapse (dashboard) ─────────────────────────────────────
+document.addEventListener('click', e => {
+  if (e.target.closest('#broadcast-header-toggle')) {
+    const adv = el('broadcast-advanced');
+    const tog = el('broadcast-header-toggle');
+    if (!adv || !tog) return;
+    const open = adv.classList.toggle('open');
+    tog.classList.toggle('open', open);
+    if (open) loadRadioHostStatus();
+  }
+});
+
+document.addEventListener('click', e => {
+  const sw = e.target.closest('#rh-switch');
+  if (!sw || sw.classList.contains('locked')) return;
+  dashFetch('/api/dashboard/radio-host', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { showToast(data.error); return; }
+      sw.classList.toggle('on', data.radioHost);
+      sw.classList.toggle('locked', data.locked);
+      const info = el('rh-switches-info');
+      if (info) {
+        info.textContent = data.locked
+          ? `Switches used: ${data.switches}/3 — locked. Edit CREATOR_TYPE in .env to change.`
+          : `Switches used: ${data.switches}/3`;
+      }
+      if (data.radioHost) {
+        document.body.classList.add('radio-host-mode');
+        initExtSearchPanel();
+      } else {
+        document.body.classList.remove('radio-host-mode');
+      }
+      showToast(data.radioHost ? 'Radio Host mode ON' : 'Radio Host mode OFF');
+    })
+    .catch(() => showToast('Toggle failed'));
+});
+
 // ─── Player event bindings ─────────────────────────────────────────────────────
 el('play-btn').addEventListener('click', togglePlay);
 el('skip-prev').addEventListener('click', () => skipTrack(-1));
@@ -3191,6 +3237,7 @@ function loadDashboard() {
   loadDashVaultStats();
   loadDashBroadcast();
   loadDashLive();
+  loadRadioHostStatus();
   loadDashSchedule();
   loadDashProjects();
   loadDashLibrary();
@@ -3410,6 +3457,30 @@ async function loadDashBroadcast() {
       setTimeout(() => { el('btn-restart').textContent = 'RESTART'; loadDashBroadcast(); }, 1500);
     };
   } catch {}
+  loadDashBroadcastQueue();
+}
+
+async function loadDashBroadcastQueue() {
+  try {
+    const q = await dashFetch('/api/dashboard/broadcast/queue').then(r => r.json());
+    const list = el('sq-list');
+    if (!list) return;
+    if (!q.length) {
+      list.innerHTML = '<div class="sq-empty">Queue is empty — add tracks from the library below.</div>';
+      return;
+    }
+    list.innerHTML = q.map((item, i) => `
+      <div class="sq-item">
+        <span class="sq-title">${esc(item.title || 'Track ' + item.mediaId)}</span>
+        <button class="sq-remove mgmt-btn danger" data-sq-idx="${i}" title="Remove">×</button>
+      </div>`).join('');
+    list.querySelectorAll('[data-sq-idx]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await dashFetch(`/api/dashboard/broadcast/queue/${btn.dataset.sqIdx}`, { method: 'DELETE' });
+        loadDashBroadcastQueue();
+      });
+    });
+  } catch {}
 }
 
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -3448,36 +3519,127 @@ async function loadDashSchedule() {
     }
 
     const list = el('dash-sched-list');
-    list.innerHTML = blocks.length
-      ? blocks.map(b => {
-          const dayLabel   = b.day_of_week != null ? DAY_NAMES[b.day_of_week] : 'Daily';
-          const timeRange  = `${b.start_time}–${b.end_time}`;
-          const label      = esc(b.label || '—');
-          const isActive   = false;
-          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-radius:7px;border-left:2px solid ${isActive?'var(--neon)':'transparent'};background:${isActive?'rgba(255,255,255,.03)':'none'};margin-bottom:1px;">
+    if (!blocks.length) {
+      list.innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No schedule blocks.</div>';
+    } else {
+      list.innerHTML = '';
+      for (const b of blocks) {
+        const dayLabel  = b.day_of_week != null ? DAY_NAMES[b.day_of_week] : 'Daily';
+        const timeRange = `${b.start_time}–${b.end_time}`;
+        const label     = esc(b.label || '—');
+        const targetInfo = b.target_type ? ` · ${b.target_type.replace('_', ' ')} #${b.target_id}` : '';
+        const row = document.createElement('div');
+        row.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-radius:7px;margin-bottom:1px;">
             <div>
               <div style="font-family:'DM Serif Display',serif;font-size:13px;color:rgba(255,255,255,.78);">${label}</div>
-              <div style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.3);margin-top:2px;">${dayLabel} · ${timeRange} · ${b.category||'any'} · ${b.mode}</div>
+              <div style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.3);margin-top:2px;">${dayLabel} · ${timeRange} · ${b.category||'any'} · ${b.mode}${targetInfo}</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-family:'Space Mono',monospace;font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 7px;border-radius:3px;${isActive?'background:var(--neon);color:#000;':'background:rgba(255,255,255,.08);color:rgba(255,255,255,.4);'}">${isActive?'ON':'UP'}</span>
+              <button class="mgmt-btn" data-edit-block="${b.id}">EDIT</button>
               <button class="mgmt-btn danger" data-del-block="${b.id}">DEL</button>
             </div>
+          </div>
+          <div class="sched-edit-form" id="sched-edit-${b.id}" hidden style="padding:0 14px 10px;display:none;">
+            <div class="dash-form-row" style="flex-wrap:wrap;gap:6px;margin-bottom:6px;">
+              <input type="text" class="dash-input dash-input-sm" id="se-label-${b.id}" placeholder="Label…" value="${esc(b.label||'')}" style="flex:2;min-width:80px;"/>
+              <select class="dash-select" id="se-day-${b.id}">
+                <option value="">Daily</option>
+                <option value="0"${b.day_of_week===0?' selected':''}>Sun</option>
+                <option value="1"${b.day_of_week===1?' selected':''}>Mon</option>
+                <option value="2"${b.day_of_week===2?' selected':''}>Tue</option>
+                <option value="3"${b.day_of_week===3?' selected':''}>Wed</option>
+                <option value="4"${b.day_of_week===4?' selected':''}>Thu</option>
+                <option value="5"${b.day_of_week===5?' selected':''}>Fri</option>
+                <option value="6"${b.day_of_week===6?' selected':''}>Sat</option>
+              </select>
+              <input type="time" class="dash-input dash-input-sm" id="se-start-${b.id}" value="${esc(b.start_time||'')}"/>
+              <input type="time" class="dash-input dash-input-sm" id="se-end-${b.id}" value="${esc(b.end_time||'')}"/>
+              <select class="dash-select" id="se-cat-${b.id}">
+                <option value="">Any</option>
+                <option value="music"${b.category==='music'?' selected':''}>Music</option>
+                <option value="beats"${b.category==='beats'?' selected':''}>Beats</option>
+                <option value="podcasts"${b.category==='podcasts'?' selected':''}>Podcasts</option>
+                <option value="videos"${b.category==='videos'?' selected':''}>Videos</option>
+              </select>
+              <select class="dash-select" id="se-mode-${b.id}">
+                <option value="shuffle"${b.mode==='shuffle'?' selected':''}>Shuffle</option>
+                <option value="sequential"${b.mode==='sequential'?' selected':''}>Sequential</option>
+              </select>
+            </div>
+            <div class="dash-form-row" style="gap:6px;margin-bottom:6px;">
+              <select class="dash-select" id="se-src-${b.id}" style="min-width:140px;">
+                <option value="">From category</option>
+                <option value="vault_item"${b.target_type==='vault_item'?' selected':''}>Vault item</option>
+                <option value="vault_project"${b.target_type==='vault_project'?' selected':''}>Vault project</option>
+              </select>
+              <input type="number" class="dash-input dash-input-sm" id="se-tid-${b.id}" placeholder="Target ID" value="${b.target_id||''}" style="width:100px;"/>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;">
+              <span id="se-msg-${b.id}" style="font-family:'Space Mono',monospace;font-size:8px;flex:1;"></span>
+              <button class="mgmt-btn" id="se-save-${b.id}">SAVE</button>
+            </div>
           </div>`;
-        }).join('')
-      : '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No schedule blocks.</div>';
+        list.appendChild(row);
 
-    list.querySelectorAll('[data-del-block]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        await dashFetch(`/api/schedule/blocks/${btn.dataset.delBlock}`, { method: 'DELETE' });
-        loadDashSchedule();
-      });
-    });
+        row.querySelector(`[data-edit-block="${b.id}"]`).addEventListener('click', () => {
+          const form = row.querySelector(`#sched-edit-${b.id}`);
+          const isHidden = form.style.display === 'none' || form.hidden;
+          form.style.display = isHidden ? '' : 'none';
+          form.hidden = !isHidden;
+        });
+
+        row.querySelector(`[data-del-block="${b.id}"]`).addEventListener('click', async () => {
+          await dashFetch(`/api/schedule/blocks/${b.id}`, { method: 'DELETE' });
+          loadDashSchedule();
+        });
+
+        row.querySelector(`#se-save-${b.id}`).addEventListener('click', async () => {
+          const saveBtn = row.querySelector(`#se-save-${b.id}`);
+          const msgEl   = row.querySelector(`#se-msg-${b.id}`);
+          const dayVal  = row.querySelector(`#se-day-${b.id}`).value;
+          const srcType = row.querySelector(`#se-src-${b.id}`).value;
+          const tidVal  = row.querySelector(`#se-tid-${b.id}`).value;
+          const body = {
+            label:       row.querySelector(`#se-label-${b.id}`).value.trim() || null,
+            day_of_week: dayVal !== '' ? parseInt(dayVal, 10) : null,
+            start_time:  row.querySelector(`#se-start-${b.id}`).value,
+            end_time:    row.querySelector(`#se-end-${b.id}`).value,
+            category:    row.querySelector(`#se-cat-${b.id}`).value || null,
+            mode:        row.querySelector(`#se-mode-${b.id}`).value,
+            target_type: srcType || null,
+            target_id:   srcType && tidVal ? parseInt(tidVal, 10) : null,
+          };
+          saveBtn.disabled = true; saveBtn.textContent = '…';
+          try {
+            const res = await dashFetch(`/api/schedule/blocks/${b.id}`, {
+              method: 'PUT', headers: {'Content-Type':'application/json'},
+              body: JSON.stringify(body),
+            });
+            if (res.ok) {
+              saveBtn.textContent = '✓';
+              msgEl.textContent = '';
+              setTimeout(() => { loadDashSchedule(); }, 800);
+            } else {
+              const d = await res.json().catch(() => ({}));
+              msgEl.textContent = d.error || 'Save failed';
+              msgEl.style.color = '#ff6b6b';
+              saveBtn.textContent = 'SAVE'; saveBtn.disabled = false;
+            }
+          } catch {
+            msgEl.textContent = 'Network error';
+            saveBtn.textContent = 'SAVE'; saveBtn.disabled = false;
+          }
+        });
+      }
+    }
   } catch {}
 }
 
 el('btn-add-sched').addEventListener('click', async () => {
-  const dayVal = el('sched-day').value;
+  const dayVal  = el('sched-day').value;
+  const srcType = el('sched-source') ? el('sched-source').value : '';
+  const tidVal  = el('sched-target-id') ? el('sched-target-id').value : '';
   const body   = {
     label:       el('sched-label').value.trim() || null,
     day_of_week: dayVal !== '' ? parseInt(dayVal, 10) : null,
@@ -3485,6 +3647,8 @@ el('btn-add-sched').addEventListener('click', async () => {
     end_time:    el('sched-end').value,
     category:    el('sched-category').value || null,
     mode:        el('sched-mode').value,
+    target_type: srcType || null,
+    target_id:   srcType && tidVal ? parseInt(tidVal, 10) : null,
   };
   if (!body.start_time || !body.end_time) return;
   await dashFetch('/api/schedule/blocks', {
@@ -3535,6 +3699,22 @@ el('btn-new-proj').addEventListener('click', async () => {
   }
 });
 
+// Station queue button (dashboard context)
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.lib-queue-btn');
+  if (!btn) return;
+  if (!document.body.classList.contains('dash-active')) return;
+  e.stopPropagation();
+  dashFetch('/api/dashboard/broadcast/queue', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ mediaId: parseInt(btn.dataset.id) }),
+  }).then(r => r.json()).then(data => {
+    if (data.error) { showToast(data.error); return; }
+    showToast(`Queued for broadcast (${data.count}/5)`);
+    loadDashBroadcastQueue();
+  }).catch(() => showToast('Queue error'));
+});
+
 // ─── Dashboard Library ─────────────────────────────────────────────────────────
 function buildDashLibItem(item, scopeType, scopeId, nested = false) {
   const c    = trackColor(item.id);
@@ -3549,7 +3729,7 @@ function buildDashLibItem(item, scopeType, scopeId, nested = false) {
 
   wrap.innerHTML = `
     <div class="mgmt-row">
-      <div class="mgmt-thumb" style="background:linear-gradient(135deg,${c}44,${c}11);border:1px solid ${c}33;">${item.category==='videos'?'▶':'♪'}</div>
+      <div class="mgmt-thumb" style="background:linear-gradient(135deg,${c}44,${c}11);border:1px solid ${c}33;position:relative;overflow:hidden;">${item.artwork_url?`<img src="/api/library/${item.id}/artwork" loading="lazy" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;"/>`:(item.category==='videos'?'▶':'♪')}<button class="lib-queue-btn" data-id="${item.id}" data-title="${esc(item.title||'')}" data-artist="${esc(item.artist||'')}" title="Queue for broadcast">+</button></div>
       <div class="mgmt-info">
         <div class="mgmt-title">${esc(item.title||item.filename)}</div>
         <div class="mgmt-meta">${esc(item.category)}</div>
@@ -4288,6 +4468,26 @@ async function loadCreatorType() {
     if (data.creatorType === 'radio_host') {
       document.body.classList.add('radio-host-mode');
       initExtSearchPanel();
+      // Auto-expand broadcast advanced section for radio hosts
+      const adv = el('broadcast-advanced');
+      const tog = el('broadcast-header-toggle');
+      if (adv && tog) { adv.classList.add('open'); tog.classList.add('open'); }
+    }
+  } catch {}
+}
+
+async function loadRadioHostStatus() {
+  try {
+    const data = await dashFetch('/api/dashboard/radio-host').then(r => r.json());
+    const sw = el('rh-switch');
+    const info = el('rh-switches-info');
+    if (!sw) return;
+    sw.classList.toggle('on', data.radioHost);
+    sw.classList.toggle('locked', data.locked);
+    if (info) {
+      info.textContent = data.locked
+        ? `Switches used: ${data.switches}/3 — locked. Edit CREATOR_TYPE in .env to change.`
+        : `Switches used: ${data.switches}/3`;
     }
   } catch {}
 }
@@ -4448,7 +4648,7 @@ function renderAuthSection() {
   el('auth-logged-in').hidden  = !loggedIn;
 
   // Logged-in badge (in share tab — hidden when drawer is open)
-  el('auth-badge').classList.toggle('visible', loggedIn && !state.showShare);
+  el('auth-badge').classList.toggle('visible', loggedIn);
 
   // Disable login/register tabs and form when already logged in
   document.querySelectorAll('.auth-tab').forEach(b => { b.disabled = loggedIn; });
