@@ -1,0 +1,95 @@
+CONTENT RESPONSIBILITY AND ACCEPTABLE USE NOTICE
+
+Paperweight is a software platform for media storage, management, broadcasting, streaming, playback, administration, and distribution.
+
+Paperweight Systems LLC does not create, review, verify, monitor, endorse, approve, or guarantee user content.
+
+⸻
+
+USER RESPONSIBILITY
+
+Users are solely responsible for all content uploaded, imported, stored, managed, organized, streamed, broadcast, distributed, archived, displayed, transmitted, monetized, or otherwise made available through any component of the Paperweight Platform.
+
+⸻
+
+OWNERSHIP AND RIGHTS
+
+By using the Software, you represent and warrant that:
+
+• You own the content; or
+• You possess all rights, permissions, licenses, and authorizations necessary to use the content.
+
+Users remain solely responsible for obtaining:
+
+• Copyright permissions
+• Performance rights
+• Synchronization rights
+• Mechanical licenses
+• Distribution rights
+• Royalty obligations
+• Trademark permissions
+• Any other required legal authorization
+
+⸻
+
+NO CONTENT VERIFICATION
+
+Paperweight Systems LLC does not verify:
+
+• Ownership
+• Originality
+• Copyright status
+• Trademark status
+• Licensing status
+• Fair use eligibility
+• Public domain status
+• AI-generated content rights
+
+Use of the Software does not grant rights to copyrighted material.
+
+⸻
+
+AI-GENERATED CONTENT
+
+Users are solely responsible for determining whether content obtained from artificial intelligence systems, third-party services, websites, social platforms, datasets, repositories, or other sources may legally be used, distributed, archived, monetized, rebroadcast, or sold.
+
+⸻
+
+INTERCONNECTED COMPONENTS
+
+Components of the Paperweight Platform may communicate with one another to facilitate storage, management, broadcasting, playback, analytics, administration, or distribution.
+
+Such communication does not transfer ownership, authorship, licensing rights, legal responsibility, or liability for user content to Paperweight Systems LLC.
+
+⸻
+
+LIMITATION OF LIABILITY
+
+Paperweight Systems LLC shall not be liable for any copyright claim, trademark dispute, royalty dispute, licensing dispute, takedown request, copyright strike, privacy claim, publicity rights claim, regulatory action, lawsuit, penalty, or loss arising from user-generated or user-distributed content.
+
+⸻
+
+INDEMNIFICATION
+
+You agree to defend, indemnify, and hold harmless Paperweight Systems LLC, its owners, officers, employees, contractors, affiliates, successors, and assigns from and against any claims, damages, liabilities, judgments, penalties, settlements, losses, costs, and expenses, including reasonable attorneys’ fees, arising from:
+
+• Your use of the Software.
+• Your content.
+• Your violation of applicable law.
+• Your violation of third-party rights.
+• Your infringement of intellectual property rights.
+• Any content made available through your use of the Paperweight Platform.
+
+⸻
+
+ACCEPTABLE USE
+
+Users may not knowingly use the Software to:
+
+• Distribute stolen content.
+• Infringe intellectual property rights.
+• Circumvent licensing restrictions.
+• Impersonate another individual or organization.
+• Violate applicable laws.
+
+Violation may result in termination of license rights.

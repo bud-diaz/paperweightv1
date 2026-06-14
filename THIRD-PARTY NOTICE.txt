@@ -1,0 +1,21 @@
+THIRD-PARTY SOFTWARE NOTICE
+
+Paperweight incorporates third-party software components.
+
+⸻
+
+ASCILINE
+
+Copyright (c) 2026 YusufB5
+
+Paperweight includes functionality derived from or utilizing the ASCILINE project.
+
+ASCILINE is licensed under the MIT License with Anti-Advertisement Restriction.
+
+Paperweight Systems LLC does not claim ownership of ASCILINE.
+
+All rights to ASCILINE remain with its original author and contributors.
+
+The complete ASCILINE license text is provided separately in ASCILINE_LICENSE.txt and must remain included with distributions of the Software.
+
+No endorsement, sponsorship, partnership, affiliation, or approval by the ASCILINE project or its contributors is implied by inclusion within the Paperweight Platform.

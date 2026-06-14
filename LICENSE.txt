@@ -1,0 +1,185 @@
+PAPERWEIGHT SOFTWARE LICENSE AGREEMENT
+
+Copyright © 2026 Paperweight Systems LLC. All Rights Reserved.
+
+IMPORTANT: PLEASE READ THIS AGREEMENT CAREFULLY.
+
+By downloading, installing, copying, accessing, or using any component of the Paperweight Platform (“Software”), you agree to be bound by this License Agreement.
+
+⸻
+
+	1.	DEFINITIONS
+
+⸻
+
+“Paperweight Platform” means all software, applications, services, interfaces, websites, hosting solutions, APIs, plugins, extensions, dashboards, tools, documentation, assets, and technologies distributed by Paperweight Systems LLC.
+
+The Paperweight Platform currently includes, but is not limited to:
+
+• Paperweight Core
+• Paperweight Play
+• Paperweight Studio
+
+Future components may include, without limitation:
+
+• Paperweight Cloud
+• Paperweight API
+• Mobile applications
+• Plugins
+• Themes
+• SDKs
+• Additional products or services
+
+Paperweight Systems LLC may add, remove, rename, combine, separate, discontinue, or replace components of the Paperweight Platform at any time.
+
+⸻
+
+	1.	LICENSE GRANT
+
+⸻
+
+Paperweight Systems LLC grants you a limited, non-exclusive, non-transferable, revocable license to install and use the Software for personal, educational, non-profit, and commercial media playback, broadcasting, streaming, and distribution purposes.
+
+This license grants only those rights expressly stated herein.
+
+All rights not expressly granted are reserved by Paperweight Systems LLC.
+
+⸻
+
+	1.	OWNERSHIP
+
+⸻
+
+The Software is licensed, not sold.
+
+Paperweight Systems LLC retains all right, title, and interest in and to the Paperweight Platform, including but not limited to:
+
+• Source code
+• Object code
+• Interfaces
+• Designs
+• Branding
+• Documentation
+• Trademarks
+• Trade secrets
+• Copyrights
+• Derivative works
+
+⸻
+
+	1.	PERMITTED USES
+
+⸻
+
+You may:
+
+• Install and use the Software.
+• Organize and manage media.
+• Broadcast and stream content.
+• Operate listener experiences.
+• Monetize content you legally own or are authorized to distribute.
+
+⸻
+
+	1.	PROHIBITED ACTIVITIES
+
+⸻
+
+Without prior written permission from Paperweight Systems LLC, you may not:
+
+• Redistribute the Software in any form.
+• Sell, rent, lease, sublicense, or commercially distribute the Software itself.
+• Host download mirrors of the Software.
+• Bundle the Software with another product or service.
+• Incorporate the Software into another software distribution.
+• Create derivative works based on the Software.
+• Modify, patch, alter, or remove functionality for redistribution.
+• Reverse engineer, decompile, disassemble, or otherwise attempt to derive source code except where prohibited by applicable law.
+• Remove or alter copyright notices, trademarks, branding, or attribution notices.
+• Represent the Software as your own work.
+• Use the Software in violation of applicable laws.
+
+⸻
+
+	1.	TRADEMARKS AND BRANDING
+
+⸻
+
+The following names, marks, and branding elements are the property of Paperweight Systems LLC, including but not limited to:
+
+• Paperweight
+• Paperweight Core
+• Paperweight Play
+• Paperweight Studio
+• Paperweight Cloud
+• Paperweight API
+
+Nothing in this Agreement grants any right to use Paperweight Systems LLC trademarks, service marks, logos, product names, visual identities, trade dress, or branding without prior written permission.
+
+⸻
+
+	1.	THIRD-PARTY SOFTWARE
+
+⸻
+
+The Software may contain components provided under separate third-party licenses.
+
+Those components remain subject to their respective licenses.
+
+Nothing in this Agreement supersedes rights granted under applicable third-party licenses.
+
+⸻
+
+	1.	HOSTED SERVICES AND FUTURE FEATURES
+
+⸻
+
+Certain components of the Paperweight Platform may require hosted services, online connectivity, subscription plans, cloud infrastructure, APIs, or third-party integrations.
+
+Additional terms may apply to such services when offered.
+
+Access to APIs, developer tools, integration layers, automation interfaces, SDKs, or hosted infrastructure may be modified, restricted, suspended, rate-limited, licensed separately, or discontinued at the sole discretion of Paperweight Systems LLC.
+
+⸻
+
+	1.	TERMINATION
+
+⸻
+
+This license automatically terminates upon violation of any provision of this Agreement.
+
+Upon termination, you must immediately cease use of the Software and destroy all copies within your possession or control.
+
+⸻
+
+	1.	DISCLAIMER OF WARRANTIES
+
+⸻
+
+THE SOFTWARE IS PROVIDED “AS IS” AND “AS AVAILABLE.”
+
+PAPERWEIGHT SYSTEMS LLC DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, ACCURACY, RELIABILITY, OR AVAILABILITY.
+
+⸻
+
+	1.	LIMITATION OF LIABILITY
+
+⸻
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, PAPERWEIGHT SYSTEMS LLC SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES ARISING OUT OF OR RELATING TO THE SOFTWARE.
+
+⸻
+
+	1.	GOVERNING LAW
+
+⸻
+
+This Agreement shall be governed by the laws of the State of Illinois, United States.
+
+⸻
+
+	1.	ENTIRE AGREEMENT
+
+⸻
+
+This Agreement constitutes the entire agreement between the user and Paperweight Systems LLC regarding the Software.
