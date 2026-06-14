@@ -3315,6 +3315,7 @@ function showDashContent() {
   setDashGate('content');
   document.body.classList.add('creator-mode');
   if (!dashboardLoaded) { dashboardLoaded = true; loadDashboard(); }
+  checkLaunchAcceptance();
 }
 
 let dashboardInitialized = false;
@@ -5169,14 +5170,9 @@ async function init() {
   loadTipConfig();
 
   // Silently restore creator session from the httpOnly dashboard cookie.
-  // Only show the launch acceptance modal if the creator is logged in — it is
-  // not meaningful to show it to public listeners who cannot dismiss it.
   (async () => {
     const ok = await tryDashAuth();
-    if (ok) {
-      showDashContent();
-      checkLaunchAcceptance();
-    }
+    if (ok) { showDashContent(); }
   })();
 
   // Initial render
