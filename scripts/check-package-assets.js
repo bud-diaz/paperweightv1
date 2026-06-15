@@ -81,7 +81,6 @@ if (fs.existsSync(sqliteNode)) {
 
 for (const rel of [
   'client/creator.html',
-  'client/index.html',
   'node_modules/hls.js/dist/hls.min.js',
   'src/index.js',
   'src/launcher.js',
