@@ -347,7 +347,7 @@
     .auth-tab:disabled { opacity: .2; cursor: not-allowed; pointer-events: none; }
     #auth-badge { display: none; align-items: center; gap: 5px; }
     #auth-badge.visible { display: flex; }
-    #auth-badge-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--color); animation: live-dot 1.2s ease-in-out infinite; flex-shrink: 0; }
+    #auth-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color); animation: live-dot 1.2s ease-in-out infinite; flex-shrink: 0; }
     #auth-badge-text { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em; color: var(--color); }
     #auth-form { padding: 0 20px; display: flex; flex-direction: column; gap: 8px; }
     .auth-input {
@@ -370,9 +370,9 @@
     #auth-logged-in { padding: 0 20px; }
     .auth-account-row { display: flex; align-items: center; gap: 8px; padding: 4px 0 8px; }
     .auth-email-disp { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t3); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .auth-tier-badge { font-family: 'Space Mono', monospace; font-size: 10px; padding: 2px 8px; border-radius: var(--radius-xs); border: 1px solid var(--border); color: var(--t3); flex-shrink: 0; }
+    .auth-tier-badge { font-family: 'Space Mono', monospace; font-size: 10px; padding: 3px 10px; border-radius: var(--radius-xs); border: 1px solid var(--border); color: var(--t3); flex-shrink: 0; }
     .auth-tier-badge.subscriber, .auth-tier-badge.pro, .auth-tier-badge.all_access { border-color: var(--border-strong); color: var(--t1); }
-    .auth-logout-btn { font-family: 'Space Mono', monospace; font-size: 10px; padding: 4px 9px; background: none; border: 1px solid var(--border); border-radius: var(--radius-xs); color: var(--t3); cursor: pointer; flex-shrink: 0; transition: all .15s; }
+    .auth-logout-btn { font-family: 'Space Mono', monospace; font-size: 10px; padding: 5px 11px; background: none; border: 1px solid var(--border); border-radius: var(--radius-xs); color: var(--t3); cursor: pointer; flex-shrink: 0; transition: all .15s; }
     .auth-logout-btn:hover { border-color: var(--border-strong); color: var(--t2); }
     #auth-set-pw { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); background: none; border: none; border-bottom: 1px solid var(--border); padding: 0 0 1px; cursor: pointer; margin-bottom: 8px; transition: color .15s; }
     #auth-set-pw:hover { color: var(--t2); }
@@ -431,7 +431,7 @@
     #listener-queue-pill.visible { display: flex; }
     #lq-count {
       background: var(--color, #39ff14); color: #000; border-radius: 50%;
-      width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
       font-size: 11px; font-weight: 700;
     }
 
@@ -449,18 +449,18 @@
     .rh-toggle-row { display: flex; align-items: center; gap: 10px; padding: 8px 0 4px; }
     .rh-toggle-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); letter-spacing: .06em; flex: 1; }
     .rh-switch {
-      width: 36px; height: 20px; border-radius: 10px;
+      width: 40px; height: 22px; border-radius: 11px;
       background: rgba(255,255,255,.1); border: 1px solid var(--border);
       cursor: pointer; position: relative; transition: background .2s, border-color .2s;
       flex-shrink: 0;
     }
     .rh-switch::after {
       content: ''; position: absolute; top: 3px; left: 3px;
-      width: 12px; height: 12px; border-radius: 50%;
+      width: 14px; height: 14px; border-radius: 50%;
       background: rgba(255,255,255,.4); transition: transform .2s, background .2s;
     }
     .rh-switch.on { background: rgba(57,255,20,.2); border-color: rgba(57,255,20,.4); }
-    .rh-switch.on::after { transform: translateX(16px); background: #39ff14; }
+    .rh-switch.on::after { transform: translateX(18px); background: #39ff14; }
     .rh-switch.locked { opacity: .4; cursor: not-allowed; }
     .rh-switches-used { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); letter-spacing: .04em; padding-bottom: 6px; }
     .rh-lock-msg { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(255,100,100,.6); letter-spacing: .04em; padding-bottom: 6px; }
@@ -522,7 +522,7 @@
     .sched-meta  { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t4); }
     .sched-badge {
       font-size: 10px; font-family: 'Space Mono', monospace; letter-spacing: .1em;
-      padding: 2px 8px; border-radius: var(--radius-xs); font-weight: 700;
+      padding: 3px 10px; border-radius: var(--radius-xs); font-weight: 700;
     }
     .sched-badge.on { background: var(--color); color: #000; }
     .sched-badge.up { background: var(--raised); color: var(--t3); border: 1px solid var(--border); }
@@ -547,7 +547,7 @@
       background: var(--raised); border: 1px solid var(--border);
       border-radius: var(--radius-xs); color: var(--t2); cursor: pointer;
       font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .06em;
-      padding: 5px 10px; transition: all .13s; white-space: nowrap;
+      padding: 6px 12px; transition: all .13s; white-space: nowrap;
     }
     .mgmt-btn:hover { border-color: var(--border-strong); color: var(--t1); }
     .mgmt-btn.danger { background: rgba(255,50,50,.08); border-color: rgba(255,60,60,.22); color: rgba(255,100,100,.75); }
@@ -613,7 +613,7 @@
     .broadcast-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
     #btn-go-live {
       font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .06em;
-      padding: 5px 10px; border-radius: 5px;
+      padding: 6px 12px; border-radius: 5px;
       border: 1px solid rgba(57,255,20,.3); color: rgba(57,255,20,.8);
       background: none; cursor: pointer;
     }
@@ -843,7 +843,7 @@
     .lib-proj-unlock-btn {
       font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .07em;
       color: var(--t2); background: var(--raised); border: 1px solid var(--border-strong);
-      border-radius: var(--radius-xs); padding: 3px 7px; cursor: pointer; flex-shrink: 0; transition: all .15s;
+      border-radius: var(--radius-xs); padding: 4px 9px; cursor: pointer; flex-shrink: 0; transition: all .15s;
     }
     .lib-proj-unlock-btn:hover { color: var(--t1); }
     .lib-sep { padding: 7px 16px 3px; font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); letter-spacing: .1em; }
@@ -971,17 +971,17 @@
     .toggle-sw { position: relative; display: inline-flex; align-items: center; cursor: pointer; gap: 6px; }
     .toggle-sw input { position: absolute; opacity: 0; width: 0; height: 0; }
     .toggle-track {
-      width: 30px; height: 16px; border-radius: 8px;
+      width: 34px; height: 18px; border-radius: 9px;
       background: var(--raised); border: 1px solid var(--border);
       position: relative; transition: background .2s, border-color .2s;
     }
     .toggle-track::after {
       content: ''; position: absolute; top: 2px; left: 2px;
-      width: 10px; height: 10px; border-radius: 50%;
+      width: 12px; height: 12px; border-radius: 50%;
       background: var(--t4); transition: transform .2s, background .2s;
     }
     .toggle-sw input:checked + .toggle-track { background: rgba(57,255,20,.2); border-color: rgba(57,255,20,.5); }
-    .toggle-sw input:checked + .toggle-track::after { transform: translateX(14px); background: #39ff14; }
+    .toggle-sw input:checked + .toggle-track::after { transform: translateX(16px); background: #39ff14; }
     .toggle-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); letter-spacing: .06em; }
 
     /* ── Play count badge on tracks ── */
