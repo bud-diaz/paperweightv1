@@ -179,6 +179,14 @@ run('node scripts/generate-client-bundle.js');
 // above so the embedded binary matches the pkg target runtime ABI.
 run('node scripts/generate-native-bundle.js');
 
+// If we downloaded a target-ABI binary above, restore the host-ABI build now
+// so that the subsequent `npm test` (inside release:check) runs correctly under
+// the host Node version.
+if (uniqueTargetAbis.some(a => a !== process.versions.modules)) {
+  console.log('\nRestoring host-ABI better-sqlite3 for test run...');
+  run('npm rebuild better-sqlite3');
+}
+
 // Download FFmpeg/ffprobe for this platform into vendor/ffmpeg/ (skips if present).
 run('node scripts/fetch-ffmpeg.js');
 
