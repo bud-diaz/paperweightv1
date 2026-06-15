@@ -26,6 +26,11 @@ if (!fs.existsSync(NODE_FILE)) {
   process.exit(1);
 }
 
+// When build-exe.js cross-compiles for a different Node ABI, it sets
+// PAPERWEIGHT_BUNDLE_ABI to the target ABI so the bundle metadata is correct.
+// Without it, we assume the binary was built for the running Node version.
+const bundleAbi = process.env.PAPERWEIGHT_BUNDLE_ABI || process.versions.modules;
+
 const b64  = fs.readFileSync(NODE_FILE).toString('base64');
 const hash = crypto.createHash('sha256').update(fs.readFileSync(NODE_FILE)).digest('hex');
 const size = (fs.statSync(NODE_FILE).size / 1024).toFixed(0);
@@ -42,7 +47,7 @@ const content = [
   `  sha256: ${JSON.stringify(hash)},`,
   `  platform: ${JSON.stringify(process.platform)},`,
   `  arch: ${JSON.stringify(process.arch)},`,
-  `  abi: ${JSON.stringify(process.versions.modules)},`,
+  `  abi: ${JSON.stringify(bundleAbi)},`,
   '};',
   '',
 ].join('\n');

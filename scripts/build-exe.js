@@ -177,7 +177,11 @@ run('node scripts/generate-client-bundle.js');
 
 // Generate platform-specific native binding bundle. Runs after the ABI rebuild
 // above so the embedded binary matches the pkg target runtime ABI.
-run('node scripts/generate-native-bundle.js');
+// Pass the target ABI via env so the bundle metadata is correct when host ABI differs.
+const nativeBundleEnv = uniqueTargetAbis.length === 1 && uniqueTargetAbis[0] !== process.versions.modules
+  ? { ...process.env, PAPERWEIGHT_BUNDLE_ABI: uniqueTargetAbis[0] }
+  : process.env;
+run('node scripts/generate-native-bundle.js', { env: nativeBundleEnv });
 
 // If we downloaded a target-ABI binary above, restore the host-ABI build now
 // so that the subsequent `npm test` (inside release:check) runs correctly under
