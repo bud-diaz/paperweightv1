@@ -82,14 +82,7 @@ function createApp() {
   }
 
   app.get('/landing', (req, res) => {
-    if (isPackaged) {
-      const entry = require('./client-bundle')['/index.html'];
-      if (entry) {
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.end(entry.data);
-      }
-    }
-    res.sendFile(path.join(config.paths.app, 'client', 'index.html'));
+    res.redirect('/creator.html');
   });
 
   // Legal pages
