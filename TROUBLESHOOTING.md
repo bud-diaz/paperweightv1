@@ -89,10 +89,16 @@ Open the dashboard webhook log and confirm provider events are arriving with `ou
 
 ## Windows Firewall Or SmartScreen
 
-The Windows installer adds a firewall rule for port 3000. Verify:
+The Windows installer only adds a firewall rule if you pass `PAPERWEIGHT_OPEN_FIREWALL=true` (needed for LAN access). To verify whether the rule exists:
 
 ```powershell
 Get-NetFirewallRule -DisplayName "Paperweight"
+```
+
+To add the rule manually:
+
+```powershell
+New-NetFirewallRule -DisplayName "Paperweight" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
 ```
 
 If using an unsigned convenience executable, Windows SmartScreen may warn. Source installs avoid this path.
