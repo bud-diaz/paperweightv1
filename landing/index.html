@@ -74,8 +74,9 @@ body::before{
   height:52px;padding:0 32px;gap:28px;
 }
 .nav-brand{
-  font-family:var(--serif);font-size:15px;letter-spacing:-.02em;
+  font-family:var(--serif);font-size:17px;letter-spacing:-.02em;
   color:var(--text);text-decoration:none;margin-right:auto;
+  text-shadow:0 0 10px rgba(57,255,20,.65),0 0 26px rgba(57,255,20,.25);
 }
 .nav-brand:hover{text-decoration:none;color:var(--text)}
 .nav-link{
@@ -169,7 +170,8 @@ body::before{
 /* ── Brand name glow — Option B */
 .pw{
   font-family:var(--serif);font-style:italic;
-  text-shadow:0 0 12px rgba(57,255,20,.55),0 0 28px rgba(57,255,20,.2);
+  font-size:1.1em;
+  text-shadow:0 0 8px rgba(57,255,20,.9),0 0 20px rgba(57,255,20,.5),0 0 44px rgba(57,255,20,.2);
   letter-spacing:-.01em;
 }
 
@@ -494,7 +496,7 @@ footer{
 }
 .footer-brand{font-family:var(--mono);font-size:11px;color:var(--t-dim);letter-spacing:.06em}
 .footer-center{text-align:center}
-.footer-center-mark{font-family:var(--serif);font-size:13px;color:var(--t-dim);letter-spacing:-.015em;line-height:1.4;display:block}
+.footer-center-mark{font-family:var(--serif);font-size:13px;color:var(--t-dim);letter-spacing:-.015em;line-height:1.4;display:block;text-shadow:0 0 14px rgba(57,255,20,.32)}
 .footer-center-sub{font-family:var(--mono);font-size:9px;color:var(--t-muted);letter-spacing:.1em;margin-top:2px;display:block}
 .footer-right{text-align:right}
 .footer-links{display:flex;gap:24px;justify-content:flex-end}
@@ -504,6 +506,7 @@ footer{
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media(max-width:1024px){
   .s-waveform,.s-dashboard{grid-template-columns:1fr;gap:48px;padding:80px 32px}
+  .s-waveform > *,.s-dashboard > *{min-width:0}
 }
 @media(max-width:768px){
   .mock-card{transform:perspective(1200px) rotateX(-3deg) rotateY(0deg) !important;transition:box-shadow .2s !important}
@@ -513,6 +516,8 @@ footer{
   .nav-link{display:none}
   .s-hero{padding:56px 20px 56px}
   .hero-ctas{flex-direction:column;align-items:center}
+  .s-waveform,.s-dashboard{padding:56px 20px;gap:32px}
+  .feat-copy p{max-width:100%}
   .s-platforms{padding:64px 20px}
   .s-monetize{padding:80px 20px}
   .s-discord{padding:80px 20px}
@@ -539,7 +544,7 @@ footer{
 <section class="s-hero">
   <div class="hero-glow"></div>
   <div class="hero-eyebrow"><span class="live-dot"></span>Creator-Owned Streaming</div>
-  <h1 class="hero-title">Put some<br>Paperweight on it.</h1>
+  <h1 class="hero-title">Put some<br><span class="pw">Paperweight</span> on it.</h1>
   <p class="hero-sub">Spotify pockets your streams and calls it exposure. <span class="pw">Paperweight</span> hands the whole thing back — your station, your subscriber list, your money, running on hardware you own.</p>
   <div class="hero-ctas">
     <a href="/download" class="btn-neon">Get Started →</a>
@@ -818,7 +823,7 @@ footer{
     <svg viewBox="0 0 24 24" fill="currentColor" width="44" height="44"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
   </div>
   <h2 class="discord-title reveal">Join the community</h2>
-  <p class="discord-sub reveal">Connect with other Paperweight creators — share your station, get help, and stay up to date with new features.</p>
+  <p class="discord-sub reveal">Connect with other <span class="pw">Paperweight</span> creators — share your station, get help, and stay up to date with new features.</p>
   <a href="https://discord.gg/XQaX3Nwp" class="btn-discord reveal" target="_blank" rel="noopener noreferrer">
     <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
     Join Discord
