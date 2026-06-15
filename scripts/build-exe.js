@@ -19,11 +19,11 @@ const ROOT = path.resolve(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
 
 const TARGETS = [
-  { key: 'win-x64', aliases: ['windows', 'win'], platform: 'win32', arch: 'x64', label: 'Windows x64', target: 'node20-win-x64', out: 'paperweight-win-x64.exe' },
-  { key: 'macos-x64', aliases: ['mac-x64'], platform: 'darwin', arch: 'x64', label: 'macOS Intel', target: 'node20-macos-x64', out: 'paperweight-macos-x64' },
-  { key: 'macos-arm64', aliases: ['macos', 'mac', 'darwin-arm64'], platform: 'darwin', arch: 'arm64', label: 'macOS Apple Silicon', target: 'node20-macos-arm64', out: 'paperweight-macos-arm64' },
-  { key: 'linux-x64', aliases: ['linux'], platform: 'linux', arch: 'x64', label: 'Linux x64', target: 'node20-linux-x64', out: 'paperweight-linux-x64' },
-  { key: 'linux-arm64', aliases: ['pi', 'raspberry-pi', 'raspi'], platform: 'linux', arch: 'arm64', label: 'Raspberry Pi / Linux ARM64', target: 'node20-linux-arm64', out: 'paperweight-linux-arm64' },
+  { key: 'win-x64',     aliases: ['windows', 'win'],                     platform: 'win32',  arch: 'x64',   label: 'Windows x64',                 target: 'node20-win-x64',     nodeVersion: '20.18.1', abi: '115', out: 'paperweight-win-x64.exe' },
+  { key: 'macos-x64',   aliases: ['mac-x64'],                             platform: 'darwin', arch: 'x64',   label: 'macOS Intel',                  target: 'node20-macos-x64',   nodeVersion: '20.18.1', abi: '115', out: 'paperweight-macos-x64' },
+  { key: 'macos-arm64', aliases: ['macos', 'mac', 'darwin-arm64'],        platform: 'darwin', arch: 'arm64', label: 'macOS Apple Silicon',           target: 'node20-macos-arm64', nodeVersion: '20.18.1', abi: '115', out: 'paperweight-macos-arm64' },
+  { key: 'linux-x64',   aliases: ['linux'],                               platform: 'linux',  arch: 'x64',   label: 'Linux x64',                    target: 'node20-linux-x64',   nodeVersion: '20.18.1', abi: '115', out: 'paperweight-linux-x64' },
+  { key: 'linux-arm64', aliases: ['pi', 'raspberry-pi', 'raspi'],         platform: 'linux',  arch: 'arm64', label: 'Raspberry Pi / Linux ARM64',    target: 'node20-linux-arm64', nodeVersion: '20.18.1', abi: '115', out: 'paperweight-linux-arm64' },
 ];
 
 function usage() {
@@ -117,24 +117,75 @@ function run(cmd, opts = {}) {
   }
 }
 
+function tryRun(cmd, opts = {}) {
+  console.log(`  $ ${cmd}`);
+  const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: ROOT, ...opts });
+  return result.status === 0;
+}
+
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 console.log('\nPaperweight executable packaging');
 console.log('Public distribution remains source/install-script based.\n');
-console.log(`Host: ${process.platform}/${process.arch}`);
+console.log(`Host: ${process.platform}/${process.arch} (ABI ${process.versions.modules})`);
 console.log(`Targets: ${targets.map(t => t.key).join(', ')}\n`);
+
+// ─── ABI alignment ────────────────────────────────────────────────────────────
+// better_sqlite3.node must be compiled for the same Node ABI that pkg bundles
+// in the output exe. All current targets use node20 (ABI 115). If the host
+// Node ABI differs, attempt to download a prebuilt binary for the target ABI
+// via prebuild-install before generating the native bundle.
+
+const uniqueTargetAbis = [...new Set(targets.map(t => t.abi))];
+for (const targetAbi of uniqueTargetAbis) {
+  if (process.versions.modules === targetAbi) continue;
+
+  const targetEntry = targets.find(t => t.abi === targetAbi);
+  const nodeVersion  = targetEntry.nodeVersion;
+
+  console.log(`\nABI mismatch: host ABI ${process.versions.modules}, target ABI ${targetAbi} (Node ${nodeVersion})`);
+  console.log('Attempting to download prebuilt better-sqlite3 for the target Node version...');
+
+  const prebuildInstall = path.join(ROOT, 'node_modules', '.bin', 'prebuild-install');
+  const sqliteDir = path.join(ROOT, 'node_modules', 'better-sqlite3');
+
+  const prebuildOk = fs.existsSync(prebuildInstall) && tryRun(
+    `"${prebuildInstall}" --target ${nodeVersion} --runtime node`,
+    { cwd: sqliteDir },
+  );
+
+  if (!prebuildOk) {
+    console.log('prebuild-install unavailable or failed; trying node-gyp source rebuild...');
+    const rebuildOk = tryRun(
+      `npm rebuild better-sqlite3 --build-from-source`,
+      { env: { ...process.env, npm_config_target: nodeVersion, npm_config_dist_url: 'https://nodejs.org/dist' } },
+    );
+    if (!rebuildOk) {
+      console.error(`\nERROR: Could not rebuild better-sqlite3 for Node ${nodeVersion} (ABI ${targetAbi}).`);
+      console.error(`Install Node ${nodeVersion} (e.g. via nvm) and re-run build:exe from there.`);
+      process.exit(1);
+    }
+  }
+
+  console.log(`OK   better-sqlite3 rebuilt for Node ${nodeVersion} / ABI ${targetAbi}`);
+}
 
 // Regenerate the client bundle so pkg bundles the latest client/ and hls.js.
 run('node scripts/generate-client-bundle.js');
 
-// Generate platform-specific native binding bundle before release:check so the
-// package asset check can fail fast on a missing packaged native bundle.
+// Generate platform-specific native binding bundle. Runs after the ABI rebuild
+// above so the embedded binary matches the pkg target runtime ABI.
 run('node scripts/generate-native-bundle.js');
 
 // Download FFmpeg/ffprobe for this platform into vendor/ffmpeg/ (skips if present).
 run('node scripts/fetch-ffmpeg.js');
+
+// Embed FFmpeg binaries as a Base64 JS bundle so pkg can include them.
+// pkg.assets globs are broken for node20 targets; this mirrors the approach
+// used for better_sqlite3.node.
+run('node scripts/generate-ffmpeg-bundle.js');
 
 run('npm run release:check');
 
@@ -142,11 +193,6 @@ const pkgBin = path.join(ROOT, 'node_modules', '.bin', 'pkg');
 if (!fs.existsSync(pkgBin) && !fs.existsSync(`${pkgBin}.cmd`)) {
   console.error('ERROR: @yao-pkg/pkg not found. Run npm install first.');
   process.exit(1);
-}
-
-const sqliteBuild = path.join(ROOT, 'node_modules', 'better-sqlite3', 'build', 'Release');
-if (!fs.existsSync(sqliteBuild)) {
-  run('npm rebuild better-sqlite3');
 }
 
 ensureDir(DIST);

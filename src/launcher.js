@@ -10,17 +10,13 @@
 const http = require('http');
 const { exec } = require('child_process');
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
-const HOST = process.env.HOST || '127.0.0.1';
-const browserHost = HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
-const url = `http://${browserHost}:${PORT}`;
-
+// require('./index') triggers config.js which calls loadEnv() and populates
+// process.env from the .env file. The server may also bind to a different port
+// than configured if the preferred port is occupied, and updates config.port to
+// reflect the actual bound port. Both reasons mean the URL must be derived after
+// app.start() resolves, not before.
 const app = require('./index');
-
-app.start().catch(err => {
-  console.error('[Paperweight] Failed to start:', err);
-  process.exit(1);
-});
+const config = require('./config');
 
 function openBrowser(target) {
   const cmd = process.platform === 'darwin'
@@ -34,7 +30,7 @@ function openBrowser(target) {
   });
 }
 
-function waitForServer(attemptsLeft) {
+function waitForServer(url, attemptsLeft) {
   if (attemptsLeft <= 0) {
     console.log(`[Paperweight] Server ready. Open your browser to: ${url}`);
     return;
@@ -52,13 +48,24 @@ function waitForServer(attemptsLeft) {
   });
 
   req.on('error', () => {
-    setTimeout(() => waitForServer(attemptsLeft - 1), 500);
+    setTimeout(() => waitForServer(url, attemptsLeft - 1), 500);
   });
 
   req.end();
 }
 
-setTimeout(() => waitForServer(60), 500);
+// Start the server, then build the URL from the actual bound port (config.port
+// is updated by start() if a fallback port was used).
+app.start().then(() => {
+  const host = config.host;
+  const port = config.port;
+  const browserHost = host === '0.0.0.0' || host === '::' ? 'localhost' : host;
+  const url = `http://${browserHost}:${port}`;
+  setTimeout(() => waitForServer(url, 60), 500);
+}).catch(err => {
+  console.error('[Paperweight] Failed to start:', err);
+  process.exit(1);
+});
 
 // Shut down cleanly on Ctrl+C / termination so the broadcast (ffmpeg) and HTTP
 // server stop and the database is closed. index.js only self-registers these

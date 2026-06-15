@@ -85,16 +85,24 @@ function createApp() {
     res.redirect('/creator.html');
   });
 
-  // Legal pages
-  app.get('/landing/license', (req, res) => {
-    res.sendFile(path.join(config.paths.app, 'landing', 'license.html'));
-  });
-  app.get('/landing/content-responsibility', (req, res) => {
-    res.sendFile(path.join(config.paths.app, 'landing', 'content-responsibility.html'));
-  });
-  app.get('/landing/download', (req, res) => {
-    res.sendFile(path.join(config.paths.app, 'landing', 'download.html'));
-  });
+  // Legal pages — serve from the client bundle in packaged mode since
+  // pkg.assets globs are broken for node20 targets and landing/ is not
+  // inside the virtual snapshot.
+  function serveLanding(bundleKey, diskFile) {
+    return (req, res) => {
+      if (isPackaged) {
+        const entry = require('./client-bundle')[bundleKey];
+        if (entry) {
+          res.setHeader('Content-Type', entry.mime);
+          return res.end(entry.data);
+        }
+      }
+      res.sendFile(path.join(config.paths.app, 'landing', diskFile));
+    };
+  }
+  app.get('/landing/license',               serveLanding('/landing/license.html',               'license.html'));
+  app.get('/landing/content-responsibility', serveLanding('/landing/content-responsibility.html', 'content-responsibility.html'));
+  app.get('/landing/download',               serveLanding('/landing/download.html',               'download.html'));
 
   app.get('/manifest.json', (req, res) => {
     const name = config.station.name || 'Paperweight';
@@ -178,29 +186,63 @@ async function start() {
   broadcast.start('shuffle');
 
   const app = createApp();
-  server = app.listen(config.port, config.host);
+  const configuredPort = config.port;
 
-  server.on('listening', () => {
-    log('info', 'server', `Paperweight running on ${config.host}:${config.port}`);
-    log('info', 'server', `Station: ${config.station.name}`);
-    if (config.trustProxy !== false) {
-      log('info', 'server', `Trust proxy enabled: ${config.trustProxy}`);
+  // Try the configured port; if it's occupied, walk upward until a free one is
+  // found (up to +10). config.port is updated to the actual bound port so the
+  // launcher and any other callers always read the real address.
+  await new Promise((resolve, reject) => {
+    function tryBind(port) {
+      if (port > configuredPort + 10) {
+        return reject(new Error(
+          `No free port found in range ${configuredPort}–${configuredPort + 10}. ` +
+          'Set a different PORT in .env or free the port range.'
+        ));
+      }
+
+      const srv = app.listen(port, config.host);
+
+      srv.once('listening', () => {
+        server = srv;
+        const boundPort = srv.address().port;
+
+        if (boundPort !== configuredPort) {
+          const msg = `Port ${configuredPort} was in use — bound to port ${boundPort} instead.`;
+          console.log(`[Paperweight] ${msg}`);
+          try { log('warn', 'server', msg); } catch {}
+          config.port = boundPort;
+        }
+
+        try { log('info', 'server', `Paperweight running on ${config.host}:${config.port}`); } catch {}
+        try { log('info', 'server', `Station: ${config.station.name}`); } catch {}
+        if (config.trustProxy !== false) {
+          try { log('info', 'server', `Trust proxy enabled: ${config.trustProxy}`); } catch {}
+        }
+        if (config.host === '0.0.0.0' || config.host === '::') {
+          const msg = 'HOST is bound to all interfaces; this station is reachable on the LAN. Set HOST=127.0.0.1 for local-only use.';
+          console.warn(`[Paperweight] ${msg}`);
+          try { log('warn', 'server', msg); } catch {}
+        }
+
+        resolve();
+      });
+
+      srv.once('error', err => {
+        if (err.code === 'EADDRINUSE') {
+          srv.close(() => tryBind(port + 1));
+        } else {
+          reject(new Error(`Server bind error: ${err.message}`));
+        }
+      });
     }
-    if (config.host === '0.0.0.0' || config.host === '::') {
-      const msg = 'HOST is bound to all interfaces; this station is reachable on the LAN. Set HOST=127.0.0.1 for local-only use.';
-      console.warn(`[Paperweight] ${msg}`);
-      try { log('warn', 'server', msg); } catch {}
-    }
+
+    tryBind(configuredPort);
   });
 
+  // Ongoing post-bind error handler (fatal errors after successful startup).
   server.on('error', err => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`[ERROR] Port ${config.port} is already in use.`);
-      console.error('        Change PORT in .env or stop the other process.');
-    } else {
-      console.error('[ERROR] Server error:', err.message);
-    }
-    process.exit(1);
+    console.error('[ERROR] Server error:', err.message);
+    fatalShutdown('Server error', err);
   });
 
   return server;

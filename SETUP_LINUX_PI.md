@@ -32,6 +32,8 @@ Dashboard:
 http://localhost:3000/#dashboard
 ```
 
+> **Port note:** Paperweight uses port 3000 by default. If that port is already in use, it automatically selects the next available port (3001, 3002, …) and prints the actual URL on startup. Set `PORT=XXXX` in `.env` to choose a specific port.
+
 Use the dashboard token printed by `scripts/setup.sh`.
 
 ## Raspberry Pi Notes

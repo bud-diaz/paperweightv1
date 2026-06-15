@@ -64,7 +64,9 @@ function checkPort(port) {
     const server = net.createServer();
     server.once('error', err => {
       if (err.code === 'EADDRINUSE') {
-        fail(`Port ${port} is already in use`);
+        // Not a hard failure: the server auto-selects the next available port
+        // when the configured one is occupied.
+        warn(`Port ${port} is in use — server will bind to the next free port on startup`);
       } else {
         warn(`Could not check port ${port}: ${err.message}`);
       }

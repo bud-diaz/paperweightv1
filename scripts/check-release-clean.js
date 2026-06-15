@@ -37,17 +37,40 @@ function git(args) {
   });
 }
 
+// Files that build:exe intentionally regenerates before this check runs.
+// Modifications to these are expected and should not block the release.
+const GENERATED_BUNDLES = new Set([
+  'src/client-bundle.js',
+  'src/native-bundle.js',
+  'src/ffmpeg-bundle.js',
+]);
+
 const status = git(['status', '--porcelain']);
 if (status.status !== 0) {
   const detail = status.error?.message || status.stderr?.trim() || status.status;
   fail(`git status failed: ${detail}`);
 } else {
   const rows = status.stdout.split(/\r?\n/).filter(Boolean);
+
   const untracked = rows.filter(row => row.startsWith('??'));
   if (untracked.length) {
     fail(`untracked files present: ${untracked.map(row => row.slice(3)).join(', ')}`);
   } else {
     pass('no untracked files');
+  }
+
+  // Also catch modified/staged tracked files (e.g. stale bundles, accidental edits).
+  const modified = rows.filter(row => {
+    if (row.startsWith('??')) return false;
+    // Extract the filename from git status --porcelain output. Handle renames
+    // ("R old -> new") by taking the destination path.
+    const filepath = row.slice(3).trim().split(' -> ').pop();
+    return !GENERATED_BUNDLES.has(filepath);
+  });
+  if (modified.length) {
+    fail(`tracked files modified: ${modified.map(row => row.slice(3).trim()).join(', ')}`);
+  } else {
+    pass('no unexpected tracked file modifications');
   }
 }
 

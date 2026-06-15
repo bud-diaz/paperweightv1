@@ -135,23 +135,23 @@ function runMigrations(database) {
   ).get();
 
   if (subSchema && !subSchema.sql.includes("'subscriber'")) {
-    database.exec(`
-      ALTER TABLE subscriptions RENAME TO subscriptions_old;
-
-      CREATE TABLE subscriptions (
-        id                       INTEGER PRIMARY KEY AUTOINCREMENT,
-        listener_id              INTEGER NOT NULL REFERENCES listener_accounts(id),
-        tier                     TEXT    NOT NULL CHECK(tier IN ('subscriber', 'pro', 'all_access')),
-        provider                 TEXT    NOT NULL CHECK(provider IN ('stripe', 'paypal')),
-        provider_subscription_id TEXT    NOT NULL,
-        status                   TEXT    NOT NULL CHECK(status IN ('active', 'cancelled', 'expired')),
-        current_period_end       TEXT    NOT NULL,
-        created_at               TEXT    NOT NULL DEFAULT (datetime('now'))
-      );
-
-      INSERT INTO subscriptions SELECT * FROM subscriptions_old;
-      DROP TABLE subscriptions_old;
-    `);
+    database.transaction(() => {
+      database.exec(`ALTER TABLE subscriptions RENAME TO subscriptions_old`);
+      database.exec(`
+        CREATE TABLE subscriptions (
+          id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+          listener_id              INTEGER NOT NULL REFERENCES listener_accounts(id),
+          tier                     TEXT    NOT NULL CHECK(tier IN ('subscriber', 'pro', 'all_access')),
+          provider                 TEXT    NOT NULL CHECK(provider IN ('stripe', 'paypal')),
+          provider_subscription_id TEXT    NOT NULL,
+          status                   TEXT    NOT NULL CHECK(status IN ('active', 'cancelled', 'expired')),
+          current_period_end       TEXT    NOT NULL,
+          created_at               TEXT    NOT NULL DEFAULT (datetime('now'))
+        )
+      `);
+      database.exec(`INSERT INTO subscriptions SELECT * FROM subscriptions_old`);
+      database.exec(`DROP TABLE subscriptions_old`);
+    })();
   }
 }
 

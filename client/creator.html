@@ -5460,7 +5460,7 @@ el('analytics-details').addEventListener('toggle', () => {
 // ─── Launch acceptance modal ───────────────────────────────────────────────────
 async function checkLaunchAcceptance() {
   try {
-    const d = await fetch('/api/system/launch-status').then(r => r.json());
+    const d = await dashFetch('/api/system/launch-status').then(r => r.json());
     if (!d.accepted) {
       el('launch-backdrop').hidden = false;
     }
@@ -5474,7 +5474,7 @@ el('launch-chk-license').addEventListener('change', updateLaunchContinue);
 el('launch-chk-content').addEventListener('change', updateLaunchContinue);
 el('launch-continue').addEventListener('click', async () => {
   try {
-    await fetch('/api/system/launch-accept', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    await dashFetch('/api/system/launch-accept', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
   } catch {}
   el('launch-backdrop').hidden = true;
 });

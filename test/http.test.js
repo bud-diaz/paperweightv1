@@ -262,3 +262,35 @@ test('trust proxy parser supports booleans, hop counts, and named proxy ranges',
   assert.equal(parseTrustProxy('2'), 2);
   assert.equal(parseTrustProxy('loopback'), 'loopback');
 });
+
+test('launch-status and launch-accept require dashboard auth', async () => {
+  freshDb();
+  await withServer(async baseUrl => {
+    // Unauthenticated requests must be rejected.
+    assert.equal((await request(baseUrl, '/api/system/launch-status')).res.status, 401);
+    assert.equal((await request(baseUrl, '/api/system/launch-accept', { method: 'POST' })).res.status, 401);
+
+    // Authenticated via X-Dashboard-Token header.
+    const status = await request(baseUrl, '/api/system/launch-status', {
+      headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+    });
+    assert.equal(status.res.status, 200);
+    assert.equal(typeof status.body.accepted, 'boolean');
+
+    const accept = await request(baseUrl, '/api/system/launch-accept', {
+      method: 'POST',
+      headers: {
+        'X-Dashboard-Token': process.env.DASHBOARD_TOKEN,
+        'Content-Type': 'application/json',
+      },
+    });
+    assert.equal(accept.res.status, 200);
+    assert.equal(accept.body.ok, true);
+
+    // Acceptance should now be recorded.
+    const after = await request(baseUrl, '/api/system/launch-status', {
+      headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+    });
+    assert.equal(after.body.accepted, true);
+  });
+});

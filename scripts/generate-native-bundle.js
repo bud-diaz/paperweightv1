@@ -42,6 +42,7 @@ const content = [
   `  sha256: ${JSON.stringify(hash)},`,
   `  platform: ${JSON.stringify(process.platform)},`,
   `  arch: ${JSON.stringify(process.arch)},`,
+  `  abi: ${JSON.stringify(process.versions.modules)},`,
   '};',
   '',
 ].join('\n');

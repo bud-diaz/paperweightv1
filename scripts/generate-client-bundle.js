@@ -15,10 +15,11 @@
 const fs   = require('fs');
 const path = require('path');
 
-const ROOT       = path.resolve(__dirname, '..');
-const CLIENT_DIR = path.join(ROOT, 'client');
-const HLS_SRC    = path.join(ROOT, 'node_modules', 'hls.js', 'dist', 'hls.min.js');
-const OUTPUT     = path.join(ROOT, 'src', 'client-bundle.js');
+const ROOT        = path.resolve(__dirname, '..');
+const CLIENT_DIR  = path.join(ROOT, 'client');
+const LANDING_DIR = path.join(ROOT, 'landing');
+const HLS_SRC     = path.join(ROOT, 'node_modules', 'hls.js', 'dist', 'hls.min.js');
+const OUTPUT      = path.join(ROOT, 'src', 'client-bundle.js');
 
 const MIME = {
   '.html':  'text/html; charset=utf-8',
@@ -58,6 +59,10 @@ function buildClientBundleSource() {
   }
 
   const entries = walk(CLIENT_DIR, '');
+  // Include landing/ pages so packaged exe can serve /landing/* routes.
+  if (fs.existsSync(LANDING_DIR)) {
+    entries.push(...walk(LANDING_DIR, '/landing'));
+  }
   entries.push({ full: HLS_SRC, urlPath: '/vendor/hls.min.js' });
 
   const lines = [
