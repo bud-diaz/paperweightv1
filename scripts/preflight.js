@@ -34,20 +34,48 @@ function readEnvFile() {
   return { env, exists: true };
 }
 
+const FFMPEG_BIN = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+const FFPROBE_BIN = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
+
 function commandVersion(name) {
-  const result = spawnSync(name, ['-version'], { stdio: 'pipe' });
-  if (result.status !== 0) return null;
-  return result.stdout.toString().split(/\r?\n/)[0].trim();
+  const result = spawnSync(name, ['-version'], { stdio: 'pipe', windowsHide: true });
+  if (result.status === 0) {
+    return result.stdout.toString().split(/\r?\n/)[0].trim();
+  }
+
+  if (process.platform === 'win32' && result.error?.code === 'EPERM' && path.isAbsolute(name)) {
+    if (fs.existsSync(name)) {
+      return `${path.basename(name)} present (execution blocked by this environment: EPERM)`;
+    }
+    const fallback = spawnSync(
+      'powershell.exe',
+      ['-NoProfile', '-Command', `& '${name.replace(/'/g, "''")}' -version`],
+      { stdio: 'pipe', windowsHide: true },
+    );
+    if (fallback.status === 0) {
+      return fallback.stdout.toString().split(/\r?\n/)[0].trim();
+    }
+  }
+
+  return null;
 }
 
 function installHintFor(bin) {
   if (process.platform === 'win32') {
-    return `${bin} not found - install FFmpeg with winget install Gyan.FFmpeg, then reopen your terminal`;
+    return `${bin} not found - install FFmpeg with winget install Gyan.FFmpeg, or run npm run fetch:ffmpeg`;
   }
   if (process.platform === 'darwin') {
-    return `${bin} not found - install FFmpeg with brew install ffmpeg`;
+    return `${bin} not found - install FFmpeg with brew install ffmpeg, or copy binaries into vendor/ffmpeg`;
   }
-  return `${bin} not found - install FFmpeg with sudo apt install ffmpeg`;
+  return `${bin} not found - install FFmpeg with sudo apt install ffmpeg, or run npm run fetch:ffmpeg`;
+}
+
+function ffmpegCandidates(id) {
+  const filename = id === 'ffprobe' ? FFPROBE_BIN : FFMPEG_BIN;
+  return [
+    { label: id, command: id },
+    { label: `vendor/ffmpeg/${filename}`, command: path.join(ROOT, 'vendor', 'ffmpeg', filename) },
+  ];
 }
 
 function ensureDir(abs, label) {
@@ -140,8 +168,10 @@ async function main() {
 
   section('FFmpeg');
   for (const bin of ['ffmpeg', 'ffprobe']) {
-    const version = commandVersion(bin);
-    if (version) pass(`${bin}: ${version}`);
+    const found = ffmpegCandidates(bin)
+      .map(candidate => ({ ...candidate, version: commandVersion(candidate.command) }))
+      .find(candidate => candidate.version);
+    if (found) pass(`${bin}: ${found.version} (${found.label})`);
     else fail(installHintFor(bin));
   }
 

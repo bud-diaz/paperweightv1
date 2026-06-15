@@ -116,6 +116,43 @@ test('dashboard auth rejects missing and wrong tokens, accepts the configured to
   });
 });
 
+test('launch acceptance is dashboard-only', async () => {
+  const db = freshDb();
+  const listenerToken = seedToken(db, { tier: 'subscriber' });
+
+  await withServer(async baseUrl => {
+    const publicStatus = await request(baseUrl, '/api/system/launch-status');
+    assert.equal(publicStatus.res.status, 401);
+
+    const listenerStatus = await request(baseUrl, '/api/system/launch-status', {
+      headers: { Authorization: `Bearer ${listenerToken.token}` },
+    });
+    assert.equal(listenerStatus.res.status, 401);
+
+    const status = await request(baseUrl, '/api/system/launch-status', {
+      headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+    });
+    assert.equal(status.res.status, 200);
+    assert.equal(status.body.accepted, false);
+
+    const deniedAccept = await request(baseUrl, '/api/system/launch-accept', {
+      method: 'POST',
+    });
+    assert.equal(deniedAccept.res.status, 401);
+
+    const accept = await request(baseUrl, '/api/system/launch-accept', {
+      method: 'POST',
+      headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+    });
+    assert.equal(accept.res.status, 200);
+    assert.equal(accept.body.ok, true);
+
+    const row = db.prepare('SELECT accepted_at, version FROM launch_acceptance WHERE id = 1').get();
+    assert.ok(row.accepted_at);
+    assert.equal(row.version, '1.5.1');
+  });
+});
+
 test('token redeem, me, and logout flow works through cookies', async () => {
   const db = freshDb();
   const token = seedToken(db, { tier: 'subscriber' });

@@ -50,7 +50,6 @@
       "scripts/smoke-exe.js"
     ],
     "assets": [
-      "vendor/ffmpeg/**",
       "package.json"
     ],
     "targets": [

@@ -18,6 +18,22 @@ function sha256(buffer) {
 
 function readBundle() {
   const mod = require('./native-bundle');
+  if (mod.platform !== process.platform) {
+    throw new Error(
+      `native-bundle.js platform mismatch: bundle=${mod.platform || 'unknown'} runtime=${process.platform}`,
+    );
+  }
+  if (mod.arch !== process.arch) {
+    throw new Error(
+      `native-bundle.js architecture mismatch: bundle=${mod.arch || 'unknown'} runtime=${process.arch}`,
+    );
+  }
+  if (mod.moduleAbi !== process.versions.modules) {
+    throw new Error(
+      `native-bundle.js Node ABI mismatch: bundle=${mod.moduleAbi || 'unknown'} runtime=${process.versions.modules}. ` +
+      'Regenerate the native bundle with the same Node runtime used by the packaged executable.',
+    );
+  }
   const data = Buffer.isBuffer(mod) ? mod : mod.data;
   if (!Buffer.isBuffer(data)) {
     throw new Error('native-bundle.js did not export a native binding buffer');

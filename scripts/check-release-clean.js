@@ -43,11 +43,10 @@ if (status.status !== 0) {
   fail(`git status failed: ${detail}`);
 } else {
   const rows = status.stdout.split(/\r?\n/).filter(Boolean);
-  const untracked = rows.filter(row => row.startsWith('??'));
-  if (untracked.length) {
-    fail(`untracked files present: ${untracked.map(row => row.slice(3)).join(', ')}`);
+  if (rows.length) {
+    fail(`git working tree has changes: ${rows.map(row => row.slice(3) || row).join(', ')}`);
   } else {
-    pass('no untracked files');
+    pass('git working tree is clean');
   }
 }
 

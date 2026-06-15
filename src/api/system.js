@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const { getDb } = require('../db');
+const { requireDashboard } = require('../auth/middleware');
 
 let _version;
 function getVersion() {
@@ -9,16 +10,16 @@ function getVersion() {
   return _version;
 }
 
-// GET /api/system/launch-status — no auth, checked on creator first load
+router.use(requireDashboard);
+
+// GET /api/system/launch-status - dashboard-only, checked after creator login
 router.get('/launch-status', (req, res) => {
   const row = getDb().prepare('SELECT accepted_at, version FROM launch_acceptance WHERE id = 1').get();
   const accepted = !!(row && row.accepted_at);
   res.json({ accepted, acceptedAt: row ? row.accepted_at : null });
 });
 
-// POST /api/system/launch-accept — records acceptance
-// No auth gate: the creator is the only one running this server, and the modal
-// appears on first load before dashboard login is possible.
+// POST /api/system/launch-accept - records creator acceptance
 router.post('/launch-accept', (req, res) => {
   getDb().prepare(`
     UPDATE launch_acceptance
