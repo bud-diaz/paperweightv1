@@ -96,12 +96,12 @@
     }
     #topbar > div:first-child { min-width: 0; }
     .pw-wordmark {
-      font-family: 'DM Serif Display', serif; font-size: 18px;
+      font-family: 'DM Serif Display', serif; font-size: 21px;
       color: var(--t1); letter-spacing: -.03em; white-space: nowrap;
       overflow: hidden; text-overflow: ellipsis; max-width: 150px;
       cursor: default; user-select: none; -webkit-user-select: none;
     }
-    .pw-sub { font-size: 8px; color: var(--t4); letter-spacing: .1em; margin-top: 2px; }
+    .pw-sub { font-size: 12px; color: var(--t4); letter-spacing: .1em; margin-top: 2px; }
     #topbar-right { justify-self: end; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
     #view-toggle {
@@ -111,8 +111,8 @@
     }
     .view-tab {
       background: none; border: none; cursor: pointer;
-      font-family: 'Space Mono', monospace; font-size: 8px;
-      letter-spacing: .1em; padding: 4px 10px; border-radius: 6px;
+      font-family: 'Space Mono', monospace; font-size: 12px;
+      letter-spacing: .1em; padding: 5px 12px; border-radius: 6px;
       color: var(--t3); transition: all .15s; white-space: nowrap;
     }
     .view-tab.active { background: var(--raised); color: var(--t1); }
@@ -120,19 +120,19 @@
     #back-live-btn {
       display: none; background: none; border: 1px solid var(--border); border-radius: var(--radius-xs);
       cursor: pointer; color: var(--t3); font-family: 'Space Mono', monospace;
-      font-size: 8px; letter-spacing: .1em; padding: 4px 9px; transition: all .15s;
+      font-size: 12px; letter-spacing: .1em; padding: 5px 11px; transition: all .15s;
     }
     #back-live-btn:hover { color: var(--t1); border-color: var(--border-strong); }
 
     .type-badge {
-      font-size: 8px; font-family: 'Space Mono', monospace; letter-spacing: .14em;
-      color: #000; border-radius: var(--radius-xs); padding: 2px 8px; font-weight: 700;
+      font-size: 12px; font-family: 'Space Mono', monospace; letter-spacing: .14em;
+      color: #000; border-radius: var(--radius-xs); padding: 3px 10px; font-weight: 700;
       display: flex; align-items: center; gap: 4px;
     }
     .live-dot-badge { width: 5px; height: 5px; border-radius: 50%; background: #000; display: inline-block; }
 
     @media (max-width: 380px) {
-      .view-tab { padding: 4px 7px; font-size: 7px; }
+      .view-tab { padding: 4px 7px; font-size: 11px; }
       .pw-wordmark { max-width: 100px; }
     }
 
@@ -165,14 +165,14 @@
       padding: 18px 20px; display: flex; flex-direction: column; justify-content: space-between;
     }
     #art-flip.flipped #art-back { transform: rotateY(0deg); }
-    #ab-title { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--t1); line-height: 1.1; }
-    #ab-artist { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t3); letter-spacing: .08em; margin-top: 4px; }
+    #ab-title { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--t1); line-height: 1.1; }
+    #ab-artist { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--t3); letter-spacing: .08em; margin-top: 4px; }
     #ab-rows { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; overflow: hidden; flex: 1; }
-    .ab-row { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ab-row { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--t3); letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ab-row strong { color: var(--t2); font-weight: 400; margin-right: 8px; }
     #ab-footer { display: flex; align-items: flex-end; justify-content: space-between; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.05); margin-top: 8px; }
-    #ab-duration-cat { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .06em; }
-    #ab-hint { font-family: 'Space Mono', monospace; font-size: 7px; color: var(--t4); letter-spacing: .1em; }
+    #ab-duration-cat { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--t4); letter-spacing: .06em; }
+    #ab-hint { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t4); letter-spacing: .1em; }
 
     #art-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
     #video-el { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; border-radius: 14px; }
@@ -193,16 +193,16 @@
       border: 1px solid rgba(255,255,255,.07);
     }
     #on-air-dot { width: 6px; height: 6px; border-radius: 50%; animation: live-dot 1.2s ease-in-out infinite; }
-    #on-air-text { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: .12em; }
+    #on-air-text { font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: .12em; }
 
     #art-meta {
       position: absolute; bottom: 0; left: 0; right: 0; z-index: 4;
       padding: 36px 18px 16px;
       background: linear-gradient(to top, rgba(0,0,0,.88) 0%, rgba(0,0,0,.2) 65%, transparent 100%);
     }
-    #track-title   { font-family: 'DM Serif Display', serif; font-size: 26px; color: #fff; line-height: 1.05; letter-spacing: -.03em; }
-    #track-creator { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(255,255,255,.55); margin-top: 5px; letter-spacing: .05em; }
-    #track-station { font-family: 'Space Mono', monospace; font-size: 8px; color: rgba(255,255,255,.2); margin-top: 3px; letter-spacing: .1em; }
+    #track-title   { font-family: 'DM Serif Display', serif; font-size: 30px; color: #fff; line-height: 1.05; letter-spacing: -.03em; }
+    #track-creator { font-family: 'Space Mono', monospace; font-size: 14px; color: rgba(255,255,255,.55); margin-top: 5px; letter-spacing: .05em; }
+    #track-station { font-family: 'Space Mono', monospace; font-size: 12px; color: rgba(255,255,255,.2); margin-top: 3px; letter-spacing: .1em; }
 
     /* ── Waveform ── */
     #waveform-section { padding: 14px 20px 0; flex-shrink: 0; }
@@ -214,7 +214,7 @@
     .wbar { flex: 1; min-width: 2px; max-width: 6px; border-radius: 2px; transition: background .08s; }
     #time-row {
       display: flex; justify-content: space-between; margin-top: 6px;
-      font-size: 9px; color: var(--t4); letter-spacing: .03em;
+      font-size: 13px; color: var(--t4); letter-spacing: .03em;
     }
 
     /* ── Controls ── */
@@ -225,7 +225,7 @@
     .drawer-btn {
       width: 36px; height: 36px; border-radius: var(--radius-sm);
       background: var(--inset); border: 1px solid var(--border);
-      cursor: pointer; color: var(--t3); font-size: 15px;
+      cursor: pointer; color: var(--t3); font-size: 21px;
       display: flex; align-items: center; justify-content: center;
       transition: all .15s; flex-shrink: 0;
     }
@@ -236,7 +236,7 @@
     .skip-btn {
       width: 32px; height: 32px; border-radius: 50%;
       background: none; border: none; cursor: pointer;
-      color: var(--t3); font-size: 15px; display: flex; align-items: center; justify-content: center;
+      color: var(--t3); font-size: 21px; display: flex; align-items: center; justify-content: center;
       transition: color .12s, background .12s;
     }
     .skip-btn:hover { color: var(--t1); background: var(--raised); }
@@ -271,7 +271,7 @@
       padding: 12px 0 12px;
     }
     .drawer-label {
-      font-size: 9px; letter-spacing: .16em; color: var(--t3);
+      font-size: 13px; letter-spacing: .16em; color: var(--t3);
       padding: 0 16px 8px; font-family: 'Space Mono', monospace;
       display: flex; align-items: center; gap: 12px;
     }
@@ -287,24 +287,24 @@
     .lib-row.active { background: rgba(255,255,255,.05); border-left-color: var(--color); }
     .lib-thumb {
       width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center; font-size: 13px;
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
       background: var(--raised);
     }
     .lib-info { flex: 1; min-width: 0; }
-    .lib-title { font-family: 'DM Serif Display', serif; font-size: 13px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lib-title { font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .lib-title.active { color: var(--t1); }
-    .lib-meta  { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t4); margin-top: 1px; }
+    .lib-meta  { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--t4); margin-top: 1px; }
 
     /* queue */
     #queue-header { display: flex; align-items: center; justify-content: space-between; padding: 0 16px 8px; }
     .lock-badge {
-      font-size: 8px; letter-spacing: .1em; color: var(--t4);
-      font-family: 'Space Mono', monospace; border: 1px solid var(--border); border-radius: var(--radius-xs); padding: 2px 6px;
+      font-size: 12px; letter-spacing: .1em; color: var(--t4);
+      font-family: 'Space Mono', monospace; border: 1px solid var(--border); border-radius: var(--radius-xs); padding: 3px 8px;
     }
     .q-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; opacity: .45; }
-    .q-title { font-family: 'DM Serif Display', serif; font-size: 13px; color: var(--t2); }
-    .q-time  { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t4); }
-    .q-section { padding: 6px 16px 2px; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: .14em; color: var(--t4); }
+    .q-title { font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--t2); }
+    .q-time  { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--t4); }
+    .q-section { padding: 6px 16px 2px; font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: .14em; color: var(--t4); }
     .q-divider { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
 
     /* share */
@@ -317,21 +317,21 @@
       transition: border-color .15s, background .15s;
     }
     .share-opt:hover { border-color: var(--border-strong); }
-    .share-opt-icon { font-size: 13px; color: var(--t2); line-height: 1; transition: color .15s; }
-    .share-opt-icon.embed { font-size: 9px; font-family: 'Space Mono', monospace; }
-    .share-opt-label { font-family: 'Space Mono', monospace; font-size: 7px; color: var(--t3); letter-spacing: .08em; transition: color .15s; }
+    .share-opt-icon { font-size: 18px; color: var(--t2); line-height: 1; transition: color .15s; }
+    .share-opt-icon.embed { font-size: 13px; font-family: 'Space Mono', monospace; }
+    .share-opt-label { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t3); letter-spacing: .08em; transition: color .15s; }
     .share-opt.copied .share-opt-icon, .share-opt.copied .share-opt-label { color: var(--color); }
 
     /* ── Account / Auth ── */
     #auth-toggle {
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
       width: 100%; padding: 10px 20px 8px; background: none; border: none; cursor: pointer;
-      font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .12em;
+      font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); letter-spacing: .12em;
       transition: color .15s;
     }
     #auth-toggle:hover { color: var(--t2); }
     #auth-toggle-left { display: flex; align-items: center; gap: 8px; }
-    #auth-toggle-status { font-size: 8px; color: var(--t3); letter-spacing: .04em; }
+    #auth-toggle-status { font-size: 10px; color: var(--t3); letter-spacing: .04em; }
     #auth-chevron { transition: transform .2s; flex-shrink: 0; }
     #auth-toggle.open #auth-chevron { transform: rotate(180deg); }
     #auth-body { overflow: hidden; max-height: 0; transition: max-height .28s ease; }
@@ -339,7 +339,7 @@
     #auth-divider { border: none; border-top: 1px solid var(--border); margin: 0 20px 10px; }
     #auth-tabs { display: flex; gap: 4px; padding: 0 20px 10px; }
     .auth-tab {
-      flex: 1; padding: 7px 0; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: .07em;
+      flex: 1; padding: 7px 0; font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .07em;
       background: var(--raised); border: 1px solid var(--border); border-radius: var(--radius-sm);
       cursor: pointer; color: var(--t3); transition: all .15s;
     }
@@ -348,37 +348,37 @@
     #auth-badge { display: none; align-items: center; gap: 5px; }
     #auth-badge.visible { display: flex; }
     #auth-badge-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--color); animation: live-dot 1.2s ease-in-out infinite; flex-shrink: 0; }
-    #auth-badge-text { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: .1em; color: var(--color); }
+    #auth-badge-text { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em; color: var(--color); }
     #auth-form { padding: 0 20px; display: flex; flex-direction: column; gap: 8px; }
     .auth-input {
       width: 100%; box-sizing: border-box; background: var(--inset); border: 1px solid var(--border);
       border-radius: var(--radius-sm); padding: 9px 12px; font-family: 'Space Mono', monospace;
-      font-size: 10px; color: var(--t1); outline: none; transition: border-color .15s;
+      font-size: 12px; color: var(--t1); outline: none; transition: border-color .15s;
     }
     .auth-input::placeholder { color: var(--t4); }
     .auth-input:focus { border-color: var(--border-strong); }
     .auth-submit {
-      padding: 10px; font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: .08em;
+      padding: 10px; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .08em;
       background: var(--raised); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
       color: var(--t1); cursor: pointer; transition: all .15s;
     }
     .auth-submit:hover:not(:disabled) { background: rgba(255,255,255,.15); }
     .auth-submit:disabled { opacity: .3; cursor: not-allowed; }
-    .auth-msg { font-family: 'Space Mono', monospace; font-size: 9px; min-height: 14px; padding: 0 0 2px; }
+    .auth-msg { font-family: 'Space Mono', monospace; font-size: 11px; min-height: 14px; padding: 0 0 2px; }
     .auth-msg.error   { color: #ff5566; }
     .auth-msg.success { color: #39ff14; }
     #auth-logged-in { padding: 0 20px; }
     .auth-account-row { display: flex; align-items: center; gap: 8px; padding: 4px 0 8px; }
-    .auth-email-disp { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t3); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .auth-tier-badge { font-family: 'Space Mono', monospace; font-size: 8px; padding: 2px 8px; border-radius: var(--radius-xs); border: 1px solid var(--border); color: var(--t3); flex-shrink: 0; }
+    .auth-email-disp { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t3); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .auth-tier-badge { font-family: 'Space Mono', monospace; font-size: 10px; padding: 2px 8px; border-radius: var(--radius-xs); border: 1px solid var(--border); color: var(--t3); flex-shrink: 0; }
     .auth-tier-badge.subscriber, .auth-tier-badge.pro, .auth-tier-badge.all_access { border-color: var(--border-strong); color: var(--t1); }
-    .auth-logout-btn { font-family: 'Space Mono', monospace; font-size: 8px; padding: 4px 9px; background: none; border: 1px solid var(--border); border-radius: var(--radius-xs); color: var(--t3); cursor: pointer; flex-shrink: 0; transition: all .15s; }
+    .auth-logout-btn { font-family: 'Space Mono', monospace; font-size: 10px; padding: 4px 9px; background: none; border: 1px solid var(--border); border-radius: var(--radius-xs); color: var(--t3); cursor: pointer; flex-shrink: 0; transition: all .15s; }
     .auth-logout-btn:hover { border-color: var(--border-strong); color: var(--t2); }
-    #auth-set-pw { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); background: none; border: none; border-bottom: 1px solid var(--border); padding: 0 0 1px; cursor: pointer; margin-bottom: 8px; transition: color .15s; }
+    #auth-set-pw { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); background: none; border: none; border-bottom: 1px solid var(--border); padding: 0 0 1px; cursor: pointer; margin-bottom: 8px; transition: color .15s; }
     #auth-set-pw:hover { color: var(--t2); }
     #auth-setpw-form { display: flex; flex-direction: column; gap: 7px; padding-bottom: 4px; }
-    .vg-login-hint { text-align: center; margin-top: 14px; font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); }
-    .vg-login-hint button { background: none; border: none; color: var(--t2); font-family: 'Space Mono', monospace; font-size: 8px; cursor: pointer; text-decoration: underline; }
+    .vg-login-hint { text-align: center; margin-top: 14px; font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); }
+    .vg-login-hint button { background: none; border: none; color: var(--t2); font-family: 'Space Mono', monospace; font-size: 10px; cursor: pointer; text-decoration: underline; }
     .vg-login-hint button:hover { color: var(--t1); }
 
     /* ── Bottom chrome ── */
@@ -396,8 +396,8 @@
     }
     #share-area:hover, #account-area:hover { background: rgba(255,255,255,.025); }
     #share-tab-divider { width: 1px; background: var(--border); flex-shrink: 0; }
-    #share-tab-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .14em; }
-    #account-tab-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .14em; }
+    #share-tab-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); letter-spacing: .14em; }
+    #account-tab-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); letter-spacing: .14em; }
     #share-chevron { transition: transform .25s; }
 
     /* Library queue button */
@@ -407,7 +407,7 @@
       position: absolute; inset: 0; display: none;
       align-items: center; justify-content: center;
       background: rgba(0,0,0,.6); color: var(--color, #39ff14);
-      font-size: 18px; font-weight: 700; border: none; cursor: pointer;
+      font-size: 21px; font-weight: 700; border: none; cursor: pointer;
       border-radius: 8px; line-height: 1;
     }
     .lib-thumb:hover .lib-queue-btn { display: flex; }
@@ -417,22 +417,22 @@
     #station-queue-panel { padding: 8px 14px 4px; }
     .sq-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); }
     .sq-item:last-child { border-bottom: none; }
-    .sq-title { font-family: 'DM Serif Display', serif; font-size: 12px; color: var(--t2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sq-remove { background: none; border: none; color: var(--t4); font-size: 14px; cursor: pointer; padding: 0 4px; line-height: 1; transition: color .12s; }
+    .sq-title { font-family: 'DM Serif Display', serif; font-size: 14px; color: var(--t2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sq-remove { background: none; border: none; color: var(--t4); font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1; transition: color .12s; }
     .sq-remove:hover { color: #ff5566; }
-    .sq-empty { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .06em; padding: 4px 0 8px; }
+    .sq-empty { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); letter-spacing: .06em; padding: 4px 0 8px; }
 
     /* Listener queue pill */
     #listener-queue-pill {
       display: none; align-items: center; gap: 5px;
-      font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: .08em;
+      font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .08em;
       color: var(--color, #39ff14); cursor: pointer;
     }
     #listener-queue-pill.visible { display: flex; }
     #lq-count {
       background: var(--color, #39ff14); color: #000; border-radius: 50%;
       width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
-      font-size: 9px; font-weight: 700;
+      font-size: 11px; font-weight: 700;
     }
 
     /* Broadcast collapse */
@@ -440,14 +440,14 @@
     #broadcast-advanced.open { max-height: 200px; }
     #broadcast-header-toggle {
       display: flex; align-items: center; gap: 7px; cursor: pointer;
-      font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3);
+      font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3);
       letter-spacing: .08em; padding: 4px 0 8px; user-select: none;
     }
     #broadcast-header-toggle:hover { color: var(--t2); }
-    #broadcast-header-toggle .bh-chev { font-size: 9px; transition: transform .18s; }
+    #broadcast-header-toggle .bh-chev { font-size: 11px; transition: transform .18s; }
     #broadcast-header-toggle.open .bh-chev { transform: rotate(90deg); }
     .rh-toggle-row { display: flex; align-items: center; gap: 10px; padding: 8px 0 4px; }
-    .rh-toggle-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .06em; flex: 1; }
+    .rh-toggle-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); letter-spacing: .06em; flex: 1; }
     .rh-switch {
       width: 36px; height: 20px; border-radius: 10px;
       background: rgba(255,255,255,.1); border: 1px solid var(--border);
@@ -462,8 +462,8 @@
     .rh-switch.on { background: rgba(57,255,20,.2); border-color: rgba(57,255,20,.4); }
     .rh-switch.on::after { transform: translateX(16px); background: #39ff14; }
     .rh-switch.locked { opacity: .4; cursor: not-allowed; }
-    .rh-switches-used { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .04em; padding-bottom: 6px; }
-    .rh-lock-msg { font-family: 'Space Mono', monospace; font-size: 8px; color: rgba(255,100,100,.6); letter-spacing: .04em; padding-bottom: 6px; }
+    .rh-switches-used { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); letter-spacing: .04em; padding-bottom: 6px; }
+    .rh-lock-msg { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(255,100,100,.6); letter-spacing: .04em; padding-bottom: 6px; }
     #bottom-accent { height: 3px; opacity: .9; transition: background .5s; flex-shrink: 0; }
 
     /* ── Slide panels ── */
@@ -480,14 +480,14 @@
     /* ── Dashboard ── */
     .dash-section { padding: 20px 20px 0; }
     .dash-section-label {
-      font-size: 10px; letter-spacing: .16em; color: var(--t2);
+      font-size: 12px; letter-spacing: .16em; color: var(--t2);
       font-family: 'Space Mono', monospace; margin-bottom: 12px;
       display: flex; align-items: center; gap: 12px; font-weight: 700;
     }
     .dash-section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
     .dash-section-toggle { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; margin-bottom: 0; padding-bottom: 10px; }
     .dash-section-toggle::-webkit-details-marker { display: none; }
-    .ds-chev { font-size: 9px; color: var(--t4); transition: transform .15s; line-height: 1; }
+    .ds-chev { font-size: 11px; color: var(--t4); transition: transform .15s; line-height: 1; }
     details[open] > summary .ds-chev { transform: rotate(180deg); }
 
     .stat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
@@ -495,8 +495,8 @@
       background: var(--raised); border: 1px solid var(--border);
       border-radius: var(--radius-md); padding: 14px 10px; text-align: center;
     }
-    .stat-val { font-family: 'DM Serif Display', serif; font-size: 24px; color: var(--t1); line-height: 1; }
-    .stat-key { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .1em; margin-top: 5px; }
+    .stat-val { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--t1); line-height: 1; }
+    .stat-key { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); letter-spacing: .1em; margin-top: 5px; }
 
     .vault-stat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
     .vault-stat-btn {
@@ -518,10 +518,10 @@
     .sched-row:hover { background: rgba(255,255,255,.03); }
     .sched-row.live-now { border-left-color: var(--color); background: rgba(255,255,255,.03); }
     .sched-info { display: flex; flex-direction: column; gap: 2px; }
-    .sched-title { font-family: 'DM Serif Display', serif; font-size: 13px; color: var(--t2); }
-    .sched-meta  { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t4); }
+    .sched-title { font-family: 'DM Serif Display', serif; font-size: 15px; color: var(--t2); }
+    .sched-meta  { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t4); }
     .sched-badge {
-      font-size: 8px; font-family: 'Space Mono', monospace; letter-spacing: .1em;
+      font-size: 10px; font-family: 'Space Mono', monospace; letter-spacing: .1em;
       padding: 2px 8px; border-radius: var(--radius-xs); font-weight: 700;
     }
     .sched-badge.on { background: var(--color); color: #000; }
@@ -534,19 +534,19 @@
     .mgmt-row:hover { background: rgba(255,255,255,.03); }
     .mgmt-thumb {
       width: 30px; height: 30px; border-radius: var(--radius-xs); flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center; font-size: 12px;
+      display: flex; align-items: center; justify-content: center; font-size: 14px;
       background: var(--raised);
     }
     .mgmt-info { flex: 1; min-width: 0; }
-    .mgmt-title { font-family: 'DM Serif Display', serif; font-size: 12px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .mgmt-meta  { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); margin-top: 1px; }
+    .mgmt-title { font-family: 'DM Serif Display', serif; font-size: 14px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mgmt-meta  { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); margin-top: 1px; }
     .mgmt-actions { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
 
     /* ── Unified button spec ── */
     .mgmt-btn {
       background: var(--raised); border: 1px solid var(--border);
       border-radius: var(--radius-xs); color: var(--t2); cursor: pointer;
-      font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: .06em;
+      font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .06em;
       padding: 5px 10px; transition: all .13s; white-space: nowrap;
     }
     .mgmt-btn:hover { border-color: var(--border-strong); color: var(--t1); }
@@ -558,17 +558,17 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       padding: 48px 24px; gap: 10px; text-align: center; flex: 1;
     }
-    .dash-gate-title { font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--t2); margin-bottom: 4px; }
-    .dash-gate-hint { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .1em; margin-bottom: 8px; }
+    .dash-gate-title { font-family: 'DM Serif Display', serif; font-size: 21px; color: var(--t2); margin-bottom: 4px; }
+    .dash-gate-hint { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); letter-spacing: .1em; margin-bottom: 8px; }
     .dash-unlock-btn {
       background: var(--raised); border: 1px solid var(--border-strong);
       border-radius: var(--radius-sm); color: var(--t1); cursor: pointer;
-      font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: .1em;
+      font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .1em;
       padding: 10px 24px; transition: all .15s;
     }
     .dash-unlock-btn:hover { background: rgba(255,255,255,.15); }
-    .dash-error-msg   { font-family: 'Space Mono', monospace; font-size: 9px; color: #ff5566; letter-spacing: .04em; }
-    .dash-success-msg { font-family: 'Space Mono', monospace; font-size: 9px; color: #39ff14; letter-spacing: .04em; }
+    .dash-error-msg   { font-family: 'Space Mono', monospace; font-size: 11px; color: #ff5566; letter-spacing: .04em; }
+    .dash-success-msg { font-family: 'Space Mono', monospace; font-size: 11px; color: #39ff14; letter-spacing: .04em; }
     #dash-2fa-gate:not([hidden]) { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 24px; gap:10px; text-align:center; flex:1; }
 
     .live-meter-bar { flex: 1; border-radius: 1px; transition: background .06s; }
@@ -577,10 +577,10 @@
     .dash-input {
       background: var(--inset); border: 1px solid var(--border);
       border-radius: var(--radius-sm); color: var(--t1); font-family: 'Space Mono', monospace;
-      font-size: 10px; outline: none; padding: 8px 12px; transition: border-color .15s; width: 100%;
+      font-size: 12px; outline: none; padding: 8px 12px; transition: border-color .15s; width: 100%;
     }
     .dash-input:focus { border-color: var(--border-strong); }
-    .dash-input-sm { font-size: 9px; padding: 6px 9px; }
+    .dash-input-sm { font-size: 11px; padding: 6px 9px; }
     input[type="number"].dash-input-sm {
       -moz-appearance: textfield;
       background: var(--inset); border: 1px solid var(--border);
@@ -591,11 +591,11 @@
     .dash-select {
       background: var(--inset); border: 1px solid var(--border);
       border-radius: var(--radius-sm); color: var(--t2); font-family: 'Space Mono', monospace;
-      font-size: 8px; letter-spacing: .04em; padding: 5px 8px; outline: none; cursor: pointer;
+      font-size: 10px; letter-spacing: .04em; padding: 5px 8px; outline: none; cursor: pointer;
     }
     .dash-select option { background: #111116; color: var(--t2); }
     .dash-summary {
-      cursor: pointer; font-family: 'Space Mono', monospace; font-size: 9px;
+      cursor: pointer; font-family: 'Space Mono', monospace; font-size: 11px;
       letter-spacing: .1em; color: var(--t3); padding: 6px 0; list-style: none; transition: color .13s;
     }
     .dash-summary:hover { color: var(--t2); }
@@ -608,11 +608,11 @@
       border: 1px solid rgba(255,255,255,.06); border-radius: 8px; margin: 0 0 6px;
     }
     .broadcast-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; margin-right: 12px; }
-    .broadcast-np { font-family: 'DM Serif Display', serif; font-size: 14px; color: rgba(255,255,255,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
-    .broadcast-mode-badge { font-family: 'Space Mono', monospace; font-size: 8px; color: rgba(255,255,255,.35); letter-spacing: .1em; }
+    .broadcast-np { font-family: 'DM Serif Display', serif; font-size: 16px; color: rgba(255,255,255,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+    .broadcast-mode-badge { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(255,255,255,.35); letter-spacing: .1em; }
     .broadcast-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
     #btn-go-live {
-      font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: .06em;
+      font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .06em;
       padding: 5px 10px; border-radius: 5px;
       border: 1px solid rgba(57,255,20,.3); color: rgba(57,255,20,.8);
       background: none; cursor: pointer;
@@ -626,19 +626,19 @@
     .dash-upload-zone:hover, .dash-upload-zone.drag-over {
       border-color: var(--border-strong); background: rgba(255,255,255,.02);
     }
-    .dash-upload-label { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t3); letter-spacing: .08em; }
+    .dash-upload-label { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t3); letter-spacing: .08em; }
     .dash-upload-form { padding: 10px 0 0; }
-    .dash-file-item { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t3); margin-top: 4px; }
+    .dash-file-item { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t3); margin-top: 4px; }
 
     /* ── Tip config ── */
     .tip-cfg-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
     .tip-cfg-field { display: flex; flex-direction: column; gap: 4px; }
-    .tip-cfg-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .06em; }
+    .tip-cfg-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); letter-spacing: .06em; }
 
     /* ── Credit ── */
     #credit {
       text-align: center; padding: 10px 0 13px;
-      font-size: 8px; color: var(--t4); letter-spacing: .12em; flex-shrink: 0;
+      font-size: 10px; color: var(--t4); letter-spacing: .12em; flex-shrink: 0;
     }
 
     /* ── Ambient ── */
@@ -651,7 +651,7 @@
     /* ── Floating tip ── */
     #floating-tip {
       position: fixed; z-index: 50; cursor: pointer; user-select: none; -webkit-user-select: none;
-      font-family: 'DM Serif Display', serif; font-size: 26px; line-height: 1; color: #39ff14;
+      font-family: 'DM Serif Display', serif; font-size: 30px; line-height: 1; color: #39ff14;
       filter: drop-shadow(0 0 6px #39ff14bb); transition: filter .3s;
       transform: translate(-50%,-50%);
     }
@@ -672,7 +672,7 @@
     /* External search panel styles */
     #dash-ext-search-section .ext-search-tabs { display:flex; gap:6px; margin-bottom:10px; }
     #dash-ext-search-section .ext-tab-btn {
-      font-family:'Space Mono',monospace; font-size:9px; padding:4px 10px;
+      font-family:'Space Mono',monospace; font-size:11px; padding:4px 10px;
       background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
       border-radius:4px; color:rgba(255,255,255,.5); cursor:pointer; letter-spacing:.05em;
     }
@@ -690,15 +690,15 @@
     }
     #dash-ext-search-section .ext-result-meta { flex:1; min-width:0; }
     #dash-ext-search-section .ext-result-title {
-      font-family:'Space Mono',monospace; font-size:9px; color:#fff;
+      font-family:'Space Mono',monospace; font-size:11px; color:#fff;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     }
     #dash-ext-search-section .ext-result-artist {
-      font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.4);
+      font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,.4);
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;
     }
     #dash-ext-search-section .ext-result-dur {
-      font-family:'Space Mono',monospace; font-size:8px; color:rgba(255,255,255,.3); flex-shrink:0;
+      font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,.3); flex-shrink:0;
     }
 
     /* ── Modal ── */
@@ -715,62 +715,62 @@
       box-shadow: 0 40px 80px rgba(0,0,0,.9);
     }
     #modal-header { padding: 22px 22px 0; display: flex; align-items: center; justify-content: space-between; }
-    #modal-creator-name { font-family: 'DM Serif Display', serif; font-size: 19px; color: var(--t1); }
-    #modal-creator-show { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t3); margin-top: 2px; letter-spacing: .06em; }
-    #modal-close { background: none; border: none; cursor: pointer; color: var(--t3); font-size: 20px; line-height: 1; transition: color .15s; }
+    #modal-creator-name { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--t1); }
+    #modal-creator-show { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t3); margin-top: 2px; letter-spacing: .06em; }
+    #modal-close { background: none; border: none; cursor: pointer; color: var(--t3); font-size: 24px; line-height: 1; transition: color .15s; }
     #modal-close:hover { color: var(--t1); }
     #modal-tabs { display: flex; gap: 6px; padding: 16px 22px 0; }
     .modal-tab {
       flex: 1; padding: 9px 4px; background: var(--raised);
       border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;
-      color: var(--t3); font-family: 'Space Mono', monospace; font-size: 8px;
+      color: var(--t3); font-family: 'Space Mono', monospace; font-size: 10px;
       letter-spacing: .09em; transition: all .15s;
       display: flex; flex-direction: column; align-items: center; gap: 4px;
     }
-    .modal-tab .tab-icon { font-size: 13px; }
+    .modal-tab .tab-icon { font-size: 15px; }
     .modal-tab.active { background: rgba(255,255,255,.1); border-color: var(--border-strong); color: var(--t1); }
     #modal-body { padding: 20px 22px 24px; }
     .tab-pane { display: none; }
     .tab-pane.active { display: block; }
-    #tip-label { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t3); margin-bottom: 10px; letter-spacing: .04em; }
+    #tip-label { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t3); margin-bottom: 10px; letter-spacing: .04em; }
     #tip-input-wrap {
       display: flex; align-items: center; gap: 8px;
       background: var(--inset); border: 1px solid var(--border);
       border-radius: var(--radius-md); padding: 10px 14px;
     }
-    #tip-dollar { font-family: 'DM Serif Display', serif; font-size: 22px; color: #39ff14; }
-    #tip-amount { background: none; border: none; outline: none; font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--t1); width: 100%; }
+    #tip-dollar { font-family: 'DM Serif Display', serif; font-size: 26px; color: #39ff14; }
+    #tip-amount { background: none; border: none; outline: none; font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--t1); width: 100%; }
     #tip-presets { display: flex; gap: 6px; margin-top: 10px; }
     .tip-preset {
       flex: 1; padding: 7px; background: var(--raised);
       border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;
-      color: var(--t3); font-family: 'Space Mono', monospace; font-size: 10px; transition: all .12s;
+      color: var(--t3); font-family: 'Space Mono', monospace; font-size: 12px; transition: all .12s;
     }
     .tip-preset.active { border-color: #39ff14; color: #39ff14; }
     .fixed-pane { text-align: center; padding: 8px 0; }
-    .fixed-price { font-family: 'DM Serif Display', serif; font-size: 36px; color: var(--t1); }
+    .fixed-price { font-family: 'DM Serif Display', serif; font-size: 40px; color: var(--t1); }
     .fixed-price-dollar { color: #39ff14; }
-    .fixed-period { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t3); letter-spacing: .1em; margin-top: 4px; }
-    .fixed-perks { margin-top: 14px; font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); line-height: 1.8; }
+    .fixed-period { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t3); letter-spacing: .1em; margin-top: 4px; }
+    .fixed-perks { margin-top: 14px; font-family: 'Space Mono', monospace; font-size: 12px; color: var(--t3); line-height: 1.8; }
     #modal-cta {
       margin-top: 18px; width: 100%; padding: 13px;
       background: linear-gradient(135deg, #39ff14, #20c010);
       border: none; border-radius: var(--radius-md); cursor: pointer;
-      color: #000; font-family: 'Space Mono', monospace; font-weight: 700; font-size: 11px; letter-spacing: .1em;
+      color: #000; font-family: 'Space Mono', monospace; font-weight: 700; font-size: 13px; letter-spacing: .1em;
       transition: opacity .2s;
     }
     #modal-cta:hover { opacity: .88; }
     #modal-cta:disabled { opacity: .35; cursor: not-allowed; }
     #modal-cta.processing { background: rgba(57,255,20,.1); border: 1px solid #39ff1440; color: #39ff14; }
-    #modal-stripe-note { margin-top: 10px; text-align: center; font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .08em; }
+    #modal-stripe-note { margin-top: 10px; text-align: center; font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); letter-spacing: .08em; }
     #modal-done { display: none; padding: 52px 32px; text-align: center; }
-    #modal-done-icon { font-size: 40px; margin-bottom: 14px; }
-    #modal-done-title { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--t1); margin-bottom: 8px; }
-    #modal-done-msg   { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); line-height: 1.65; }
+    #modal-done-icon { font-size: 44px; margin-bottom: 14px; }
+    #modal-done-title { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--t1); margin-bottom: 8px; }
+    #modal-done-msg   { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--t3); line-height: 1.65; }
     #modal-done-close {
       margin-top: 24px; background: none; border: 1px solid var(--border-strong);
       border-radius: var(--radius-sm); color: var(--t2); font-family: 'Space Mono', monospace;
-      font-size: 10px; letter-spacing: .1em; padding: 9px 20px; cursor: pointer; transition: all .15s;
+      font-size: 12px; letter-spacing: .1em; padding: 9px 20px; cursor: pointer; transition: all .15s;
     }
     #modal-done-close:hover { color: var(--t1); }
 
@@ -790,12 +790,12 @@
     }
     #vg-close {
       position: absolute; top: 14px; right: 16px; background: none; border: none;
-      color: var(--t3); font-size: 20px; cursor: pointer; line-height: 1; transition: color .15s;
+      color: var(--t3); font-size: 24px; cursor: pointer; line-height: 1; transition: color .15s;
     }
     #vg-close:hover { color: var(--t1); }
-    #vg-lock { font-size: 26px; text-align: center; margin-bottom: 8px; }
-    #vg-title { font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--t1); text-align: center; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #vg-subtitle { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: .12em; color: var(--t4); text-align: center; margin-bottom: 20px; }
+    #vg-lock { font-size: 30px; text-align: center; margin-bottom: 8px; }
+    #vg-title { font-family: 'DM Serif Display', serif; font-size: 21px; color: var(--t1); text-align: center; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #vg-subtitle { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .12em; color: var(--t4); text-align: center; margin-bottom: 20px; }
     #vg-options { display: flex; flex-direction: column; gap: 8px; }
     .vg-option {
       display: flex; justify-content: space-between; align-items: center; gap: 10px;
@@ -803,25 +803,25 @@
       transition: border-color .15s;
     }
     .vg-option:hover { border-color: var(--border-strong); }
-    .vg-option-label { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: .07em; color: var(--t3); margin-bottom: 3px; }
-    .vg-option-price { font-family: 'DM Serif Display', serif; font-size: 15px; color: var(--t1); }
-    .vg-option-sub { font-family: 'Space Mono', monospace; font-size: 7.5px; color: var(--t4); margin-top: 2px; }
+    .vg-option-label { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .07em; color: var(--t3); margin-bottom: 3px; }
+    .vg-option-price { font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--t1); }
+    .vg-option-sub { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); margin-top: 2px; }
     .vg-btn {
       flex-shrink: 0; background: linear-gradient(135deg, #39ff14, #20c010);
       border: none; border-radius: var(--radius-sm); color: #000;
       font-family: 'Space Mono', monospace; font-weight: 700;
-      font-size: 9px; letter-spacing: .08em; padding: 8px 12px; cursor: pointer; transition: opacity .15s;
+      font-size: 11px; letter-spacing: .08em; padding: 8px 12px; cursor: pointer; transition: opacity .15s;
     }
     .vg-btn:hover { opacity: .88; }
     .vg-btn:disabled, .vg-btn.processing { opacity: .4; pointer-events: none; }
     .vg-btn.secondary { background: var(--raised); border: 1px solid var(--border-strong); color: var(--t2); }
 
     /* ── Library groups ── */
-    .lib-lock { font-size: 10px; color: var(--t4); margin-left: 4px; flex-shrink: 0; }
+    .lib-lock { font-size: 12px; color: var(--t4); margin-left: 4px; flex-shrink: 0; }
     .lib-dollar-btn {
       flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
       background: var(--color, #39ff14); color: #000; border: none; cursor: pointer;
-      font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700;
+      font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700;
       display: flex; align-items: center; justify-content: center;
       opacity: .85; transition: opacity .15s, transform .15s; line-height: 1;
     }
@@ -833,52 +833,52 @@
     }
     .lib-project-header:hover { background: rgba(255,255,255,.02); }
     .lib-project.open .lib-project-header { border-left-color: rgba(255,255,255,.3); }
-    .lib-project-name { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: .05em; color: var(--t2); flex: 1; }
-    .lib-project-count { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); }
-    .lib-project-chev { font-size: 11px; color: var(--t4); transition: transform .18s; }
+    .lib-project-name { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .05em; color: var(--t2); flex: 1; }
+    .lib-project-count { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); }
+    .lib-project-chev { font-size: 13px; color: var(--t4); transition: transform .18s; }
     .lib-project.open .lib-project-chev { transform: rotate(90deg); }
     .lib-project-tracks { overflow: hidden; max-height: 0; transition: max-height .22s ease; }
     .lib-project.open .lib-project-tracks { max-height: 600px; }
     .lib-project-tracks .lib-row { padding-left: 24px; }
     .lib-proj-unlock-btn {
-      font-family: 'Space Mono', monospace; font-size: 7px; letter-spacing: .07em;
+      font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .07em;
       color: var(--t2); background: var(--raised); border: 1px solid var(--border-strong);
       border-radius: var(--radius-xs); padding: 3px 7px; cursor: pointer; flex-shrink: 0; transition: all .15s;
     }
     .lib-proj-unlock-btn:hover { color: var(--t1); }
-    .lib-sep { padding: 7px 16px 3px; font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .1em; }
+    .lib-sep { padding: 7px 16px 3px; font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); letter-spacing: .1em; }
 
     /* ── Dashboard library ── */
     .dash-lib-project { margin-bottom: 2px; }
     .dash-lib-proj-header { display: flex; align-items: center; gap: 8px; padding: 9px 16px; border-left: 2px solid var(--border); }
-    .dash-lib-proj-name { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: .05em; color: var(--t2); flex: 1; }
+    .dash-lib-proj-name { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .05em; color: var(--t2); flex: 1; }
     .dash-lib-nested .mgmt-row { padding-left: 28px; border-left: 2px solid rgba(255,255,255,.04); }
     .dash-proj-card { border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 8px; overflow: hidden; }
     .dash-proj-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; user-select: none; -webkit-user-select: none; }
     .dash-proj-head:hover { background: rgba(255,255,255,.03); }
-    .dash-proj-chevron { font-size: 8px; color: var(--t4); transition: transform .15s; flex-shrink: 0; }
+    .dash-proj-chevron { font-size: 10px; color: var(--t4); transition: transform .15s; flex-shrink: 0; }
     .dash-proj-head.open .dash-proj-chevron { transform: rotate(90deg); }
-    .dash-proj-title { font-family: 'DM Serif Display', serif; font-size: 13px; color: var(--t2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .dash-proj-count { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); flex-shrink: 0; }
+    .dash-proj-title { font-family: 'DM Serif Display', serif; font-size: 15px; color: var(--t2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dash-proj-count { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); flex-shrink: 0; }
     .dash-proj-body { border-top: 1px solid var(--border); }
     .dash-proj-track-row { display: flex; align-items: center; gap: 8px; padding: 6px 14px; }
     .dash-proj-track-row:hover { background: rgba(255,255,255,.03); }
-    .dash-proj-track-title { font-family: 'DM Serif Display', serif; font-size: 12px; color: var(--t2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .dash-proj-track-artist { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); flex-shrink: 0; }
+    .dash-proj-track-title { font-family: 'DM Serif Display', serif; font-size: 14px; color: var(--t2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dash-proj-track-artist { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); flex-shrink: 0; }
     .dash-proj-pricing { padding: 10px 14px 12px; border-top: 1px solid var(--border); }
     .dash-proj-price-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin: 6px 0 8px; }
     .dash-tok-panel { background: rgba(255,255,255,.015); border-top: 1px solid var(--border); padding-bottom: 6px; }
-    .dash-tok-panel-token { display: flex; align-items: center; gap: 6px; padding: 3px 14px; font-family: 'Space Mono', monospace; font-size: 8px; }
+    .dash-tok-panel-token { display: flex; align-items: center; gap: 6px; padding: 3px 14px; font-family: 'Space Mono', monospace; font-size: 10px; }
     .typeahead-drop {
       position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
       background: #1c1c22; border: 1px solid var(--border-strong); border-top: none;
       border-radius: 0 0 var(--radius-sm) var(--radius-sm); max-height: 180px; overflow-y: auto;
     }
-    .typeahead-item { padding: 7px 10px; font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t2); cursor: pointer; }
+    .typeahead-item { padding: 7px 10px; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t2); cursor: pointer; }
     .typeahead-item:hover, .typeahead-item.focused { background: rgba(255,255,255,.08); color: var(--t1); }
     .dash-edit-panel { background: rgba(255,255,255,.015); border-top: 1px solid var(--border); padding: 10px 14px 12px; }
     .dash-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-bottom: 8px; }
-    .dash-edit-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .08em; margin-bottom: 3px; }
+    .dash-edit-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); letter-spacing: .08em; margin-bottom: 3px; }
     textarea.dash-input { resize: vertical; min-height: 46px; line-height: 1.4; }
 
     /* ── Bio landing panel ── */
@@ -901,9 +901,9 @@
     }
     .bio-pic-wrap img { width: 100%; height: 100%; object-fit: cover; }
     .bio-pic-placeholder { font-size: 28px; color: var(--t4); }
-    .bio-creator-name { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--t1); text-align: center; letter-spacing: -.02em; }
-    .bio-station-name { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t3); letter-spacing: .12em; text-transform: uppercase; text-align: center; }
-    .bio-text { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t2); line-height: 1.7; text-align: center; max-width: 340px; }
+    .bio-creator-name { font-family: 'DM Serif Display', serif; font-size: 24px; color: var(--t1); text-align: center; letter-spacing: -.02em; }
+    .bio-station-name { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t3); letter-spacing: .12em; text-transform: uppercase; text-align: center; }
+    .bio-text { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t2); line-height: 1.7; text-align: center; max-width: 340px; }
     .bio-social-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
     .bio-social-btn {
       width: 32px; height: 32px; border-radius: 8px;
@@ -919,13 +919,13 @@
       background: var(--inset); border: 1px solid var(--border);
       border-radius: var(--radius-md); padding: 12px 14px;
     }
-    .bio-card-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); letter-spacing: .1em; margin-bottom: 4px; }
-    .bio-card-val { font-family: 'DM Serif Display', serif; font-size: 13px; color: var(--t1); }
-    .bio-card-sub { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); margin-top: 2px; }
+    .bio-card-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); letter-spacing: .1em; margin-bottom: 4px; }
+    .bio-card-val { font-family: 'DM Serif Display', serif; font-size: 15px; color: var(--t1); }
+    .bio-card-sub { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); margin-top: 2px; }
     .bio-enter-btn {
       width: 100%; padding: 14px;
       background: #39ff14; color: #000;
-      font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: .14em;
+      font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: .14em;
       border: none; border-radius: var(--radius-md); cursor: pointer;
       box-shadow: 0 0 24px rgba(57,255,20,.35);
       transition: box-shadow .2s, transform .12s;
@@ -946,20 +946,20 @@
       border-radius: var(--radius-card); padding: 28px 24px 24px;
       max-width: 400px; width: 100%;
     }
-    .launch-wordmark { font-family: 'DM Serif Display', serif; font-style: italic; font-size: 18px; color: var(--t1); margin-bottom: 16px; }
-    .launch-title { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--t1); margin-bottom: 12px; line-height: 1.1; }
-    .launch-body { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t2); line-height: 1.8; margin-bottom: 20px; }
+    .launch-wordmark { font-family: 'DM Serif Display', serif; font-style: italic; font-size: 21px; color: var(--t1); margin-bottom: 16px; }
+    .launch-title { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--t1); margin-bottom: 12px; line-height: 1.1; }
+    .launch-body { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t2); line-height: 1.8; margin-bottom: 20px; }
     .launch-checks { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
     .launch-check-label {
       display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
-      font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t2); line-height: 1.5;
+      font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t2); line-height: 1.5;
     }
     .launch-check-label input { margin-top: 2px; accent-color: #39ff14; flex-shrink: 0; }
     .launch-check-label a { color: #39ff14; text-decoration: underline; text-underline-offset: 2px; }
     #launch-continue {
       width: 100%; padding: 12px;
       background: #39ff14; color: #000;
-      font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: .12em;
+      font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: .12em;
       border: none; border-radius: var(--radius-md); cursor: pointer;
       transition: opacity .15s, box-shadow .2s;
     }
@@ -982,17 +982,17 @@
     }
     .toggle-sw input:checked + .toggle-track { background: rgba(57,255,20,.2); border-color: rgba(57,255,20,.5); }
     .toggle-sw input:checked + .toggle-track::after { transform: translateX(14px); background: #39ff14; }
-    .toggle-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t3); letter-spacing: .06em; }
+    .toggle-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); letter-spacing: .06em; }
 
     /* ── Play count badge on tracks ── */
-    .track-plays { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); white-space: nowrap; flex-shrink: 0; margin-left: 4px; }
+    .track-plays { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); white-space: nowrap; flex-shrink: 0; margin-left: 4px; }
 
     /* ── Collapsible analytics ── */
     #analytics-details { width: 100%; }
     #analytics-details > summary { list-style: none; cursor: pointer; }
     #analytics-details > summary::-webkit-details-marker { display: none; }
     #analytics-details > summary .dash-section-label { display: flex; align-items: center; justify-content: space-between; }
-    #analytics-details > summary .dash-section-label::after { content: '▸'; font-size: 9px; color: var(--t4); transition: transform .2s; }
+    #analytics-details > summary .dash-section-label::after { content: '▸'; font-size: 11px; color: var(--t4); transition: transform .2s; }
     #analytics-details[open] > summary .dash-section-label::after { transform: rotate(90deg); }
     #analytics-expanded { margin-top: 12px; }
     .analytics-history { display: flex; align-items: flex-end; gap: 2px; height: 48px; margin-bottom: 10px; }
@@ -1000,8 +1000,8 @@
     .analytics-history-bar:hover { background: rgba(57,255,20,.6); }
     .analytics-top-list { margin-top: 8px; }
     .analytics-top-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
-    .analytics-top-title { font-family: 'DM Serif Display', serif; font-size: 11px; color: var(--t2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .analytics-top-count { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--t4); flex-shrink: 0; }
+    .analytics-top-title { font-family: 'DM Serif Display', serif; font-size: 13px; color: var(--t2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .analytics-top-count { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); flex-shrink: 0; }
 
     /* ── Creator bio dashboard section ── */
     .bio-dash-blocked { pointer-events: none; opacity: .35; }
@@ -1078,13 +1078,13 @@
         <!-- subscribe pane -->
         <div class="tab-pane" data-pane="subscribe">
           <div class="fixed-pane">
-            <div class="fixed-perks" style="margin-top:0;font-size:11px;color:rgba(255,255,255,.5)">Early access to episodes<br>Ad-free listening<br>Member-only feed</div>
+            <div class="fixed-perks" style="margin-top:0;font-size:13px;color:rgba(255,255,255,.5)">Early access to episodes<br>Ad-free listening<br>Member-only feed</div>
           </div>
         </div>
         <!-- all-access pane -->
         <div class="tab-pane" data-pane="all-access">
           <div class="fixed-pane">
-            <div class="fixed-perks" style="margin-top:0;font-size:11px;color:rgba(255,255,255,.5)">Everything in Subscribe<br>Full archive access<br>Private Discord + live chat<br>Exclusive video content</div>
+            <div class="fixed-perks" style="margin-top:0;font-size:13px;color:rgba(255,255,255,.5)">Everything in Subscribe<br>Full archive access<br>Private Discord + live chat<br>Exclusive video content</div>
           </div>
         </div>
       </div>
@@ -1397,25 +1397,25 @@
             style="max-width:140px;text-align:center;letter-spacing:.25em;font-size:16px;"/>
           <button class="dash-unlock-btn" id="dash-2fa-btn">VERIFY</button>
           <div id="dash-2fa-msg"></div>
-          <button style="background:none;border:none;color:var(--t4);font-family:'Space Mono',monospace;font-size:8px;cursor:pointer;letter-spacing:.06em;margin-top:4px;" id="dash-2fa-back">← BACK</button>
+          <button style="background:none;border:none;color:var(--t4);font-family:'Space Mono',monospace;font-size:10px;cursor:pointer;letter-spacing:.06em;margin-top:4px;" id="dash-2fa-back">← BACK</button>
         </div>
 
         <!-- Dashboard content (shown after auth) -->
         <div id="dash-content" hidden>
-          <div id="dash-runtime-alert" hidden style="margin:0 14px 12px;padding:8px 10px;border:1px solid rgba(255,68,102,.35);background:rgba(255,68,102,.08);color:#ff6680;font-family:'Space Mono',monospace;font-size:9px;line-height:1.45;border-radius:var(--radius-sm);"></div>
+          <div id="dash-runtime-alert" hidden style="margin:0 14px 12px;padding:8px 10px;border:1px solid rgba(255,68,102,.35);background:rgba(255,68,102,.08);color:#ff6680;font-family:'Space Mono',monospace;font-size:11px;line-height:1.45;border-radius:var(--radius-sm);"></div>
 
           <!-- Station -->
           <div class="dash-section">
             <div class="dash-section-label">STATION</div>
-            <div id="station-unclaimed" hidden style="font-size:9px;color:var(--t3);font-family:'Space Mono',monospace;padding:0 0 8px;">No public URL registered yet.</div>
+            <div id="station-unclaimed" hidden style="font-size:11px;color:var(--t3);font-family:'Space Mono',monospace;padding:0 0 8px;">No public URL registered yet.</div>
             <div id="station-reg-content">
               <div style="display:flex;align-items:center;gap:8px;padding:0 0 8px;">
-                <span id="station-public-url" style="font-family:'Space Mono',monospace;font-size:9px;color:var(--t2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+                <span id="station-public-url" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--t2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
                 <button class="mgmt-btn" id="btn-copy-url">COPY</button>
               </div>
               <div style="display:flex;align-items:center;gap:7px;padding:0 0 10px;">
                 <div id="health-dot" style="width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.2);flex-shrink:0;"></div>
-                <span id="health-status" style="font-family:'Space Mono',monospace;font-size:9px;color:var(--t3);flex:1;"></span>
+                <span id="health-status" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--t3);flex:1;"></span>
                 <button class="mgmt-btn" id="btn-recheck-health">RE-CHECK</button>
               </div>
             </div>
@@ -1423,7 +1423,7 @@
               <input type="url" class="dash-input dash-input-sm" id="station-url-input" placeholder="https://radio.yoursite.com" style="flex:1;min-width:160px;"/>
               <button class="mgmt-btn" id="btn-update-url">UPDATE</button>
             </div>
-            <div id="station-url-msg" style="padding:4px 0 0;font-size:9px;font-family:'Space Mono',monospace;"></div>
+            <div id="station-url-msg" style="padding:4px 0 0;font-size:11px;font-family:'Space Mono',monospace;"></div>
           </div>
 
           <div class="dash-divider"></div>
@@ -1447,14 +1447,14 @@
                   <div style="flex:1;">
                     <div class="dash-edit-label">PROFILE PICTURE</div>
                     <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
-                      <label style="font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.06em;padding:4px 10px;background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;color:var(--t3);white-space:nowrap;">
+                      <label style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.06em;padding:4px 10px;background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;color:var(--t3);white-space:nowrap;">
                         BROWSE…
                         <input type="file" id="bio-pic-file" accept="image/*" style="display:none;">
                       </label>
-                      <span id="bio-pic-filename" style="font-family:'Space Mono',monospace;font-size:8px;color:var(--t4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+                      <span id="bio-pic-filename" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--t4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
                       <button class="mgmt-btn" id="bio-pic-upload-btn" style="display:none;">UPLOAD</button>
                     </div>
-                    <div id="bio-pic-msg" style="font-family:'Space Mono',monospace;font-size:8px;margin-top:3px;"></div>
+                    <div id="bio-pic-msg" style="font-family:'Space Mono',monospace;font-size:10px;margin-top:3px;"></div>
                   </div>
                 </div>
                 <!-- Bio text -->
@@ -1489,7 +1489,7 @@
                   </div>
                 </div>
                 <div class="dash-form-row" style="margin-top:10px;">
-                  <span id="bio-save-msg" style="font-family:'Space Mono',monospace;font-size:8px;color:var(--t3);flex:1;"></span>
+                  <span id="bio-save-msg" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--t3);flex:1;"></span>
                   <button class="mgmt-btn" id="bio-save-btn">SAVE PROFILE</button>
                 </div>
               </div>
@@ -1555,7 +1555,7 @@
                 <input class="dash-input" id="new-proj-name" type="text" placeholder="Project name" style="margin-bottom:8px;"/>
                 <div class="dash-edit-label">DESCRIPTION (OPTIONAL)</div>
                 <textarea class="dash-input" id="new-proj-desc" placeholder="Description…" style="margin-bottom:8px;"></textarea>
-                <div class="dash-edit-label">ALBUM ART URL <span style="font-size:7px;opacity:.5;">or use file picker after saving</span></div>
+                <div class="dash-edit-label">ALBUM ART URL <span style="font-size:11px;opacity:.5;">or use file picker after saving</span></div>
                 <input class="dash-input" id="new-proj-art" type="url" placeholder="https://… (optional)" style="margin-bottom:8px;"/>
                 <div id="new-proj-pricing-block">
                 <div class="dash-edit-label">PRICING</div>
@@ -1571,11 +1571,11 @@
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
                   <input type="checkbox" id="new-proj-free"/>
-                  <label for="new-proj-free" style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.4);cursor:pointer;">Allow free / pay-what-you-want</label>
+                  <label for="new-proj-free" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.4);cursor:pointer;">Allow free / pay-what-you-want</label>
                 </div>
                 </div>
                 <div class="dash-form-row">
-                  <span id="new-proj-msg" style="font-family:'Space Mono',monospace;font-size:8px;color:var(--t3);flex:1;"></span>
+                  <span id="new-proj-msg" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--t3);flex:1;"></span>
                   <button class="mgmt-btn" id="btn-new-proj">CREATE PROJECT</button>
                 </div>
               </div>
@@ -1618,7 +1618,7 @@
 
             <!-- Station queue panel -->
             <div id="station-queue-panel" style="padding:0 0 4px;">
-              <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--t3);letter-spacing:.1em;padding:6px 0 4px;">STATION QUEUE</div>
+              <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--t3);letter-spacing:.1em;padding:6px 0 4px;">STATION QUEUE</div>
               <div id="sq-list"><div class="sq-empty">Queue is empty — add tracks from the library below.</div></div>
             </div>
 
@@ -1629,11 +1629,11 @@
             </div>
             <div id="broadcast-advanced">
               <div id="live-idle" style="padding:0 0 8px;">
-                <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--t3);margin-bottom:10px;line-height:1.7;">
+                <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.7;">
                   Go live from your mic. Listeners switch to your feed in real time.
                 </div>
                 <button id="btn-go-live">● GO LIVE</button>
-                <div id="live-idle-msg" style="margin-top:8px;font-size:9px;font-family:'Space Mono',monospace;color:var(--t3);"></div>
+                <div id="live-idle-msg" style="margin-top:8px;font-size:11px;font-family:'Space Mono',monospace;color:var(--t3);"></div>
               </div>
               <div id="live-onair" hidden style="padding:0 0 8px;">
                 <div class="broadcast-row" style="margin:0;">
@@ -1660,9 +1660,9 @@
           <!-- Schedule -->
           <div class="dash-section">
             <div class="dash-section-label">SCHEDULE</div>
-            <div id="sched-mode-bar" style="display:flex;align-items:center;gap:8px;padding:4px 14px 8px;font-size:9px;font-family:'Space Mono',monospace;color:rgba(255,255,255,.4);">
+            <div id="sched-mode-bar" style="display:flex;align-items:center;gap:8px;padding:4px 14px 8px;font-size:11px;font-family:'Space Mono',monospace;color:rgba(255,255,255,.4);">
               BROADCAST MODE: <span id="sched-broadcast-mode" style="font-weight:700;">SHUFFLE</span>
-              <button class="mgmt-btn" id="btn-sched-mode-toggle" style="padding:2px 8px;font-size:8px;display:none;"></button>
+              <button class="mgmt-btn" id="btn-sched-mode-toggle" style="padding:2px 8px;font-size:10px;display:none;"></button>
             </div>
             <details id="sched-blocks-details" open style="margin:0 0 4px;">
               <summary class="dash-summary">VIEW BLOCKS</summary>
@@ -1727,7 +1727,7 @@
                 </select>
                 <button class="mgmt-btn" id="dash-upload-submit">UPLOAD</button>
               </div>
-              <div id="dash-upload-msg" style="margin-top:6px;font-size:9px;font-family:'Space Mono',monospace;"></div>
+              <div id="dash-upload-msg" style="margin-top:6px;font-size:11px;font-family:'Space Mono',monospace;"></div>
             </div>
           </div>
 
@@ -1746,7 +1746,7 @@
                 <input type="text" class="dash-input dash-input-sm" id="ext-search-input" placeholder="Search…" style="flex:1;"/>
                 <button class="mgmt-btn" id="btn-ext-search">SEARCH</button>
               </div>
-              <div id="ext-search-msg" style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.35);margin-top:4px;"></div>
+              <div id="ext-search-msg" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.35);margin-top:4px;"></div>
               <div class="ext-results" id="ext-results-list"></div>
             </div>
           </div>
@@ -1756,21 +1756,21 @@
           <!-- Security -->
           <div class="dash-section" id="dash-2fa-section">
             <div class="dash-section-label">SECURITY</div>
-            <div id="dash-2fa-status-row" style="padding:0 14px 8px;font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,.4);line-height:1.6;"></div>
+            <div id="dash-2fa-status-row" style="padding:0 14px 8px;font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,.4);line-height:1.6;"></div>
             <!-- Setup: scan secret -->
             <div id="dash-2fa-setup-panel" hidden style="padding:0 14px 12px;">
-              <div style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.3);margin-bottom:8px;line-height:1.7;">Enter this secret in Google Authenticator, Authy, or any TOTP app, then confirm with a code.</div>
-              <div id="dash-2fa-secret-box" style="font-family:'Space Mono',monospace;font-size:11px;color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:8px 12px;word-break:break-all;margin-bottom:8px;letter-spacing:.08em;"></div>
+              <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);margin-bottom:8px;line-height:1.7;">Enter this secret in Google Authenticator, Authy, or any TOTP app, then confirm with a code.</div>
+              <div id="dash-2fa-secret-box" style="font-family:'Space Mono',monospace;font-size:13px;color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:8px 12px;word-break:break-all;margin-bottom:8px;letter-spacing:.08em;"></div>
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
                 <input type="text" class="dash-input dash-input-sm" id="dash-2fa-confirm-input" placeholder="6-digit code" maxlength="6" inputmode="numeric" style="width:130px;letter-spacing:.15em;"/>
                 <button class="mgmt-btn" id="btn-2fa-confirm">ENABLE 2FA</button>
               </div>
-              <div id="dash-2fa-setup-msg" style="margin-top:6px;font-size:9px;font-family:'Space Mono',monospace;"></div>
+              <div id="dash-2fa-setup-msg" style="margin-top:6px;font-size:11px;font-family:'Space Mono',monospace;"></div>
             </div>
             <!-- Recovery codes (shown once after setup) -->
             <div id="dash-2fa-codes-panel" hidden style="padding:0 14px 12px;">
-              <div style="font-family:'Space Mono',monospace;font-size:8px;color:#ffa040;margin-bottom:8px;letter-spacing:.05em;">SAVE THESE CODES — SHOWN ONCE. Each works once if you lose your authenticator.</div>
-              <div id="dash-2fa-codes-list" style="font-family:'Space Mono',monospace;font-size:10px;color:#fff;line-height:2.2;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 14px;"></div>
+              <div style="font-family:'Space Mono',monospace;font-size:10px;color:#ffa040;margin-bottom:8px;letter-spacing:.05em;">SAVE THESE CODES — SHOWN ONCE. Each works once if you lose your authenticator.</div>
+              <div id="dash-2fa-codes-list" style="font-family:'Space Mono',monospace;font-size:12px;color:#fff;line-height:2.2;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 14px;"></div>
               <button class="mgmt-btn" id="btn-2fa-codes-done" style="margin-top:10px;">I'VE SAVED THESE</button>
             </div>
             <!-- Disable panel (when 2FA is on) -->
@@ -1779,7 +1779,7 @@
                 <input type="text" class="dash-input dash-input-sm" id="dash-2fa-disable-input" placeholder="Current code to disable" maxlength="6" inputmode="numeric" style="width:190px;letter-spacing:.1em;"/>
                 <button class="mgmt-btn danger" id="btn-2fa-disable">DISABLE 2FA</button>
               </div>
-              <div id="dash-2fa-disable-msg" style="margin-top:6px;font-size:9px;font-family:'Space Mono',monospace;"></div>
+              <div id="dash-2fa-disable-msg" style="margin-top:6px;font-size:11px;font-family:'Space Mono',monospace;"></div>
             </div>
           </div>
 
@@ -1815,7 +1815,7 @@
               </div>
               <div style="align-self:flex-end;display:flex;align-items:center;gap:8px;">
                 <button class="mgmt-btn" id="btn-save-tip-cfg">SAVE</button>
-                <span id="tip-cfg-msg" style="font-size:9px;font-family:'Space Mono',monospace;"></span>
+                <span id="tip-cfg-msg" style="font-size:11px;font-family:'Space Mono',monospace;"></span>
               </div>
             </div>
           </div>
@@ -2530,7 +2530,7 @@ function showToast(msg, ms = 2200) {
   if (!t) {
     t = document.createElement('div');
     t.id = 'pw-toast';
-    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(10,10,10,.92);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.85);font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.06em;padding:7px 16px;border-radius:6px;z-index:9999;pointer-events:none;transition:opacity .25s;';
+    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(10,10,10,.92);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.85);font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.06em;padding:7px 16px;border-radius:6px;z-index:9999;pointer-events:none;transition:opacity .25s;';
     document.body.appendChild(t);
   }
   t.textContent = msg;
@@ -2606,7 +2606,7 @@ function buildLibRow(t) {
       <div class="lib-meta">${t.date}${t.date&&t.duration?' · ':''}${t.duration?fmt(t.duration):''}</div>
     </div>
     <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-      <span class="type-badge" style="background:${t.color};font-size:9px;padding:2px 6px;">${t.type==='video'?'● VIDEO':'◉ AUDIO'}</span>
+      <span class="type-badge" style="background:${t.color};font-size:11px;padding:2px 6px;">${t.type==='video'?'● VIDEO':'◉ AUDIO'}</span>
       ${isGated ? '<button class="lib-dollar-btn" title="Support to unlock">$</button>' : ''}
     </div>
   `;
@@ -2647,7 +2647,7 @@ function buildLibrary() {
   const { projects, standalone } = LIBRARY_STRUCTURE;
 
   if (!projects.length && !standalone.length) {
-    list.innerHTML = '<div style="padding:10px 14px;font-family:\'Space Mono\',monospace;font-size:9px;color:rgba(255,255,255,.25);letter-spacing:.06em;">NO UPLOADS YET</div>';
+    list.innerHTML = '<div style="padding:10px 14px;font-family:\'Space Mono\',monospace;font-size:11px;color:rgba(255,255,255,.25);letter-spacing:.06em;">NO UPLOADS YET</div>';
     return;
   }
   list.innerHTML = '';
@@ -2662,7 +2662,7 @@ function buildLibrary() {
     const header = document.createElement('div');
     header.className = 'lib-project-header';
     header.innerHTML = `
-      <span style="font-size:11px;color:rgba(255,255,255,.25);">⬡</span>
+      <span style="font-size:13px;color:rgba(255,255,255,.25);">⬡</span>
       <span class="lib-project-name">${esc(proj.name)}</span>
       <span class="lib-project-count">${proj.tracks.length}</span>
       ${isGated ? '<button class="lib-proj-unlock-btn">SUPPORT TO UNLOCK</button>' : ''}
@@ -2719,7 +2719,7 @@ async function loadQueue() {
         <span class="q-time">${block.start_time || ''}${block.end_time ? ' – ' + block.end_time : ''}</span>
       </div>`;
     } else {
-      html += `<div class="q-row"><span class="q-title" style="opacity:.3;font-size:11px;">No schedule active</span></div>`;
+      html += `<div class="q-row"><span class="q-title" style="opacity:.3;font-size:13px;">No schedule active</span></div>`;
     }
 
     // ── Recently played ──
@@ -2964,7 +2964,7 @@ el('modal-cta').addEventListener('click', async () => {
       cta.classList.remove('processing');
       updateCTA();
       const errEl = document.createElement('div');
-      errEl.style.cssText = 'font-family:Space Mono,monospace;font-size:10px;color:#ff4466;margin-top:8px;text-align:center;';
+      errEl.style.cssText = 'font-family:Space Mono,monospace;font-size:12px;color:#ff4466;margin-top:8px;text-align:center;';
       errEl.textContent = err.message;
       el('modal-body').appendChild(errEl);
       setTimeout(() => errEl.remove(), 4000);
@@ -3003,10 +3003,10 @@ function handleTippedParam() {
   // Suggest creating an account (tippers are anonymous; account links future access)
   if (!authState.loggedIn) {
     const nudge = document.createElement('p');
-    nudge.style.cssText = 'margin:12px 0 0;font-family:"Space Mono",monospace;font-size:9px;color:rgba(255,255,255,.35);text-align:center;line-height:1.5;';
+    nudge.style.cssText = 'margin:12px 0 0;font-family:"Space Mono",monospace;font-size:11px;color:rgba(255,255,255,.35);text-align:center;line-height:1.5;';
     nudge.textContent = 'Create a free account to save your access.';
     const nudgeBtn = document.createElement('button');
-    nudgeBtn.style.cssText = 'margin-top:8px;background:none;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:5px 14px;font-family:"Space Mono",monospace;font-size:8px;letter-spacing:.05em;color:rgba(255,255,255,.45);cursor:pointer;display:block;margin-left:auto;margin-right:auto;';
+    nudgeBtn.style.cssText = 'margin-top:8px;background:none;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:5px 14px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.05em;color:rgba(255,255,255,.45);cursor:pointer;display:block;margin-left:auto;margin-right:auto;';
     nudgeBtn.textContent = 'CREATE ACCOUNT';
     nudgeBtn.addEventListener('click', () => {
       closeModal();
@@ -3619,7 +3619,7 @@ async function loadDashPaymentConfig() {
       : '<span style="color:#ff4466;">✗</span>';
 
     const stripeNotice = !d.stripe.connected ? `
-      <div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.1);border-radius:8px;font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.3);line-height:1.9;letter-spacing:.03em;">
+      <div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.1);border-radius:8px;font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);line-height:1.9;letter-spacing:.03em;">
         Add to <strong style="color:rgba(255,255,255,.5);">.env</strong> to enable payments:<br>
         STRIPE_SECRET_KEY=sk_live_…<br>
         STRIPE_WEBHOOK_SECRET=whsec_…<br>
@@ -3632,7 +3632,7 @@ async function loadDashPaymentConfig() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px;">
         <div class="stat-card" style="text-align:left;">
           <div class="stat-key" style="margin-bottom:8px;">STRIPE</div>
-          <div style="font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,.45);line-height:2;">
+          <div style="font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,.45);line-height:2;">
             Secret key ${check(d.stripe.connected)}<br>
             Webhook ${check(d.stripe.webhookConfigured)}<br>
             Subscriber price ${check(d.stripe.prices.subscriber)}<br>
@@ -3642,7 +3642,7 @@ async function loadDashPaymentConfig() {
         </div>
         <div class="stat-card" style="text-align:left;">
           <div class="stat-key" style="margin-bottom:8px;">PAYPAL</div>
-          <div style="font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,.45);line-height:2;">
+          <div style="font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,.45);line-height:2;">
             Credentials ${check(d.paypal.connected)}<br>
             Pro plan ${check(d.paypal.plans.pro)}<br>
             All-Access plan ${check(d.paypal.plans.allAccess)}
@@ -3702,7 +3702,7 @@ async function loadDashLockedTracks() {
     const list = el('dash-locked-list');
     list.innerHTML = '';
     if (!locked.length) {
-      list.innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No locked tracks.</div>';
+      list.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No locked tracks.</div>';
       return;
     }
     for (const item of locked) list.appendChild(buildDashLibItem(item, 'track', item.id, false));
@@ -3794,7 +3794,7 @@ async function loadDashSchedule() {
 
     const list = el('dash-sched-list');
     if (!blocks.length) {
-      list.innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No schedule blocks.</div>';
+      list.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No schedule blocks.</div>';
     } else {
       list.innerHTML = '';
       for (const b of blocks) {
@@ -3806,8 +3806,8 @@ async function loadDashSchedule() {
         row.innerHTML = `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-radius:7px;margin-bottom:1px;">
             <div>
-              <div style="font-family:'DM Serif Display',serif;font-size:13px;color:rgba(255,255,255,.78);">${label}</div>
-              <div style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.3);margin-top:2px;">${dayLabel} · ${timeRange} · ${b.category||'any'} · ${b.mode}${targetInfo}</div>
+              <div style="font-family:'DM Serif Display',serif;font-size:15px;color:rgba(255,255,255,.78);">${label}</div>
+              <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);margin-top:2px;">${dayLabel} · ${timeRange} · ${b.category||'any'} · ${b.mode}${targetInfo}</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
               <button class="mgmt-btn" data-edit-block="${b.id}">EDIT</button>
@@ -3850,7 +3850,7 @@ async function loadDashSchedule() {
               <input type="number" class="dash-input dash-input-sm" id="se-tid-${b.id}" placeholder="Target ID" value="${b.target_id||''}" style="width:100px;"/>
             </div>
             <div style="display:flex;justify-content:flex-end;gap:8px;">
-              <span id="se-msg-${b.id}" style="font-family:'Space Mono',monospace;font-size:8px;flex:1;"></span>
+              <span id="se-msg-${b.id}" style="font-family:'Space Mono',monospace;font-size:10px;flex:1;"></span>
               <button class="mgmt-btn" id="se-save-${b.id}">SAVE</button>
             </div>
           </div>`;
@@ -4050,25 +4050,25 @@ function buildDashLibItem(item, scopeType, scopeId, nested = false) {
         </div>
       </div>
       <div>
-        <div class="dash-edit-label">ART URL <span style="font-size:7px;opacity:.5;">or upload below</span></div>
+        <div class="dash-edit-label">ART URL <span style="font-size:11px;opacity:.5;">or upload below</span></div>
         <input class="dash-input dash-input-sm" id="edit-art-${item.id}" value="${esc(item.artwork_url||'')}" placeholder="https://… (optional)"/>
       </div>
       <div style="margin-top:4px;">
         <div class="dash-edit-label">UPLOAD ART</div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <label id="art-upload-label-${item.id}" style="font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.06em;padding:4px 10px;background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;color:var(--t3);white-space:nowrap;">
+          <label id="art-upload-label-${item.id}" style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.06em;padding:4px 10px;background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;color:var(--t3);white-space:nowrap;">
             BROWSE…
             <input type="file" id="edit-art-file-${item.id}" accept="image/*" style="display:none;"/>
           </label>
-          <span id="art-filename-${item.id}" style="font-family:'Space Mono',monospace;font-size:8px;color:var(--t4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          <span id="art-filename-${item.id}" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--t4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
           <button class="mgmt-btn" id="art-upload-btn-${item.id}" style="display:none;">UPLOAD</button>
         </div>
-        <div id="art-upload-msg-${item.id}" style="font-family:'Space Mono',monospace;font-size:8px;margin-top:3px;"></div>
+        <div id="art-upload-msg-${item.id}" style="font-family:'Space Mono',monospace;font-size:10px;margin-top:3px;"></div>
       </div>
       <div class="dash-edit-label">CREDITS</div>
       <textarea class="dash-input dash-input-sm" id="edit-credits-${item.id}" placeholder="Mixed by, mastered by, features, etc.">${esc(item.credits||'')}</textarea>
       <div class="dash-form-row" style="margin-top:8px;justify-content:flex-end;gap:8px;">
-        <span id="edit-msg-${item.id}" style="font-family:'Space Mono',monospace;font-size:8px;flex:1;"></span>
+        <span id="edit-msg-${item.id}" style="font-family:'Space Mono',monospace;font-size:10px;flex:1;"></span>
         <button class="mgmt-btn" id="edit-save-${item.id}">SAVE CHANGES</button>
       </div>
     </div>`;
@@ -4189,8 +4189,8 @@ function buildDashLibItem(item, scopeType, scopeId, nested = false) {
     if (res.ok) {
       document.getElementById(tokLabelId).value = '';
       document.getElementById(tokResultId).innerHTML = `
-        <div class="dash-success-msg" style="font-size:8px;margin-bottom:4px;">Share once — won't be shown again:</div>
-        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.6);word-break:break-all;">${esc(data.token)}</div>`;
+        <div class="dash-success-msg" style="font-size:10px;margin-bottom:4px;">Share once — won't be shown again:</div>
+        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.6);word-break:break-all;">${esc(data.token)}</div>`;
       await refreshDashTokenList(tokListId, scopeType, scopeId);
     }
   });
@@ -4216,7 +4216,7 @@ function buildDashLibProject(proj, allItems) {
   header.innerHTML = `
     <div class="dash-lib-proj-header">
       <span class="dash-lib-proj-name">${esc(proj.name)}</span>
-      <span style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.25);">${tracks.length} TRACKS</span>
+      <span style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.25);">${tracks.length} TRACKS</span>
       <button class="mgmt-btn" id="tok-tog-${projPanelId}" style="letter-spacing:.03em;">⬡ PROJECT TOKEN</button>
     </div>
     <div class="dash-tok-panel" id="${tokPanelId}" hidden>
@@ -4245,8 +4245,8 @@ function buildDashLibProject(proj, allItems) {
     if (res.ok) {
       document.getElementById(tokLabelId).value = '';
       document.getElementById(tokResultId).innerHTML = `
-        <div class="dash-success-msg" style="font-size:8px;margin-bottom:4px;">Share once — won't be shown again:</div>
-        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.6);word-break:break-all;">${esc(data.token)}</div>`;
+        <div class="dash-success-msg" style="font-size:10px;margin-bottom:4px;">Share once — won't be shown again:</div>
+        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.6);word-break:break-all;">${esc(data.token)}</div>`;
       await refreshDashTokenList(tokListId, 'project', proj.id);
     }
   });
@@ -4270,7 +4270,7 @@ async function refreshDashTokenList(listElId, scopeType, scopeId) {
               ${t.is_active?'REVOKE':'REVOKED'}
             </button>
           </div>`).join('')
-      : '<div style="padding:4px 14px;font-family:\'Space Mono\',monospace;font-size:8px;color:rgba(255,255,255,.2);">No tokens yet.</div>';
+      : '<div style="padding:4px 14px;font-family:\'Space Mono\',monospace;font-size:10px;color:rgba(255,255,255,.2);">No tokens yet.</div>';
     listEl.querySelectorAll('[data-revoke]').forEach(btn => {
       btn.addEventListener('click', async () => {
         await dashFetch(`/api/dashboard/tokens/${btn.dataset.revoke}`, { method: 'DELETE' });
@@ -4292,11 +4292,11 @@ async function loadDashProjects() {
     const list        = el('dash-proj-list');
     list.innerHTML    = '';
     if (!projects.length) {
-      list.innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:4px 14px 8px;">No projects yet.</div>';
+      list.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:4px 14px 8px;">No projects yet.</div>';
     }
     for (const proj of projects) list.appendChild(buildDashProjectCard(proj, items, unassigned));
   } catch {
-    el('dash-proj-list').innerHTML = '<div style="font-size:9px;color:#ff6b6b;font-family:\'Space Mono\',monospace;padding:4px 14px;">Failed to load projects.</div>';
+    el('dash-proj-list').innerHTML = '<div style="font-size:11px;color:#ff6b6b;font-family:\'Space Mono\',monospace;padding:4px 14px;">Failed to load projects.</div>';
   }
 }
 
@@ -4325,7 +4325,7 @@ function buildDashProjectCard(proj, allItems, unassigned) {
   const tracks = proj.items || [];
   if (tracks.length === 0) {
     const empty = document.createElement('div');
-    empty.style.cssText = 'padding:6px 14px;font-family:\'Space Mono\',monospace;font-size:8px;color:rgba(255,255,255,.2);';
+    empty.style.cssText = 'padding:6px 14px;font-family:\'Space Mono\',monospace;font-size:10px;color:rgba(255,255,255,.2);';
     empty.textContent = 'No tracks in this project.';
     body.appendChild(empty);
   } else {
@@ -4334,7 +4334,7 @@ function buildDashProjectCard(proj, allItems, unassigned) {
       const row = document.createElement('div');
       row.className = 'dash-proj-track-row';
       row.innerHTML = `
-        <span style="font-size:9px;color:rgba(255,255,255,.25);flex-shrink:0;">${mediaItem.category==='videos'?'▶':'♪'}</span>
+        <span style="font-size:11px;color:rgba(255,255,255,.25);flex-shrink:0;">${mediaItem.category==='videos'?'▶':'♪'}</span>
         <span class="dash-proj-track-title">${esc(t.title || mediaItem.title || mediaItem.filename || '')}</span>
         ${mediaItem.artist ? `<span class="dash-proj-track-artist">${esc(mediaItem.artist)}</span>` : ''}
         <button class="mgmt-btn danger" data-remove-track="${t.content_id}" style="flex-shrink:0;">REMOVE</button>
@@ -4374,7 +4374,7 @@ function buildDashProjectCard(proj, allItems, unassigned) {
   addBtn.textContent = 'ADD';
   const addMsg = document.createElement('span');
   addMsg.id = `padd-msg-${proj.id}`;
-  addMsg.style.cssText = 'font-family:\'Space Mono\',monospace;font-size:8px;';
+  addMsg.style.cssText = 'font-family:\'Space Mono\',monospace;font-size:10px;';
   addRow.appendChild(addSel);
   addRow.appendChild(addBtn);
   addRow.appendChild(addMsg);
@@ -4403,10 +4403,10 @@ function buildDashProjectCard(proj, allItems, unassigned) {
     </div>
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
       <input type="checkbox" id="pprice-free-${proj.id}"${proj.allow_free?' checked':''}/>
-      <label for="pprice-free-${proj.id}" style="font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.4);cursor:pointer;">Allow free / pay-what-you-want</label>
+      <label for="pprice-free-${proj.id}" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.4);cursor:pointer;">Allow free / pay-what-you-want</label>
     </div>
     <div class="dash-form-row">
-      <span id="pprice-msg-${proj.id}" style="font-family:'Space Mono',monospace;font-size:8px;flex:1;"></span>
+      <span id="pprice-msg-${proj.id}" style="font-family:'Space Mono',monospace;font-size:10px;flex:1;"></span>
       <button class="mgmt-btn" id="pprice-save-${proj.id}">SAVE PRICING</button>
     </div>
   `;
@@ -4521,7 +4521,7 @@ async function loadDashLibrary() {
     }
 
     if (!items.length) {
-      list.innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No media yet.</div>';
+      list.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No media yet.</div>';
     }
   } catch {}
 }
@@ -4580,7 +4580,7 @@ async function loadDashTokens() {
     const list   = el('dash-token-list');
     list.innerHTML = '';
     if (!tokens.length) {
-      list.innerHTML = '<div style="font-size:9px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No tokens yet.</div>';
+      list.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No tokens yet.</div>';
       return;
     }
     for (const t of tokens) {
@@ -4613,7 +4613,7 @@ async function loadDashTokens() {
             </div>
             <button class="mgmt-btn" id="assign-add-${t.id}">ASSIGN</button>
           </div>
-          <div id="assign-msg-${t.id}" style="padding:3px 14px 6px;font-family:'Space Mono',monospace;font-size:8px;"></div>
+          <div id="assign-msg-${t.id}" style="padding:3px 14px 6px;font-family:'Space Mono',monospace;font-size:10px;"></div>
         </div>`;
 
       if (t.is_active) {
@@ -4678,7 +4678,7 @@ async function refreshAssignmentList(tokenId, wrap) {
   try {
     const rows = await dashFetch(`/api/dashboard/tokens/${tokenId}/assignments`).then(r => r.json());
     if (!rows.length) {
-      listEl.innerHTML = '<div style="padding:4px 14px;font-family:\'Space Mono\',monospace;font-size:8px;color:rgba(255,255,255,.2);">No accounts assigned yet.</div>';
+      listEl.innerHTML = '<div style="padding:4px 14px;font-family:\'Space Mono\',monospace;font-size:10px;color:rgba(255,255,255,.2);">No accounts assigned yet.</div>';
       return;
     }
     listEl.innerHTML = rows.map(a => `
@@ -4694,7 +4694,7 @@ async function refreshAssignmentList(tokenId, wrap) {
       });
     });
   } catch {
-    listEl.innerHTML = '<div style="padding:4px 14px;font-size:8px;color:#ff6b6b;">Failed to load assignments.</div>';
+    listEl.innerHTML = '<div style="padding:4px 14px;font-size:10px;color:#ff6b6b;">Failed to load assignments.</div>';
   }
 }
 
@@ -4725,7 +4725,7 @@ el('btn-create-token').addEventListener('click', async () => {
 
     el('new-token-result').innerHTML = `
       <div class="dash-success-msg">Token created — share once, won't be shown again:</div>
-      <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:8px 10px;margin-top:6px;font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,.7);word-break:break-all;">${esc(data.token)}</div>
+      <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:8px 10px;margin-top:6px;font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,.7);word-break:break-all;">${esc(data.token)}</div>
       ${assignNote}`;
     el('new-token-label').value = '';
     el('new-token-email').value = '';
@@ -4746,7 +4746,7 @@ async function loadDashAnalytics() {
       `<div class="stat-card"><div class="stat-val">${liveData.peakToday||0}</div><div class="stat-key">PEAK TODAY</div></div>` +
       (topData.length
         ? `<div class="stat-card"><div class="stat-key" style="margin-bottom:6px;">TOP TRACKS</div>${
-            topData.map(t => `<div style="font-size:8px;color:rgba(255,255,255,.45);padding:1px 0;font-family:'Space Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.title||t.filename)}</div>`).join('')
+            topData.map(t => `<div style="font-size:10px;color:rgba(255,255,255,.45);padding:1px 0;font-family:'Space Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.title||t.filename)}</div>`).join('')
           }</div>` : '');
   } catch {}
 }
@@ -4770,7 +4770,7 @@ async function loadAnalyticsExpanded() {
         return `<div class="analytics-history-bar" title="${label}: ${d.unique_listeners} listeners" style="height:${h}%;"></div>`;
       }).join('');
     } else {
-      barsEl.innerHTML = '<div style="font-family:\'Space Mono\',monospace;font-size:8px;color:var(--t4);">No data yet</div>';
+      barsEl.innerHTML = '<div style="font-family:\'Space Mono\',monospace;font-size:10px;color:var(--t4);">No data yet</div>';
     }
     // Top tracks
     const topEl = el('analytics-top-list');
@@ -4782,7 +4782,7 @@ async function loadAnalyticsExpanded() {
         </div>`
       ).join('');
     } else {
-      topEl.innerHTML = '<div style="font-family:\'Space Mono\',monospace;font-size:8px;color:var(--t4);">No plays recorded yet</div>';
+      topEl.innerHTML = '<div style="font-family:\'Space Mono\',monospace;font-size:10px;color:var(--t4);">No plays recorded yet</div>';
     }
   } catch {}
 }
@@ -5220,7 +5220,7 @@ async function loadDash2FA() {
       statusRow.innerHTML = '<span style="color:#39ff14;">● 2FA ENABLED</span> — Token + authenticator code required to sign in.';
       el('dash-2fa-disable-panel').hidden = false;
     } else {
-      statusRow.innerHTML = '<span style="color:rgba(255,255,255,.3);">○ 2FA DISABLED</span> — Protected by token only. <button class="mgmt-btn" id="btn-2fa-start" style="margin-left:6px;padding:3px 10px;font-size:8px;">ENABLE</button>';
+      statusRow.innerHTML = '<span style="color:rgba(255,255,255,.3);">○ 2FA DISABLED</span> — Protected by token only. <button class="mgmt-btn" id="btn-2fa-start" style="margin-left:6px;padding:3px 10px;font-size:10px;">ENABLE</button>';
       document.getElementById('btn-2fa-start').addEventListener('click', startTwoFASetup);
     }
   } catch {}
