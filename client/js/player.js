@@ -367,7 +367,7 @@ function playPreview(t) {
   }, PREVIEW_SECS * 1000);
 }
 
-async function startGatedPreview(t) {
+export async function startGatedPreview(t) {
   playPreview(t);
   if (t.visibility === 'vault') {
     await _checkVaultGate(t);
