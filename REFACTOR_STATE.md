@@ -1,55 +1,89 @@
 ---
 # Refactor State
-phase: 3
+phase: 4
 status: complete
-last_completed: Phase 3 - API module (api.js)
+last_completed: Phase 4 - Player Core (hls-client.js + player.js)
 notes: |
-  Phase 1: Extracted 992 CSS lines from creator.html <style> block into four
-  files under client/css/. Replaced <style> block with four <link> tags.
+  Phase 1: Extracted 992 CSS lines → client/css/ (4 files).
+  Phase 2: state.js (113 lines), utils.js (54 lines).
+  Phase 3: api.js (813 lines) — all 50+ fetch call sites.
 
-  Phase 2: Created two ES module foundation files under client/js/:
-  - client/js/state.js (113 lines): all module-level globals
-  - client/js/utils.js (54 lines): pure stateless helpers
+  Phase 4: Created two player core modules:
 
-  Phase 3: Created client/js/api.js — structured fetch layer.
-  All 50+ fetch/dashFetch call sites are represented as named functions.
-  No state.js imports needed (all auth uses httpOnly cookies).
-  Internal helpers: _fetch, _json, _send, _del (not exported).
+  client/js/hls-client.js (183 lines)
+    Exports: init, getHls, isVideoMode, isLiveActive, getStationName,
+             isPingActive, activeMediaEl, activeHlsUrl, clearHlsRetry,
+             resetHlsRetry, scheduleHlsRetry, setupHls, ping,
+             startPingInterval, stopPingInterval, fetchStreamStatus.
+    Owns local state: hls, hlsRetryTimer, hlsRetryAttempt, pingInterval,
+                      currentIsVideo, currentLiveActive, stationName.
 
-  Endpoints with INCONSISTENT or RISKY error handling (Phase 7 risks):
+  client/js/player.js (283 lines)
+    Exports: registerCallbacks, activeTrack, resetArtFlip, renderArtBack,
+             renderWaveform, render, togglePlay, stopPreview, selectVOD,
+             goLive, skipTrack, seekWaveform, toggleDrawer, toggleShare.
+    Owns local state: previewAudio, previewTimer, previewTickInt,
+                      artFlipped, artBackCache, artLastTrackKey.
 
-  1. GET /api/vault/unlock-options/{id} (line 2037)
-     — On fetch failure, returns false. Calling code (checkVaultGate) cannot
-       distinguish "no vault gate needed" from "fetch failed" — it silently
-       continues as if no gate exists. Risk: vault content exposed on transient error.
+  DOM nodes render() touches (29 IDs + 3 querySelector targets):
+    document.documentElement (--color CSS var)
+    #ambient, #bottom-accent, #on-air-dot, #on-air-text, #art-box
+    .pulse-ring (all), #lib-btn, #queue-btn
+    #share-tab-label, #auth-badge
+    #type-badge, #back-live-btn
+    #track-title, #track-creator, #track-station
+    #on-air-badge, #pr1, #pr2
+    #play-icon, #pause-icon, #play-btn
+    #skip-prev, #skip-next
+    #waveform (via renderWaveform)
+    #time-elapsed, #time-remain
+    #lib-drawer, #queue-drawer, #share-drawer (via setDrawer)
+    #share-tab, #account-tab-label, #share-chevron
 
-  2. GET /api/payment/checkout-url (lines 1987 + 2101)
-     — Called twice with different error handling. Line 1987 (tip CTA):
-       removes processing class on error and shows inline error element.
-       Line 2101 (vault gate subscribe btn): removes processing class only.
-       Neither shows the user a useful message on failure. Risk: silent failure.
+  CIRCULAR DEPENDENCY RESOLUTION:
+    fetchStreamStatus() needs render() (player.js) and ASCII functions
+    (Phase 5). If hls-client imported player.js and player.js imported
+    hls-client.js, that would be a true circular import.
+    Solution: hls-client.js uses callback injection via init().
+    player.js calls hls-client.init({ onRender: render, ... }) in Phase 8.
+    No circular import exists in the module graph.
 
-  3. POST /api/dashboard/live/chunk (line 4414)
-     — No error handling at all: try { await dashFetch(...); } catch {}
-       Silently drops failed audio chunks. Risk: encoder sync issues / silent
-       broadcast gaps with no UI feedback.
+  REMAINING CIRCULAR DEPENDENCY RISK (Phase 8):
+    player.js calls _buildLibrary() and _loadQueue() — these will be
+    provided by library.js (Phase 6) and player (queue section) respectively.
+    Also: _openModal, _setModalTab, _checkVaultGate come from modal.js
+    (Phase 6). All wired via registerCallbacks() in main.js.
 
-  4. POST /api/dashboard/2fa/confirm (lines 4256-4276)
-     — Returns { recoveryCodes } that must be displayed once and saved.
-       On parse failure the codes are lost. No retry path. Risk: user locked
-       out if network hiccup swallows the response.
+  STATE MUTATION PATTERN NOTE (Phase 8 prerequisite):
+    state.js exports `export let state = { ... }`. Object property mutations
+    (state.playing = true, state.nowPlaying = x) work fine through ES module
+    imports. Whole-object replacements like `state = { ...state, track: t }`
+    are NOT allowed from importers. player.js replaces these with
+    Object.assign(state, { ... }) to stay compatible.
 
-  5. POST /api/dashboard/tokens (line 3717) — global token creation
-     — Token is in data.token, displayed once. If the page navigates or
-       re-renders immediately after creation the token is lost. Low risk
-       (controlled UI flow) but worth noting.
+  LOCAL STATE vs STATE.JS:
+    Mutable primitives that one module owns exclusively are kept as module-
+    local `let` variables rather than imported from state.js (which would
+    create read-only binding issues). state.js values for these serve as
+    documented initial values only. Affected fields:
+      hls-client.js: hls, hlsRetryTimer, hlsRetryAttempt, pingInterval,
+                     currentIsVideo, currentLiveActive, stationName
+      player.js:     previewAudio, previewTimer, previewTickInt,
+                     artFlipped, artBackCache, artLastTrackKey
 
-  6. GET /api/dashboard/external-search (line 3919)
-     — No distinction between "API key not configured" and actual errors;
-       both show generic 'Search failed.' Risk: confusing UX.
+  EVENT LISTENERS OWNED BY PLAYER (to be wired in main.js, Phase 8):
+    #play-btn        click → togglePlay
+    #skip-prev       click → skipTrack(-1)
+    #skip-next       click → skipTrack(1)
+    #back-live-btn   click → goLive
+    #lib-btn         click → toggleDrawer('lib')
+    #queue-btn       click → toggleDrawer('queue')
+    #share-area      click → toggleShare
+    #account-area    click → open share drawer + scroll to auth-toggle
+    #waveform        click → seekWaveform
+    #art-flip        click → toggle artFlipped, renderArtBack
+    .view-tab (all)  click → switch PLAY / STUDIO view
+    #pw-wordmark-text mousedown/touchstart → long-press enterDashboard
 
-  Globals excluded from state.js (carry-over from Phase 2 notes):
-  - uploadZone / uploadInput: DOM-cached refs with import-time side effects
-  - WORKLET_CODE: embedded AudioWorklet source; candidate for future live.js
-  - normalizeTrack: pure domain transform; candidate for future library.js
+  Phase 3 error-handling risks: (unchanged — see above)
 ---
