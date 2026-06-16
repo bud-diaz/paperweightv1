@@ -66,6 +66,8 @@ PAPERWEIGHT_INSTALL_CLOUDFLARED=true bash scripts/install.sh
 
 Set `STATION_PUBLIC_URL` and `HTTPS=true` when public traffic is served over TLS.
 
+If your station has a `STATION_SLUG`, set `STATION_PUBLIC_URL` to your station's actual server address — the tunnel, reverse-proxy, or public IP URL where listeners can reach it (e.g., `https://your-tunnel.trycloudflare.com` or `https://mystation.example.com`). This is what `<slug>.paperweighthq.com` redirects visitors to. Do not set it to `https://<slug>.paperweighthq.com` itself — that creates a redirect loop.
+
 ## Smoke Check
 
 ```bash
