@@ -54,6 +54,8 @@ pm2 startup
 
 Use HTTPS when exposing a station publicly. Cloudflare Tunnel, Caddy, nginx, or another reverse proxy can sit in front of Paperweight. Set `STATION_PUBLIC_URL` and `HTTPS=true` in `.env` when public traffic uses TLS.
 
+If your station has a `STATION_SLUG`, set `STATION_PUBLIC_URL` to your station's actual server address — the tunnel, reverse-proxy, or public IP URL where listeners can reach it (e.g., `https://your-tunnel.trycloudflare.com` or `https://mystation.example.com`). This is what `<slug>.paperweighthq.com` redirects visitors to. Do not set it to `https://<slug>.paperweighthq.com` itself — that creates a redirect loop.
+
 ## Smoke Check
 
 ```bash
