@@ -11,6 +11,7 @@ const apiRouter = require('./api/router');
 const { csrfCheck } = require('./middleware/csrfCheck');
 const asyncHandler = require('./middleware/asyncHandler');
 const { getFFmpegStatus } = require('./runtime/ffmpeg');
+const telemetry = require('./telemetry/reporter');
 
 const isPackaged = typeof process.pkg !== 'undefined';
 
@@ -224,6 +225,7 @@ async function start() {
           try { log('warn', 'server', msg); } catch {}
         }
 
+        telemetry.start();
         resolve();
       });
 
