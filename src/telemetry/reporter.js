@@ -3,11 +3,15 @@
  * every PAPE_REPORT_INTERVAL_MS (default 5 minutes).
  *
  * Required env vars to enable:
- *   PAPE_URL               — base URL of your system.pape instance, e.g. https://system.yourcompany.com
+ *   PAPE_URL               — base URL of your Paperweight System instance
+ *                            e.g. https://system.paperweighthq.com
  *   PAPE_TELEMETRY_SECRET  — shared secret matching PAPERWEIGHT_TELEMETRY_SECRET in system.pape
- *   STATION_KEY            — stable, unique identifier for this station (any string you choose)
  *
- * If any of these are missing, the reporter silently does nothing.
+ * Station identity (at least one required):
+ *   STATION_KEY            — explicit stable identifier for this station
+ *                            defaults to STATION_SLUG if set, which is already globally unique
+ *
+ * If PAPE_URL or PAPE_TELEMETRY_SECRET are missing, reporting is silently disabled.
  */
 
 'use strict';
@@ -19,7 +23,9 @@ const config = require('../config');
 
 const PAPE_URL = process.env.PAPE_URL;
 const PAPE_TELEMETRY_SECRET = process.env.PAPE_TELEMETRY_SECRET;
-const STATION_KEY = process.env.STATION_KEY;
+// STATION_SLUG is already globally unique (it's the *.paperweighthq.com subdomain),
+// so use it as the key fallback when STATION_KEY isn't explicitly set.
+const STATION_KEY = process.env.STATION_KEY || config.station?.slug || null;
 const INTERVAL_MS = Number(process.env.PAPE_REPORT_INTERVAL_MS ?? 5 * 60 * 1000);
 
 function isConfigured() {
@@ -63,10 +69,18 @@ async function buildPayload() {
     ? (broadcastState.nowPlaying.title || null)
     : null;
 
+  // Derive publicUrl: prefer explicit env var, then construct from slug + known domain.
+  const publicUrl = config.station?.publicUrl
+    || (config.station?.slug ? `https://${config.station.slug}.paperweighthq.com` : null);
+
+  let version = null;
+  try { version = require('../../package.json').version; } catch {}
+
   return {
     stationKey: STATION_KEY,
     slug: config.station?.slug || null,
-    version: (() => { try { return require('../../package.json').version; } catch { return null; } })(),
+    publicUrl,
+    version,
     platform: process.platform,
     listeners: getListenerCount(),
     uniqueListenersToday: todayListeners.uniqueToday || 0,
@@ -93,7 +107,11 @@ async function report() {
       },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) {
+
+    if (res.status === 409) {
+      const body = await res.json().catch(() => ({}));
+      console.warn(`[telemetry] Slug conflict: ${body.error ?? 'slug already claimed by another station'}. Clear STATION_SLUG or set a unique STATION_KEY.`);
+    } else if (!res.ok) {
       console.warn(`[telemetry] system.pape ingest failed: ${res.status}`);
     }
   } catch (err) {
@@ -104,9 +122,8 @@ async function report() {
 
 function start() {
   if (!isConfigured()) {
-    if (PAPE_URL || PAPE_TELEMETRY_SECRET || STATION_KEY) {
-      // Partial config — warn so the admin knows something is missing.
-      console.warn('[telemetry] PAPE_URL, PAPE_TELEMETRY_SECRET, and STATION_KEY must all be set to enable telemetry. Reporting disabled.');
+    if (PAPE_URL || PAPE_TELEMETRY_SECRET) {
+      console.warn('[telemetry] PAPE_URL and PAPE_TELEMETRY_SECRET must both be set, and this station must have a STATION_KEY or STATION_SLUG. Reporting disabled.');
     }
     return;
   }
