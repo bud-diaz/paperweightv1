@@ -1,8 +1,8 @@
 ---
 # Refactor State
-phase: 5
+phase: 6
 status: complete
-last_completed: Phase 5 - Library, Auth, and ASCII
+last_completed: Phase 6 - Payment Module (payment.js)
 notes: |
   Phase 1: Extracted 992 CSS lines → client/css/ (4 files).
   Phase 2: state.js (113 lines), utils.js (54 lines).
@@ -152,6 +152,46 @@ notes: |
     #art-flip        click → toggle artFlipped, renderArtBack
     .view-tab (all)  click → switch PLAY / STUDIO view
     #pw-wordmark-text mousedown/touchstart → long-press enterDashboard
+
+  Phase 6: Payment module:
+
+  client/js/payment.js
+    Exports: init, openModal, closeModal, setModalTab, buildTipPresets,
+             loadTipConfig, checkVaultGate, startVaultUnlock,
+             handleTippedParam, initPaymentHandlers, initFloatingTip.
+    Owns local state: tipAmounts, selectedTipCents (primitives reassigned
+      locally — cannot be ES module live exports from state.js).
+    Injected callbacks: getStationName (→ hls-client), render (→ player.js),
+      setAuthTab (→ auth.js), toggleAuthSection (→ auth.js).
+    Imports: state, authState from state.js; el, esc from utils.js;
+             api from api.js.
+
+    STRIPE REDIRECT VERIFICATION — all flows go through api.payment.*:
+      tip checkout:        api.payment.sendTip(cents) → { res, data }
+      sub/all-access:      api.payment.checkoutUrl(tier) → data
+      vault subscribe btn: api.payment.checkoutUrl() → data
+      vault unlock:        api.payment.vaultUnlock(body) → data
+      vault options read:  api.payment.vaultUnlockOptions(id) → data
+      tip config:          api.payment.tipConfig() → data
+      No raw fetch() calls exist in payment.js. ✓
+
+    MODAL STATE NOTE:
+      tipAmounts and selectedTipCents are kept module-local in payment.js.
+      They do NOT need to live in state.js because:
+        • Only payment.js reads or writes them.
+        • They are primitive-reassigned (tipAmounts = [...]), so they could
+          not be ES module live exports from state.js in any case.
+      If a future module needs the active tip amount (e.g. analytics), it
+      would need a getter export or they would move to state.js at that point.
+
+    checkVaultGate() design:
+      "Read-only" means it only fetches options and renders the gate UI
+      (displaying unlock choices to the user). It does NOT initiate any
+      payment. The actual Stripe checkout redirect is in startVaultUnlock(),
+      which is called when the user clicks an UNLOCK button.
+
+    Event wiring deferred to initPaymentHandlers() (Phase 8 main.js).
+    Floating tip animation deferred to initFloatingTip() (Phase 8 main.js).
 
   Phase 3 error-handling risks: (unchanged — see original notes)
 ---
