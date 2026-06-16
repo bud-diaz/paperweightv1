@@ -1,8 +1,8 @@
 ---
 # Refactor State
-phase: 6
+phase: 7
 status: complete
-last_completed: Phase 6 - Payment Module (payment.js)
+last_completed: Phase 7 - Dashboard Modules
 notes: |
   Phase 1: Extracted 992 CSS lines → client/css/ (4 files).
   Phase 2: state.js (113 lines), utils.js (54 lines).
@@ -194,4 +194,159 @@ notes: |
     Floating tip animation deferred to initFloatingTip() (Phase 8 main.js).
 
   Phase 3 error-handling risks: (unchanged — see original notes)
+
+  Phase 7: Worklet + 12 dashboard modules:
+
+  client/js/worklet-processor.js
+    Plain AudioWorklet script (NOT an ES module). Contains PaperweightPCM class
+    registered as 'pw-pcm'. Served at /js/worklet-processor.js — referenced via
+    liveAudioCtx.audioWorklet.addModule('/js/worklet-processor.js') instead of
+    the blob URL approach used in the original creator.html WORKLET_CODE string.
+
+  client/js/dashboard/index.js
+    Exports: init, tryDashAuth, setDashGate, initDashboard, loadDashboard,
+             loadDashAccounts, loadDashRuntime, loadDashPaymentConfig,
+             checkLaunchAcceptance, makeTypeahead, initDashGateHandlers,
+             DASH_ACCOUNTS.
+    Owns local state: dashboardInitialized, pendingChallenge, dashboardLoaded,
+                      DASH_ACCOUNTS.
+    Orchestrates all dashboard sub-module loads via injected callbacks.
+    Uses api.auth.dashboardLogin(), api.auth.dashboardVerify2fa(),
+         api.dashboard.check(), api.dashboard.accounts(),
+         api.dashboard.runtime(), api.dashboard.paymentConfig(),
+         api.system.launchStatus(), api.system.launchAccept().
+    NOTE: stationName accessed from window._stationName (set by main.js Phase 8).
+
+  client/js/dashboard/station.js
+    Exports: init, loadDashStation, checkStationHealth, initStationHandlers.
+    Uses api.dashboard.station.get/health/updateUrl.
+
+  client/js/dashboard/bio.js
+    Exports: init, loadBioPanel, loadDashBio, updateBioSectionState,
+             initBioHandlers.
+    Contains: SOCIAL_ICONS constant (6 platform SVGs).
+    loadBioPanel uses api.library.creatorProfile() (public endpoint).
+    loadDashBio uses api.creator.profile() (dashboard endpoint).
+    Uses api.creator.updateProfile(), api.creator.uploadPic().
+    NOTE: bioSessionPassed set via window._bioSessionPassed for Phase 8.
+
+  client/js/dashboard/vault.js
+    Exports: init, loadDashVaultStats, bindVaultStatButtons, openVaultPanel,
+             loadDashLockedTracks, buildDashLibItem, buildDashLibProject,
+             refreshDashTokenList, loadDashLibrary, loadDashTokens,
+             refreshAssignmentList, initTokenHandlers.
+    Owns local state: vaultStatsBound, _activeVaultPanel.
+    Injected callbacks: loadDashVaultStats (self-ref for refresh), loadLibrary
+                        (listener-side), makeTypeahead, getDashAccounts.
+    Uses api.dashboard.media.*, api.dashboard.tokens.*, api.dashboard.vault.*.
+
+  client/js/dashboard/projects.js
+    Exports: init, loadDashProjects, buildDashProjectCard, initProjectHandlers.
+    Injected callbacks: loadDashProjects (self), loadDashLibrary, loadDashVaultStats.
+    Uses api.dashboard.media.list(), api.dashboard.vault.*,
+         api.dashboard.vault.addTrack/removeTrack/deleteProject/updateProject.
+
+  client/js/dashboard/broadcast.js
+    Exports: init, loadDashBroadcast, loadDashBroadcastQueue, initBroadcastHandlers.
+    Uses api.stream.status() (public endpoint), api.dashboard.broadcast.*.
+    initBroadcastHandlers wires the global .lib-queue-btn click delegation.
+
+  client/js/dashboard/live.js
+    Exports: init, loadDashLive, startGoLive, stopGoLive, initLiveHandlers.
+    Owns local state: liveAudioCtx, liveWorkletNode, liveMediaStream,
+                      liveTimerInt, liveStartedAt.
+    Uses api.dashboard.live.*, api.dashboard.broadcast.* (not directly),
+         liveAudioCtx.audioWorklet.addModule('/js/worklet-processor.js').
+    Uses fmt() from utils.js for timer display.
+
+  client/js/dashboard/schedule.js
+    Exports: init, loadDashSchedule, initScheduleHandlers.
+    Uses api.stream.status() (mode display), api.dashboard.broadcast.setMode(),
+         api.dashboard.schedule.list/createBlock/updateBlock/deleteBlock.
+
+  client/js/dashboard/upload.js
+    Exports: init, queueUploads, initUploadHandlers.
+    Owns local state: uploadFiles[].
+    Injected callbacks: loadDashVaultStats, loadDashLibrary, loadLibrary.
+    Uses api.dashboard.media.upload().
+
+  client/js/dashboard/analytics.js
+    Exports: init, loadDashAnalytics, loadAnalyticsExpanded, loadDashTipConfig,
+             loadPlayCounts, initAnalyticsHandlers.
+    Owns local state: _analyticsExpandedLoaded.
+    Injected callbacks: buildTipPresets (from payment.js; called with new amounts).
+    Uses api.analytics.live/top/history/playcounts(),
+         api.dashboard.tipConfig.get/update().
+    NOTE: _buildTipPresets(amounts) passes new amounts — Phase 8 wiring should
+          use a wrapper that sets tipAmounts in payment.js then calls buildTipPresets.
+
+  client/js/dashboard/twofa.js
+    Exports: init, loadDash2FA, startTwoFASetup, initTwoFAHandlers.
+    Uses api.dashboard.twoFA.status/setup/confirm/disable.
+
+  client/js/dashboard/search.js
+    Exports: init, loadCreatorType, loadRadioHostStatus, initExtSearchPanel.
+    Owns local state: currentExtPlatform.
+    Injected callbacks: loadDashLibrary, loadDashVaultStats.
+    Imports LIBRARY_STRUCTURE from state.js for library search.
+    Uses api.dashboard.creatorType(), api.dashboard.radioHostStatus(),
+         api.dashboard.externalSearch(), api.dashboard.media.importExternal().
+    Contains fmtDuration(secs) → "m:ss" local helper (different from fmt in utils.js).
+
+  CIRCULAR IMPORT VERIFICATION (Phase 7):
+    All dashboard/ modules import only from ../api.js, ../utils.js, and ../state.js.
+    dashboard/index.js does NOT import other dashboard/* modules — all cross-module
+    calls use the callback injection pattern. No circular imports exist. ✓
+
+  CALLBACK WIRING PLAN (Phase 8 main.js additions):
+    dashIndex.init({
+      loadDashStation:       station.loadDashStation,
+      loadDashVaultStats:    vault.loadDashVaultStats,
+      loadDashBroadcast:     broadcast.loadDashBroadcast,
+      loadDashLive:          live.loadDashLive,
+      loadRadioHostStatus:   search.loadRadioHostStatus,
+      loadDashSchedule:      schedule.loadDashSchedule,
+      loadDashProjects:      projects.loadDashProjects,
+      loadDashLibrary:       vault.loadDashLibrary,
+      loadDashAnalytics:     analytics.loadDashAnalytics,
+      loadDash2FA:           twofa.loadDash2FA,
+      loadDashTipConfig:     analytics.loadDashTipConfig,
+      loadDashBio:           bio.loadDashBio,
+      loadPlayCounts:        analytics.loadPlayCounts,
+      bindVaultStatButtons:  vault.bindVaultStatButtons,
+      initExtSearchPanel:    search.initExtSearchPanel,
+      loadCreatorType:       search.loadCreatorType,
+      initUploadHandlers:    upload.initUploadHandlers,
+      loadDashTokens:        vault.loadDashTokens,
+    })
+    vault.init({
+      loadDashVaultStats: vault.loadDashVaultStats,
+      loadLibrary:        library.loadLibrary,
+      makeTypeahead:      dashIndex.makeTypeahead,
+      getDashAccounts:    () => dashIndex.DASH_ACCOUNTS,
+    })
+    projects.init({
+      loadDashProjects:   projects.loadDashProjects,
+      loadDashLibrary:    vault.loadDashLibrary,
+      loadDashVaultStats: vault.loadDashVaultStats,
+    })
+    upload.init({
+      loadDashVaultStats: vault.loadDashVaultStats,
+      loadDashLibrary:    vault.loadDashLibrary,
+      loadLibrary:        library.loadLibrary,
+    })
+    analytics.init({
+      buildTipPresets: (amounts) => { payment._setTipAmounts(amounts); payment.buildTipPresets(); }
+      // OR: analytics.init({ buildTipPresets: payment.buildTipPresets }) if payment
+      //     exports a setter or loads from API on each call.
+    })
+    search.init({
+      loadDashLibrary:    vault.loadDashLibrary,
+      loadDashVaultStats: vault.loadDashVaultStats,
+    })
+
+  STATIONNAME PATTERN (Phase 7 → 8):
+    dashboard/index.js reads window._stationName instead of module-local stationName.
+    Phase 8 main.js must set window._stationName = stationName after init().
+    Alternative: inject stationName as a callback in dashIndex.init().
 ---
