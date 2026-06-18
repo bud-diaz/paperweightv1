@@ -19,11 +19,11 @@ const ROOT = path.resolve(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
 
 const TARGETS = [
-  { key: 'win-x64', aliases: ['windows', 'win'], platform: 'win32', arch: 'x64', moduleAbi: '115', label: 'Windows x64', target: 'node20-win-x64', out: 'paperweight-win-x64.exe' },
-  { key: 'macos-x64', aliases: ['mac-x64'], platform: 'darwin', arch: 'x64', moduleAbi: '115', label: 'macOS Intel', target: 'node20-macos-x64', out: 'paperweight-macos-x64' },
-  { key: 'macos-arm64', aliases: ['macos', 'mac', 'darwin-arm64'], platform: 'darwin', arch: 'arm64', moduleAbi: '115', label: 'macOS Apple Silicon', target: 'node20-macos-arm64', out: 'paperweight-macos-arm64' },
-  { key: 'linux-x64', aliases: ['linux'], platform: 'linux', arch: 'x64', moduleAbi: '115', label: 'Linux x64', target: 'node20-linux-x64', out: 'paperweight-linux-x64' },
-  { key: 'linux-arm64', aliases: ['pi', 'raspberry-pi', 'raspi'], platform: 'linux', arch: 'arm64', moduleAbi: '115', label: 'Raspberry Pi / Linux ARM64', target: 'node20-linux-arm64', out: 'paperweight-linux-arm64' },
+  { key: 'win-x64',     aliases: ['windows', 'win'],                     platform: 'win32',  arch: 'x64',   label: 'Windows x64',                 target: 'node20-win-x64',     nodeVersion: '20.18.1', abi: '115', out: 'paperweight-win-x64.exe' },
+  { key: 'macos-x64',   aliases: ['mac-x64'],                             platform: 'darwin', arch: 'x64',   label: 'macOS Intel',                  target: 'node20-macos-x64',   nodeVersion: '20.18.1', abi: '115', out: 'paperweight-macos-x64' },
+  { key: 'macos-arm64', aliases: ['macos', 'mac', 'darwin-arm64'],        platform: 'darwin', arch: 'arm64', label: 'macOS Apple Silicon',           target: 'node20-macos-arm64', nodeVersion: '20.18.1', abi: '115', out: 'paperweight-macos-arm64' },
+  { key: 'linux-x64',   aliases: ['linux'],                               platform: 'linux',  arch: 'x64',   label: 'Linux x64',                    target: 'node20-linux-x64',   nodeVersion: '20.18.1', abi: '115', out: 'paperweight-linux-x64' },
+  { key: 'linux-arm64', aliases: ['pi', 'raspberry-pi', 'raspi'],         platform: 'linux',  arch: 'arm64', label: 'Raspberry Pi / Linux ARM64',    target: 'node20-linux-arm64', nodeVersion: '20.18.1', abi: '115', out: 'paperweight-linux-arm64' },
 ];
 
 function usage() {
@@ -108,55 +108,19 @@ if (crossTargets.length && !allowCross) {
   process.exit(1);
 }
 
-const targetAbis = [...new Set(targets.map(t => t.moduleAbi))];
-if (targetAbis.length !== 1 || targetAbis[0] !== process.versions.modules) {
-  console.error('Refusing to build executable target(s) with the wrong Node ABI.');
-  console.error(`  Current Node: ${process.version} ABI ${process.versions.modules}`);
-  for (const target of targets) {
-    console.error(`  ${target.key} (${target.target}) requires ABI ${target.moduleAbi}`);
-  }
-  console.error('\nRun this build with the target Node runtime, for example:');
-  console.error('  npx -y node@20 scripts/build-exe.js');
-  console.error('Then rebuild native dependencies with that same Node runtime before packaging.');
-  process.exit(1);
-}
-
-function quoteArg(arg) {
-  const text = String(arg);
-  return /\s/.test(text) ? JSON.stringify(text) : text;
-}
-
-function runFile(file, args = [], opts = {}) {
-  console.log(`  $ ${[file, ...args].map(quoteArg).join(' ')}`);
-  const result = spawnSync(file, args, { stdio: 'inherit', cwd: ROOT, windowsHide: true, ...opts });
-  if (result.status !== 0) {
-    console.error(`\nCommand failed (exit ${result.status})`);
-    process.exit(result.status ?? 1);
-  }
-}
-
-function runNode(args, opts = {}) {
-  runFile(process.execPath, args, opts);
-}
-
-function runShell(cmd, opts = {}) {
+function run(cmd, opts = {}) {
   console.log(`  $ ${cmd}`);
-  const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: ROOT, windowsHide: true, ...opts });
+  const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: ROOT, ...opts });
   if (result.status !== 0) {
     console.error(`\nCommand failed (exit ${result.status})`);
     process.exit(result.status ?? 1);
   }
 }
 
-function runReleaseCheck() {
-  runNode(['scripts/check-release-clean.js']);
-  runNode(['--test', 'test/scheduler.test.js', 'test/access.test.js', 'test/payment.test.js', 'test/http.test.js', 'test/auth.test.js']);
-  runNode(['scripts/preflight.js']);
-  runNode(['scripts/check-migrations.js']);
-  runNode(['scripts/check-scheduler.js']);
-  runNode(['scripts/check-analytics.js']);
-  runNode(['scripts/check-package-assets.js']);
-  runShell('npm audit --omit=dev');
+function tryRun(cmd, opts = {}) {
+  console.log(`  $ ${cmd}`);
+  const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: ROOT, ...opts });
+  return result.status === 0;
 }
 
 function ensureDir(dir) {
@@ -165,36 +129,81 @@ function ensureDir(dir) {
 
 console.log('\nPaperweight executable packaging');
 console.log('Public distribution remains source/install-script based.\n');
-console.log(`Host: ${process.platform}/${process.arch}`);
-console.log(`Node: ${process.version} ABI ${process.versions.modules}`);
+console.log(`Host: ${process.platform}/${process.arch} (ABI ${process.versions.modules})`);
 console.log(`Targets: ${targets.map(t => t.key).join(', ')}\n`);
 
-// Regenerate the client bundle so pkg bundles the latest client/ and hls.js.
-runNode(['scripts/generate-client-bundle.js']);
+// ─── ABI alignment ────────────────────────────────────────────────────────────
+// better_sqlite3.node must be compiled for the same Node ABI that pkg bundles
+// in the output exe. All current targets use node20 (ABI 115). If the host
+// Node ABI differs, attempt to download a prebuilt binary for the target ABI
+// via prebuild-install before generating the native bundle.
 
-// Generate platform-specific native binding bundle before release:check so the
-// package asset check can fail fast on a missing packaged native bundle.
-runNode(['scripts/generate-native-bundle.js']);
+const uniqueTargetAbis = [...new Set(targets.map(t => t.abi))];
+for (const targetAbi of uniqueTargetAbis) {
+  if (process.versions.modules === targetAbi) continue;
+
+  const targetEntry = targets.find(t => t.abi === targetAbi);
+  const nodeVersion  = targetEntry.nodeVersion;
+
+  console.log(`\nABI mismatch: host ABI ${process.versions.modules}, target ABI ${targetAbi} (Node ${nodeVersion})`);
+  console.log('Attempting to download prebuilt better-sqlite3 for the target Node version...');
+
+  const prebuildInstall = path.join(ROOT, 'node_modules', '.bin', 'prebuild-install');
+  const sqliteDir = path.join(ROOT, 'node_modules', 'better-sqlite3');
+
+  const prebuildOk = fs.existsSync(prebuildInstall) && tryRun(
+    `"${prebuildInstall}" --target ${nodeVersion} --runtime node`,
+    { cwd: sqliteDir },
+  );
+
+  if (!prebuildOk) {
+    console.log('prebuild-install unavailable or failed; trying node-gyp source rebuild...');
+    const rebuildOk = tryRun(
+      `npm rebuild better-sqlite3 --build-from-source`,
+      { env: { ...process.env, npm_config_target: nodeVersion, npm_config_dist_url: 'https://nodejs.org/dist' } },
+    );
+    if (!rebuildOk) {
+      console.error(`\nERROR: Could not rebuild better-sqlite3 for Node ${nodeVersion} (ABI ${targetAbi}).`);
+      console.error(`Install Node ${nodeVersion} (e.g. via nvm) and re-run build:exe from there.`);
+      process.exit(1);
+    }
+  }
+
+  console.log(`OK   better-sqlite3 rebuilt for Node ${nodeVersion} / ABI ${targetAbi}`);
+}
+
+// Regenerate the client bundle so pkg bundles the latest client/ and hls.js.
+run('node scripts/generate-client-bundle.js');
+
+// Generate platform-specific native binding bundle. Runs after the ABI rebuild
+// above so the embedded binary matches the pkg target runtime ABI.
+// Pass the target ABI via env so the bundle metadata is correct when host ABI differs.
+const nativeBundleEnv = uniqueTargetAbis.length === 1 && uniqueTargetAbis[0] !== process.versions.modules
+  ? { ...process.env, PAPERWEIGHT_BUNDLE_ABI: uniqueTargetAbis[0] }
+  : process.env;
+run('node scripts/generate-native-bundle.js', { env: nativeBundleEnv });
+
+// If we downloaded a target-ABI binary above, restore the host-ABI build now
+// so that the subsequent `npm test` (inside release:check) runs correctly under
+// the host Node version.
+if (uniqueTargetAbis.some(a => a !== process.versions.modules)) {
+  console.log('\nRestoring host-ABI better-sqlite3 for test run...');
+  run('npm rebuild better-sqlite3');
+}
 
 // Download FFmpeg/ffprobe for this platform into vendor/ffmpeg/ (skips if present).
-runNode(['scripts/fetch-ffmpeg.js']);
+run('node scripts/fetch-ffmpeg.js');
 
-// Embed FFmpeg/ffprobe into JS so pkg includes them reliably.
-runNode(['scripts/generate-ffmpeg-bundle.js']);
+// Embed FFmpeg binaries as a Base64 JS bundle so pkg can include them.
+// pkg.assets globs are broken for node20 targets; this mirrors the approach
+// used for better_sqlite3.node.
+run('node scripts/generate-ffmpeg-bundle.js');
 
-runReleaseCheck();
+run('npm run release:check');
 
 const pkgBin = path.join(ROOT, 'node_modules', '.bin', 'pkg');
 if (!fs.existsSync(pkgBin) && !fs.existsSync(`${pkgBin}.cmd`)) {
   console.error('ERROR: @yao-pkg/pkg not found. Run npm install first.');
-  process.exit(1);
-}
-
-const sqliteBuild = path.join(ROOT, 'node_modules', 'better-sqlite3', 'build', 'Release');
-if (!fs.existsSync(sqliteBuild)) {
-  console.error(
-    `ERROR: better-sqlite3 native build output missing. Rebuild dependencies with Node ${process.version} before packaging.`,
-  );
   process.exit(1);
 }
 
@@ -203,16 +212,7 @@ ensureDir(DIST);
 for (const { label, target, out } of targets) {
   const outPath = path.join(DIST, out);
   console.log(`\nBuilding ${label} -> dist/${out}`);
-  runNode([
-    path.join('node_modules', '@yao-pkg', 'pkg', 'lib-es5', 'bin.js'),
-    'src/launcher.js',
-    '--target',
-    target,
-    '--output',
-    outPath,
-    '--compress',
-    'GZip',
-  ]);
+  run(`pkg src/launcher.js --target ${target} --output ${outPath} --compress GZip`);
   const size = (fs.statSync(outPath).size / 1024 / 1024).toFixed(1);
   console.log(`OK   ${out} (${size} MB)`);
 }

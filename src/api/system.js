@@ -10,17 +10,16 @@ function getVersion() {
   return _version;
 }
 
-router.use(requireDashboard);
-
-// GET /api/system/launch-status - dashboard-only, checked after creator login
-router.get('/launch-status', (req, res) => {
+// GET /api/system/launch-status — dashboard-auth required; modal is shown
+// after showDashContent() so the session cookie is always present.
+router.get('/launch-status', requireDashboard, (req, res) => {
   const row = getDb().prepare('SELECT accepted_at, version FROM launch_acceptance WHERE id = 1').get();
   const accepted = !!(row && row.accepted_at);
   res.json({ accepted, acceptedAt: row ? row.accepted_at : null });
 });
 
-// POST /api/system/launch-accept - records creator acceptance
-router.post('/launch-accept', (req, res) => {
+// POST /api/system/launch-accept — records acceptance, dashboard-auth required.
+router.post('/launch-accept', requireDashboard, (req, res) => {
   getDb().prepare(`
     UPDATE launch_acceptance
     SET accepted_at = datetime('now'), version = ?

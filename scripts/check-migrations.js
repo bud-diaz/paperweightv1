@@ -63,6 +63,16 @@ try {
     }
   }
 
+  // Migrations 013–015: tables consumed by live API routes.
+  for (const table of ['creator_profile', 'launch_acceptance', 'download_leads']) {
+    const row = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?"
+    ).get(table);
+    if (!row) {
+      throw new Error(`${table} table was not created (migration 013–015 missing or broken)`);
+    }
+  }
+
   console.log(`Migration check passed (${secondCount} migrations applied once).`);
 } catch (err) {
   console.error(`Migration check failed: ${err.message}`);

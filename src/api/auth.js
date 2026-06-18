@@ -137,7 +137,8 @@ router.post('/dashboard/verify-2fa', authLimiter, (req, res) => {
 router.post('/dashboard/logout', (req, res) => {
   const sessionId = req.cookies?.[SESSION_COOKIE];
   if (sessionId) deleteSession(sessionId);
-  res.clearCookie(SESSION_COOKIE, { httpOnly: true, sameSite: 'strict' });
+  const { secure, httpOnly, sameSite } = sessionCookieOpts(req);
+  res.clearCookie(SESSION_COOKIE, { httpOnly, sameSite, secure });
   res.json({ ok: true });
 });
 

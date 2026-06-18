@@ -38,6 +38,13 @@ function readBundle() {
   if (!Buffer.isBuffer(data)) {
     throw new Error('native-bundle.js did not export a native binding buffer');
   }
+  if (mod.abi && mod.abi !== process.versions.modules) {
+    throw new Error(
+      `native binding ABI mismatch: bundled for ABI ${mod.abi}, ` +
+      `running under ABI ${process.versions.modules}. ` +
+      'Rebuild the executable under the matching Node version (node20 for pkg target node20-*).'
+    );
+  }
   const expectedHash = mod.sha256 || sha256(data);
   return { data, expectedHash };
 }

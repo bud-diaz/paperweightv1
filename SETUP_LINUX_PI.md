@@ -32,6 +32,8 @@ Dashboard:
 http://localhost:3000/#dashboard
 ```
 
+> **Port note:** Paperweight uses port 3000 by default. If that port is already in use, it automatically selects the next available port (3001, 3002, …) and prints the actual URL on startup. Set `PORT=XXXX` in `.env` to choose a specific port.
+
 Use the dashboard token printed by `scripts/setup.sh`.
 
 ## Raspberry Pi Notes
@@ -63,6 +65,8 @@ PAPERWEIGHT_INSTALL_CLOUDFLARED=true bash scripts/install.sh
 ```
 
 Set `STATION_PUBLIC_URL` and `HTTPS=true` when public traffic is served over TLS.
+
+If your station has a `STATION_SLUG`, set `STATION_PUBLIC_URL` to your station's actual server address — the tunnel, reverse-proxy, or public IP URL where listeners can reach it (e.g., `https://your-tunnel.trycloudflare.com` or `https://mystation.example.com`). This is what `<slug>.paperweighthq.com` redirects visitors to. Do not set it to `https://<slug>.paperweighthq.com` itself — that creates a redirect loop.
 
 ## Smoke Check
 

@@ -18,6 +18,7 @@ const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCo
 const { getFFmpegStatus } = require('../runtime/ffmpeg');
 const asyncHandler = require('../middleware/asyncHandler');
 const { clearArtworkCache, ARTWORK_DIR } = require('./library');
+const { validateSlug } = require('../auth/reserved-slugs');
 
 router.use(requireDashboard);
 
@@ -464,6 +465,10 @@ router.get('/station', (req, res) => {
   let row = db.prepare('SELECT * FROM station_registry WHERE id = 1').get();
 
   if (!row && config.station.slug && config.station.publicUrl) {
+    const slugCheck = validateSlug(config.station.slug);
+    if (!slugCheck.valid) {
+      return res.status(400).json({ error: slugCheck.reason });
+    }
     db.prepare(
       'INSERT OR IGNORE INTO station_registry (id, slug, url) VALUES (1, ?, ?)'
     ).run(config.station.slug, config.station.publicUrl);
