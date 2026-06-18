@@ -1,0 +1,74 @@
+/* ── Physics player overlay ── */
+#pw-container {
+  position: fixed; width: 360px; height: 640px;
+  top: 50%; left: 50%; transform: translate(-50%,-50%);
+  border: 1px solid #262626; border-radius: 18px;
+  background: rgba(10,10,10,0.6); backdrop-filter: blur(20px);
+  box-shadow: 0 32px 80px rgba(0,0,0,.7), 0 0 120px rgba(0,229,160,.04);
+  z-index: 10; pointer-events: none; overflow: hidden;
+}
+
+.pw-card {
+  position: fixed; left: 0; top: 0; z-index: 200;
+  cursor: grab; pointer-events: all;
+  will-change: transform; transform-origin: top left;
+  transition: opacity 0.25s;
+}
+.pw-card:active { cursor: grabbing; }
+
+.pw-card-inner {
+  background: var(--card);
+  border: 1px solid var(--border); border-radius: 9px; overflow: hidden;
+}
+.pw-card:hover .pw-card-inner {
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 20px rgba(0,0,0,.6);
+}
+
+#card-nowplaying .pw-card-inner {
+  background: linear-gradient(150deg,#0c1e18 0%,#0a0a0a 100%);
+  border-color: #1a2c22;
+}
+
+#wt-inner {
+  display: flex; flex-direction: column; align-items: center;
+}
+
+#wt-bar {
+  width: 100%; padding: 9px 12px 7px;
+  border-bottom: 1px solid var(--border);
+}
+
+#wt-stem {
+  width: var(--stem-w, 110px);
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 12px 14px 14px;
+  border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  border-radius: 0 0 9px 9px; background: var(--card);
+}
+
+#play-btn {
+  width: 50px; height: 50px; border-radius: 50%;
+  background: var(--color); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 18px rgba(0,229,160,.22);
+  transition: transform .15s, box-shadow .15s;
+}
+#play-btn:hover { transform: scale(1.07); box-shadow: 0 0 28px rgba(0,229,160,.4); }
+#play-btn:active { transform: scale(0.93); }
+
+#waveform-canvas { width: 100%; height: 38px; display: block; }
+
+.col-inner { padding: 11px 12px; display: flex; gap: 9px; align-items: center; }
+.col-icon {
+  width: 28px; height: 28px; background: var(--raised);
+  border: 1px solid var(--border); border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+}
+.col-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: .09em; color: var(--t2); }
+.col-sub { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--t3); }
+
+#sa-inner { display: flex; align-items: stretch; }
+.sa-half { flex: 1; padding: 11px 12px; display: flex; gap: 9px; cursor: pointer; }
+.sa-half:hover { background: var(--raised); }
+.sa-div { width: 1px; background: var(--border); align-self: stretch; }
