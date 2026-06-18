@@ -71,6 +71,20 @@ export async function loadTipConfig() {
   buildTipPresets();
 }
 
+/**
+ * Update the in-memory tip preset amounts without re-fetching from the server.
+ * Added in Phase 8 so dashboard/analytics.js's "save tip config" handler can
+ * refresh the listener-facing tip presets immediately after a successful save,
+ * via main.js's analytics.init({ buildTipPresets: ... }) wiring. tipAmounts is
+ * intentionally module-local (see header comment); this is the minimal setter
+ * needed to let another module request an update without owning the state.
+ *
+ * @param {number[]} amounts
+ */
+export function setTipAmounts(amounts) {
+  if (Array.isArray(amounts) && amounts.length) tipAmounts = amounts;
+}
+
 export function buildTipPresets() {
   const presetsEl = el('tip-presets');
   presetsEl.innerHTML = tipAmounts.map(cents => {

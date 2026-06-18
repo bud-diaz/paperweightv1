@@ -226,7 +226,7 @@ export async function loadDashPaymentConfig() {
 // ── Launch acceptance ──────────────────────────────────────────────────────────
 export async function checkLaunchAcceptance() {
   try {
-    const d = await api.system.launchStatus();
+    const d = await api.dashboard.system.launchStatus();
     if (!d.accepted) {
       el('launch-backdrop').hidden = false;
     }
@@ -354,7 +354,7 @@ export function initDashGateHandlers() {
   el('launch-chk-content').addEventListener('change', updateLaunchContinue);
   el('launch-continue').addEventListener('click', async () => {
     try {
-      await api.system.launchAccept();
+      await api.dashboard.system.launchAccept();
     } catch {}
     el('launch-backdrop').hidden = true;
   });

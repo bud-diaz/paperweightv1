@@ -77,7 +77,7 @@ export async function loadBioPanel() {
 // ── Dashboard bio editor ───────────────────────────────────────────────────────
 export async function loadDashBio() {
   try {
-    const d = await api.creator.profile();
+    const d = await api.dashboard.creator.profile();
     el('bio-toggle').checked = !!d.bio_enabled;
     updateBioSectionState();
     if (d.bio)             el('bio-bio-input').value   = d.bio;
@@ -113,7 +113,7 @@ export function initBioHandlers() {
     const on = el('bio-toggle').checked;
     if (on) el('bio-details').open = true;
     try {
-      await api.creator.updateProfile({ bio_enabled: on ? 1 : 0 });
+      await api.dashboard.creator.updateProfile({ bio_enabled: on ? 1 : 0 });
     } catch {}
   });
 
@@ -130,7 +130,7 @@ export function initBioHandlers() {
         social_spotify:    el('bio-spotify').value.trim()     || null,
         social_bandcamp:   el('bio-bandcamp').value.trim()    || null,
       };
-      await api.creator.updateProfile(body);
+      await api.dashboard.creator.updateProfile(body);
       msg.textContent = 'SAVED'; msg.style.color = '#39ff14';
       setTimeout(() => { msg.textContent = ''; }, 2000);
     } catch {
@@ -154,7 +154,7 @@ export function initBioHandlers() {
     try {
       const fd = new FormData();
       fd.append('pic', f);
-      const res = await api.creator.uploadPic(fd);
+      const res = await api.dashboard.creator.uploadPic(fd);
       if (res.ok) {
         msg.textContent = 'UPLOADED'; msg.style.color = '#39ff14';
         const prev = el('dash-bio-pic-preview');

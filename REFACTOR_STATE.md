@@ -1,8 +1,8 @@
 ---
 # Refactor State
-phase: 7
+phase: 8
 status: complete
-last_completed: Phase 7 - Dashboard Modules
+last_completed: Phase 8 - main.js wiring + creator.html trim
 notes: |
   Phase 1: Extracted 992 CSS lines → client/css/ (4 files).
   Phase 2: state.js (113 lines), utils.js (54 lines).
@@ -349,4 +349,177 @@ notes: |
     dashboard/index.js reads window._stationName instead of module-local stationName.
     Phase 8 main.js must set window._stationName = stationName after init().
     Alternative: inject stationName as a callback in dashIndex.init().
+
+  Phase 8: main.js wiring + creator.html trim. END OF REFACTOR.
+
+  client/js/main.js (311 lines) — pure wiring layer, no business logic.
+    Imports every module (core + all 12 dashboard sub-modules), wires every
+    init({...}) callback per the Phase 5-7 plans above, calls every
+    init*Handlers() export, binds the player-owned top-level DOM listeners
+    that no module captured (play/skip/lib/queue/share/account/waveform/
+    art-flip/view-tab/wordmark long-press), and replicates the original
+    inline-script init() startup sequence exactly (station name fetch ->
+    bio panel -> stream status + poll -> auth state -> library + queue ->
+    tip config -> silent dashboard session restore -> initial render ->
+    ?tipped=1 -> ?subscribed=1).
+
+  CORRECTIONS TO THE PHASE 5-7 WIRING PLANS (found while wiring; the plan
+  text above is left unedited as a historical record — these are the actual
+  values used in main.js):
+    - player.registerCallbacks({ ..., loadQueue: library.loadQueue }) —
+      NOT player.loadQueue. loadQueue did not exist anywhere before Phase 8
+      (see "logic relocated" below); it was added to library.js, not player.js.
+    - dashboard/vault.js's handler-init export is initTokenHandlers(), not
+      initVaultHandlers() as speculated in the original task brief.
+    - analytics.init({ buildTipPresets }) needed a real implementation since
+      payment.js has no setter for its module-local tipAmounts. Added
+      payment.setTipAmounts(amounts) (small, documented export) and wired
+      main.js: buildTipPresets: (amounts) => { payment.setTipAmounts(amounts);
+      payment.buildTipPresets(); }.
+    - dashboard/index.js, dashboard/bio.js, dashboard/analytics.js had latent
+      Phase 7 bugs calling non-existent top-level api.* namespaces
+      (api.system.*, api.creator.*, api.analytics.*) instead of the actual
+      nested api.dashboard.system.*, api.dashboard.creator.*,
+      api.dashboard.analytics.* paths. Fixed at the call sites (see "logic
+      relocated" below) — required for Phase 8 wiring to work at all, since
+      main.js calls these modules' loaders directly.
+
+  LOGIC RELOCATED INTO EXISTING MODULES (found orphaned in the original
+  inline script; no Phase 5/6/7 module had captured them; smallest-unit
+  additions made to the most relevant existing module per task instructions
+  — none of this logic was added to main.js):
+    - library.js: added loadQueue() (queue-drawer rendering: scheduled-next
+      block + recently-played list). Backs #queue-drawer, called by
+      player.toggleDrawer('queue') via the loadQueue callback. Uses
+      api.library.scheduleCurrent() + api.stream.status() instead of the
+      original's raw fetch calls.
+    - player.js: added initShareHandlers() (.share-opt copy-link / twitter /
+      embed / rss wiring). Reads activeTrack().color and getStationName(),
+      both already available in player.js.
+    - dashboard/search.js: added initRadioHostHandlers()
+      (#broadcast-header-toggle expand/collapse + #rh-switch radio-host-mode
+      toggle). Manages the same radio-host-mode state as loadCreatorType()
+      and triggers initExtSearchPanel()/loadRadioHostStatus(), both already
+      owned by search.js. Uses api.dashboard.toggleRadioHost() instead of a
+      raw dashFetch() call.
+    - payment.js: added setTipAmounts(amounts) — minimal setter so
+      dashboard/analytics.js's tip-config-save handler can refresh the
+      listener-facing tip presets without giving up payment.js's ownership
+      of tipAmounts as module-local state.
+    - Bug fixes (not new logic, but required for correctness): dashboard/
+      index.js, dashboard/bio.js, dashboard/analytics.js — corrected
+      api.system/api.creator/api.analytics call sites to the real nested
+      api.dashboard.system/api.dashboard.creator/api.dashboard.analytics paths.
+
+  PLAYER-OWNED TOP-LEVEL LISTENERS — wired directly in main.js (not as a new
+  module export, since they are simple one-line DOM bindings to existing
+  player.js exports, matching the "Event listeners owned by player" plan):
+    #play-btn, #skip-prev, #skip-next, #back-live-btn, #lib-btn, #queue-btn,
+    #share-area, #account-area, #waveform, #art-flip, .view-tab (all),
+    #pw-wordmark-text (long-press). The view-tab handler and the wordmark
+    long-press's enterDashboard() both call dashboard.initDashboard()
+    (idempotent, guarded by dashboardInitialized) instead of duplicating
+    dashboard gate logic in main.js.
+
+  STARTUP SEQUENCE DECISION: the original inline script's "silently restore
+  creator session" IIFE (tryDashAuth() -> showDashContent()) is NOT
+  separately exported from dashboard/index.js — only initDashboard() is,
+  which performs the same probe-then-show-or-gate logic and is guarded by
+  dashboardInitialized so calling it from main.js's init() is safe even if
+  the user later triggers it again via the STUDIO tab or wordmark long-press.
+  main.js's init() therefore calls dashIndex.initDashboard() directly in
+  place of the original's bespoke IIFE.
+
+  CREATOR.HTML TRIM:
+    Removed the entire inline <script>...</script> block (original lines
+    846-4672, the whole monolithic frontend script) and replaced it with a
+    single line at the same position (end of body, after #credit, before
+    </body>): <script type="module" src="js/main.js"></script>.
+    creator.html: 849 lines (was 4675). Zero inline <script> content remains
+    — the only other <script> tag in the file is the vendored
+    <script src="/vendor/hls.min.js"></script> in <head>, present since
+    Phase 1 and unrelated to the refactor. <head> still has exactly the 4
+    Phase 1 CSS <link> tags (tokens.css, layout.css, auth.css, dashboard.css)
+    plus the unrelated fonts.css link — nothing else changed. No markup was
+    touched anywhere else in the file.
+
+  FINAL FILE LINE COUNTS (Phase 8):
+    client/creator.html              849  (was 4675 pre-trim)
+    client/js/main.js                311  (new)
+    client/js/api.js                 813
+    client/js/state.js               117
+    client/js/utils.js                52
+    client/js/hls-client.js          193
+    client/js/player.js              485  (was 435; +initShareHandlers)
+    client/js/ascii.js               293
+    client/js/auth.js                200
+    client/js/library.js             250  (was 205; +loadQueue)
+    client/js/payment.js             443  (was 429; +setTipAmounts)
+    client/js/worklet-processor.js    18
+    client/js/dashboard/index.js     361  (api.* call-site fix only)
+    client/js/dashboard/station.js    75
+    client/js/dashboard/bio.js       171  (api.* call-site fix only)
+    client/js/dashboard/vault.js     535
+    client/js/dashboard/projects.js  269
+    client/js/dashboard/broadcast.js  68
+    client/js/dashboard/live.js      132
+    client/js/dashboard/schedule.js  176
+    client/js/dashboard/upload.js     69
+    client/js/dashboard/analytics.js 122  (api.* call-site fix only)
+    client/js/dashboard/twofa.js      91
+    client/js/dashboard/search.js    214  (was 170; +initRadioHostHandlers)
+    client/css/tokens.css             43
+    client/css/layout.css            620
+    client/css/auth.css               59
+    client/css/dashboard.css         269
+
+  VERIFICATION PERFORMED:
+    - node --check on main.js and payment.js: pass.
+    - npm test: 55/55 pass (one pre-existing unrelated failure — missing
+      vendored client/vendor/hls.min.js / node_modules in this checkout —
+      resolved by running npm install; not caused by Phase 8 changes).
+    - node scripts/generate-client-bundle.js: succeeds, 47 entries.
+    - Dev server smoke test: GET /creator.html, /js/main.js,
+      /js/dashboard/index.js, /js/worklet-processor.js, /api/health all
+      return 200 with correct content; creator.html confirmed to contain
+      exactly one inline-script-free <script type="module"> tag plus the
+      unrelated vendored hls.min.js <script src> in <head>.
+
+  DEFERRED CLEANUPS / TODOs (none blocking; out of scope for Phase 8 per
+  task instructions, listed for future reference):
+    - state.js still contains the vestigial WORKLET_CODE template literal
+      (superseded by the standalone client/js/worklet-processor.js file in
+      Phase 7). Not removed — touching state.js exports was out of scope
+      for a pure wiring phase.
+    - state.js exports many primitives (hls, asciiMode, liveAudioCtx, etc.)
+      that are documented as "initial values only" and are not the live
+      values actually used at runtime (each owning module keeps its own
+      module-local copy). This duplication is intentional per the Phase 4-7
+      design notes above but could be trimmed in a future cleanup pass.
+    - No Phase 9 is planned. This is the end of the creator.html ->
+      client/js/ ES module refactor.
+
+  MANUAL SMOKE-TEST CHECKLIST (browser-based; cannot be performed by the
+  agent — for the human to run against a live server with real vault media,
+  Stripe/PayPal test keys, and FFmpeg installed):
+    [ ] Player loads, shows live "On Air" state, play/pause works
+    [ ] HLS reconnect/retry behavior after killing/restarting the broadcast
+    [ ] Waveform click-to-seek on a selected VOD track
+    [ ] Library drawer opens, gated tracks show lock icon + $ unlock button
+    [ ] Vault gate modal renders unlock options; vault token/all-access flows
+    [ ] Listener login / register / logout; password-set flow after Stripe
+        redirect (?subscribed=1)
+    [ ] Tip modal: presets render, custom amount, Stripe checkout redirect,
+        ?tipped=1 thank-you state
+    [ ] Floating tip bubble animates and opens modal on click/tap
+    [ ] Share drawer: copy link, tweet intent, embed code copy, RSS link
+    [ ] Dashboard auth gate: token login, 2FA challenge + verify, recovery
+    [ ] Each dashboard section loads: station, vault stats, broadcast queue,
+        live broadcast (go live / stop), schedule, projects, uploads,
+        analytics (+ expanded 7-day view), tip config save, bio panel,
+        2FA setup/disable, token management, external search (YouTube/
+        SoundCloud/library), radio-host mode toggle + creator-type switch
+    [ ] STUDIO/PLAY view-tab toggle; wordmark long-press enters STUDIO
+    [ ] ASCII mode renders for audio and video playback
+    [ ] First-launch legal acceptance modal appears once, accept persists
 ---

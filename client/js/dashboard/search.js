@@ -3,7 +3,7 @@
  */
 
 import * as api from '../api.js';
-import { el, esc } from '../utils.js';
+import { el, esc, showToast } from '../utils.js';
 import { LIBRARY_STRUCTURE } from '../state.js';
 
 // ── Module-local state ─────────────────────────────────────────────────────────
@@ -65,6 +65,50 @@ export function initExtSearchPanel() {
   el('btn-ext-search').addEventListener('click', runExtSearch);
   el('ext-search-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') runExtSearch();
+  });
+}
+
+// ── Broadcast-advanced toggle + radio-host switch ──────────────────────────────
+// Relocated here in Phase 8: this wiring existed in the original inline script
+// but was not captured by any Phase 5/6/7 module. It belongs in search.js
+// because it manages the same radio-host-mode state as loadCreatorType() and
+// triggers initExtSearchPanel()/loadRadioHostStatus(), both owned here.
+
+export function initRadioHostHandlers() {
+  document.addEventListener('click', e => {
+    if (e.target.closest('#broadcast-header-toggle')) {
+      const adv = el('broadcast-advanced');
+      const tog = el('broadcast-header-toggle');
+      if (!adv || !tog) return;
+      const open = adv.classList.toggle('open');
+      tog.classList.toggle('open', open);
+      if (open) loadRadioHostStatus();
+    }
+  });
+
+  document.addEventListener('click', e => {
+    const sw = e.target.closest('#rh-switch');
+    if (!sw || sw.classList.contains('locked')) return;
+    api.dashboard.toggleRadioHost()
+      .then(data => {
+        if (data.error) { showToast(data.error); return; }
+        sw.classList.toggle('on', data.radioHost);
+        sw.classList.toggle('locked', data.locked);
+        const info = el('rh-switches-info');
+        if (info) {
+          info.textContent = data.locked
+            ? `Switches used: ${data.switches}/3 — locked. Edit CREATOR_TYPE in .env to change.`
+            : `Switches used: ${data.switches}/3`;
+        }
+        if (data.radioHost) {
+          document.body.classList.add('radio-host-mode');
+          initExtSearchPanel();
+        } else {
+          document.body.classList.remove('radio-host-mode');
+        }
+        showToast(data.radioHost ? 'Radio Host mode ON' : 'Radio Host mode OFF');
+      })
+      .catch(() => showToast('Toggle failed'));
   });
 }
 

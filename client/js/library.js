@@ -165,6 +165,51 @@ export function buildLibrary() {
   }
 }
 
+// ── Queue drawer (scheduled next + recently played) ───────────────────────────
+// Relocated here in Phase 8: this rendering logic existed in the original inline
+// script (loadQueue) but was not captured by any Phase 5/6/7 module. It belongs
+// in library.js because it backs the #queue-drawer content shown by
+// player.toggleDrawer('queue'), and player.js injects it via the loadQueue
+// callback (registerCallbacks) to avoid a circular import.
+
+export async function loadQueue() {
+  try {
+    const [block, status] = await Promise.all([
+      api.library.scheduleCurrent(),
+      api.stream.status(),
+    ]);
+    const list   = el('queue-list');
+    const recent = Array.isArray(status.recentlyPlayed) ? status.recentlyPlayed : [];
+    let html = '';
+
+    // ── Scheduled next ──
+    html += `<div class="q-section">SCHEDULED NEXT</div>`;
+    if (block) {
+      html += `<div class="q-row">
+        <span class="q-title">${esc(block.label || 'Broadcast')}</span>
+        <span class="q-time">${block.start_time || ''}${block.end_time ? ' – ' + block.end_time : ''}</span>
+      </div>`;
+    } else {
+      html += `<div class="q-row"><span class="q-title" style="opacity:.3;font-size:13px;">No schedule active</span></div>`;
+    }
+
+    // ── Recently played ──
+    if (recent.length > 0) {
+      html += `<hr class="q-divider"><div class="q-section">RECENTLY PLAYED</div>`;
+      for (const t of recent) {
+        html += `<div class="q-row">
+          <span class="q-title">${esc(t.title)}</span>
+          ${t.artist ? `<span class="q-time">${esc(t.artist)}</span>` : ''}
+        </div>`;
+      }
+    }
+
+    list.innerHTML = html;
+  } catch {
+    el('queue-list').innerHTML = '';
+  }
+}
+
 // ── Listener queue ────────────────────────────────────────────────────────────
 
 export function updateListenerQueuePill() {

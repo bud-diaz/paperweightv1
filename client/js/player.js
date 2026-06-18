@@ -433,3 +433,53 @@ export function toggleShare() {
   state.showShare = !state.showShare;
   render();
 }
+
+// ── Share options (copy link / twitter / embed / rss) ─────────────────────────────
+// Relocated here in Phase 8: this wiring existed in the original inline script but
+// was not captured by any Phase 5/6 module. It belongs with player.js because it
+// reads activeTrack().color and getStationName() (hls-client), both already
+// available in this module.
+
+export function initShareHandlers() {
+  document.querySelectorAll('.share-opt').forEach(btn => {
+    btn.addEventListener('mouseenter', () => {
+      const c = activeTrack().color;
+      btn.style.background  = `${c}18`;
+      btn.style.borderColor = `${c}44`;
+    });
+    btn.addEventListener('mouseleave', () => {
+      if (btn.classList.contains('copied')) return;
+      btn.style.background  = 'rgba(255,255,255,.04)';
+      btn.style.borderColor = 'rgba(255,255,255,.08)';
+    });
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.share;
+      if (action === 'link') {
+        navigator.clipboard?.writeText(window.location.href).catch(() => {});
+        const icon  = btn.querySelector('.share-opt-icon');
+        const label = btn.querySelector('.share-opt-label');
+        btn.classList.add('copied');
+        icon.textContent  = '✓';
+        label.textContent = 'COPIED';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          icon.textContent  = '⌗';
+          label.textContent = 'COPY LINK';
+          btn.style.background  = 'rgba(255,255,255,.04)';
+          btn.style.borderColor = 'rgba(255,255,255,.08)';
+        }, 2000);
+      } else if (action === 'twitter') {
+        const text = encodeURIComponent(`Listening to ${getStationName()} — ${window.location.href}`);
+        window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+      } else if (action === 'embed') {
+        const code = `<iframe src="${window.location.href}" width="560" height="480" frameborder="0" allowfullscreen></iframe>`;
+        navigator.clipboard?.writeText(code).catch(() => {});
+        const lbl = btn.querySelector('.share-opt-label');
+        lbl.textContent = 'COPIED';
+        setTimeout(() => { lbl.textContent = 'EMBED'; }, 2000);
+      } else if (action === 'rss') {
+        window.open('/api/library', '_blank');
+      }
+    });
+  });
+}

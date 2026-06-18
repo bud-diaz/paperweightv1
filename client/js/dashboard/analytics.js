@@ -19,8 +19,8 @@ export function init(callbacks = {}) {
 export async function loadDashAnalytics() {
   try {
     const [liveData, topData] = await Promise.all([
-      api.analytics.live(),
-      api.analytics.top(3),
+      api.dashboard.analytics.live(),
+      api.dashboard.analytics.top(3),
     ]);
     el('dash-analytics').innerHTML =
       `<div class="stat-card"><div class="stat-val">${liveData.currentListeners||0}</div><div class="stat-key">NOW</div></div>` +
@@ -38,8 +38,8 @@ export async function loadAnalyticsExpanded() {
   _analyticsExpandedLoaded = true;
   try {
     const [histData, topData] = await Promise.all([
-      api.analytics.history(7),
-      api.analytics.top(5, '30d'),
+      api.dashboard.analytics.history(7),
+      api.dashboard.analytics.top(5, '30d'),
     ]);
     // 7-day bar chart
     const barsEl = el('analytics-history-bars');
@@ -83,7 +83,7 @@ export async function loadDashTipConfig() {
 // ── Play counts ────────────────────────────────────────────────────────────────
 export async function loadPlayCounts() {
   try {
-    const data = await api.analytics.playcounts();
+    const data = await api.dashboard.analytics.playcounts();
     window._playCounts = data;
     document.querySelectorAll('[id^="plays-"]').forEach(elNode => {
       const id = elNode.id.replace('plays-', '');
