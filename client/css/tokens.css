@@ -1,0 +1,43 @@
+/* ── Design tokens ── */
+:root {
+  --bg:       #0a0a0c;
+  --card:     #111116;
+  --inset:    #0d0d11;
+  --raised:   #1c1c22;
+  --border:   rgba(255,255,255,.08);
+  --border-strong: rgba(255,255,255,.14);
+  --t1: #f0f0f4;
+  --t2: rgba(240,240,244,.55);
+  --t3: rgba(240,240,244,.28);
+  --t4: rgba(240,240,244,.12);
+  --radius-card: 20px;
+  --radius-md:   10px;
+  --radius-sm:   8px;
+  --radius-xs:   4px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  width: 100%; height: 100%; min-height: 100dvh;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: stretch;
+  font-family: 'Space Mono', monospace;
+  overflow-x: hidden;
+  color: var(--t1);
+}
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes pulse-ring {
+  0%   { transform: translate(-50%,-50%) scale(1);    opacity: .6; }
+  100% { transform: translate(-50%,-50%) scale(1.5);  opacity: 0; }
+}
+@keyframes live-dot  { 0%,100%{opacity:1} 50%{opacity:.25} }
+@keyframes tipPulse  {
+  0%,100%{ transform:translate(-50%,-50%) scale(1); }
+  50%    { transform:translate(-50%,-50%) scale(1.2); }
+}
