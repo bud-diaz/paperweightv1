@@ -478,7 +478,8 @@ notes: |
     - npm test: 55/55 pass (one pre-existing unrelated failure — missing
       vendored client/vendor/hls.min.js / node_modules in this checkout —
       resolved by running npm install; not caused by Phase 8 changes).
-    - node scripts/generate-client-bundle.js: succeeds, 47 entries.
+    - node scripts/generate-client-bundle.js: succeeds, 46 entries after
+      removing the orphan client/styles.css asset.
     - Dev server smoke test: GET /creator.html, /js/main.js,
       /js/dashboard/index.js, /js/worklet-processor.js, /api/health all
       return 200 with correct content; creator.html confirmed to contain
@@ -487,10 +488,6 @@ notes: |
 
   DEFERRED CLEANUPS / TODOs (none blocking; out of scope for Phase 8 per
   task instructions, listed for future reference):
-    - state.js still contains the vestigial WORKLET_CODE template literal
-      (superseded by the standalone client/js/worklet-processor.js file in
-      Phase 7). Not removed — touching state.js exports was out of scope
-      for a pure wiring phase.
     - state.js exports many primitives (hls, asciiMode, liveAudioCtx, etc.)
       that are documented as "initial values only" and are not the live
       values actually used at runtime (each owning module keeps its own

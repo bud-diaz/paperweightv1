@@ -258,7 +258,7 @@ function enterDashboard() {
 async function init() {
   // Station name
   try {
-    const d = await fetch('/api/health').then(r => r.json());
+    const d = await api.stream.health();
     if (d.station) {
       window._stationName = d.station;
       document.title = d.station;

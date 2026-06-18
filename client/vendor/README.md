@@ -18,9 +18,8 @@ Latin `woff2` files sourced from the `@fontsource` packages (Google Fonts):
 - `inter-latin-{400,500,600,700}-normal.woff2` — `@fontsource/inter`
 - `dm-mono-latin-{400,500}-normal.woff2` — `@fontsource/dm-mono`
 
-`fonts.css` declares the `@font-face` rules used by `client/creator.html`. The
-landing page (`client/index.html` via `client/styles.css`) declares its own
-`@font-face` rules inline, pointing at the same `woff2` files.
+`fonts.css` declares the `@font-face` rules used by `client/creator.html` and
+the split creator stylesheets under `client/css/`.
 
 To refresh: `npm install @fontsource/<family>`, copy the needed
 `files/*-latin-*-normal.woff2` here, and keep the `@font-face` declarations in

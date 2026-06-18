@@ -3,10 +3,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { buildClientBundleSource } = require('./generate-client-bundle');
+const { buildClientBundleSource, listClientBundleEntries, mimeFor } = require('./generate-client-bundle');
 
 const ROOT = path.resolve(__dirname, '..');
 let ok = true;
+const REQUIRE_BINARY_BUNDLES = process.env.PAPERWEIGHT_REQUIRE_BINARY_BUNDLES === '1';
 
 function pass(msg) {
   console.log(`OK   ${msg}`);
@@ -19,6 +20,59 @@ function fail(msg) {
 
 function readJson(rel) {
   return JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
+}
+
+function isTextMime(mime) {
+  return /^text\//.test(mime) || mime === 'application/json';
+}
+
+function normalizedText(buf) {
+  return buf.toString('utf8').replace(/\r\n/g, '\n');
+}
+
+function assetBuffersMatch(actual, expected, mime) {
+  if (Buffer.compare(actual, expected) === 0) return true;
+  return isTextMime(mime) && normalizedText(actual) === normalizedText(expected);
+}
+
+function clientBundlePayloadMatches(bundlePath) {
+  delete require.cache[require.resolve(bundlePath)];
+  const actualBundle = require(bundlePath);
+  const entries = listClientBundleEntries();
+  const expectedPaths = new Set(entries.map(entry => entry.urlPath));
+  const actualPaths = Object.keys(actualBundle);
+  const extra = actualPaths.filter(urlPath => !expectedPaths.has(urlPath));
+  if (extra.length) {
+    return { ok: false, reason: `unexpected bundled asset(s): ${extra.slice(0, 3).join(', ')}` };
+  }
+
+  for (const { full, urlPath } of entries) {
+    const bundled = actualBundle[urlPath];
+    const mime = mimeFor(path.extname(full));
+    if (!bundled) {
+      return { ok: false, reason: `missing bundled asset: ${urlPath}` };
+    }
+    if (bundled.mime !== mime) {
+      return { ok: false, reason: `mime mismatch for ${urlPath}: ${bundled.mime || '(none)'} !== ${mime}` };
+    }
+    if (!Buffer.isBuffer(bundled.data)) {
+      return { ok: false, reason: `malformed bundled asset: ${urlPath}` };
+    }
+    if (!assetBuffersMatch(bundled.data, fs.readFileSync(full), mime)) {
+      return { ok: false, reason: `stale bundled asset: ${urlPath}` };
+    }
+  }
+
+  return { ok: true };
+}
+
+function getFfmpegBundleEntry(bundle, name) {
+  return bundle[name] || bundle.binaries?.[name];
+}
+
+function isFfmpegBundleEntry(entry) {
+  if (!entry || typeof entry !== 'object') return false;
+  return Buffer.isBuffer(entry.data) || Array.isArray(entry.data) || typeof entry.data === 'string';
 }
 
 const pkg = readJson('package.json');
@@ -60,7 +114,12 @@ if (fs.existsSync(clientBundle)) {
     if (Buffer.compare(actual, expected) === 0) {
       pass('client assets bundled: src/client-bundle.js is current');
     } else {
-      fail('client bundle stale: run node scripts/generate-client-bundle.js');
+      const payloadCheck = clientBundlePayloadMatches(clientBundle);
+      if (payloadCheck.ok) {
+        pass('client assets bundled: src/client-bundle.js is current (line-ending normalized)');
+      } else {
+        fail(`client bundle stale: ${payloadCheck.reason}; run node scripts/generate-client-bundle.js`);
+      }
     }
   } catch (err) {
     fail(`client bundle check failed: ${err.message}`);
@@ -86,14 +145,22 @@ if (fs.existsSync(nativeBundlePath)) {
     // Clear require cache so we always read the freshly-generated file.
     delete require.cache[require.resolve(nativeBundlePath)];
     const nativeBundle = require(nativeBundlePath);
-    if (nativeBundle.abi === EXPECTED_ABI) {
-      pass(`native bundle ABI: ${nativeBundle.abi} (matches pkg target)`);
+    const nativeAbi = nativeBundle.abi || nativeBundle.moduleAbi;
+    const hasNativeData = Buffer.isBuffer(nativeBundle.data) || Buffer.isBuffer(nativeBundle);
+    if (!hasNativeData) {
+      fail('native bundle malformed: missing better_sqlite3.node data');
+    } else if (nativeAbi === EXPECTED_ABI) {
+      pass(`native bundle ABI: ${nativeAbi} (matches pkg target)`);
+    } else if (REQUIRE_BINARY_BUNDLES) {
+      fail(`native bundle ABI mismatch: bundle has ABI ${nativeAbi || 'unknown'}, expected ${EXPECTED_ABI} for node20-* targets. Re-run build:exe to trigger auto-rebuild.`);
     } else {
-      fail(`native bundle ABI mismatch: bundle has ABI ${nativeBundle.abi}, expected ${EXPECTED_ABI} for node20-* targets. Re-run build:exe to trigger auto-rebuild.`);
+      pass(`native bundle present: ABI ${nativeAbi || 'unknown'} (build:exe regenerates ABI ${EXPECTED_ABI} for pkg target)`);
     }
   } catch (err) {
     fail(`native bundle load failed: ${err.message}`);
   }
+} else if (!REQUIRE_BINARY_BUNDLES) {
+  pass('native bundle optional: generated during build:exe');
 } else {
   fail('native bundle missing: src/native-bundle.js not found (run node scripts/generate-native-bundle.js)');
 }
@@ -106,14 +173,20 @@ if (fs.existsSync(ffmpegBundlePath)) {
   try {
     delete require.cache[require.resolve(ffmpegBundlePath)];
     const ffmpegBundle = require(ffmpegBundlePath);
-    if (Buffer.isBuffer(ffmpegBundle.ffmpeg?.data) && Buffer.isBuffer(ffmpegBundle.ffprobe?.data)) {
+    const ffmpegEntry = getFfmpegBundleEntry(ffmpegBundle, 'ffmpeg');
+    const ffprobeEntry = getFfmpegBundleEntry(ffmpegBundle, 'ffprobe');
+    if (isFfmpegBundleEntry(ffmpegEntry) && isFfmpegBundleEntry(ffprobeEntry)) {
       pass('ffmpeg bundle: src/ffmpeg-bundle.js exists and contains both binaries');
+    } else if (!REQUIRE_BINARY_BUNDLES) {
+      pass('ffmpeg bundle optional: build:exe regenerates packaged binaries');
     } else {
       fail('ffmpeg bundle malformed: missing ffmpeg or ffprobe data');
     }
   } catch (err) {
     fail(`ffmpeg bundle load failed: ${err.message}`);
   }
+} else if (!REQUIRE_BINARY_BUNDLES) {
+  pass('ffmpeg bundle optional: generated during build:exe');
 } else {
   fail('ffmpeg bundle missing: src/ffmpeg-bundle.js not found (run node scripts/generate-ffmpeg-bundle.js)');
 }

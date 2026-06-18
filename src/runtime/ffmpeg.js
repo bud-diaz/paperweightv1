@@ -24,8 +24,24 @@ if (isPackaged) {
     return crypto.createHash('sha256').update(buf).digest('hex');
   }
 
+  function entryBuffer(entry) {
+    if (Buffer.isBuffer(entry.data)) return entry.data;
+    if (Array.isArray(entry.data)) return Buffer.from(entry.data.join(''), 'base64');
+    if (typeof entry.data === 'string') return Buffer.from(entry.data, 'base64');
+    throw new Error(`invalid bundle data for ${entry.filename || 'FFmpeg binary'}`);
+  }
+
+  function entryIsCompressed(entry) {
+    return entry.compressed === true || entry.compression === 'gzip';
+  }
+
+  function entryRawBuffer(entry) {
+    const data = entryBuffer(entry);
+    return entryIsCompressed(entry) ? zlib.gunzipSync(data) : data;
+  }
+
   function extractEntry(entry, dest) {
-    const raw = entry.compressed ? zlib.gunzipSync(entry.data) : entry.data;
+    const raw = entryRawBuffer(entry);
     if (entry.sha256 && sha256(raw) !== entry.sha256) {
       throw new Error(`hash mismatch for ${path.basename(dest)}`);
     }
@@ -36,7 +52,7 @@ if (isPackaged) {
     if (!fs.existsSync(dest)) return true;
     if (!entry.sha256) return false;
     try {
-      const raw = entry.compressed ? zlib.gunzipSync(entry.data) : entry.data;
+      const raw = entryRawBuffer(entry);
       return sha256(fs.readFileSync(dest)) !== sha256(raw);
     } catch {
       return true;
@@ -49,11 +65,17 @@ if (isPackaged) {
     const bundle = require('../ffmpeg-bundle');
     fs.mkdirSync(binDir, { recursive: true });
 
-    if (needsExtract(ffmpegDest, bundle.ffmpeg)) {
-      extractEntry(bundle.ffmpeg, ffmpegDest);
+    const ffmpegEntry = bundle.ffmpeg || bundle.binaries?.ffmpeg;
+    const ffprobeEntry = bundle.ffprobe || bundle.binaries?.ffprobe;
+    if (!ffmpegEntry || !ffprobeEntry) {
+      throw new Error('ffmpeg-bundle.js is missing ffmpeg or ffprobe');
     }
-    if (needsExtract(ffprobeDest, bundle.ffprobe)) {
-      extractEntry(bundle.ffprobe, ffprobeDest);
+
+    if (needsExtract(ffmpegDest, ffmpegEntry)) {
+      extractEntry(ffmpegEntry, ffmpegDest);
+    }
+    if (needsExtract(ffprobeDest, ffprobeEntry)) {
+      extractEntry(ffprobeEntry, ffprobeDest);
     }
     console.log(`[Paperweight] FFmpeg ready in ${binDir}`);
   } catch (err) {

@@ -28,22 +28,16 @@ function readBundle() {
       `native-bundle.js architecture mismatch: bundle=${mod.arch || 'unknown'} runtime=${process.arch}`,
     );
   }
-  if (mod.moduleAbi !== process.versions.modules) {
+  const bundleAbi = mod.abi || mod.moduleAbi;
+  if (bundleAbi !== process.versions.modules) {
     throw new Error(
-      `native-bundle.js Node ABI mismatch: bundle=${mod.moduleAbi || 'unknown'} runtime=${process.versions.modules}. ` +
+      `native-bundle.js Node ABI mismatch: bundle=${bundleAbi || 'unknown'} runtime=${process.versions.modules}. ` +
       'Regenerate the native bundle with the same Node runtime used by the packaged executable.',
     );
   }
   const data = Buffer.isBuffer(mod) ? mod : mod.data;
   if (!Buffer.isBuffer(data)) {
     throw new Error('native-bundle.js did not export a native binding buffer');
-  }
-  if (mod.abi && mod.abi !== process.versions.modules) {
-    throw new Error(
-      `native binding ABI mismatch: bundled for ABI ${mod.abi}, ` +
-      `running under ABI ${process.versions.modules}. ` +
-      'Rebuild the executable under the matching Node version (node20 for pkg target node20-*).'
-    );
   }
   const expectedHash = mod.sha256 || sha256(data);
   return { data, expectedHash };

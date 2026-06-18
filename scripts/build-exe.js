@@ -199,7 +199,7 @@ run('node scripts/fetch-ffmpeg.js');
 // used for better_sqlite3.node.
 run('node scripts/generate-ffmpeg-bundle.js');
 
-run('npm run release:check');
+run('npm run release:check', { env: { ...process.env, PAPERWEIGHT_REQUIRE_BINARY_BUNDLES: '1' } });
 
 const pkgBin = path.join(ROOT, 'node_modules', '.bin', 'pkg');
 if (!fs.existsSync(pkgBin) && !fs.existsSync(`${pkgBin}.cmd`)) {

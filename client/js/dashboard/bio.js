@@ -90,7 +90,7 @@ export async function loadDashBio() {
     if (d.profile_pic_url) {
       const prev = el('dash-bio-pic-preview');
       prev.src = '/api/creator/pic?' + Date.now();
-      prev.style.display = 'block';
+      prev.hidden = false;
     }
   } catch {}
 }
@@ -103,6 +103,15 @@ export function updateBioSectionState() {
 
 // ── Bio event handlers ─────────────────────────────────────────────────────────
 export function initBioHandlers() {
+  el('bio-pic-img').addEventListener('error', () => {
+    el('bio-pic-img').hidden = true;
+    el('bio-pic-ph').hidden = false;
+  });
+
+  el('dash-bio-pic-preview').addEventListener('error', () => {
+    el('dash-bio-pic-preview').hidden = true;
+  });
+
   el('bio-enter-btn').addEventListener('click', () => {
     window._bioSessionPassed = true;
     el('player-card').classList.remove('bio-landing');
@@ -142,7 +151,7 @@ export function initBioHandlers() {
     const f = el('bio-pic-file').files[0];
     if (!f) return;
     el('bio-pic-filename').textContent = f.name;
-    el('bio-pic-upload-btn').style.display = '';
+    el('bio-pic-upload-btn').hidden = false;
   });
 
   el('bio-pic-upload-btn').addEventListener('click', async () => {
@@ -159,7 +168,7 @@ export function initBioHandlers() {
         msg.textContent = 'UPLOADED'; msg.style.color = '#39ff14';
         const prev = el('dash-bio-pic-preview');
         prev.src = '/api/creator/pic?' + Date.now();
-        prev.style.display = 'block';
+        prev.hidden = false;
         btn.textContent = 'UPLOAD'; btn.disabled = false;
         setTimeout(() => { msg.textContent = ''; }, 2000);
       } else throw new Error();

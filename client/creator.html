@@ -88,17 +88,17 @@
         <!-- subscribe pane -->
         <div class="tab-pane" data-pane="subscribe">
           <div class="fixed-pane">
-            <div class="fixed-perks" style="margin-top:0;font-size:13px;color:rgba(255,255,255,.5)">Early access to episodes<br>Ad-free listening<br>Member-only feed</div>
+            <div class="fixed-perks fixed-perks-modal">Early access to episodes<br>Ad-free listening<br>Member-only feed</div>
           </div>
         </div>
         <!-- all-access pane -->
         <div class="tab-pane" data-pane="all-access">
           <div class="fixed-pane">
-            <div class="fixed-perks" style="margin-top:0;font-size:13px;color:rgba(255,255,255,.5)">Everything in Subscribe<br>Full archive access<br>Private Discord + live chat<br>Exclusive video content</div>
+            <div class="fixed-perks fixed-perks-modal">Everything in Subscribe<br>Full archive access<br>Private Discord + live chat<br>Exclusive video content</div>
           </div>
         </div>
       </div>
-      <div style="padding:0 20px 24px;">
+      <div class="modal-action-wrap">
         <button id="modal-cta">SEND TIP</button>
         <div id="modal-stripe-note">POWERED BY STRIPE · CANCEL ANYTIME</div>
       </div>
@@ -142,7 +142,7 @@
       <div id="panel-bio">
         <div class="bio-inner">
           <div class="bio-pic-wrap">
-            <img id="bio-pic-img" src="" alt="" hidden onerror="this.hidden=true;document.getElementById('bio-pic-ph').hidden=false;">
+            <img id="bio-pic-img" src="" alt="" hidden>
             <div class="bio-pic-placeholder" id="bio-pic-ph">♪</div>
           </div>
           <div>
@@ -260,7 +260,7 @@
             <button class="skip-btn hidden" id="skip-prev" title="Previous">⏮</button>
             <button id="play-btn" title="Play/Pause">
               <svg id="play-icon" width="18" height="18" viewBox="0 0 18 18" fill="#000"><path d="M5 2.5l11 6.5-11 6.5V2.5z"/></svg>
-              <svg id="pause-icon" width="18" height="18" viewBox="0 0 18 18" fill="#000" style="display:none"><rect x="3" y="2" width="4" height="14" rx="1.5"/><rect x="11" y="2" width="4" height="14" rx="1.5"/></svg>
+              <svg id="pause-icon" width="18" height="18" viewBox="0 0 18 18" fill="#000"><rect x="3" y="2" width="4" height="14" rx="1.5"/><rect x="11" y="2" width="4" height="14" rx="1.5"/></svg>
             </button>
             <button class="skip-btn hidden" id="skip-next" title="Next">⏭</button>
           </div>
@@ -283,7 +283,7 @@
         <div class="drawer" id="queue-drawer">
           <div class="drawer-inner">
             <div id="queue-header">
-              <span class="drawer-label" style="padding:0">QUEUE</span>
+              <span class="drawer-label">QUEUE</span>
             </div>
             <div id="queue-list"></div>
           </div>
@@ -393,7 +393,7 @@
         <div id="dash-auth-gate">
           <div class="dash-gate-title">Studio</div>
           <div class="dash-gate-hint">ENTER TOKEN TO CONTINUE</div>
-          <input type="password" class="dash-input" id="dash-token-input" placeholder="Dashboard token…" style="max-width:220px;text-align:center;"/>
+          <input type="password" class="dash-input" id="dash-token-input" placeholder="Dashboard token…"/>
           <button class="dash-unlock-btn" id="dash-token-btn">UNLOCK</button>
           <div id="dash-auth-msg"></div>
         </div>
@@ -404,36 +404,36 @@
           <div class="dash-gate-hint">ENTER 6-DIGIT CODE FROM YOUR AUTHENTICATOR</div>
           <input type="text" class="dash-input" id="dash-2fa-input" placeholder="000000" maxlength="8"
             inputmode="numeric" autocomplete="one-time-code"
-            style="max-width:140px;text-align:center;letter-spacing:.25em;font-size:16px;"/>
+            />
           <button class="dash-unlock-btn" id="dash-2fa-btn">VERIFY</button>
           <div id="dash-2fa-msg"></div>
-          <button style="background:none;border:none;color:var(--t4);font-family:'Space Mono',monospace;font-size:10px;cursor:pointer;letter-spacing:.06em;margin-top:4px;" id="dash-2fa-back">← BACK</button>
+          <button class="dash-link-btn" id="dash-2fa-back">← BACK</button>
         </div>
 
         <!-- Dashboard content (shown after auth) -->
         <div id="dash-content" hidden>
-          <div id="dash-runtime-alert" hidden style="margin:0 14px 12px;padding:8px 10px;border:1px solid rgba(255,68,102,.35);background:rgba(255,68,102,.08);color:#ff6680;font-family:'Space Mono',monospace;font-size:11px;line-height:1.45;border-radius:var(--radius-sm);"></div>
+          <div id="dash-runtime-alert" hidden></div>
 
           <!-- Station -->
           <div class="dash-section">
             <div class="dash-section-label">STATION</div>
-            <div id="station-unclaimed" hidden style="font-size:11px;color:var(--t3);font-family:'Space Mono',monospace;padding:0 0 8px;">No public URL registered yet.</div>
+            <div id="station-unclaimed" hidden>No public URL registered yet.</div>
             <div id="station-reg-content">
-              <div style="display:flex;align-items:center;gap:8px;padding:0 0 8px;">
-                <span id="station-public-url" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--t2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+              <div class="station-url-row">
+                <span id="station-public-url"></span>
                 <button class="mgmt-btn" id="btn-copy-url">COPY</button>
               </div>
-              <div style="display:flex;align-items:center;gap:7px;padding:0 0 10px;">
-                <div id="health-dot" style="width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.2);flex-shrink:0;"></div>
-                <span id="health-status" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--t3);flex:1;"></span>
+              <div class="station-health-row">
+                <div id="health-dot"></div>
+                <span id="health-status"></span>
                 <button class="mgmt-btn" id="btn-recheck-health">RE-CHECK</button>
               </div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <input type="url" class="dash-input dash-input-sm" id="station-url-input" placeholder="https://radio.yoursite.com" style="flex:1;min-width:160px;"/>
+            <div class="station-update-row">
+              <input type="url" class="dash-input dash-input-sm" id="station-url-input" placeholder="https://radio.yoursite.com"/>
               <button class="mgmt-btn" id="btn-update-url">UPDATE</button>
             </div>
-            <div id="station-url-msg" style="padding:4px 0 0;font-size:11px;font-family:'Space Mono',monospace;"></div>
+            <div id="station-url-msg"></div>
           </div>
 
           <div class="dash-divider"></div>
@@ -448,31 +448,31 @@
                 <span class="toggle-label">LANDING PAGE</span>
               </label>
             </div>
-            <details id="bio-details" style="margin-top:10px;">
+            <details id="bio-details">
               <summary class="dash-summary" id="bio-summary">EDIT PROFILE</summary>
-              <div style="padding:10px 0 4px;" id="bio-edit-body">
+              <div id="bio-edit-body">
                 <!-- Profile pic -->
                 <div class="bio-pic-row">
-                  <img id="dash-bio-pic-preview" class="bio-pic-preview" src="" alt="" onerror="this.style.display='none'">
-                  <div style="flex:1;">
+                  <img id="dash-bio-pic-preview" class="bio-pic-preview" src="" alt="" hidden>
+                  <div class="bio-pic-copy">
                     <div class="dash-edit-label">PROFILE PICTURE</div>
-                    <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
-                      <label style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.06em;padding:4px 10px;background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;color:var(--t3);white-space:nowrap;">
+                    <div class="bio-pic-file-row">
+                      <label class="bio-pic-picker">
                         BROWSE…
-                        <input type="file" id="bio-pic-file" accept="image/*" style="display:none;">
+                        <input type="file" id="bio-pic-file" accept="image/*">
                       </label>
-                      <span id="bio-pic-filename" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--t4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
-                      <button class="mgmt-btn" id="bio-pic-upload-btn" style="display:none;">UPLOAD</button>
+                      <span id="bio-pic-filename"></span>
+                      <button class="mgmt-btn" id="bio-pic-upload-btn" hidden>UPLOAD</button>
                     </div>
-                    <div id="bio-pic-msg" style="font-family:'Space Mono',monospace;font-size:10px;margin-top:3px;"></div>
+                    <div id="bio-pic-msg"></div>
                   </div>
                 </div>
                 <!-- Bio text -->
                 <div class="dash-edit-label">BIO</div>
-                <textarea class="dash-input" id="bio-bio-input" placeholder="Tell listeners about yourself…" style="margin-bottom:10px;min-height:72px;"></textarea>
+                <textarea class="dash-input" id="bio-bio-input" placeholder="Tell listeners about yourself…"></textarea>
                 <!-- Social links -->
-                <div class="dash-edit-label" style="margin-bottom:6px;">SOCIAL LINKS (OPTIONAL)</div>
-                <div class="dash-edit-grid" style="grid-template-columns:1fr 1fr;">
+                <div class="dash-edit-label bio-social-label">SOCIAL LINKS (OPTIONAL)</div>
+                <div class="dash-edit-grid">
                   <div>
                     <div class="dash-edit-label">INSTAGRAM</div>
                     <input class="dash-input dash-input-sm" id="bio-instagram" type="url" placeholder="https://instagram.com/…">
@@ -498,8 +498,8 @@
                     <input class="dash-input dash-input-sm" id="bio-bandcamp" type="url" placeholder="https://…bandcamp.com">
                   </div>
                 </div>
-                <div class="dash-form-row" style="margin-top:10px;">
-                  <span id="bio-save-msg" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--t3);flex:1;"></span>
+                <div class="dash-form-row form-row-gap">
+                  <span id="bio-save-msg" class="dash-inline-msg"></span>
                   <button class="mgmt-btn" id="bio-save-btn">SAVE PROFILE</button>
                 </div>
               </div>
@@ -517,7 +517,7 @@
                 <div class="stat-key">TRACKS</div>
               </button>
               <button class="vault-stat-btn" id="vsb-locked">
-                <div class="stat-val" id="vs-locked" style="color:#39ff14;">—</div>
+                <div class="stat-val" id="vs-locked">—</div>
                 <div class="stat-key">LOCKED</div>
               </button>
               <button class="vault-stat-btn" id="vsb-tokens">
@@ -533,22 +533,22 @@
             </div>
             <div class="vault-panel" id="vault-panel-tokens" hidden>
               <div id="dash-token-list"></div>
-              <div class="dash-form-row" style="margin-top:10px;padding:0 14px;">
-                <input type="text" class="dash-input dash-input-sm" id="new-token-label" placeholder="Label (e.g. Maria)" style="flex:1;min-width:80px;"/>
-                <select class="dash-select dash-input-sm" id="new-token-tier" style="width:auto;">
+              <div class="dash-form-row token-create-row">
+                <input type="text" class="dash-input dash-input-sm" id="new-token-label" placeholder="Label (e.g. Maria)"/>
+                <select class="dash-select dash-input-sm" id="new-token-tier">
                   <option value="subscriber">Subscriber</option>
                   <option value="pro">Pro</option>
                   <option value="all_access">All-Access</option>
                 </select>
                 <button class="mgmt-btn" id="btn-create-token">CREATE</button>
               </div>
-              <div class="dash-form-row" style="margin-top:6px;padding:0 14px;">
-                <div style="flex:1;position:relative;">
-                  <input type="text" class="dash-input dash-input-sm" id="new-token-email" placeholder="Assign to account (optional email)" style="width:100%;box-sizing:border-box;" autocomplete="off"/>
+              <div class="dash-form-row token-email-row">
+                <div class="token-email-wrap">
+                  <input type="text" class="dash-input dash-input-sm" id="new-token-email" placeholder="Assign to account (optional email)" autocomplete="off"/>
                   <div class="typeahead-drop" id="new-token-email-drop" hidden></div>
                 </div>
               </div>
-              <div id="new-token-result" style="margin-top:6px;margin-bottom:4px;"></div>
+              <div id="new-token-result"></div>
             </div>
           </div>
 
@@ -560,13 +560,13 @@
             <div id="dash-proj-list"></div>
             <details id="dash-new-proj">
               <summary class="dash-summary">+ NEW PROJECT</summary>
-              <div style="padding:10px 14px 12px;">
+              <div class="dash-new-proj-body">
                 <div class="dash-edit-label">NAME</div>
-                <input class="dash-input" id="new-proj-name" type="text" placeholder="Project name" style="margin-bottom:8px;"/>
+                <input class="dash-input dash-input-gap" id="new-proj-name" type="text" placeholder="Project name"/>
                 <div class="dash-edit-label">DESCRIPTION (OPTIONAL)</div>
-                <textarea class="dash-input" id="new-proj-desc" placeholder="Description…" style="margin-bottom:8px;"></textarea>
-                <div class="dash-edit-label">ALBUM ART URL <span style="font-size:11px;opacity:.5;">or use file picker after saving</span></div>
-                <input class="dash-input" id="new-proj-art" type="url" placeholder="https://… (optional)" style="margin-bottom:8px;"/>
+                <textarea class="dash-input dash-input-gap" id="new-proj-desc" placeholder="Description…"></textarea>
+                <div class="dash-edit-label">ALBUM ART URL <span class="dash-label-note">or use file picker after saving</span></div>
+                <input class="dash-input dash-input-gap" id="new-proj-art" type="url" placeholder="https://… (optional)"/>
                 <div id="new-proj-pricing-block">
                 <div class="dash-edit-label">PRICING</div>
                 <div class="dash-proj-price-grid">
@@ -579,13 +579,13 @@
                     <input class="dash-input-sm" id="new-proj-min" type="number" step="0.01" min="0" placeholder="1.00"/>
                   </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+                <div class="new-proj-free-row">
                   <input type="checkbox" id="new-proj-free"/>
-                  <label for="new-proj-free" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.4);cursor:pointer;">Allow free / pay-what-you-want</label>
+                  <label for="new-proj-free">Allow free / pay-what-you-want</label>
                 </div>
                 </div>
                 <div class="dash-form-row">
-                  <span id="new-proj-msg" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--t3);flex:1;"></span>
+                  <span id="new-proj-msg" class="dash-inline-msg"></span>
                   <button class="mgmt-btn" id="btn-new-proj">CREATE PROJECT</button>
                 </div>
               </div>
@@ -600,11 +600,11 @@
               <summary>
                 <div class="dash-section-label">ANALYTICS</div>
               </summary>
-              <div class="stat-grid" id="dash-analytics" style="margin-top:10px;"></div>
+              <div class="stat-grid" id="dash-analytics"></div>
               <div id="analytics-expanded">
-                <div class="dash-edit-label" style="margin:12px 0 4px;letter-spacing:.12em;">7-DAY LISTENERS</div>
+                <div class="dash-edit-label analytics-section-label">7-DAY LISTENERS</div>
                 <div class="analytics-history" id="analytics-history-bars"></div>
-                <div class="dash-edit-label" style="margin:10px 0 4px;letter-spacing:.12em;">TOP TRACKS</div>
+                <div class="dash-edit-label analytics-section-label analytics-top-heading">TOP TRACKS</div>
                 <div class="analytics-top-list" id="analytics-top-list"></div>
               </div>
             </details>
@@ -627,8 +627,8 @@
             </div>
 
             <!-- Station queue panel -->
-            <div id="station-queue-panel" style="padding:0 0 4px;">
-              <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--t3);letter-spacing:.1em;padding:6px 0 4px;">STATION QUEUE</div>
+            <div id="station-queue-panel">
+              <div class="station-queue-label">STATION QUEUE</div>
               <div id="sq-list"><div class="sq-empty">Queue is empty — add tracks from the library below.</div></div>
             </div>
 
@@ -638,24 +638,24 @@
               <span>GO LIVE / RADIO HOST</span>
             </div>
             <div id="broadcast-advanced">
-              <div id="live-idle" style="padding:0 0 8px;">
-                <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.7;">
+              <div id="live-idle">
+                <div class="live-idle-copy">
                   Go live from your mic. Listeners switch to your feed in real time.
                 </div>
                 <button id="btn-go-live">● GO LIVE</button>
-                <div id="live-idle-msg" style="margin-top:8px;font-size:11px;font-family:'Space Mono',monospace;color:var(--t3);"></div>
+                <div id="live-idle-msg"></div>
               </div>
-              <div id="live-onair" hidden style="padding:0 0 8px;">
-                <div class="broadcast-row" style="margin:0;">
+              <div id="live-onair" hidden>
+                <div class="broadcast-row live-broadcast-row">
                   <div class="broadcast-info">
                     <div class="broadcast-np" id="live-timer">0:00</div>
-                    <div class="broadcast-mode-badge" style="color:#ff5555;border:1px solid rgba(255,60,60,.2);border-radius:4px;padding:1px 6px;display:inline-block;background:rgba(255,40,40,.08);">● ON AIR</div>
+                    <div class="broadcast-mode-badge onair-badge">● ON AIR</div>
                   </div>
                   <div class="broadcast-actions">
                     <button class="mgmt-btn danger" id="btn-end-live">END BROADCAST</button>
                   </div>
                 </div>
-                <div id="live-meter" style="display:flex;gap:2px;height:18px;align-items:flex-end;margin-top:10px;"></div>
+                <div id="live-meter"></div>
               </div>
               <div class="rh-toggle-row">
                 <span class="rh-toggle-label">RADIO HOST MODE</span>
@@ -670,18 +670,18 @@
           <!-- Schedule -->
           <div class="dash-section">
             <div class="dash-section-label">SCHEDULE</div>
-            <div id="sched-mode-bar" style="display:flex;align-items:center;gap:8px;padding:4px 14px 8px;font-size:11px;font-family:'Space Mono',monospace;color:rgba(255,255,255,.4);">
-              BROADCAST MODE: <span id="sched-broadcast-mode" style="font-weight:700;">SHUFFLE</span>
-              <button class="mgmt-btn" id="btn-sched-mode-toggle" style="padding:2px 8px;font-size:10px;display:none;"></button>
+            <div id="sched-mode-bar">
+              BROADCAST MODE: <span id="sched-broadcast-mode">SHUFFLE</span>
+              <button class="mgmt-btn" id="btn-sched-mode-toggle"></button>
             </div>
-            <details id="sched-blocks-details" open style="margin:0 0 4px;">
+            <details id="sched-blocks-details" open>
               <summary class="dash-summary">VIEW BLOCKS</summary>
               <div id="dash-sched-list"></div>
             </details>
-            <details style="margin:4px 0 0;">
+            <details class="sched-add-details">
               <summary class="dash-summary">+ ADD BLOCK</summary>
-              <div class="dash-form-row" style="margin-top:8px;">
-                <input type="text"  class="dash-input dash-input-sm" id="sched-label" placeholder="Label…" style="flex:2;min-width:80px;"/>
+              <div class="dash-form-row sched-add-primary">
+                <input type="text"  class="dash-input dash-input-sm" id="sched-label" placeholder="Label…"/>
                 <select class="dash-select" id="sched-day">
                   <option value="">Daily</option>
                   <option value="0">Sun</option><option value="1">Mon</option><option value="2">Tue</option>
@@ -699,13 +699,13 @@
                   <option value="sequential">Sequential</option>
                 </select>
               </div>
-              <div class="dash-form-row" style="margin-top:4px;">
-                <select class="dash-select" id="sched-source" style="min-width:140px;">
+              <div class="dash-form-row sched-add-secondary">
+                <select class="dash-select" id="sched-source">
                   <option value="">From category</option>
                   <option value="vault_item">Vault item</option>
                   <option value="vault_project">Vault project</option>
                 </select>
-                <input type="number" class="dash-input dash-input-sm" id="sched-target-id" placeholder="Target ID" style="width:100px;"/>
+                <input type="number" class="dash-input dash-input-sm" id="sched-target-id" placeholder="Target ID"/>
                 <button class="mgmt-btn" id="btn-add-sched">ADD</button>
               </div>
             </details>
@@ -718,11 +718,11 @@
             <div class="dash-section-label">UPLOAD</div>
             <div class="dash-upload-zone" id="dash-upload-zone">
               <div class="dash-upload-label">DROP FILES OR CLICK TO BROWSE</div>
-              <input type="file" id="dash-upload-input" style="display:none" multiple accept="audio/*,video/*"/>
+              <input type="file" id="dash-upload-input" multiple accept="audio/*,video/*"/>
             </div>
             <div class="dash-upload-form" id="dash-upload-form" hidden>
               <div id="dash-upload-queue"></div>
-              <div class="dash-form-row" style="margin-top:8px;">
+              <div class="dash-form-row dash-upload-actions">
                 <select class="dash-select" id="dash-upload-cat">
                   <option value="music">Music</option>
                   <option value="beats">Beats</option>
@@ -737,7 +737,7 @@
                 </select>
                 <button class="mgmt-btn" id="dash-upload-submit">UPLOAD</button>
               </div>
-              <div id="dash-upload-msg" style="margin-top:6px;font-size:11px;font-family:'Space Mono',monospace;"></div>
+              <div id="dash-upload-msg"></div>
             </div>
           </div>
 
@@ -746,17 +746,17 @@
           <!-- Search & Add Content (radio host mode only) -->
           <div class="dash-section" id="dash-ext-search-section">
             <div class="dash-section-label">SEARCH &amp; ADD CONTENT</div>
-            <div style="padding:0 14px 4px;">
+            <div class="ext-search-shell">
               <div class="ext-search-tabs">
                 <button class="ext-tab-btn active" data-ext-platform="youtube">YOUTUBE</button>
                 <button class="ext-tab-btn" data-ext-platform="soundcloud">SOUNDCLOUD</button>
                 <button class="ext-tab-btn" data-ext-platform="library">STATION LIBRARY</button>
               </div>
-              <div class="dash-form-row" style="gap:6px;">
-                <input type="text" class="dash-input dash-input-sm" id="ext-search-input" placeholder="Search…" style="flex:1;"/>
+              <div class="dash-form-row ext-search-row">
+                <input type="text" class="dash-input dash-input-sm" id="ext-search-input" placeholder="Search…"/>
                 <button class="mgmt-btn" id="btn-ext-search">SEARCH</button>
               </div>
-              <div id="ext-search-msg" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.35);margin-top:4px;"></div>
+              <div id="ext-search-msg"></div>
               <div class="ext-results" id="ext-results-list"></div>
             </div>
           </div>
@@ -766,30 +766,30 @@
           <!-- Security -->
           <div class="dash-section" id="dash-2fa-section">
             <div class="dash-section-label">SECURITY</div>
-            <div id="dash-2fa-status-row" style="padding:0 14px 8px;font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,.4);line-height:1.6;"></div>
+            <div id="dash-2fa-status-row"></div>
             <!-- Setup: scan secret -->
-            <div id="dash-2fa-setup-panel" hidden style="padding:0 14px 12px;">
-              <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);margin-bottom:8px;line-height:1.7;">Enter this secret in Google Authenticator, Authy, or any TOTP app, then confirm with a code.</div>
-              <div id="dash-2fa-secret-box" style="font-family:'Space Mono',monospace;font-size:13px;color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:8px 12px;word-break:break-all;margin-bottom:8px;letter-spacing:.08em;"></div>
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
-                <input type="text" class="dash-input dash-input-sm" id="dash-2fa-confirm-input" placeholder="6-digit code" maxlength="6" inputmode="numeric" style="width:130px;letter-spacing:.15em;"/>
+            <div id="dash-2fa-setup-panel" hidden>
+              <div class="twofa-copy">Enter this secret in Google Authenticator, Authy, or any TOTP app, then confirm with a code.</div>
+              <div id="dash-2fa-secret-box"></div>
+              <div class="twofa-form-row">
+                <input type="text" class="dash-input dash-input-sm" id="dash-2fa-confirm-input" placeholder="6-digit code" maxlength="6" inputmode="numeric"/>
                 <button class="mgmt-btn" id="btn-2fa-confirm">ENABLE 2FA</button>
               </div>
-              <div id="dash-2fa-setup-msg" style="margin-top:6px;font-size:11px;font-family:'Space Mono',monospace;"></div>
+              <div id="dash-2fa-setup-msg" class="twofa-msg"></div>
             </div>
             <!-- Recovery codes (shown once after setup) -->
-            <div id="dash-2fa-codes-panel" hidden style="padding:0 14px 12px;">
-              <div style="font-family:'Space Mono',monospace;font-size:10px;color:#ffa040;margin-bottom:8px;letter-spacing:.05em;">SAVE THESE CODES — SHOWN ONCE. Each works once if you lose your authenticator.</div>
-              <div id="dash-2fa-codes-list" style="font-family:'Space Mono',monospace;font-size:12px;color:#fff;line-height:2.2;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 14px;"></div>
-              <button class="mgmt-btn" id="btn-2fa-codes-done" style="margin-top:10px;">I'VE SAVED THESE</button>
+            <div id="dash-2fa-codes-panel" hidden>
+              <div class="twofa-warning">SAVE THESE CODES — SHOWN ONCE. Each works once if you lose your authenticator.</div>
+              <div id="dash-2fa-codes-list"></div>
+              <button class="mgmt-btn" id="btn-2fa-codes-done">I'VE SAVED THESE</button>
             </div>
             <!-- Disable panel (when 2FA is on) -->
-            <div id="dash-2fa-disable-panel" hidden style="padding:0 14px 12px;">
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <input type="text" class="dash-input dash-input-sm" id="dash-2fa-disable-input" placeholder="Current code to disable" maxlength="6" inputmode="numeric" style="width:190px;letter-spacing:.1em;"/>
+            <div id="dash-2fa-disable-panel" hidden>
+              <div class="twofa-form-row">
+                <input type="text" class="dash-input dash-input-sm" id="dash-2fa-disable-input" placeholder="Current code to disable" maxlength="6" inputmode="numeric"/>
                 <button class="mgmt-btn danger" id="btn-2fa-disable">DISABLE 2FA</button>
               </div>
-              <div id="dash-2fa-disable-msg" style="margin-top:6px;font-size:11px;font-family:'Space Mono',monospace;"></div>
+              <div id="dash-2fa-disable-msg" class="twofa-msg"></div>
             </div>
           </div>
 
@@ -804,28 +804,28 @@
           <div class="dash-divider"></div>
 
           <!-- Tip Config -->
-          <div class="dash-section" style="padding-bottom:24px;">
+          <div class="dash-section" id="tip-config-section">
             <div class="dash-section-label">TIP BUTTON</div>
             <div class="tip-cfg-row">
               <div class="tip-cfg-field">
                 <div class="tip-cfg-label">AMT 1 ($)</div>
-                <input type="number" class="dash-input" id="tip-cfg-1" min="1" step="1" value="3" style="width:64px;"/>
+                <input type="number" class="dash-input tip-cfg-input" id="tip-cfg-1" min="1" step="1" value="3"/>
               </div>
               <div class="tip-cfg-field">
                 <div class="tip-cfg-label">AMT 2 ($)</div>
-                <input type="number" class="dash-input" id="tip-cfg-2" min="1" step="1" value="5" style="width:64px;"/>
+                <input type="number" class="dash-input tip-cfg-input" id="tip-cfg-2" min="1" step="1" value="5"/>
               </div>
               <div class="tip-cfg-field">
                 <div class="tip-cfg-label">AMT 3 ($)</div>
-                <input type="number" class="dash-input" id="tip-cfg-3" min="1" step="1" value="10" style="width:64px;"/>
+                <input type="number" class="dash-input tip-cfg-input" id="tip-cfg-3" min="1" step="1" value="10"/>
               </div>
-              <div class="tip-cfg-field" style="flex-direction:row;align-items:center;gap:5px;align-self:flex-end;padding-bottom:2px;">
+              <div class="tip-cfg-field tip-cfg-custom-field">
                 <input type="checkbox" id="tip-cfg-custom" checked/>
                 <div class="tip-cfg-label">CUSTOM</div>
               </div>
-              <div style="align-self:flex-end;display:flex;align-items:center;gap:8px;">
+              <div class="tip-cfg-actions">
                 <button class="mgmt-btn" id="btn-save-tip-cfg">SAVE</button>
-                <span id="tip-cfg-msg" style="font-size:11px;font-family:'Space Mono',monospace;"></span>
+                <span id="tip-cfg-msg"></span>
               </div>
             </div>
           </div>
