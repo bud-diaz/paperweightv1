@@ -19,6 +19,7 @@ const ROOT        = path.resolve(__dirname, '..');
 const CLIENT_DIR  = path.join(ROOT, 'client');
 const LANDING_DIR = path.join(ROOT, 'landing');
 const HLS_SRC     = path.join(ROOT, 'node_modules', 'hls.js', 'dist', 'hls.min.js');
+const MATTER_SRC  = path.join(ROOT, 'node_modules', 'matter-js', 'build', 'matter.min.js');
 const OUTPUT      = path.join(ROOT, 'src', 'client-bundle.js');
 
 const MIME = {
@@ -57,6 +58,9 @@ function listClientBundleEntries() {
   if (!fs.existsSync(HLS_SRC)) {
     throw new Error('hls.js not installed - run npm install first');
   }
+  if (!fs.existsSync(MATTER_SRC)) {
+    throw new Error('matter-js not installed - run npm install first');
+  }
 
   const entries = walk(CLIENT_DIR, '');
   // Include landing/ pages so packaged exe can serve /landing/* routes.
@@ -64,6 +68,7 @@ function listClientBundleEntries() {
     entries.push(...walk(LANDING_DIR, '/landing'));
   }
   entries.push({ full: HLS_SRC, urlPath: '/vendor/hls.min.js' });
+  entries.push({ full: MATTER_SRC, urlPath: '/vendor/matter.min.js' });
   return entries;
 }
 

@@ -194,6 +194,7 @@ if (fs.existsSync(ffmpegBundlePath)) {
 for (const rel of [
   'client/creator.html',
   'node_modules/hls.js/dist/hls.min.js',
+  'node_modules/matter-js/build/matter.min.js',
   'src/index.js',
   'src/launcher.js',
   'src/native-loader.js',

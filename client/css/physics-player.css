@@ -1,0 +1,173 @@
+/* ── Physics card player shell ──
+   Falling-card visual layer for panel-player. Cards are real Matter.js
+   rigid bodies (see js/physics-player.js); this file only handles their
+   appearance. Layout/position is driven entirely by inline transforms. */
+
+#physics-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 16px;
+  overflow: hidden;
+}
+
+/* Logical grouping wrapper for the waveform+play compound body — no box
+   of its own, just a coordinate space matching #physics-stage. */
+#card-waveform {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.phys-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
+  border-top-color: rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-md);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+
+#card-now-playing {
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 20px;
+  background: var(--raised);
+}
+.phys-card-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--t3);
+}
+.phys-card-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 26px;
+  color: var(--t1);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phys-card-sub {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  color: var(--t3);
+  letter-spacing: 0.04em;
+}
+
+/* Waveform bar — top of the T */
+.phys-wf-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  background: var(--inset);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 16px;
+  pointer-events: none;
+}
+.phys-wf-bars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  height: 60%;
+}
+.phys-wf-bars::before {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--color, #39ff14) 0 2px,
+    transparent 2px 6px
+  );
+  opacity: 0.5;
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 10%,
+    #000 90%,
+    transparent
+  );
+}
+
+/* Waveform stem — descends through the lib/queue row to the play button */
+.phys-wf-stem {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  background: var(--inset);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phys-play-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: var(--color, #39ff14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  transition: transform 0.12s;
+}
+.phys-play-btn:hover { transform: scale(1.05); }
+
+.phys-card-sm .phys-card-label {
+  font-size: 12px;
+}
+
+.phys-card-split {
+  flex-direction: row;
+  gap: 0;
+  padding: 0;
+}
+.phys-card-half {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--t2);
+}
+.phys-card-divider {
+  width: 1px;
+  height: 60%;
+  background: var(--border-strong);
+  flex-shrink: 0;
+}

@@ -16,6 +16,7 @@
   <script src="/vendor/hls.min.js"></script>
   <link rel="stylesheet" href="/css/tokens.css"/>
   <link rel="stylesheet" href="/css/layout.css"/>
+  <link rel="stylesheet" href="/css/physics-player.css"/>
   <link rel="stylesheet" href="/css/auth.css"/>
   <link rel="stylesheet" href="/css/dashboard.css"/>
 </head>
@@ -168,6 +169,46 @@
 
       <!-- PANEL: Player -->
       <div id="panel-player">
+
+        <!-- Physics card stage — visual shell for the new falling-card player.
+             Cards are placeholders for now; tap/expand logic and live data
+             wiring happen in a follow-up pass. -->
+        <div id="physics-stage">
+          <div class="phys-card" id="card-now-playing" data-card="now-playing">
+            <div class="phys-card-label">NOW PLAYING</div>
+            <div class="phys-card-title" id="phys-np-title">—</div>
+            <div class="phys-card-sub" id="phys-np-sub">Nothing queued</div>
+          </div>
+
+          <div class="phys-waveform" id="card-waveform" data-card="waveform">
+            <div class="phys-wf-bar" id="phys-wf-bar">
+              <div class="phys-wf-bars" id="phys-wf-bars"></div>
+            </div>
+            <div class="phys-wf-stem" id="phys-wf-stem">
+              <button class="phys-play-btn" id="phys-play-btn" title="Play/Pause">
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="#000"><path d="M5 2.5l11 6.5-11 6.5V2.5z"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="phys-card phys-card-sm" id="card-lib" data-card="lib">
+            <div class="phys-card-label">LIB</div>
+          </div>
+          <div class="phys-card phys-card-sm" id="card-queue" data-card="queue">
+            <div class="phys-card-label">QUEUE</div>
+          </div>
+
+          <div class="phys-card phys-card-split" id="card-share" data-card="share">
+            <div class="phys-card-half">SHARE</div>
+            <div class="phys-card-divider"></div>
+            <div class="phys-card-half">ACCT</div>
+          </div>
+        </div>
+
+        <!-- Legacy functional UI — drawers, controls, auth/share, all still
+             fully wired to player.js / library.js. Hidden behind the physics
+             shell above until the new cards are wired to this logic. -->
+        <div id="legacy-player-ui" hidden>
 
         <!-- Art zone -->
         <div id="art-wrap">
@@ -383,6 +424,8 @@
             <span id="account-tab-label">ACCOUNT</span>
           </div>
         </div>
+
+        </div><!-- /legacy-player-ui -->
 
       </div><!-- /panel-player -->
 
@@ -843,6 +886,8 @@
 
 <div id="credit">PAPERWEIGHT SYSTEMS LLC</div>
 
+<script src="/vendor/matter.min.js"></script>
+<script src="js/physics-player.js"></script>
 <script type="module" src="js/main.js"></script>
 
 </body>

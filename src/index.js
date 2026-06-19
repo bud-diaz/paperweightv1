@@ -23,6 +23,10 @@ function hlsAssetPath() {
   return path.join(config.paths.app, 'node_modules', 'hls.js', 'dist', 'hls.min.js');
 }
 
+function matterAssetPath() {
+  return path.join(config.paths.app, 'node_modules', 'matter-js', 'build', 'matter.min.js');
+}
+
 // When packaged (pkg/node20), asset globs in package.json are not bundled.
 // All client files and hls.js are embedded in src/client-bundle.js instead.
 function bundledStaticMiddleware() {
@@ -66,6 +70,23 @@ function createApp() {
     const asset = hlsAssetPath();
     if (!fs.existsSync(asset)) {
       return res.status(404).type('text/plain').send('hls.js asset not installed');
+    }
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.sendFile(asset);
+  });
+
+  app.get('/vendor/matter.min.js', (req, res) => {
+    if (isPackaged) {
+      const entry = require('./client-bundle')['/vendor/matter.min.js'];
+      if (entry) {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('Content-Type', 'text/javascript');
+        return res.end(entry.data);
+      }
+    }
+    const asset = matterAssetPath();
+    if (!fs.existsSync(asset)) {
+      return res.status(404).type('text/plain').send('matter-js asset not installed');
     }
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.sendFile(asset);
