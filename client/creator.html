@@ -244,37 +244,43 @@
           </div><!-- /art-flip -->
         </div><!-- /art-wrap -->
 
-        <!-- Waveform -->
-        <div id="waveform-section">
-          <div id="waveform"></div>
-          <div id="time-row">
-            <span id="time-elapsed">0:00</span>
-            <span id="time-remain">∞</span>
+        <!-- Spine: waveform card + 3-square transport row -->
+        <div id="spine">
+          <!-- Waveform -->
+          <div id="waveform-section">
+            <div id="waveform"></div>
+            <div id="time-row">
+              <span id="time-elapsed">0:00</span>
+              <span id="time-remain">∞</span>
+            </div>
           </div>
-        </div>
 
-        <!-- Controls -->
-        <div id="controls">
-          <button class="drawer-btn" id="lib-btn" title="Library">≡</button>
-          <div id="controls-center">
-            <button class="skip-btn hidden" id="skip-prev" title="Previous">⏮</button>
-            <button id="play-btn" title="Play/Pause">
-              <svg id="play-icon" width="18" height="18" viewBox="0 0 18 18" fill="#000"><path d="M5 2.5l11 6.5-11 6.5V2.5z"/></svg>
-              <svg id="pause-icon" width="18" height="18" viewBox="0 0 18 18" fill="#000"><rect x="3" y="2" width="4" height="14" rx="1.5"/><rect x="11" y="2" width="4" height="14" rx="1.5"/></svg>
-            </button>
-            <button class="skip-btn hidden" id="skip-next" title="Next">⏭</button>
+          <!-- Controls -->
+          <div id="controls">
+            <button class="drawer-btn" id="lib-btn" title="Library">≡<span class="sq-lbl">LIBRARY</span></button>
+            <div id="controls-center">
+              <button class="skip-btn hidden" id="skip-prev" title="Previous">⏮</button>
+              <button id="play-btn" title="Play/Pause">
+                <svg id="play-icon" width="18" height="18" viewBox="0 0 18 18" fill="#000"><path d="M5 2.5l11 6.5-11 6.5V2.5z"/></svg>
+                <svg id="pause-icon" width="18" height="18" viewBox="0 0 18 18" fill="#000"><rect x="3" y="2" width="4" height="14" rx="1.5"/><rect x="11" y="2" width="4" height="14" rx="1.5"/></svg>
+              </button>
+              <button class="skip-btn hidden" id="skip-next" title="Next">⏭</button>
+            </div>
+            <button class="drawer-btn" id="queue-btn" title="Schedule">≡<span class="sq-lbl">QUEUE</span></button>
+            <div id="listener-queue-pill" title="Personal queue — click to clear">
+              <div id="lq-count">0</div>
+              <span>IN QUEUE</span>
+            </div>
           </div>
-          <button class="drawer-btn" id="queue-btn" title="Schedule">≡</button>
-          <div id="listener-queue-pill" title="Personal queue — click to clear">
-            <div id="lq-count">0</div>
-            <span>IN QUEUE</span>
-          </div>
-        </div>
+        </div><!-- /spine -->
 
         <!-- Library drawer -->
         <div class="drawer" id="lib-drawer">
           <div class="drawer-inner">
-            <div class="drawer-label">LIBRARY</div>
+            <div class="drawer-head">
+              <div class="drawer-label">LIBRARY</div>
+              <button class="drawer-close" id="lib-drawer-close" title="Close">✕</button>
+            </div>
             <div class="drawer-scroll" id="lib-list"></div>
           </div>
         </div>
@@ -284,6 +290,7 @@
           <div class="drawer-inner">
             <div id="queue-header">
               <span class="drawer-label">QUEUE</span>
+              <button class="drawer-close" id="queue-drawer-close" title="Close">✕</button>
             </div>
             <div id="queue-list"></div>
           </div>
