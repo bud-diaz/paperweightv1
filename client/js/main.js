@@ -181,6 +181,8 @@ el('skip-next').addEventListener('click', () => player.skipTrack(1));
 el('back-live-btn').addEventListener('click', player.goLive);
 el('lib-btn').addEventListener('click', () => player.toggleDrawer('lib'));
 el('queue-btn').addEventListener('click', () => player.toggleDrawer('queue'));
+el('lib-drawer-close').addEventListener('click', e => { e.stopPropagation(); player.toggleDrawer('lib'); });
+el('queue-drawer-close').addEventListener('click', e => { e.stopPropagation(); player.toggleDrawer('queue'); });
 el('share-area').addEventListener('click', player.toggleShare);
 el('account-area').addEventListener('click', () => {
   if (state.showLib || state.showQueue) return;
