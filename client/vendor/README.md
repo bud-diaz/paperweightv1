@@ -9,6 +9,12 @@ hls.js is bundled from `node_modules/hls.js/dist/hls.min.js` and served at
 `/vendor/hls.min.js` by `src/index.js` (see `pkg.assets` in `package.json` for
 the packaged-exe asset). It is intentionally not committed here.
 
+## Matter.js
+
+Matter.js is served at `/vendor/matter.min.js` from `node_modules` when
+available, with the generated client bundle and `matter.min.js` here as local
+fallbacks.
+
 ## Fonts (`fonts/`)
 
 Latin `woff2` files sourced from the `@fontsource` packages (Google Fonts):

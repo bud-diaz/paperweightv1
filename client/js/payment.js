@@ -217,6 +217,7 @@ export function handleTippedParam() {
       closeModal();
       _setAuthTab('register');
       state.showShare = true;
+      state.sharePanel = 'account';
       _render();
       _toggleAuthSection(true);
       setTimeout(() => el('auth-email').focus(), 120);
@@ -318,6 +319,7 @@ function _showVaultGate(t, opts) {
       _closeVaultGate();
       _setAuthTab('login');
       state.showShare = true;
+      state.sharePanel = 'account';
       _render();
       _toggleAuthSection(true);
       setTimeout(() => el('auth-email').focus(), 120);

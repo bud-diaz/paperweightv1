@@ -200,7 +200,10 @@ function setColor(c) {
     btn.style.background = active ? `${c}22` : 'none';
     btn.style.border     = active ? `1px solid ${c}44` : '1px solid transparent';
   });
-  el('share-tab-label').style.color = state.showShare ? c : 'rgba(255,255,255,.25)';
+  el('share-tab-label').style.color =
+    state.showShare && state.sharePanel === 'share' ? c : 'rgba(255,255,255,.25)';
+  el('account-tab-label').style.color =
+    state.showShare && state.sharePanel === 'account' ? c : 'rgba(255,255,255,.25)';
   el('auth-badge').classList.toggle('visible', authState.loggedIn);
 }
 
@@ -297,15 +300,23 @@ export function render() {
   setDrawer('lib-drawer',   state.showLib);
   setDrawer('queue-drawer', state.showQueue && !state.track);
   const shareOpen = state.showShare && !state.showLib && !state.showQueue;
+  const sharePanel = state.sharePanel === 'account' ? 'account' : 'share';
   setDrawer('share-drawer', shareOpen);
+  el('lib-drawer').classList.toggle('open', state.showLib);
+  el('queue-drawer').classList.toggle('open', state.showQueue && !state.track);
+  el('share-drawer').classList.toggle('open', shareOpen);
+  el('share-drawer').dataset.panel = sharePanel;
 
   // share tab
   const shareUnlocked = !state.showLib && !state.showQueue;
   el('share-tab').classList.toggle('locked', !shareUnlocked);
-  el('share-tab-label').textContent    = state.showShare ? 'CLOSE' : 'SHARE';
-  el('account-tab-label').textContent  = state.showShare ? 'CLOSE' : 'ACCOUNT';
+  el('share-tab').classList.toggle('open', state.showShare && shareUnlocked);
+  el('share-area').classList.toggle('active', shareOpen && sharePanel === 'share');
+  el('account-area').classList.toggle('active', shareOpen && sharePanel === 'account');
+  el('share-tab-label').textContent    = shareOpen && sharePanel === 'share' ? 'CLOSE' : 'SHARE';
+  el('account-tab-label').textContent  = shareOpen && sharePanel === 'account' ? 'CLOSE' : 'ACCOUNT';
   el('share-chevron').style.transform  =
-    state.showShare && shareUnlocked ? 'rotate(180deg)' : 'none';
+    shareOpen && sharePanel === 'share' ? 'rotate(180deg)' : 'none';
 
   setColor(t.color);
 }
@@ -430,7 +441,12 @@ export function toggleDrawer(which) {
 
 export function toggleShare() {
   if (state.showLib || state.showQueue) return;
-  state.showShare = !state.showShare;
+  if (state.showShare && state.sharePanel === 'share') {
+    state.showShare = false;
+  } else {
+    state.showShare = true;
+    state.sharePanel = 'share';
+  }
   render();
 }
 

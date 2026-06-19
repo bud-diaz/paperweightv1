@@ -186,12 +186,17 @@ el('queue-drawer-close').addEventListener('click', e => { e.stopPropagation(); p
 el('share-area').addEventListener('click', player.toggleShare);
 el('account-area').addEventListener('click', () => {
   if (state.showLib || state.showQueue) return;
-  state.showShare = true;
+  const closing = state.showShare && state.sharePanel === 'account';
+  state.showShare = !closing;
+  state.sharePanel = 'account';
   player.render();
-  setTimeout(() => {
-    const authToggle = el('auth-toggle');
-    if (authToggle) authToggle.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, 50);
+  if (!closing) {
+    auth.toggleAuthSection(true);
+    setTimeout(() => {
+      const authToggle = el('auth-toggle');
+      if (authToggle) authToggle.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
+  }
 });
 el('waveform').addEventListener('click', player.seekWaveform);
 
@@ -301,6 +306,7 @@ async function init() {
     history.replaceState(null, '', location.pathname + location.hash);
     if (authState.tier !== 'free' && !authState.hasPassword) {
       state.showShare = true;
+      state.sharePanel = 'account';
       player.render();
       auth.toggleAuthSection(true);
       el('auth-set-pw').hidden = false;

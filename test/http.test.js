@@ -34,7 +34,7 @@ async function request(baseUrl, pathname, options = {}) {
   return { res, body, text };
 }
 
-test('health and local HLS asset are served', async () => {
+test('health and local player assets are served', async () => {
   freshDb();
   await withServer(async baseUrl => {
     const health = await request(baseUrl, '/api/health');
@@ -45,6 +45,10 @@ test('health and local HLS asset are served', async () => {
     const hls = await request(baseUrl, '/vendor/hls.min.js');
     assert.equal(hls.res.status, 200);
     assert.match(hls.text, /Hls/);
+
+    const matter = await request(baseUrl, '/vendor/matter.min.js');
+    assert.equal(matter.res.status, 200);
+    assert.match(matter.text, /Matter/);
   });
 });
 

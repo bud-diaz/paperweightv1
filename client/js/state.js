@@ -23,6 +23,7 @@ export let state = {
   showLib:       false,
   showQueue:     false,
   showShare:     false,
+  sharePanel:    'share', // 'share' | 'account'
   nowPlaying:    null,   // { title, artist } from stream status
   listenerCount: 0,
   isPreview:     false,

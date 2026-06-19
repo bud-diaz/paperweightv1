@@ -83,6 +83,7 @@ async function main() {
 
   // Vendored frontend assets must be served locally (no runtime CDN dependency).
   await expect('/vendor/hls.min.js', res => res.status === 200 && /javascript/i.test(res.headers['content-type'] || ''), 'hls.js is served locally');
+  await expect('/vendor/matter.min.js', res => res.status === 200 && /javascript/i.test(res.headers['content-type'] || ''), 'matter.js is served locally');
   await expect('/vendor/fonts/fonts.css', res => res.status === 200 && /css/i.test(res.headers['content-type'] || ''), 'fonts are served locally');
 
   if (!ok) {

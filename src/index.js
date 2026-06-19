@@ -27,6 +27,23 @@ function matterAssetPath() {
   return path.join(config.paths.app, 'node_modules', 'matter-js', 'build', 'matter.min.js');
 }
 
+function clientMatterAssetPath() {
+  return path.join(config.paths.app, 'client', 'vendor', 'matter.min.js');
+}
+
+function sendBundledAsset(res, urlPath, contentType) {
+  try {
+    const entry = require('./client-bundle')[urlPath];
+    if (!entry) return false;
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Content-Type', contentType || entry.mime);
+    res.end(entry.data);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // When packaged (pkg/node20), asset globs in package.json are not bundled.
 // All client files and hls.js are embedded in src/client-bundle.js instead.
 function bundledStaticMiddleware() {
@@ -60,12 +77,7 @@ function createApp() {
 
   app.get('/vendor/hls.min.js', (req, res) => {
     if (isPackaged) {
-      const entry = require('./client-bundle')['/vendor/hls.min.js'];
-      if (entry) {
-        res.setHeader('Cache-Control', 'public, max-age=86400');
-        res.setHeader('Content-Type', 'text/javascript');
-        return res.end(entry.data);
-      }
+      if (sendBundledAsset(res, '/vendor/hls.min.js', 'text/javascript')) return;
     }
     const asset = hlsAssetPath();
     if (!fs.existsSync(asset)) {
@@ -77,19 +89,20 @@ function createApp() {
 
   app.get('/vendor/matter.min.js', (req, res) => {
     if (isPackaged) {
-      const entry = require('./client-bundle')['/vendor/matter.min.js'];
-      if (entry) {
-        res.setHeader('Cache-Control', 'public, max-age=86400');
-        res.setHeader('Content-Type', 'text/javascript');
-        return res.end(entry.data);
-      }
+      if (sendBundledAsset(res, '/vendor/matter.min.js', 'text/javascript')) return;
     }
     const asset = matterAssetPath();
-    if (!fs.existsSync(asset)) {
+    if (fs.existsSync(asset)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.sendFile(asset);
+    }
+    if (sendBundledAsset(res, '/vendor/matter.min.js', 'text/javascript')) return;
+    const clientAsset = clientMatterAssetPath();
+    if (!fs.existsSync(clientAsset)) {
       return res.status(404).type('text/plain').send('matter-js asset not installed');
     }
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.sendFile(asset);
+    res.sendFile(clientAsset);
   });
 
   app.use('/api', apiRouter);
