@@ -1,177 +1,205 @@
 /**
- * physics-player.js — Matter.js floating-card layer for the player UI.
+ * physics-player.js — Falling-card physics shell for the PLAY view.
  *
- * Owns ONLY: the Matter.js world, card transforms (style.transform),
- * opacity during the drop sequence, the reset hint, and forwarding
- * col-card clicks to the existing drawer button handlers.
+ * Builds five rigid bodies (Now Playing, Waveform+Play "T", Library, Queue,
+ * Share/Acct) with Matter.js, spawns them in a fixed, evenly-spaced floating
+ * column, then releases them bottom-up so they drop and stack exactly into
+ * that same layout — Share/Acct settles on the shell floor first, Library
+ * and Queue land beside the waveform card's stem, the waveform bar rests on
+ * top of those, and Now Playing lands last on top of the whole stack.
  *
- * Does not touch innerHTML, audio, HLS, API calls, auth state,
- * dashboard logic, or any existing event listener — those remain
- * owned by js/main.js, js/player.js, js/hls-client.js, js/api.js,
- * and the dashboard/auth modules.
+ * This is a visual shell only — cards are placeholders. Tap/expand
+ * behavior and live data wiring land in a follow-up pass.
  */
+(function () {
+  'use strict';
 
-const { Engine, World, Bodies, Body, Mouse, MouseConstraint, Events } = Matter;
+  if (typeof Matter === 'undefined') return;
 
-const CW = 360, CH = 640;
-const CARD_W = 344;
-const NP_H   = 162;
-const BAR_H  = 72, STEM_W = 110, STEM_H = 90;
-const T_H    = BAR_H + STEM_H + 6;
-const COL_W  = Math.floor((CARD_W - 12) / 3);
-const COL_H  = 50, SA_H = 48;
-const PAD = 8, GAP = 6, HDR = 46;
+  var Engine = Matter.Engine;
+  var World = Matter.World;
+  var Bodies = Matter.Bodies;
+  var Body = Matter.Body;
 
-const cx       = CW / 2;
-const LIB_CX   = PAD + COL_W / 2;
-const QUEUE_CX = PAD + COL_W + GAP + COL_W / 2;
-const SA_CY    = CH  - PAD - SA_H  / 2;
-const ROW_CY   = SA_CY  - SA_H  / 2 - GAP - COL_H / 2;
-const T_CY     = ROW_CY - COL_H / 2 - GAP - T_H   / 2;
-const NP_CY    = T_CY   - T_H   / 2 - GAP - NP_H  / 2;
+  var PAD = 8;
+  var GAP_X = 10;
+  var FLOAT_GAP = 18;
+  var RELEASE_START = 400;
+  var RELEASE_STEP = 260;
 
-export function initPhysics() {
-  const container = document.getElementById('pw-container');
-  const cr = container.getBoundingClientRect();
-  const OX = cr.left, OY = cr.top;
+  var stageEl = document.getElementById('physics-stage');
+  if (!stageEl) return;
 
-  document.querySelector('#card-nowplaying .pw-card-inner').style.width = CARD_W + 'px';
-  document.getElementById('wt-inner').style.width = CARD_W + 'px';
-  const wfCanvas = document.getElementById('waveform-canvas');
-  if (wfCanvas) wfCanvas.width = CARD_W - 24;
-  document.documentElement.style.setProperty('--stem-w', STEM_W + 'px');
-  document.querySelector('#card-library .pw-card-inner').style.width = COL_W + 'px';
-  document.querySelector('#card-queue .pw-card-inner').style.width = COL_W + 'px';
-  document.querySelector('#card-shareacct .pw-card-inner').style.width = CARD_W + 'px';
-
-  const engine = Engine.create({ gravity: { x: 0, y: 2.4 } });
-  const world = engine.world;
-
-  const wallOpts = { isStatic: true, friction: 0.6, restitution: 0.04 };
-  World.add(world, [
-    Bodies.rectangle(180, 670, 560, 60, wallOpts),
-    Bodies.rectangle(-30, 320, 60, 2560, wallOpts),
-    Bodies.rectangle(390, 320, 60, 2560, wallOpts),
-    Bodies.rectangle(180, HDR, 560, 4, wallOpts),
-  ]);
-
-  const bodyOpts = {
-    restitution: 0.05, friction: 0.6, frictionAir: 0.055, density: 0.008,
-    isStatic: true,
+  var els = {
+    nowPlaying: document.getElementById('card-now-playing'),
+    wfBar: document.getElementById('phys-wf-bar'),
+    wfStem: document.getElementById('phys-wf-stem'),
+    lib: document.getElementById('card-lib'),
+    queue: document.getElementById('card-queue'),
+    share: document.getElementById('card-share'),
   };
+  if (!els.nowPlaying || !els.wfBar || !els.wfStem || !els.lib || !els.queue || !els.share) return;
 
-  const saBody  = Bodies.rectangle(cx, -200, CARD_W, SA_H, bodyOpts);
-  const libBody = Bodies.rectangle(cx, -200, COL_W, COL_H, bodyOpts);
-  const quBody  = Bodies.rectangle(cx, -200, COL_W, COL_H, bodyOpts);
-  const npBody  = Bodies.rectangle(cx, -200, CARD_W, NP_H, bodyOpts);
+  var engine = null;
+  var world = null;
+  var rafId = null;
+  var timers = [];
+  var renderables = [];
+  var lastTime = null;
 
-  const barPart  = Bodies.rectangle(0, -(T_H / 2) + BAR_H / 2, CARD_W, BAR_H);
-  const stemPart = Bodies.rectangle(0, (T_H / 2) - STEM_H / 2, STEM_W, STEM_H);
-  const tBody = Body.create({
-    parts: [barPart, stemPart],
-    restitution: 0.05, friction: 0.6, frictionAir: 0.055, density: 0.008,
-  });
-  Body.setStatic(tBody, true);
-  Body.setPosition(tBody, { x: cx, y: -200 });
-
-  World.add(world, [saBody, libBody, quBody, npBody, tBody]);
-
-  const cards = [
-    { el: document.getElementById('card-shareacct'), body: saBody,  w: CARD_W, h: SA_H,  rx: cx,       ms: 0    },
-    { el: document.getElementById('card-library'),   body: libBody, w: COL_W,  h: COL_H, rx: LIB_CX,   ms: 380  },
-    { el: document.getElementById('card-queue'),      body: quBody,  w: COL_W,  h: COL_H, rx: QUEUE_CX, ms: 380  },
-    { el: document.getElementById('card-wt'),         body: tBody,   w: CARD_W, h: T_H,   rx: cx,       ms: 760  },
-    { el: document.getElementById('card-nowplaying'), body: npBody,  w: CARD_W, h: NP_H,  rx: cx,       ms: 1100 },
-  ];
-  cards.forEach(card => { card.el.style.opacity = '0'; });
-
-  Events.on(engine, 'beforeUpdate', () => {
-    cards.forEach(({ body }) => {
-      if (body.isStatic) return;
-      let a = body.angle % (Math.PI * 2);
-      if (a > Math.PI) a -= Math.PI * 2;
-      if (a < -Math.PI) a += Math.PI * 2;
-      const correction = -a * 0.0007 * body.mass - body.angularVelocity * 0.004 * body.mass;
-      const half = Math.max(body.bounds.max.y - body.position.y, 1);
-      Body.applyForce(body, { x: body.position.x, y: body.position.y - half }, { x: correction, y: 0 });
-      Body.applyForce(body, { x: body.position.x, y: body.position.y + half }, { x: -correction, y: 0 });
-    });
-  });
-
-  function drop(card) {
-    const { body } = card;
-    Body.setPosition(body, { x: card.rx, y: HDR + card.h / 2 + 10 });
-    Body.setAngle(body, (Math.random() - 0.5) * 0.3);
-    Body.setVelocity(body, { x: (Math.random() - 0.5) * 1.5, y: 1 });
-    Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.08);
-    Body.setStatic(body, false);
-    card.el.style.opacity = '1';
+  function clearTimers() {
+    timers.forEach(function (t) { clearTimeout(t); });
+    timers = [];
   }
 
-  function runSequence() {
-    cards.forEach(card => {
-      Body.setStatic(card.body, true);
-      Body.setPosition(card.body, { x: card.rx, y: -200 });
-      card.el.style.opacity = '0';
-    });
-    cards.forEach(card => {
-      setTimeout(() => drop(card), card.ms);
-    });
+  function computeLayout() {
+    var rect = stageEl.getBoundingClientRect();
+    var fullW = rect.width;
+    var fullH = rect.height;
+    var w = fullW - PAD * 2;
+    var h = fullH - PAD * 2;
+
+    var hNP = h * 0.34;
+    var hBar = h * 0.15;
+    var hMid = h * 0.22;
+    var hShr = h * 0.14;
+
+    var stemW = Math.max(70, Math.min(120, w * 0.24));
+    var libW = (w - stemW - GAP_X * 2) / 2;
+    var queueW = libW;
+
+    var centerX = PAD + w / 2;
+
+    var finalShrY = PAD + h - hShr / 2;
+    var finalMidY = finalShrY - hShr / 2 - hMid / 2;
+    var finalBarY = finalMidY - hMid / 2 - hBar / 2;
+    var finalNpY = finalBarY - hBar / 2 - hNP / 2;
+
+    return {
+      fullW: fullW, fullH: fullH,
+      now: { x: centerX, y: finalNpY - FLOAT_GAP, w: w, h: hNP },
+      bar: { x: centerX, y: finalBarY - FLOAT_GAP, w: w, h: hBar },
+      stem: { x: centerX, y: finalMidY - FLOAT_GAP, w: stemW, h: hMid },
+      lib: { x: centerX - (stemW / 2 + GAP_X + libW / 2), y: finalMidY - FLOAT_GAP, w: libW, h: hMid },
+      queue: { x: centerX + (stemW / 2 + GAP_X + queueW / 2), y: finalMidY - FLOAT_GAP, w: queueW, h: hMid },
+      share: { x: centerX, y: finalShrY - FLOAT_GAP, w: w, h: hShr },
+    };
   }
-  window.resetCards = runSequence;
 
-  const mouse = Mouse.create(document.body);
-  mouse.offset = { x: -OX, y: -OY };
-  World.add(world, MouseConstraint.create(engine, {
-    mouse,
-    constraint: { stiffness: 0.22, damping: 0.15, render: { visible: false } },
-  }));
+  function sizeEl(el, w, h) {
+    el.style.width = w + 'px';
+    el.style.height = h + 'px';
+  }
 
-  let last = performance.now();
-  (function loop(now) {
-    Engine.update(engine, Math.min(now - last, 33));
-    last = now;
-    cards.forEach(c => {
-      const px = c.body.position.x - c.w / 2 + OX;
-      const py = c.body.position.y - c.h / 2 + OY;
-      c.el.style.transform = `translate(${px}px,${py}px) rotate(${c.body.angle}rad)`;
+  function placeholderRect(opts) {
+    var body = Bodies.rectangle(opts.x, opts.y, opts.w, opts.h, {
+      isStatic: true,
+      friction: 0.6,
+      frictionAir: 0.02,
+      restitution: 0.12,
+      chamfer: { radius: 10 },
     });
-    requestAnimationFrame(loop);
-  })(performance.now());
+    Body.setInertia(body, Infinity);
+    return body;
+  }
 
-  runSequence();
+  function init() {
+    if (rafId) cancelAnimationFrame(rafId);
+    clearTimers();
+    if (engine) Engine.clear(engine);
 
-  document.getElementById('card-library').addEventListener('click', e => {
-    e.stopPropagation();
-    document.getElementById('lib-btn').click();
-  });
-  document.getElementById('card-queue').addEventListener('click', e => {
-    e.stopPropagation();
-    document.getElementById('queue-btn').click();
-  });
-
-  initWaveformFallback();
-}
-
-function initWaveformFallback() {
-  const canvas = document.getElementById('waveform-canvas');
-  if (!canvas || canvas.dataset.claimed) return;
-  canvas.dataset.claimed = '1';
-  const ctx = canvas.getContext('2d');
-  const bars = 48;
-  let phase = 0;
-  (function draw() {
-    if (!canvas.isConnected) return;
-    phase += 0.06;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const accent = getComputedStyle(document.documentElement).getPropertyValue('--color').trim() || '#39ff14';
-    ctx.fillStyle = accent;
-    const w = canvas.width / bars;
-    for (let i = 0; i < bars; i++) {
-      const h = (Math.sin(phase + i * 0.4) * 0.4 + 0.5) * canvas.height;
-      ctx.globalAlpha = 0.5;
-      ctx.fillRect(i * w, canvas.height - h, w - 2, h);
+    var layout = computeLayout();
+    if (layout.fullW < 40 || layout.fullH < 40) {
+      timers.push(setTimeout(init, 150));
+      return;
     }
-    requestAnimationFrame(draw);
-  })();
-}
+
+    engine = Engine.create();
+    engine.gravity.y = 1;
+    world = engine.world;
+
+    var wallThickness = 60;
+    var floor = Bodies.rectangle(layout.fullW / 2, layout.fullH + wallThickness / 2, layout.fullW + wallThickness * 2, wallThickness, { isStatic: true });
+    var leftWall = Bodies.rectangle(-wallThickness / 2, layout.fullH / 2, wallThickness, layout.fullH * 2, { isStatic: true });
+    var rightWall = Bodies.rectangle(layout.fullW + wallThickness / 2, layout.fullH / 2, wallThickness, layout.fullH * 2, { isStatic: true });
+
+    var nowBody = placeholderRect(layout.now);
+    sizeEl(els.nowPlaying, layout.now.w, layout.now.h);
+
+    var libBody = placeholderRect(layout.lib);
+    sizeEl(els.lib, layout.lib.w, layout.lib.h);
+
+    var queueBody = placeholderRect(layout.queue);
+    sizeEl(els.queue, layout.queue.w, layout.queue.h);
+
+    var shareBody = placeholderRect(layout.share);
+    sizeEl(els.share, layout.share.w, layout.share.h);
+
+    var barPart = Bodies.rectangle(layout.bar.x, layout.bar.y, layout.bar.w, layout.bar.h, { chamfer: { radius: 10 } });
+    var stemPart = Bodies.rectangle(layout.stem.x, layout.stem.y, layout.stem.w, layout.stem.h, { chamfer: { radius: 10 } });
+    var wfBody = Body.create({
+      parts: [barPart, stemPart],
+      isStatic: true,
+      friction: 0.6,
+      frictionAir: 0.02,
+      restitution: 0.12,
+    });
+    Body.setInertia(wfBody, Infinity);
+    var barOffset = { x: layout.bar.x - wfBody.position.x, y: layout.bar.y - wfBody.position.y };
+    var stemOffset = { x: layout.stem.x - wfBody.position.x, y: layout.stem.y - wfBody.position.y };
+    sizeEl(els.wfBar, layout.bar.w, layout.bar.h);
+    sizeEl(els.wfStem, layout.stem.w, layout.stem.h);
+
+    World.add(world, [floor, leftWall, rightWall, nowBody, libBody, queueBody, shareBody, wfBody]);
+
+    renderables = [
+      { el: els.nowPlaying, body: nowBody, w: layout.now.w, h: layout.now.h, offX: 0, offY: 0 },
+      { el: els.lib, body: libBody, w: layout.lib.w, h: layout.lib.h, offX: 0, offY: 0 },
+      { el: els.queue, body: queueBody, w: layout.queue.w, h: layout.queue.h, offX: 0, offY: 0 },
+      { el: els.share, body: shareBody, w: layout.share.w, h: layout.share.h, offX: 0, offY: 0 },
+      { el: els.wfBar, body: wfBody, w: layout.bar.w, h: layout.bar.h, offX: barOffset.x, offY: barOffset.y },
+      { el: els.wfStem, body: wfBody, w: layout.stem.w, h: layout.stem.h, offX: stemOffset.x, offY: stemOffset.y },
+    ];
+
+    renderables.forEach(renderOne);
+
+    lastTime = null;
+    rafId = requestAnimationFrame(tick);
+
+    timers.push(setTimeout(function () { Body.setStatic(shareBody, false); }, RELEASE_START));
+    timers.push(setTimeout(function () {
+      Body.setStatic(libBody, false);
+      Body.setStatic(queueBody, false);
+    }, RELEASE_START + RELEASE_STEP));
+    timers.push(setTimeout(function () { Body.setStatic(wfBody, false); }, RELEASE_START + RELEASE_STEP * 2));
+    timers.push(setTimeout(function () { Body.setStatic(nowBody, false); }, RELEASE_START + RELEASE_STEP * 3));
+  }
+
+  function renderOne(r) {
+    var x = r.body.position.x + r.offX - r.w / 2;
+    var y = r.body.position.y + r.offY - r.h / 2;
+    r.el.style.transform = 'translate3d(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px,0)';
+  }
+
+  function tick(now) {
+    if (lastTime == null) lastTime = now;
+    var delta = Math.min(now - lastTime, 1000 / 30);
+    lastTime = now;
+    Engine.update(engine, delta);
+    renderables.forEach(renderOne);
+    rafId = requestAnimationFrame(tick);
+  }
+
+  var resizeTimer = null;
+  function onResize() {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(init, 150);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+  window.addEventListener('resize', onResize);
+})();
