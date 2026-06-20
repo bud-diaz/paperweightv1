@@ -207,7 +207,7 @@ router.post('/upload', (req, res) => {
 router.get('/media', (req, res) => {
   const items = getDb().prepare(`
     SELECT id, title, filename, category, visibility, duration,
-           artist, album, producer, credits, artwork_url, indexed_at
+           artist, album, producer, credits, artwork_url, tags, indexed_at
     FROM media
     WHERE is_active = 1
     ORDER BY indexed_at DESC

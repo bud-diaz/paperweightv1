@@ -71,31 +71,78 @@ export async function loadAnalyticsExpanded() {
 
 // ── Subscriber growth ──────────────────────────────────────────────────────────
 export async function loadDashSubscribers(days = 30) {
+  const stateEl = el('subs-chart-state');
+  const tableEl = el('subs-history-table');
+  const svg = el('subs-history-chart');
+  if (stateEl) {
+    stateEl.hidden = false;
+    stateEl.style.color = 'var(--t4)';
+    stateEl.textContent = 'Loading subscribers...';
+  }
+  if (tableEl) tableEl.innerHTML = '';
+  if (svg) svg.innerHTML = '';
   try {
     const data = await api.dashboard.analytics.subscribers(days);
     el('subs-active-total').textContent = data.activeTotal || 0;
 
-    const svg = el('subs-history-chart');
-    const byDate = new Map(data.history.map(h => [h.date, h.newSubscribers]));
+    const sourceRows = Array.isArray(data.rows)
+      ? data.rows
+      : (data.history || []).map(h => ({
+          date: h.date,
+          new_subscribers: h.newSubscribers || 0,
+          active_total: h.activeTotal || 0,
+        }));
+    const byDate = new Map(sourceRows.map(h => [h.date, h]));
     const dates = [];
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       dates.push(d.toISOString().slice(0, 10));
     }
-    const counts = dates.map(d => byDate.get(d) || 0);
-    const max = Math.max(1, ...counts);
+    const newCounts = dates.map(d => byDate.get(d)?.new_subscribers || 0);
+    const activeCounts = dates.map(d => byDate.get(d)?.active_total || 0);
+    const hasData = newCounts.some(Boolean) || activeCounts.some(Boolean);
+    if (stateEl) {
+      stateEl.hidden = hasData;
+      stateEl.textContent = hasData ? '' : 'No subscriber data yet.';
+    }
+    const maxNew = Math.max(1, ...newCounts);
+    const maxActive = Math.max(1, ...activeCounts);
     const width = 300, height = 60, gap = 1;
-    const barWidth = (width / counts.length) - gap;
+    const barWidth = (width / newCounts.length) - gap;
+    const points = activeCounts.map((c, i) => {
+      const x = i * (barWidth + gap) + (barWidth / 2);
+      const y = height - Math.max(1, Math.round((c / maxActive) * (height - 4))) - 1;
+      return `${x.toFixed(2)},${y}`;
+    }).join(' ');
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     svg.setAttribute('preserveAspectRatio', 'none');
-    svg.innerHTML = counts.map((c, i) => {
-      const h = Math.max(1, Math.round((c / max) * (height - 2)));
+    svg.innerHTML = newCounts.map((c, i) => {
+      const h = Math.max(1, Math.round((c / maxNew) * (height - 2)));
       const x = i * (barWidth + gap);
       const y = height - h;
-      return `<rect x="${x.toFixed(2)}" y="${y}" width="${barWidth.toFixed(2)}" height="${h}" fill="rgba(57,255,20,.4)"><title>${esc(dates[i])}: ${c}</title></rect>`;
-    }).join('');
-  } catch {}
+      return `<rect x="${x.toFixed(2)}" y="${y}" width="${barWidth.toFixed(2)}" height="${h}" fill="rgba(57,255,20,.35)"><title>${esc(dates[i])}: ${c} new / ${activeCounts[i]} active</title></rect>`;
+    }).join('') + `<polyline points="${points}" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+    if (tableEl) {
+      tableEl.innerHTML = `
+        <div class="subs-history-row head"><span>Date</span><span>New</span><span>Active</span></div>
+        ${dates.slice(-14).map((date, index, recentDates) => {
+          const originalIndex = dates.length - recentDates.length + index;
+          return `<div class="subs-history-row">
+            <span>${esc(date)}</span>
+            <span>${newCounts[originalIndex]}</span>
+            <span>${activeCounts[originalIndex]}</span>
+          </div>`;
+        }).join('')}
+      `;
+    }
+  } catch {
+    if (stateEl) {
+      stateEl.hidden = false;
+      stateEl.style.color = '#ff6b6b';
+      stateEl.textContent = 'Failed to load subscriber analytics.';
+    }
+  }
 }
 
 // ── Tip config ─────────────────────────────────────────────────────────────────

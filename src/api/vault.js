@@ -486,7 +486,7 @@ router.post('/unlock', paymentLimiter, asyncHandler(async (req, res) => {
       const m = db.prepare('SELECT title, filename FROM media WHERE id = ?').get(targetId);
       if (m) productName = `Vault: ${m.title || m.filename}`;
     } else if (unlock_type === 'project' && priceConfig) {
-      productName = `Vault Project: ${priceConfig.name}`;
+      productName = `Vault Collection: ${priceConfig.name}`;
     } else if (unlock_type === 'all_access') {
       productName = 'Vault All-Access Pass';
     }

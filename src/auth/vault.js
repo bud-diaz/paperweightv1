@@ -1,6 +1,6 @@
 const { getDb } = require('../db');
 
-const ALL_ACCESS_TIER = 'all_access';
+const SUBSCRIBER_TIERS = new Set(['subscriber', 'pro', 'all_access']);
 
 // Returns true if the unlock record is currently active.
 // one_time unlocks are permanent (active=1 is sufficient).
@@ -21,7 +21,7 @@ function isUnlockActive(row) {
 //   { allowed: false, unlockOptions: { track, project, allAccess } }
 //
 // Access chain:
-//   1. all_access tier subscriber + creator has subscribers_included=1 → allow
+//   1. subscriber tier + creator has subscribers_included=1 → allow
 //   2. Active all_access vault unlock → allow
 //   3. Active project unlock for the content's project → allow
 //   4. Active per-track unlock → allow
@@ -29,7 +29,7 @@ function isUnlockActive(row) {
 function canAccessVaultContent(listenerId, contentId) {
   const db = getDb();
 
-  // ── Step 1: all_access subscriber bypass (if creator enabled it) ──────────
+  // ── Step 1: subscriber bypass (if creator enabled it) ────────────────────
   if (listenerId) {
     const vaultConfig = db.prepare(
       'SELECT subscribers_included FROM vault_all_access WHERE id = 1'
@@ -37,10 +37,21 @@ function canAccessVaultContent(listenerId, contentId) {
 
     if (vaultConfig && vaultConfig.subscribers_included === 1) {
       const tokenRow = db.prepare(
-        'SELECT tier FROM tokens WHERE listener_id = ? AND is_active = 1 LIMIT 1'
+        `SELECT tier
+         FROM tokens
+         WHERE listener_id = ? AND is_active = 1
+           AND tier IN ('subscriber', 'pro', 'all_access')
+         ORDER BY
+           CASE tier
+             WHEN 'all_access' THEN 3
+             WHEN 'pro' THEN 2
+             WHEN 'subscriber' THEN 1
+             ELSE 0
+           END DESC
+         LIMIT 1`
       ).get(listenerId);
 
-      if (tokenRow && tokenRow.tier === ALL_ACCESS_TIER) {
+      if (tokenRow && SUBSCRIBER_TIERS.has(tokenRow.tier)) {
         // Verify subscription is still active
         const sub = db.prepare(
           "SELECT current_period_end FROM subscriptions WHERE listener_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"

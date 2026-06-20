@@ -4,9 +4,10 @@ const BATCH_SIZE = 50;
 
 // Weighted shuffle: tracks not played recently are pulled first.
 // Falls back to RANDOM() as a tiebreaker so the order stays fresh.
-function buildShuffleBatch({ category = null, count = BATCH_SIZE } = {}) {
-  return getDb().prepare(`
-    SELECT m.id, m.filepath, m.duration, m.title, m.artist, m.category, m.mime_type
+function buildShuffleBatch({ category = null, tagsFilter = [], count = BATCH_SIZE } = {}) {
+  const useTagFilter = Array.isArray(tagsFilter) && tagsFilter.length > 0;
+  const rows = getDb().prepare(`
+    SELECT m.id, m.filepath, m.duration, m.title, m.artist, m.category, m.mime_type, m.tags
     FROM media m
     LEFT JOIN (
       SELECT media_id, MAX(started_at) AS last_played
@@ -17,8 +18,24 @@ function buildShuffleBatch({ category = null, count = BATCH_SIZE } = {}) {
       AND m.visibility = 'public'
       AND (:category IS NULL OR m.category = :category)
     ORDER BY COALESCE(le.last_played, '1970-01-01') ASC, RANDOM()
-    LIMIT :count
-  `).all({ category: category || null, count });
+    ${useTagFilter ? '' : 'LIMIT :count'}
+  `).all(useTagFilter ? { category: category || null } : { category: category || null, count });
+  return (useTagFilter ? rows.filter(row => matchesTags(row, tagsFilter)) : rows).slice(0, count);
+}
+
+function parseTags(tags) {
+  try {
+    const parsed = JSON.parse(tags || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function matchesTags(row, tagsFilter) {
+  if (!Array.isArray(tagsFilter) || tagsFilter.length === 0) return true;
+  const mediaTags = parseTags(row.tags);
+  return tagsFilter.every(t => mediaTags.includes(t));
 }
 
 // Sequential: ordered by playlist_items.position for a specific schedule block.
@@ -38,7 +55,10 @@ function buildSequentialBatch({ blockId, count = BATCH_SIZE } = {}) {
 // Smart playlist: same recency-weighted shuffle as buildShuffleBatch, with an
 // additional in-JS tag filter (every tag in tagsFilter must be present on the
 // track) since this needs to stay independent of SQLite JSON1 availability.
-function buildSmartPlaylistBatch({ category = null, tagsFilter = [], count = BATCH_SIZE } = {}) {
+function buildSmartPlaylistBatch({ category = null, tagsFilter = [], mode = 'shuffle', count = BATCH_SIZE } = {}) {
+  const orderBy = mode === 'sequential'
+    ? 'ORDER BY m.indexed_at ASC, m.id ASC'
+    : "ORDER BY COALESCE(le.last_played, '1970-01-01') ASC, RANDOM()";
   const candidates = getDb().prepare(`
     SELECT m.id, m.filepath, m.duration, m.title, m.artist, m.category, m.mime_type, m.tags
     FROM media m
@@ -50,19 +70,12 @@ function buildSmartPlaylistBatch({ category = null, tagsFilter = [], count = BAT
     WHERE m.is_active = 1
       AND m.visibility = 'public'
       AND (:category IS NULL OR m.category = :category)
-    ORDER BY COALESCE(le.last_played, '1970-01-01') ASC, RANDOM()
+    ${orderBy}
   `).all({ category: category || null });
 
   if (!tagsFilter.length) return candidates.slice(0, count);
 
-  const filtered = candidates.filter(row => {
-    let mediaTags = [];
-    try {
-      const parsed = JSON.parse(row.tags || '[]');
-      mediaTags = Array.isArray(parsed) ? parsed : [];
-    } catch {}
-    return tagsFilter.every(t => mediaTags.includes(t));
-  });
+  const filtered = candidates.filter(row => matchesTags(row, tagsFilter));
 
   return filtered.slice(0, count);
 }

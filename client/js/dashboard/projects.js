@@ -31,11 +31,11 @@ export async function loadDashProjects() {
     const list        = el('dash-proj-list');
     list.innerHTML    = '';
     if (!projects.length) {
-      list.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:4px 14px 8px;">No projects yet.</div>';
+      list.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:4px 14px 8px;">No collections yet.</div>';
     }
     for (const proj of projects) list.appendChild(buildDashProjectCard(proj, items, unassigned, highlight));
   } catch {
-    el('dash-proj-list').innerHTML = '<div style="font-size:11px;color:#ff6b6b;font-family:\'Space Mono\',monospace;padding:4px 14px;">Failed to load projects.</div>';
+    el('dash-proj-list').innerHTML = '<div style="font-size:11px;color:#ff6b6b;font-family:\'Space Mono\',monospace;padding:4px 14px;">Failed to load collections.</div>';
   }
 }
 
@@ -74,7 +74,7 @@ export function buildDashProjectCard(proj, allItems, unassigned, highlight = nul
   if (tracks.length === 0) {
     const empty = document.createElement('div');
     empty.style.cssText = 'padding:6px 14px;font-family:\'Space Mono\',monospace;font-size:10px;color:rgba(255,255,255,.2);';
-    empty.textContent = 'No tracks in this project.';
+    empty.textContent = 'No tracks in this collection.';
     body.appendChild(empty);
   } else {
     for (const t of tracks) {
@@ -172,8 +172,8 @@ export function buildDashProjectCard(proj, allItems, unassigned, highlight = nul
 
   // DELETE project
   head.querySelector('[data-del]').addEventListener('click', async () => {
-    if (!confirm(`Delete project "${proj.name}"? Tracks will be unassigned, not deleted.`)) return;
-    await api.dashboard.vault.deleteProject(proj.id);
+    if (!confirm(`Delete collection "${proj.name}"? Tracks will be unassigned, not deleted.`)) return;
+    await api.dashboard.vault.deleteCollection(proj.id);
     _loadDashProjects();
     _loadDashLibrary();
   });
@@ -182,7 +182,7 @@ export function buildDashProjectCard(proj, allItems, unassigned, highlight = nul
   body.querySelectorAll('[data-remove-track]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const cid = btn.dataset.removeTrack;
-      await api.dashboard.vault.removeTrack(proj.id, cid);
+      await api.dashboard.vault.removeCollectionTrack(proj.id, cid);
       _loadDashProjects();
       _loadDashLibrary();
     });
@@ -192,13 +192,13 @@ export function buildDashProjectCard(proj, allItems, unassigned, highlight = nul
   addBtn.addEventListener('click', async () => {
     const cid = addSel.value;
     if (!cid) return;
-    const { res } = await api.dashboard.vault.addTrack(proj.id, { content_id: parseInt(cid, 10) });
+    const { res } = await api.dashboard.vault.addCollectionTrack(proj.id, { content_id: parseInt(cid, 10) });
     if (res.ok) {
       _loadDashProjects();
       _loadDashLibrary();
     } else if (res.status === 409) {
       addMsg.style.color = '#ff6b6b';
-      addMsg.textContent = 'Already in a project';
+      addMsg.textContent = 'Already in a collection';
     } else {
       addMsg.style.color = '#ff6b6b';
       addMsg.textContent = 'Error adding track';
@@ -220,7 +220,7 @@ export function buildDashProjectCard(proj, allItems, unassigned, highlight = nul
     const suggRaw = parseFloat(suggInput) || 0;
     const minRaw  = parseFloat(minInput)  || 0;
     if (!allowFree && minRaw < 0.01) { msgEl.style.color='#ff6b6b'; msgEl.textContent='Minimum must be ≥ $0.01 when free is disabled'; return; }
-    const { res } = await api.dashboard.vault.updateProject(proj.id, {
+    const { res } = await api.dashboard.vault.updateCollection(proj.id, {
       name,
       description:     desc || null,
       suggested_price: Math.round(suggRaw * 100),
@@ -261,7 +261,7 @@ export function initProjectHandlers() {
     if (!allowFree && minRaw < 0.01) { msgEl.style.color='#ff6b6b'; msgEl.textContent='Minimum must be ≥ $0.01 when free is disabled'; return; }
     msgEl.style.color = 'rgba(255,255,255,.4)';
     msgEl.textContent = 'Creating…';
-    const { res } = await api.dashboard.vault.createProject({
+    const { res } = await api.dashboard.vault.createCollection({
       name,
       description:     desc || null,
       cover_art_path:  el('new-proj-art').value.trim() || null,
@@ -283,7 +283,7 @@ export function initProjectHandlers() {
       _loadDashLibrary();
     } else {
       msgEl.style.color = '#ff6b6b';
-      msgEl.textContent = 'Error creating project';
+      msgEl.textContent = 'Error creating collection';
     }
   });
 }

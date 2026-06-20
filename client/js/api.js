@@ -505,14 +505,17 @@ export const dashboard = {
     },
 
     /**
-     * GET /api/schedule/preview?from={ISO8601}&hours={hours}
+     * GET /api/schedule/preview?from={ISO8601}&to={ISO8601}
      * @param {string} [from] ISO8601 timestamp; defaults to now
-     * @param {number} [hours=24]
-     * @returns {{ from: string, hours: number, segments: Array<{ start, end, block: object|null }> }}
+     * @param {number} [hours=24] Used when `to` is omitted
+     * @param {string} [to] ISO8601 timestamp
+     * @returns {{ from: string, to: string, segments: Array<{ startTime, endTime, tracks }> }}
      */
-    preview(from, hours = 24) {
-      const q = new URLSearchParams({ hours: String(hours) });
+    preview(from, hours = 24, to = null) {
+      const q = new URLSearchParams();
       if (from) q.set('from', from);
+      if (to) q.set('to', to);
+      else q.set('hours', String(hours));
       return _json(`/api/schedule/preview?${q}`);
     },
 
@@ -584,12 +587,34 @@ export const dashboard = {
       return _send('/api/dashboard/vault/projects', body);
     },
 
+    createCollection(body) {
+      return _send('/api/dashboard/vault/projects', body);
+    },
+
+    /**
+     * PUT /api/dashboard/vault/projects/{id}
+     * @param {number} id
+     * @param {object} body
+     * @returns {{ res: Response, data: object }}
+     */
+    updateProject(id, body) {
+      return _send(`/api/dashboard/vault/projects/${id}`, body, 'PUT');
+    },
+
+    updateCollection(id, body) {
+      return _send(`/api/dashboard/vault/projects/${id}`, body, 'PUT');
+    },
+
     /**
      * DELETE /api/dashboard/vault/projects/{id}
      * @param {number} id
      * @returns {{ res: Response, data: object }}
      */
     deleteProject(id) {
+      return _del(`/api/dashboard/vault/projects/${id}`);
+    },
+
+    deleteCollection(id) {
       return _del(`/api/dashboard/vault/projects/${id}`);
     },
 
@@ -603,6 +628,10 @@ export const dashboard = {
       return _send(`/api/dashboard/vault/projects/${projId}/items`, body);
     },
 
+    addCollectionTrack(projId, body) {
+      return _send(`/api/dashboard/vault/projects/${projId}/items`, body);
+    },
+
     /**
      * DELETE /api/dashboard/vault/projects/{projId}/items/{contentId}
      * @param {number} projId
@@ -610,6 +639,10 @@ export const dashboard = {
      * @returns {{ res: Response, data: object }}
      */
     removeTrack(projId, contentId) {
+      return _del(`/api/dashboard/vault/projects/${projId}/items/${contentId}`);
+    },
+
+    removeCollectionTrack(projId, contentId) {
       return _del(`/api/dashboard/vault/projects/${projId}/items/${contentId}`);
     },
 
@@ -832,7 +865,7 @@ export const dashboard = {
     /**
      * GET /api/analytics/subscribers?days={days}
      * @param {number} [days=90]
-     * @returns {{ activeTotal: number, history: Array<{ date, newSubscribers }> }}
+     * @returns {{ activeTotal: number, rows: Array<{ date, new_subscribers, active_total }> }}
      */
     subscribers(days = 90) {
       return _json(`/api/analytics/subscribers?days=${days}`);

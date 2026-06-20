@@ -21,6 +21,18 @@
 </head>
 <body>
 
+<!-- Public share page (rendered for /share/:token) -->
+<div id="public-share-view" hidden>
+  <div id="public-share-shell">
+    <div id="public-share-kicker">PRIVATE SHARE</div>
+    <div id="public-share-title">Loading...</div>
+    <div id="public-share-subtitle"></div>
+    <div id="public-share-player"></div>
+    <div id="public-share-tracks"></div>
+    <div id="public-share-foot"></div>
+  </div>
+</div>
+
 <!-- First-launch legal acceptance modal -->
 <div id="launch-backdrop" hidden>
   <div id="launch-modal">
@@ -588,15 +600,15 @@
 
           <div class="dash-divider"></div>
 
-          <!-- Projects -->
+          <!-- Collections -->
           <div class="dash-section">
-            <div class="dash-section-label">PROJECTS</div>
+            <div class="dash-section-label">COLLECTIONS</div>
             <div id="dash-proj-list"></div>
             <details id="dash-new-proj">
-              <summary class="dash-summary">+ NEW PROJECT</summary>
+              <summary class="dash-summary">+ NEW COLLECTION</summary>
               <div class="dash-new-proj-body">
                 <div class="dash-edit-label">NAME</div>
-                <input class="dash-input dash-input-gap" id="new-proj-name" type="text" placeholder="Project name"/>
+                <input class="dash-input dash-input-gap" id="new-proj-name" type="text" placeholder="Collection name"/>
                 <div class="dash-edit-label">DESCRIPTION (OPTIONAL)</div>
                 <textarea class="dash-input dash-input-gap" id="new-proj-desc" placeholder="Description…"></textarea>
                 <div class="dash-edit-label">ALBUM ART URL <span class="dash-label-note">or use file picker after saving</span></div>
@@ -620,7 +632,7 @@
                 </div>
                 <div class="dash-form-row">
                   <span id="new-proj-msg" class="dash-inline-msg"></span>
-                  <button class="mgmt-btn" id="btn-new-proj">CREATE PROJECT</button>
+                  <button class="mgmt-btn" id="btn-new-proj">CREATE COLLECTION</button>
                 </div>
               </div>
             </details>
@@ -686,10 +698,13 @@
                 <div class="dash-edit-label">TARGET TYPE</div>
                 <select class="dash-input dash-input-gap" id="new-share-target-type">
                   <option value="track">Track</option>
-                  <option value="project">Project</option>
+                  <option value="project">Collection</option>
                 </select>
-                <div class="dash-edit-label">TARGET ID</div>
-                <input class="dash-input dash-input-gap" id="new-share-target-id" type="number" min="1" placeholder="Track or project ID"/>
+                <div class="dash-edit-label">TARGET</div>
+                <input class="dash-input dash-input-gap" id="new-share-target-search" type="text" placeholder="Search tracks or collections..." autocomplete="off"/>
+                <input id="new-share-target-id" type="hidden"/>
+                <div id="new-share-target-results" class="share-target-results"></div>
+                <div id="new-share-target-selected" class="share-target-selected">No target selected.</div>
                 <div class="dash-edit-label">LABEL (OPTIONAL)</div>
                 <input class="dash-input dash-input-gap" id="new-share-label" type="text" placeholder="e.g. For Maria"/>
                 <div class="dash-edit-label">EXPIRES IN HOURS <span class="dash-label-note">leave blank for never</span></div>
@@ -720,6 +735,10 @@
                   <option value="public">Public</option>
                   <option value="supporters_only" selected>Supporters Only</option>
                 </select>
+                <div class="dash-form-row" style="justify-content:flex-end;margin-bottom:6px;">
+                  <button class="mgmt-btn" id="btn-post-preview" type="button">PREVIEW</button>
+                </div>
+                <div id="post-new-preview" class="post-preview" hidden></div>
                 <div class="dash-form-row">
                   <span id="post-new-msg" class="dash-inline-msg"></span>
                   <button class="mgmt-btn" id="btn-add-post">PUBLISH</button>
@@ -757,7 +776,13 @@
                     <div class="stat-key">ACTIVE SUBSCRIBERS</div>
                   </div>
                 </div>
+                <div id="subs-chart-state" class="subs-chart-state">Loading subscribers...</div>
+                <div class="subs-legend" aria-label="Subscriber chart legend">
+                  <span><i class="subs-legend-bar"></i>New subscribers</span>
+                  <span><i class="subs-legend-line"></i>Active total</span>
+                </div>
                 <svg id="subs-history-chart" width="100%" height="60" style="display:block;overflow:visible;"></svg>
+                <div id="subs-history-table" class="subs-history-table"></div>
               </div>
             </details>
           </div>
@@ -854,8 +879,6 @@
               <div class="dash-form-row sched-add-secondary">
                 <select class="dash-select" id="sched-source">
                   <option value="">From category</option>
-                  <option value="vault_item">Vault item</option>
-                  <option value="vault_project">Vault project</option>
                   <option value="smart_playlist">Smart playlist</option>
                 </select>
                 <input type="number" class="dash-input dash-input-sm" id="sched-target-id" placeholder="Target ID"/>
@@ -894,8 +917,12 @@
               </details>
             </details>
             <details id="sched-preview-details">
-              <summary class="dash-summary">PREVIEW NEXT 24H</summary>
-              <div style="display:flex;justify-content:flex-end;padding:4px 14px 6px;">
+              <summary class="dash-summary">SCHEDULE PREVIEW</summary>
+              <div class="sched-preview-controls">
+                <input type="datetime-local" class="dash-input dash-input-sm" id="sched-preview-from"/>
+                <input type="datetime-local" class="dash-input dash-input-sm" id="sched-preview-to"/>
+                <button class="mgmt-btn" id="btn-sched-preview-24h">24H</button>
+                <button class="mgmt-btn" id="btn-sched-preview-7d">7D</button>
                 <button class="mgmt-btn" id="btn-sched-preview-refresh">REFRESH</button>
               </div>
               <div id="dash-sched-preview-list"></div>
@@ -1034,7 +1061,7 @@
 
 <div id="credit">PAPERWEIGHT SYSTEMS LLC</div>
 
-<script type="module" src="js/main.js"></script>
+<script type="module" src="/js/main.js"></script>
 
 </body>
 </html>

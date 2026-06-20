@@ -47,7 +47,7 @@ function canAccessMedia(req, media, projectId = null) {
   }
 
   if (media.visibility === 'vault') {
-    if (req.tier === 'all_access' && allAccessTierIncludesVault()) {
+    if (isSubscriberTier(req.tier) && allAccessTierIncludesVault()) {
       return { allowed: true };
     }
 
