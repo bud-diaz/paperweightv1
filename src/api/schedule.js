@@ -1,9 +1,9 @@
 const router = require('express').Router();
 const { getDb } = require('../db');
 const { requireDashboard } = require('../auth/middleware');
-const { resolveCurrentBlock, isValidTime, isValidDayOfWeek } = require('../broadcast/scheduler');
+const { resolveCurrentBlock, isValidTime, isValidDayOfWeek, parseTimeToMinutes } = require('../broadcast/scheduler');
+const { buildShuffleBatch, buildSequentialBatch, buildSmartPlaylistBatch } = require('../broadcast/playlist');
 
-const PREVIEW_INTERVAL_MINUTES = 15;
 const PREVIEW_MAX_HOURS = 168;
 
 router.get('/current', (req, res) => {
@@ -63,6 +63,179 @@ function validateBlockInput(input, existing = null) {
       target_id:   targetId,
     },
   };
+}
+
+function parseTagsFilter(value) {
+  try {
+    const parsed = value ? JSON.parse(value) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function trackPayload(row) {
+  return {
+    id: row.id,
+    title: row.title || row.filename,
+    artist: row.artist || null,
+    duration: row.duration,
+    category: row.category,
+  };
+}
+
+function resolveTracksForBlock(db, block) {
+  if (!block) {
+    return buildShuffleBatch().map(trackPayload);
+  }
+
+  if (block.target_type === 'smart_playlist' && block.target_id) {
+    const playlist = db.prepare('SELECT * FROM smart_playlists WHERE id = ?').get(block.target_id);
+    if (!playlist) return [];
+    return buildSmartPlaylistBatch({
+      category: playlist.category || null,
+      tagsFilter: parseTagsFilter(playlist.tags_filter),
+      mode: playlist.mode,
+    }).map(trackPayload);
+  }
+
+  if (block.mode === 'sequential') {
+    return buildSequentialBatch({ blockId: block.id }).map(trackPayload);
+  }
+
+  return buildShuffleBatch({
+    category: block.category || null,
+    tagsFilter: parseTagsFilter(block.tags_filter),
+  }).map(trackPayload);
+}
+
+function blockPayload(block) {
+  if (!block) return null;
+  return {
+    id: block.id,
+    label: block.label,
+    mode: block.mode,
+    category: block.category,
+    target_type: block.target_type,
+    target_id: block.target_id,
+  };
+}
+
+function parsePreviewWindow(req) {
+  const from = req.query.from ? new Date(req.query.from) : new Date();
+  if (isNaN(from.getTime())) {
+    return { error: 'from must be a valid ISO8601 timestamp' };
+  }
+
+  let to;
+  if (req.query.to) {
+    to = new Date(req.query.to);
+    if (isNaN(to.getTime())) {
+      return { error: 'to must be a valid ISO8601 timestamp' };
+    }
+  } else {
+    let hours = req.query.hours !== undefined ? Number(req.query.hours) : 24;
+    if (!Number.isFinite(hours) || hours <= 0) {
+      return { error: 'hours must be a positive number' };
+    }
+    hours = Math.min(hours, PREVIEW_MAX_HOURS);
+    to = new Date(from.getTime() + hours * 60 * 60000);
+  }
+
+  if (to <= from) {
+    return { error: 'to must be after from' };
+  }
+
+  const hours = (to.getTime() - from.getTime()) / (60 * 60000);
+  if (hours > PREVIEW_MAX_HOURS) {
+    return { error: `preview window cannot exceed ${PREVIEW_MAX_HOURS} hours` };
+  }
+
+  return { from, to, hours };
+}
+
+function startOfLocalDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function dateAtMinutes(day, minutes) {
+  const d = new Date(day);
+  d.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+  return d;
+}
+
+function blockStartsOnDay(block, day) {
+  return block.day_of_week == null || Number(block.day_of_week) === day.getDay();
+}
+
+function previewBoundaries(db, from, to) {
+  const boundaries = new Set([from.getTime(), to.getTime()]);
+  const blocks = db.prepare('SELECT * FROM schedule_blocks').all();
+  const firstDay = addDays(startOfLocalDay(from), -1);
+  const lastDay = addDays(startOfLocalDay(to), 1);
+
+  for (let day = new Date(firstDay); day <= lastDay; day = addDays(day, 1)) {
+    for (const block of blocks) {
+      if (!blockStartsOnDay(block, day)) continue;
+      const startMinutes = parseTimeToMinutes(block.start_time);
+      const endMinutes = parseTimeToMinutes(block.end_time);
+      if (startMinutes == null || endMinutes == null || startMinutes === endMinutes) continue;
+
+      const blockStart = dateAtMinutes(day, startMinutes);
+      const blockEnd = endMinutes > startMinutes
+        ? dateAtMinutes(day, endMinutes)
+        : dateAtMinutes(addDays(day, 1), endMinutes);
+
+      if (blockEnd <= from || blockStart >= to) continue;
+      boundaries.add(Math.max(blockStart.getTime(), from.getTime()));
+      boundaries.add(Math.min(blockEnd.getTime(), to.getTime()));
+    }
+  }
+
+  return [...boundaries].sort((a, b) => a - b);
+}
+
+function buildSchedulePreview(db, from, to) {
+  const boundaries = previewBoundaries(db, from, to);
+  const segments = [];
+  let current = null;
+
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const startMs = boundaries[i];
+    const endMs = boundaries[i + 1];
+    if (endMs <= startMs) continue;
+
+    const block = resolveCurrentBlock(new Date(startMs));
+    const blockId = block ? block.id : null;
+    if (current && current.blockId === blockId) {
+      current.endTime = new Date(endMs).toISOString();
+      current.end = current.endTime;
+      continue;
+    }
+
+    if (current) segments.push(current);
+    const startTime = new Date(startMs).toISOString();
+    const endTime = new Date(endMs).toISOString();
+    current = {
+      blockId,
+      label: block ? (block.label || `Block #${block.id}`) : 'Shuffle',
+      startTime,
+      endTime,
+      tracks: resolveTracksForBlock(db, block),
+      start: startTime,
+      end: endTime,
+      block: blockPayload(block),
+    };
+  }
+
+  if (current) segments.push(current);
+  return segments;
 }
 
 router.get('/', (req, res) => {
@@ -128,57 +301,18 @@ router.delete('/blocks/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-// Walks forward from `from` in fixed intervals, resolving the active block at
-// each sample point via the existing resolveCurrentBlock, and collapses
-// consecutive samples that resolve to the same block into one segment.
+// Dry-run the schedule between `from` and `to` without mutating broadcast state.
 router.get('/preview', (req, res) => {
-  const from = req.query.from ? new Date(req.query.from) : new Date();
-  if (isNaN(from.getTime())) {
-    return res.status(400).json({ error: 'from must be a valid ISO8601 timestamp' });
-  }
+  const parsed = parsePreviewWindow(req);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
 
-  let hours = req.query.hours !== undefined ? Number(req.query.hours) : 24;
-  if (!Number.isFinite(hours) || hours <= 0) {
-    return res.status(400).json({ error: 'hours must be a positive number' });
-  }
-  hours = Math.min(hours, PREVIEW_MAX_HOURS);
-
-  const stepMs = PREVIEW_INTERVAL_MINUTES * 60000;
-  const endTime = from.getTime() + hours * 60 * 60000;
-
-  const segments = [];
-  let current = null;
-
-  for (let t = from.getTime(); t < endTime; t += stepMs) {
-    const sampleDate = new Date(t);
-    const block = resolveCurrentBlock(sampleDate);
-    const blockKey = block ? block.id : null;
-
-    if (!current || current.blockKey !== blockKey) {
-      if (current) segments.push(current);
-      current = {
-        blockKey,
-        start: sampleDate.toISOString(),
-        end: new Date(t + stepMs).toISOString(),
-        block: block ? {
-          id: block.id,
-          label: block.label,
-          mode: block.mode,
-          category: block.category,
-          target_type: block.target_type,
-          target_id: block.target_id,
-        } : null,
-      };
-    } else {
-      current.end = new Date(t + stepMs).toISOString();
-    }
-  }
-  if (current) segments.push(current);
-
+  const segments = buildSchedulePreview(getDb(), parsed.from, parsed.to);
   res.json({
-    from: from.toISOString(),
-    hours,
-    segments: segments.map(({ blockKey, ...rest }) => rest),
+    from: parsed.from.toISOString(),
+    to: parsed.to.toISOString(),
+    hours: parsed.hours,
+    segments,
+    timeline: segments,
   });
 });
 
@@ -207,19 +341,19 @@ function validateSmartPlaylistInput(input, existing = null) {
 }
 
 function matchesSmartPlaylistTracks(db, playlist) {
+  const orderBy = playlist.mode === 'sequential'
+    ? 'ORDER BY indexed_at ASC, id ASC'
+    : 'ORDER BY RANDOM()';
   const candidates = db.prepare(`
-    SELECT id, title, filename, artist, duration, category, tags
+    SELECT id, title, filename, artist, duration, category, tags, indexed_at
     FROM media
     WHERE is_active = 1
       AND visibility = 'public'
       AND (:category IS NULL OR category = :category)
+    ${orderBy}
   `).all({ category: playlist.category || null });
 
-  let tagsFilter = [];
-  try {
-    const parsed = playlist.tags_filter ? JSON.parse(playlist.tags_filter) : [];
-    tagsFilter = Array.isArray(parsed) ? parsed : [];
-  } catch {}
+  const tagsFilter = parseTagsFilter(playlist.tags_filter);
 
   if (tagsFilter.length === 0) return candidates;
 

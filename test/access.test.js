@@ -53,19 +53,19 @@ test('vault allows a track-scoped token without consulting unlock tables', () =>
   assert.ok(canAccessMedia(req, media).allowed);
 });
 
-test('vault allows all_access only when the creator includes subscribers', () => {
+test('vault allows subscriber tiers when the creator includes subscribers', () => {
   const db = freshDb();
   const media = seedMedia(db, { visibility: 'vault' });
-  const listenerId = seedListener(db);
-  const req = { tier: 'all_access', tokenRow: { listener_id: listenerId } };
 
-  // Default: subscribers_included = 0 -> all_access tier alone is not enough,
-  // and with no unlock rows the listener is denied.
-  assert.ok(!canAccessMedia(req, media).allowed);
+  for (const tier of ['subscriber', 'pro', 'all_access']) {
+    assert.ok(!canAccessMedia({ tier, tokenRow: null }, media).allowed);
+  }
 
   // Creator flips the switch.
   db.prepare('UPDATE vault_all_access SET enabled = 1, subscribers_included = 1 WHERE id = 1').run();
-  assert.ok(canAccessMedia(req, media).allowed);
+  for (const tier of ['subscriber', 'pro', 'all_access']) {
+    assert.ok(canAccessMedia({ tier, tokenRow: null }, media).allowed);
+  }
 });
 
 test('canDownloadMedia on a vault track follows the vault access rules', () => {

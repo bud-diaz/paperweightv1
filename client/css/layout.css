@@ -1,4 +1,91 @@
 /* ── Layout ── */
+#public-share-view {
+  position: fixed; inset: 0; z-index: 1600;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: #070708;
+}
+#public-share-view[hidden] { display: none !important; }
+#public-share-shell {
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-4), var(--shadow-edge-top);
+  padding: 28px 24px 24px;
+}
+#public-share-kicker {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: var(--color, #39ff14);
+  margin-bottom: 10px;
+}
+#public-share-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 32px;
+  line-height: 1.05;
+  color: var(--t1);
+}
+#public-share-subtitle {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--t3);
+  margin-top: 8px;
+}
+#public-share-player { margin-top: 18px; }
+#public-share-player audio,
+#public-share-player video {
+  width: 100%;
+  border-radius: var(--radius-md);
+  background: #000;
+}
+#public-share-tracks {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.public-share-track {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 10px;
+}
+.public-share-track-title {
+  flex: 1;
+  min-width: 0;
+  font-family: 'DM Serif Display', serif;
+  font-size: 16px;
+  color: var(--t2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.public-share-play {
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--t2);
+  cursor: pointer;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .06em;
+  padding: 6px 10px;
+}
+#public-share-foot {
+  margin-top: 16px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--t4);
+  letter-spacing: .05em;
+}
+
 #layout {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center;

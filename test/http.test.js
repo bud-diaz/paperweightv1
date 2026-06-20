@@ -8,7 +8,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { freshDb, seedMedia, seedListener, seedToken, futureIso } = require('./helpers');
+const { freshDb, seedMedia, seedListener, seedToken, futureIso, pastIso } = require('./helpers');
 const { createApp } = require('../src/index');
 const config = require('../src/config');
 const { parseEnvValue, parseTrustProxy } = require('../src/config');
@@ -333,5 +333,177 @@ test('launch-status and launch-accept require dashboard auth', async () => {
       headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
     });
     assert.equal(after.body.accepted, true);
+  });
+});
+
+test('private share links resolve without listener auth and track opens', async () => {
+  const db = freshDb();
+  const media = seedMedia(db, { title: 'Shared Track' });
+  const projectId = db.prepare(
+    "INSERT INTO vault_projects (name, description) VALUES ('Shared Collection', 'A small set')"
+  ).run().lastInsertRowid;
+  db.prepare(
+    'INSERT INTO vault_project_items (project_id, content_id, sort_order) VALUES (?, ?, 0)'
+  ).run(projectId, media.id);
+
+  await withServer(async baseUrl => {
+    const created = await request(baseUrl, '/api/dashboard/share', {
+      method: 'POST',
+      headers: {
+        'X-Dashboard-Token': process.env.DASHBOARD_TOKEN,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        target_type: 'track',
+        target_id: media.id,
+        label: 'Press link',
+        expires_in_hours: 1,
+      }),
+    });
+    assert.equal(created.res.status, 201);
+    assert.equal(created.body.target_type, 'track');
+    assert.match(created.body.token, /^[a-f0-9]{48}$/);
+    assert.match(created.body.url, /\/share\//);
+    assert.ok(created.body.expiresAt);
+
+    const page = await request(baseUrl, `/share/${created.body.token}`);
+    assert.equal(page.res.status, 200);
+    assert.match(page.text, /public-share-view/);
+    assert.match(page.text, /\/js\/main\.js/);
+
+    const firstOpen = await request(baseUrl, `/api/share/${created.body.token}`);
+    assert.equal(firstOpen.res.status, 200);
+    assert.equal(firstOpen.body.track.id, media.id);
+    assert.match(firstOpen.body.track.streamUrl, new RegExp(`/api/library/${media.id}/file`));
+
+    const secondOpen = await request(baseUrl, `/api/share/${created.body.token}`);
+    assert.equal(secondOpen.res.status, 200);
+
+    const row = db.prepare('SELECT open_count, last_opened_at FROM share_links WHERE token = ?').get(created.body.token);
+    assert.equal(row.open_count, 2);
+    assert.ok(row.last_opened_at);
+
+    const collectionCreated = await request(baseUrl, '/api/dashboard/share', {
+      method: 'POST',
+      headers: {
+        'X-Dashboard-Token': process.env.DASHBOARD_TOKEN,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        target_type: 'project',
+        target_id: projectId,
+      }),
+    });
+    assert.equal(collectionCreated.res.status, 201);
+    assert.equal(collectionCreated.body.target_type, 'project');
+
+    const collectionOpen = await request(baseUrl, `/api/share/${collectionCreated.body.token}`);
+    assert.equal(collectionOpen.res.status, 200);
+    assert.equal(collectionOpen.body.target_type, 'project');
+    assert.equal(collectionOpen.body.collection.name, 'Shared Collection');
+    assert.equal(collectionOpen.body.collection.tracks[0].id, media.id);
+  });
+});
+
+test('creator posts enforce listener tier visibility', async () => {
+  const db = freshDb();
+  db.prepare("INSERT INTO creator_posts (title, body, visibility) VALUES ('Public', 'hello', 'public')").run();
+  db.prepare("INSERT INTO creator_posts (title, body, visibility) VALUES ('Supporters', 'inside', 'supporters_only')").run();
+  const listenerId = seedListener(db);
+  const token = seedToken(db, { tier: 'subscriber', listenerId });
+  db.prepare(
+    "INSERT INTO subscriptions (listener_id, tier, provider, provider_subscription_id, status, current_period_end) VALUES (?, 'subscriber', 'stripe', ?, 'active', ?)"
+  ).run(listenerId, 'sub_posts', futureIso());
+
+  await withServer(async baseUrl => {
+    const free = await request(baseUrl, '/api/posts');
+    assert.equal(free.res.status, 200);
+    assert.deepEqual(free.body.posts.map(p => p.title), ['Public']);
+
+    const supporter = await request(baseUrl, '/api/posts', {
+      headers: { Authorization: `Bearer ${token.token}` },
+    });
+    assert.equal(supporter.res.status, 200);
+    assert.deepEqual(supporter.body.posts.map(p => p.title), ['Supporters', 'Public']);
+  });
+});
+
+test('smart playlist preview respects tag filters and sequential order', async () => {
+  const db = freshDb();
+  const later = seedMedia(db, { category: 'music', title: 'Later' });
+  const first = seedMedia(db, { category: 'music', title: 'First' });
+  const skipped = seedMedia(db, { category: 'music', title: 'Skipped' });
+  db.prepare("UPDATE media SET tags = ?, indexed_at = ? WHERE id = ?").run(JSON.stringify(['warm']), '2024-01-02 00:00:00', later.id);
+  db.prepare("UPDATE media SET tags = ?, indexed_at = ? WHERE id = ?").run(JSON.stringify(['warm']), '2024-01-01 00:00:00', first.id);
+  db.prepare("UPDATE media SET tags = ?, indexed_at = ? WHERE id = ?").run(JSON.stringify(['cold']), '2024-01-03 00:00:00', skipped.id);
+  const playlistId = db.prepare(
+    "INSERT INTO smart_playlists (name, category, tags_filter, mode) VALUES ('Warm', 'music', ?, 'sequential')"
+  ).run(JSON.stringify(['warm'])).lastInsertRowid;
+
+  await withServer(async baseUrl => {
+    const preview = await request(baseUrl, `/api/schedule/smart-playlists/${playlistId}/preview`, {
+      headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+    });
+    assert.equal(preview.res.status, 200);
+    assert.deepEqual(preview.body.tracks.map(t => t.id), [first.id, later.id]);
+  });
+});
+
+test('schedule preview returns exact overlapping timeline with tracks', async () => {
+  const db = freshDb();
+  const music = seedMedia(db, { category: 'music', title: 'Music A' });
+  const beat = seedMedia(db, { category: 'beats', title: 'Beat A' });
+  const from = new Date(2024, 0, 3, 9, 30, 0);
+  const to = new Date(2024, 0, 3, 11, 30, 0);
+  const dow = from.getDay();
+
+  db.prepare(`
+    INSERT INTO schedule_blocks (day_of_week, start_time, end_time, category, mode, label, priority)
+    VALUES (?, '09:00', '12:00', 'music', 'shuffle', 'Morning', 0)
+  `).run(dow);
+  db.prepare(`
+    INSERT INTO schedule_blocks (day_of_week, start_time, end_time, category, mode, label, priority)
+    VALUES (?, '10:00', '11:00', 'beats', 'shuffle', 'Priority', 10)
+  `).run(dow);
+
+  await withServer(async baseUrl => {
+    const preview = await request(
+      baseUrl,
+      `/api/schedule/preview?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
+      { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN } }
+    );
+    assert.equal(preview.res.status, 200);
+    assert.deepEqual(preview.body.segments.map(s => s.label), ['Morning', 'Priority', 'Morning']);
+    assert.deepEqual(preview.body.segments.map(s => s.blockId), [1, 2, 1]);
+    assert.equal(preview.body.segments[0].tracks[0].id, music.id);
+    assert.equal(preview.body.segments[1].tracks[0].id, beat.id);
+    assert.equal(preview.body.segments[2].tracks[0].id, music.id);
+  });
+});
+
+test('subscriber analytics returns daily active totals and excludes expired rows', async () => {
+  const db = freshDb();
+  const activeListener = seedListener(db);
+  const expiredListener = seedListener(db);
+  const cancelledListener = seedListener(db);
+  db.prepare(
+    "INSERT INTO subscriptions (listener_id, tier, provider, provider_subscription_id, status, current_period_end, created_at) VALUES (?, 'subscriber', 'stripe', ?, 'active', ?, datetime('now'))"
+  ).run(activeListener, 'sub_active_analytics', futureIso());
+  db.prepare(
+    "INSERT INTO subscriptions (listener_id, tier, provider, provider_subscription_id, status, current_period_end, created_at) VALUES (?, 'subscriber', 'stripe', ?, 'active', ?, datetime('now'))"
+  ).run(expiredListener, 'sub_expired_analytics', pastIso());
+  db.prepare(
+    "INSERT INTO subscriptions (listener_id, tier, provider, provider_subscription_id, status, current_period_end, created_at) VALUES (?, 'subscriber', 'stripe', ?, 'cancelled', ?, datetime('now'))"
+  ).run(cancelledListener, 'sub_cancelled_analytics', futureIso());
+
+  await withServer(async baseUrl => {
+    const result = await request(baseUrl, '/api/analytics/subscribers?days=1', {
+      headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+    });
+    assert.equal(result.res.status, 200);
+    assert.equal(result.body.activeTotal, 1);
+    assert.equal(result.body.rows.length, 1);
+    assert.equal(result.body.rows[0].new_subscribers, 3);
+    assert.equal(result.body.rows[0].active_total, 1);
   });
 });

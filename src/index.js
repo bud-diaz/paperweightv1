@@ -170,10 +170,7 @@ function createApp() {
     res.send(svg);
   });
 
-  app.get('*', (req, res) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/hls')) {
-      return res.status(404).json({ error: 'Not found' });
-    }
+  function sendCreatorHtml(res) {
     const override = path.join(config.paths.root, 'client', 'creator.html');
     if (fs.existsSync(override)) return res.sendFile(override);
     if (isPackaged) {
@@ -183,7 +180,18 @@ function createApp() {
         return res.end(entry.data);
       }
     }
-    res.sendFile(path.join(config.paths.app, 'client', 'creator.html'));
+    return res.sendFile(path.join(config.paths.app, 'client', 'creator.html'));
+  }
+
+  app.get('/share/:token', (req, res) => {
+    sendCreatorHtml(res);
+  });
+
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/hls')) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    sendCreatorHtml(res);
   });
 
   app.use((err, req, res, next) => {

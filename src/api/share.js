@@ -11,6 +11,10 @@ function generateToken() {
   return crypto.randomBytes(24).toString('hex');
 }
 
+function publicShareUrl(req, token) {
+  return `${req.protocol}://${req.get('host')}/share/${token}`;
+}
+
 function isExpired(row) {
   return !!row.expires_at && new Date(row.expires_at).getTime() < Date.now();
 }
@@ -42,7 +46,7 @@ function buildSharePayload(db, row) {
      ORDER BY m.indexed_at ASC`
   ).all(row.target_id);
 
-  return {
+  const projectPayload = {
     target_type: 'project',
     project: {
       id: project.id,
@@ -51,6 +55,8 @@ function buildSharePayload(db, row) {
       tracks: items.map(buildTrackPayload),
     },
   };
+  projectPayload.collection = projectPayload.project;
+  return projectPayload;
 }
 
 // ── Public resolve route ────────────────────────────────────────────────────
@@ -117,7 +123,11 @@ dashRouter.post('/', asyncHandler(async (req, res) => {
 
   const row = db.prepare('SELECT * FROM share_links WHERE token = ?').get(token);
   log('info', 'share', `Created share link for ${target_type}:${targetId}`);
-  res.status(201).json(row);
+  res.status(201).json({
+    ...row,
+    url: publicShareUrl(req, token),
+    expiresAt: row.expires_at,
+  });
 }));
 
 dashRouter.get('/', (req, res) => {

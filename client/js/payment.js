@@ -279,7 +279,7 @@ function _showVaultGate(t, opts) {
     const p     = opts.project;
     const price = p.allowFree ? 'FREE' : `$${(p.minimumPrice / 100).toFixed(2)}`;
     const sub   = `${esc(p.name)} · ${p.paymentType === 'recurring' ? `per ${p.recurringInterval || 'month'}` : 'one-time'}`;
-    makeOption('FULL PROJECT', price, sub,
+    makeOption('FULL COLLECTION', price, sub,
       () => startVaultUnlock('project', p.id, p.minimumPrice, p.paymentType, p.recurringInterval));
   }
 

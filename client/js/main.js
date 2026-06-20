@@ -20,7 +20,7 @@
  */
 
 import { state, authState } from './state.js';
-import { el } from './utils.js';
+import { el, esc, fmt } from './utils.js';
 import * as api from './api.js';
 
 import * as hlsClient from './hls-client.js';
@@ -289,7 +289,88 @@ function enterDashboard() {
 })();
 
 // ─── Init ────────────────────────────────────────────────────────────────────
+function shareTokenFromPath() {
+  const match = location.pathname.match(/^\/share\/([^/?#]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function showPublicShareShell() {
+  const shareView = el('public-share-view');
+  if (shareView) shareView.hidden = false;
+  const layout = el('layout');
+  if (layout) layout.style.display = 'none';
+  const credit = el('credit');
+  if (credit) credit.style.display = 'none';
+  const tip = el('floating-tip');
+  if (tip) tip.style.display = 'none';
+}
+
+function renderSharedMedia(track) {
+  const player = el('public-share-player');
+  if (!player) return;
+  const tag = track.isVideo ? 'video' : 'audio';
+  const title = track.title || `Track #${track.id}`;
+  player.innerHTML = `
+    <${tag} controls preload="metadata" src="${esc(track.streamUrl || track.previewUrl || '')}" aria-label="${esc(title)}"></${tag}>
+  `;
+}
+
+function renderPublicShareTracks(tracks) {
+  const list = el('public-share-tracks');
+  if (!list) return;
+  if (tracks.length <= 1) {
+    list.innerHTML = '';
+    return;
+  }
+  list.innerHTML = tracks.map((track, index) => `
+    <div class="public-share-track">
+      <span class="share-target-kind">${index + 1}</span>
+      <span class="public-share-track-title">${esc(track.title || `Track #${track.id}`)}</span>
+      <span class="share-target-kind">${track.duration ? fmt(track.duration) : ''}</span>
+      <button class="public-share-play" type="button" data-share-track-index="${index}">PLAY</button>
+    </div>
+  `).join('');
+  list.querySelectorAll('[data-share-track-index]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const track = tracks[parseInt(btn.dataset.shareTrackIndex, 10)];
+      if (track) renderSharedMedia(track);
+    });
+  });
+}
+
+async function maybeRenderPublicShare() {
+  const token = shareTokenFromPath();
+  if (!token) return false;
+  showPublicShareShell();
+  try {
+    const data = await api.share.resolve(token);
+    if (data.error) throw new Error(data.error);
+    const collection = data.collection || data.project || null;
+    const tracks = data.track ? [data.track] : (collection?.tracks || []);
+    if (!tracks.length) throw new Error('Shared content unavailable');
+    const title = data.label || data.track?.title || collection?.name || 'Shared content';
+    el('public-share-title').textContent = title;
+    el('public-share-subtitle').textContent = collection
+      ? `${collection.tracks.length} track${collection.tracks.length === 1 ? '' : 's'} in this collection${collection.description ? ' / ' + collection.description : ''}`
+      : [data.track?.artist, data.track?.category].filter(Boolean).join(' / ');
+    if (tracks[0]) renderSharedMedia(tracks[0]);
+    renderPublicShareTracks(tracks);
+    el('public-share-foot').textContent = data.expiresAt
+      ? `Expires ${new Date(data.expiresAt).toLocaleString()}`
+      : 'No expiration set.';
+  } catch {
+    el('public-share-title').textContent = 'Share unavailable';
+    el('public-share-subtitle').textContent = 'This link is expired, revoked, or the shared content is no longer available.';
+    el('public-share-player').innerHTML = '';
+    el('public-share-tracks').innerHTML = '';
+    el('public-share-foot').textContent = '';
+  }
+  return true;
+}
+
 async function init() {
+  if (await maybeRenderPublicShare()) return;
+
   // Station name
   try {
     const d = await api.stream.health();

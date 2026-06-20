@@ -317,7 +317,7 @@ export function buildDashLibProject(proj, allItems, highlight = null) {
     <div class="dash-lib-proj-header">
       <span class="dash-lib-proj-name">${esc(proj.name)}</span>
       <span style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.25);">${tracks.length} TRACKS</span>
-      <button class="mgmt-btn" id="tok-tog-${projPanelId}" style="letter-spacing:.03em;">⬡ PROJECT TOKEN</button>
+      <button class="mgmt-btn" id="tok-tog-${projPanelId}" style="letter-spacing:.03em;">⬡ COLLECTION TOKEN</button>
     </div>
     <div class="dash-tok-panel" id="${tokPanelId}" hidden>
       <div id="${tokListId}"></div>

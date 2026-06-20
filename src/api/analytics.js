@@ -63,8 +63,9 @@ router.get('/top', (req, res) => {
 // GET /api/analytics/subscribers?days=90
 router.get('/subscribers', (req, res) => {
   const days = Math.min(365, Math.max(1, parseInt(req.query.days, 10) || 90));
+  const db = getDb();
 
-  const history = getDb().prepare(`
+  const newRows = db.prepare(`
     SELECT
       date(created_at) AS date,
       COUNT(*) AS new_subscribers
@@ -74,15 +75,41 @@ router.get('/subscribers', (req, res) => {
     ORDER BY date ASC
   `).all({ offset: `-${days} days` });
 
-  const { active_total } = getDb().prepare(`
+  const activeRows = db.prepare(`
     SELECT COUNT(*) AS active_total
     FROM subscriptions
     WHERE status = 'active'
+      AND datetime(current_period_end) > datetime('now')
   `).get();
 
+  const newByDate = new Map(newRows.map(r => [r.date, r.new_subscribers]));
+  const rows = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const day = new Date();
+    day.setDate(day.getDate() - i);
+    const date = day.toISOString().slice(0, 10);
+    const { active_total } = db.prepare(`
+      SELECT COUNT(*) AS active_total
+      FROM subscriptions
+      WHERE status = 'active'
+        AND date(created_at) <= :date
+        AND datetime(current_period_end) > datetime(:date || ' 23:59:59')
+    `).get({ date });
+    rows.push({
+      date,
+      new_subscribers: newByDate.get(date) || 0,
+      active_total,
+    });
+  }
+
   res.json({
-    activeTotal: active_total,
-    history: history.map(r => ({ date: r.date, newSubscribers: r.new_subscribers })),
+    activeTotal: activeRows.active_total || 0,
+    rows,
+    history: rows.map(r => ({
+      date: r.date,
+      newSubscribers: r.new_subscribers,
+      activeTotal: r.active_total,
+    })),
   });
 });
 

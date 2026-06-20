@@ -181,6 +181,11 @@ function resolveBatch() {
     const block = resolveCurrentBlock();
     if (block) {
       let raw;
+      let blockTagsFilter = [];
+      try {
+        const parsed = block.tags_filter ? JSON.parse(block.tags_filter) : [];
+        blockTagsFilter = Array.isArray(parsed) ? parsed : [];
+      } catch {}
       if (block.target_type === 'smart_playlist' && block.target_id) {
         const playlist = getDb().prepare('SELECT * FROM smart_playlists WHERE id = ?').get(block.target_id);
         if (playlist) {
@@ -189,13 +194,17 @@ function resolveBatch() {
             const parsed = playlist.tags_filter ? JSON.parse(playlist.tags_filter) : [];
             tagsFilter = Array.isArray(parsed) ? parsed : [];
           } catch {}
-          raw = buildSmartPlaylistBatch({ category: playlist.category || null, tagsFilter });
+          raw = buildSmartPlaylistBatch({
+            category: playlist.category || null,
+            tagsFilter,
+            mode: playlist.mode,
+          });
         }
       }
       if (!raw) {
         raw = block.mode === 'sequential'
           ? buildSequentialBatch({ blockId: block.id })
-          : buildShuffleBatch({ category: block.category || null });
+          : buildShuffleBatch({ category: block.category || null, tagsFilter: blockTagsFilter });
       }
       const tracks = homogenizeBatch(raw);
       if (tracks.length > 0) return { tracks, source: `block:${block.id}` };

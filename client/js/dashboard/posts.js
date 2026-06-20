@@ -7,6 +7,16 @@ import { el, esc } from '../utils.js';
 
 export function init() {}
 
+function renderPostPreview(target, title, body, visibility) {
+  if (!target) return;
+  target.hidden = false;
+  target.innerHTML = `
+    <div class="post-preview-title">${esc(title || '(untitled)')}</div>
+    <div class="post-preview-body">${esc(body || 'Nothing written yet.')}</div>
+    <div class="share-target-selected" style="margin-top:8px;">${esc(visibility === 'supporters_only' ? 'Supporters Only' : 'Public')}</div>
+  `;
+}
+
 export async function loadDashPosts() {
   const list = el('dash-posts-list');
   if (!list) return;
@@ -95,6 +105,23 @@ export async function loadDashPosts() {
 
 export function initPostHandlers() {
   const btn = el('btn-add-post');
+  const previewBtn = el('btn-post-preview');
+  if (previewBtn) {
+    previewBtn.addEventListener('click', () => {
+      const preview = el('post-new-preview');
+      if (!preview) return;
+      if (!preview.hidden) {
+        preview.hidden = true;
+        return;
+      }
+      renderPostPreview(
+        preview,
+        el('post-new-title').value.trim(),
+        el('post-new-body').value.trim(),
+        el('post-new-visibility').value
+      );
+    });
+  }
   if (!btn) return;
   btn.addEventListener('click', async () => {
     const msgEl = el('post-new-msg');
@@ -112,6 +139,11 @@ export function initPostHandlers() {
     if (res.ok) {
       el('post-new-title').value = '';
       el('post-new-body').value  = '';
+      const preview = el('post-new-preview');
+      if (preview) {
+        preview.hidden = true;
+        preview.innerHTML = '';
+      }
       if (msgEl) msgEl.textContent = '';
       loadDashPosts();
     } else if (msgEl) {
