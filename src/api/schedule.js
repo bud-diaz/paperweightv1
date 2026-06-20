@@ -3,6 +3,9 @@ const { getDb } = require('../db');
 const { requireDashboard } = require('../auth/middleware');
 const { resolveCurrentBlock, isValidTime, isValidDayOfWeek } = require('../broadcast/scheduler');
 
+const PREVIEW_INTERVAL_MINUTES = 15;
+const PREVIEW_MAX_HOURS = 168;
+
 router.get('/current', (req, res) => {
   const block = resolveCurrentBlock();
   res.json(block || null);
@@ -123,6 +126,60 @@ router.delete('/blocks/:id', (req, res) => {
   const changes = getDb().prepare('DELETE FROM schedule_blocks WHERE id = ?').run(req.params.id).changes;
   if (!changes) return res.status(404).json({ error: 'Block not found' });
   res.json({ ok: true });
+});
+
+// Walks forward from `from` in fixed intervals, resolving the active block at
+// each sample point via the existing resolveCurrentBlock, and collapses
+// consecutive samples that resolve to the same block into one segment.
+router.get('/preview', (req, res) => {
+  const from = req.query.from ? new Date(req.query.from) : new Date();
+  if (isNaN(from.getTime())) {
+    return res.status(400).json({ error: 'from must be a valid ISO8601 timestamp' });
+  }
+
+  let hours = req.query.hours !== undefined ? Number(req.query.hours) : 24;
+  if (!Number.isFinite(hours) || hours <= 0) {
+    return res.status(400).json({ error: 'hours must be a positive number' });
+  }
+  hours = Math.min(hours, PREVIEW_MAX_HOURS);
+
+  const stepMs = PREVIEW_INTERVAL_MINUTES * 60000;
+  const endTime = from.getTime() + hours * 60 * 60000;
+
+  const segments = [];
+  let current = null;
+
+  for (let t = from.getTime(); t < endTime; t += stepMs) {
+    const sampleDate = new Date(t);
+    const block = resolveCurrentBlock(sampleDate);
+    const blockKey = block ? block.id : null;
+
+    if (!current || current.blockKey !== blockKey) {
+      if (current) segments.push(current);
+      current = {
+        blockKey,
+        start: sampleDate.toISOString(),
+        end: new Date(t + stepMs).toISOString(),
+        block: block ? {
+          id: block.id,
+          label: block.label,
+          mode: block.mode,
+          category: block.category,
+          target_type: block.target_type,
+          target_id: block.target_id,
+        } : null,
+      };
+    } else {
+      current.end = new Date(t + stepMs).toISOString();
+    }
+  }
+  if (current) segments.push(current);
+
+  res.json({
+    from: from.toISOString(),
+    hours,
+    segments: segments.map(({ blockKey, ...rest }) => rest),
+  });
 });
 
 // ── Smart playlists ──────────────────────────────────────────────────────────

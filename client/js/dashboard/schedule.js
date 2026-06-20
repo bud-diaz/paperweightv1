@@ -155,7 +155,46 @@ export async function loadDashSchedule() {
   } catch {}
 }
 
+export async function loadDashSchedulePreview() {
+  const list = el('dash-sched-preview-list');
+  if (!list) return;
+  list.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">Loading…</div>';
+  try {
+    const data = await api.dashboard.schedule.preview(new Date().toISOString(), 24);
+    if (!data.segments.length) {
+      list.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No segments.</div>';
+      return;
+    }
+    const fmt = d => d.toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    list.innerHTML = '';
+    for (const seg of data.segments) {
+      const start = new Date(seg.start);
+      const end   = new Date(seg.end);
+      const label = seg.block ? (seg.block.label || `Block #${seg.block.id}`) : 'Shuffle (no block)';
+      const detail = seg.block
+        ? `${seg.block.mode}${seg.block.target_type ? ' · ' + seg.block.target_type.replace('_', ' ') + ' #' + seg.block.target_id : (seg.block.category ? ' · ' + seg.block.category : '')}`
+        : '';
+      const row = document.createElement('div');
+      row.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;border-radius:7px;margin-bottom:1px;">
+          <div>
+            <div style="font-family:'DM Serif Display',serif;font-size:14px;color:rgba(255,255,255,.78);">${esc(label)}</div>
+            <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);margin-top:2px;">${esc(detail)}</div>
+          </div>
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.45);text-align:right;white-space:nowrap;">${esc(fmt(start))} – ${esc(fmt(end))}</div>
+        </div>`;
+      list.appendChild(row);
+    }
+  } catch {
+    list.innerHTML = '<div style="font-size:11px;color:#ff6b6b;font-family:\'Space Mono\',monospace;padding:8px 14px;">Failed to load preview.</div>';
+  }
+}
+
 export function initScheduleHandlers() {
+  const previewBtn = el('btn-sched-preview-refresh');
+  if (previewBtn) previewBtn.addEventListener('click', loadDashSchedulePreview);
+
+
   el('btn-add-sched').addEventListener('click', async () => {
     const dayVal  = el('sched-day').value;
     const srcType = el('sched-source') ? el('sched-source').value : '';

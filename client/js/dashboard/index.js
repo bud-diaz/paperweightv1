@@ -33,6 +33,7 @@ let _loadDashTokens         = () => {};
 let _loadDashShareLinks     = () => {};
 let _loadDashAllAccess      = () => {};
 let _loadDashSmartPlaylists = () => {};
+let _loadDashSchedulePreview = () => {};
 
 export function init(callbacks = {}) {
   if (callbacks.loadDashStation)       _loadDashStation       = callbacks.loadDashStation;
@@ -57,6 +58,7 @@ export function init(callbacks = {}) {
   if (callbacks.loadDashShareLinks)    _loadDashShareLinks    = callbacks.loadDashShareLinks;
   if (callbacks.loadDashAllAccess)     _loadDashAllAccess     = callbacks.loadDashAllAccess;
   if (callbacks.loadDashSmartPlaylists) _loadDashSmartPlaylists = callbacks.loadDashSmartPlaylists;
+  if (callbacks.loadDashSchedulePreview) _loadDashSchedulePreview = callbacks.loadDashSchedulePreview;
 }
 
 // ── Auth probe ─────────────────────────────────────────────────────────────────
@@ -251,6 +253,7 @@ export function loadDashboard() {
   _loadRadioHostStatus();
   _loadDashSchedule();
   _loadDashSmartPlaylists();
+  _loadDashSchedulePreview();
   _loadDashProjects();
   _loadDashLibrary();
   loadDashAccounts();

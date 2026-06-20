@@ -112,6 +112,7 @@ dashIndex.init({
   loadDashShareLinks:   shareLinks.loadDashShareLinks,
   loadDashAllAccess:    allAccess.loadDashAllAccess,
   loadDashSmartPlaylists: smartPlaylists.loadDashSmartPlaylists,
+  loadDashSchedulePreview: schedule.loadDashSchedulePreview,
 });
 
 vault.init({

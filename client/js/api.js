@@ -490,6 +490,18 @@ export const dashboard = {
       return _del(`/api/schedule/blocks/${id}`);
     },
 
+    /**
+     * GET /api/schedule/preview?from={ISO8601}&hours={hours}
+     * @param {string} [from] ISO8601 timestamp; defaults to now
+     * @param {number} [hours=24]
+     * @returns {{ from: string, hours: number, segments: Array<{ start, end, block: object|null }> }}
+     */
+    preview(from, hours = 24) {
+      const q = new URLSearchParams({ hours: String(hours) });
+      if (from) q.set('from', from);
+      return _json(`/api/schedule/preview?${q}`);
+    },
+
     smartPlaylists: {
       /**
        * GET /api/schedule/smart-playlists
