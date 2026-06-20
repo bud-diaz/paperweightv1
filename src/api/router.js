@@ -12,6 +12,9 @@ router.get('/health', (req, res) => {
   res.json({ status: 'ok', station: config.station.name });
 });
 
+// First-run setup wizard (only reachable while config.firstRun is true)
+router.use('/setup', require('./setup'));
+
 router.use('/auth', require('./auth'));
 
 // v1 routes (unchanged)

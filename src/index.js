@@ -16,6 +16,7 @@ const isPackaged = typeof process.pkg !== 'undefined';
 let server;
 let isShuttingDown = false;
 let fatalExitCode = 0;
+let setupSubmitted = false;
 
 function hlsAssetPath() {
   return path.join(config.paths.app, 'node_modules', 'hls.js', 'dist', 'hls.min.js');
@@ -70,6 +71,26 @@ function createApp() {
   });
 
   app.use('/api', apiRouter);
+
+  // On the very first launch of a packaged exe (no .env existed yet), send
+  // every page navigation to the setup wizard instead of the listener/
+  // dashboard UI, while still letting static assets (fonts, css, etc., needed
+  // to render the wizard itself) fall through to the static middleware below.
+  const STATIC_ASSET_RE = /\.(css|js|mjs|woff2?|ttf|png|jpe?g|svg|ico|json|map)$/i;
+  app.use((req, res, next) => {
+    if (!config.firstRun || setupSubmitted || STATIC_ASSET_RE.test(req.path)
+      || req.path.startsWith('/api') || req.path.startsWith('/hls')) {
+      return next();
+    }
+    if (isPackaged) {
+      const entry = require('./client-bundle')['/setup.html'];
+      if (entry) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.end(entry.data);
+      }
+    }
+    res.sendFile(path.join(config.paths.app, 'client', 'setup.html'));
+  });
 
   // User-side overrides (files placed next to the exe) take precedence.
   app.use(express.static(path.join(config.paths.root, 'client')));
@@ -201,14 +222,18 @@ async function start() {
   return server;
 }
 
+function stopSubsystems() {
+  live.stopLive();
+  broadcast.stop();
+  stopScanner();
+}
+
 function shutdown() {
   if (isShuttingDown) return;
   isShuttingDown = true;
 
   try { log('info', 'server', 'Shutting down...'); } catch {}
-  live.stopLive();
-  broadcast.stop();
-  stopScanner();
+  stopSubsystems();
 
   if (server) {
     server.close(() => {
@@ -225,6 +250,39 @@ function shutdown() {
   }
 }
 
+// Called once the setup wizard finishes writing .env. Relaunches the process
+// (exe or `node src/index.js`) so config.js re-reads the now-complete .env
+// from scratch, then exits this one — mirrors the restart already required
+// after manually editing .env.
+function restartForSetup() {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  setupSubmitted = true;
+
+  try { log('info', 'server', 'Setup complete, restarting to apply configuration...'); } catch {}
+  stopSubsystems();
+
+  const { spawn } = require('child_process');
+  const child = spawn(process.execPath, process.argv.slice(1), {
+    cwd: process.cwd(),
+    env: process.env,
+    detached: true,
+    stdio: 'ignore',
+  });
+  child.unref();
+
+  if (server) {
+    server.close(() => {
+      closeDb();
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(0), 3000).unref();
+  } else {
+    closeDb();
+    process.exit(0);
+  }
+}
+
 if (require.main === module) {
   process.on('uncaughtException', err => fatalShutdown('Uncaught exception', err));
   process.on('unhandledRejection', reason => fatalShutdown('Unhandled rejection', reason));
@@ -237,4 +295,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createApp, start, shutdown, hlsAssetPath };
+module.exports = { createApp, start, shutdown, restartForSetup, hlsAssetPath };

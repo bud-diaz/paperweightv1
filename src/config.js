@@ -57,6 +57,8 @@ function parseEnvValue(raw) {
   return value;
 }
 
+let isFirstRun = false;
+
 function loadEnv() {
   const envPath = path.join(dataRoot, '.env');
 
@@ -66,7 +68,9 @@ function loadEnv() {
     }
 
     if (isPackaged) {
-      // First run: create a default .env next to the exe so the user can edit it.
+      // First run: create a default .env next to the exe, then let the setup
+      // wizard (served in-browser) overwrite the station/vault fields below.
+      isFirstRun = true;
       const token = crypto.randomBytes(16).toString('hex');
       const signingSecret = crypto.randomBytes(32).toString('hex');
       const defaults = [
@@ -206,6 +210,10 @@ const config = {
 
   // true when the server is behind TLS (enables secure cookies, HTTPS redirects)
   https: process.env.HTTPS === 'true',
+
+  // true only on the very first launch of a packaged exe, before a .env file
+  // existed. Drives the in-browser setup wizard instead of the normal UI.
+  firstRun: isFirstRun,
 };
 
 module.exports = config;
@@ -241,5 +249,26 @@ function warnStartupConfig() {
 
 warnStartupConfig();
 
+// Writes/updates one or more KEY=value lines in the .env next to the data
+// root, preserving everything else already in the file. Used by the setup
+// wizard to persist the user's choices on top of the auto-generated defaults.
+function upsertEnvValues(values) {
+  const envPath = path.join(dataRoot, '.env');
+  let contents = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
+
+  for (const [key, value] of Object.entries(values)) {
+    const line = `${key}=${value}`;
+    const keyRe = new RegExp(`^${key}=.*$`, 'm');
+    if (keyRe.test(contents)) {
+      contents = contents.replace(keyRe, () => line);
+    } else {
+      contents += (contents && !contents.endsWith('\n') ? '\n' : '') + line + '\n';
+    }
+  }
+
+  fs.writeFileSync(envPath, contents, 'utf8');
+}
+
 module.exports.parseEnvValue = parseEnvValue;
 module.exports.parseTrustProxy = parseTrustProxy;
+module.exports.upsertEnvValues = upsertEnvValues;
