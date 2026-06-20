@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config');
 const { log, getDb } = require('../db');
-const { buildShuffleBatch, buildSequentialBatch, homogenizeBatch, isVideoTrack } = require('./playlist');
+const { buildShuffleBatch, buildSequentialBatch, buildSmartPlaylistBatch, homogenizeBatch, isVideoTrack } = require('./playlist');
 const { resolveCurrentBlock } = require('./scheduler');
 const { writeConcatManifest } = require('./concat');
 const { ffmpegPath, installHint } = require('../runtime/ffmpeg');
@@ -180,9 +180,23 @@ function resolveBatch() {
   if (state.mode === 'scheduled') {
     const block = resolveCurrentBlock();
     if (block) {
-      const raw = block.mode === 'sequential'
-        ? buildSequentialBatch({ blockId: block.id })
-        : buildShuffleBatch({ category: block.category || null });
+      let raw;
+      if (block.target_type === 'smart_playlist' && block.target_id) {
+        const playlist = getDb().prepare('SELECT * FROM smart_playlists WHERE id = ?').get(block.target_id);
+        if (playlist) {
+          let tagsFilter = [];
+          try {
+            const parsed = playlist.tags_filter ? JSON.parse(playlist.tags_filter) : [];
+            tagsFilter = Array.isArray(parsed) ? parsed : [];
+          } catch {}
+          raw = buildSmartPlaylistBatch({ category: playlist.category || null, tagsFilter });
+        }
+      }
+      if (!raw) {
+        raw = block.mode === 'sequential'
+          ? buildSequentialBatch({ blockId: block.id })
+          : buildShuffleBatch({ category: block.category || null });
+      }
       const tracks = homogenizeBatch(raw);
       if (tracks.length > 0) return { tracks, source: `block:${block.id}` };
       log('warn', 'broadcast', `Block ${block.id} resolved to empty — falling back to global shuffle`);

@@ -489,6 +489,53 @@ export const dashboard = {
     deleteBlock(id) {
       return _del(`/api/schedule/blocks/${id}`);
     },
+
+    smartPlaylists: {
+      /**
+       * GET /api/schedule/smart-playlists
+       * @returns {Array<object>}
+       */
+      list() {
+        return _json('/api/schedule/smart-playlists');
+      },
+
+      /**
+       * POST /api/schedule/smart-playlists
+       * @param {{ name, description?, category?, tags_filter?, mode }} body
+       * @returns {{ res: Response, data: object }}
+       */
+      create(body) {
+        return _send('/api/schedule/smart-playlists', body);
+      },
+
+      /**
+       * PUT /api/schedule/smart-playlists/{id}
+       * @param {number} id
+       * @param {object} body
+       * @returns {{ res: Response, data: object }}
+       */
+      update(id, body) {
+        return _send(`/api/schedule/smart-playlists/${id}`, body, 'PUT');
+      },
+
+      /**
+       * DELETE /api/schedule/smart-playlists/{id}
+       * @param {number} id
+       * @returns {{ res: Response, data: object }}
+       */
+      remove(id) {
+        return _del(`/api/schedule/smart-playlists/${id}`);
+      },
+
+      /**
+       * GET /api/schedule/smart-playlists/{id}/preview
+       * @param {number} id
+       * @returns {{ count: number, tracks: Array }}
+       */
+      preview(id) {
+        return _json(`/api/schedule/smart-playlists/${id}/preview`);
+      },
+    },
   },
 
   // ── Vault projects ─────────────────────────────────────────────────────────────

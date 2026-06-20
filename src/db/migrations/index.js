@@ -453,4 +453,24 @@ CREATE TABLE IF NOT EXISTS share_links (
 CREATE INDEX IF NOT EXISTS idx_share_links_token ON share_links(token);
 `,
   },
+  {
+    filename: "018_smart_playlists.sql",
+    sql: `-- Migration 018: Smart playlists
+-- A named, saveable category + tags_filter query. schedule_blocks can point
+-- at one via target_type = 'smart_playlist' / target_id; the broadcast
+-- engine resolves the live track list from the vault at block-start time.
+
+CREATE TABLE IF NOT EXISTS smart_playlists (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT    NOT NULL,
+  description TEXT,
+  category    TEXT,
+  tags_filter TEXT,
+  mode        TEXT    NOT NULL DEFAULT 'shuffle'
+              CHECK(mode IN ('shuffle', 'sequential')),
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+`,
+  },
 ];

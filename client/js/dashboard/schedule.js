@@ -93,6 +93,7 @@ export async function loadDashSchedule() {
                 <option value="">From category</option>
                 <option value="vault_item"${b.target_type==='vault_item'?' selected':''}>Vault item</option>
                 <option value="vault_project"${b.target_type==='vault_project'?' selected':''}>Vault project</option>
+                <option value="smart_playlist"${b.target_type==='smart_playlist'?' selected':''}>Smart playlist</option>
               </select>
               <input type="number" class="dash-input dash-input-sm" id="se-tid-${b.id}" placeholder="Target ID" value="${b.target_id||''}" style="width:100px;"/>
             </div>

@@ -41,6 +41,7 @@ import * as allAccess   from './dashboard/allaccess.js';
 import * as broadcast   from './dashboard/broadcast.js';
 import * as live        from './dashboard/live.js';
 import * as schedule    from './dashboard/schedule.js';
+import * as smartPlaylists from './dashboard/smartplaylists.js';
 import * as upload      from './dashboard/upload.js';
 import * as analytics   from './dashboard/analytics.js';
 import * as twofa       from './dashboard/twofa.js';
@@ -110,6 +111,7 @@ dashIndex.init({
   loadDashTokens:       vault.loadDashTokens,
   loadDashShareLinks:   shareLinks.loadDashShareLinks,
   loadDashAllAccess:    allAccess.loadDashAllAccess,
+  loadDashSmartPlaylists: smartPlaylists.loadDashSmartPlaylists,
 });
 
 vault.init({
@@ -159,6 +161,7 @@ bio.init();
 broadcast.init();
 live.init();
 schedule.init();
+smartPlaylists.init();
 twofa.init();
 
 // ── Event handler wiring ───────────────────────────────────────────────────
@@ -180,6 +183,7 @@ allAccess.initAllAccessHandlers();
 broadcast.initBroadcastHandlers();
 live.initLiveHandlers();
 schedule.initScheduleHandlers();
+smartPlaylists.initSmartPlaylistHandlers();
 upload.initUploadHandlers();
 analytics.initAnalyticsHandlers();
 twofa.initTwoFAHandlers();

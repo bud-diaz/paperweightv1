@@ -812,10 +812,42 @@
                   <option value="">From category</option>
                   <option value="vault_item">Vault item</option>
                   <option value="vault_project">Vault project</option>
+                  <option value="smart_playlist">Smart playlist</option>
                 </select>
                 <input type="number" class="dash-input dash-input-sm" id="sched-target-id" placeholder="Target ID"/>
                 <button class="mgmt-btn" id="btn-add-sched">ADD</button>
               </div>
+            </details>
+            <details id="smart-playlists-details">
+              <summary class="dash-summary">SMART PLAYLISTS</summary>
+              <div id="dash-smart-playlist-list"></div>
+              <details class="sp-add-details">
+                <summary class="dash-summary">+ ADD SMART PLAYLIST</summary>
+                <div class="dash-form-row" style="flex-wrap:wrap;gap:6px;margin-bottom:6px;">
+                  <input type="text" class="dash-input dash-input-sm" id="sp-new-name" placeholder="Name…" style="flex:2;min-width:100px;"/>
+                  <input type="text" class="dash-input dash-input-sm" id="sp-new-desc" placeholder="Description…" style="flex:2;min-width:100px;"/>
+                  <select class="dash-select" id="sp-new-category">
+                    <option value="">Any</option>
+                    <option value="music">Music</option>
+                    <option value="beats">Beats</option>
+                    <option value="podcasts">Podcasts</option>
+                    <option value="videos">Videos</option>
+                    <option value="drafts">Drafts</option>
+                    <option value="live_sessions">Live sessions</option>
+                  </select>
+                  <select class="dash-select" id="sp-new-mode">
+                    <option value="shuffle">Shuffle</option>
+                    <option value="sequential">Sequential</option>
+                  </select>
+                </div>
+                <div class="dash-form-row" style="gap:6px;margin-bottom:6px;">
+                  <input type="text" class="dash-input dash-input-sm" id="sp-new-tags" placeholder="tags, comma, separated" style="flex:1;"/>
+                  <button class="mgmt-btn" id="btn-add-smart-playlist">ADD</button>
+                </div>
+                <div style="display:flex;justify-content:flex-end;">
+                  <span id="sp-new-msg" style="font-family:'Space Mono',monospace;font-size:10px;"></span>
+                </div>
+              </details>
             </details>
           </div>
 
