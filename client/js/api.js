@@ -526,6 +526,23 @@ export const dashboard = {
     removeTrack(projId, contentId) {
       return _del(`/api/dashboard/vault/projects/${projId}/items/${contentId}`);
     },
+
+    /**
+     * GET /api/dashboard/vault/highlight
+     * @returns {{ highlight_type: string|null, highlight_id: number|null }}
+     */
+    getHighlight() {
+      return _json('/api/dashboard/vault/highlight');
+    },
+
+    /**
+     * PUT /api/dashboard/vault/highlight
+     * @param {{ type: 'track'|'project'|null, id: number|null }} body
+     * @returns {{ res: Response, data: object }}
+     */
+    setHighlight(body) {
+      return _send('/api/dashboard/vault/highlight', body, 'PUT');
+    },
   },
 
   // ── Tokens ─────────────────────────────────────────────────────────────────────

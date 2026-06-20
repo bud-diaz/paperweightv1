@@ -213,6 +213,70 @@ function getPreviewJob(key, row, isVideo, previewPath) {
   return job;
 }
 
+// Builds the 3 curated drawer slots: most recently active project, most
+// played track, and the creator-chosen highlight. Computed here (rather than
+// reusing the dashboard-only /api/analytics) so "most played" can be derived
+// without exposing the gated analytics endpoint to the public player.
+function buildCuratedSelection(db, projects, standalone) {
+  const used = new Set();
+
+  let recentProject = null;
+  for (const p of [...projects].sort((a, b) => {
+    const ad = a.tracks[0]?.indexedAt || '';
+    const bd = b.tracks[0]?.indexedAt || '';
+    return ad < bd ? 1 : ad > bd ? -1 : 0;
+  })) {
+    if (used.has(`project:${p.id}`)) continue;
+    recentProject = p;
+    used.add(`project:${p.id}`);
+    break;
+  }
+
+  const allTrackItems = [...standalone, ...projects.flatMap(p => p.tracks)];
+  const trackById = new Map(allTrackItems.map(t => [t.id, t]));
+
+  const playCounts = db.prepare(
+    'SELECT media_id, COUNT(*) AS plays FROM listen_events WHERE media_id IS NOT NULL GROUP BY media_id ORDER BY plays DESC'
+  ).all();
+
+  let mostPlayed = null;
+  for (const row of playCounts) {
+    const item = trackById.get(row.media_id);
+    if (item && !used.has(`track:${item.id}`)) {
+      mostPlayed = item;
+      used.add(`track:${item.id}`);
+      break;
+    }
+  }
+  if (!mostPlayed) {
+    for (const item of allTrackItems) {
+      if (!used.has(`track:${item.id}`)) {
+        mostPlayed = item;
+        used.add(`track:${item.id}`);
+        break;
+      }
+    }
+  }
+
+  let highlighted = null;
+  const hl = db.prepare('SELECT highlight_type, highlight_id FROM highlight_config WHERE id = 1').get();
+  if (hl?.highlight_type === 'track') {
+    const item = trackById.get(hl.highlight_id);
+    if (item && !used.has(`track:${item.id}`)) {
+      highlighted = { type: 'track', item };
+      used.add(`track:${item.id}`);
+    }
+  } else if (hl?.highlight_type === 'project') {
+    const proj = projects.find(p => p.id === hl.highlight_id);
+    if (proj && !used.has(`project:${proj.id}`)) {
+      highlighted = { type: 'project', item: proj };
+      used.add(`project:${proj.id}`);
+    }
+  }
+
+  return { recentProject, mostPlayed, highlighted };
+}
+
 router.get('/structure', (req, res) => {
   const db = getDb();
   const { conditions, params } = buildMediaQuery({ tier: req.tier });
@@ -238,10 +302,14 @@ router.get('/structure', (req, res) => {
     }
   }
 
-  res.json({
+  const result = {
     projects: [...projectMap.values()].filter(p => p.tracks.length > 0),
     standalone,
-  });
+  };
+
+  result.curated = buildCuratedSelection(db, result.projects, result.standalone);
+
+  res.json(result);
 });
 
 router.get('/', (req, res) => {

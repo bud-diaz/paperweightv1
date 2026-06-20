@@ -14,6 +14,28 @@
   --radius-md:   10px;
   --radius-sm:   8px;
   --radius-xs:   4px;
+
+  --shadow-1: 0 1px 2px rgba(0,0,0,.3), 0 1px 1px rgba(0,0,0,.2);
+  --shadow-2: 0 8px 24px rgba(0,0,0,.45);
+  --shadow-3: 0 16px 40px rgba(0,0,0,.55);
+  --shadow-4: 0 32px 80px rgba(0,0,0,.7);
+  --shadow-edge-top: inset 0 1px 0 rgba(255,255,255,.07);
+
+  --vibrancy-blur: 20px;
+  --vibrancy-blur-sm: 10px;
+  --vibrancy-sat: 1.4;
+  --vibrancy-bg: rgba(20,20,24,.72);
+
+  --border-hairline-top: rgba(255,255,255,.13);
+
+  --ease-out-macos: cubic-bezier(.16,1,.3,1);
+  --dur-fast: .12s;
+  --dur-med:  .2s;
+  --dur-slow: .35s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: .001ms !important; animation-duration: .001ms !important; }
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

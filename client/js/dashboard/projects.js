@@ -4,6 +4,7 @@
 
 import * as api from '../api.js';
 import { el, esc } from '../utils.js';
+import { toggleHighlight } from './vault.js';
 
 // ── Injected callbacks ─────────────────────────────────────────────────────────
 let _loadDashProjects  = () => {};
@@ -19,9 +20,10 @@ export function init(callbacks = {}) {
 // ── Project list ───────────────────────────────────────────────────────────────
 export async function loadDashProjects() {
   try {
-    const [items, pricing] = await Promise.all([
+    const [items, pricing, highlight] = await Promise.all([
       api.dashboard.media.list(),
       api.dashboard.vault.pricing(),
+      api.dashboard.vault.getHighlight(),
     ]);
     const projects    = pricing.projects || [];
     const assignedIds = new Set(projects.flatMap(p => (p.items||[]).map(i => i.content_id)));
@@ -31,16 +33,18 @@ export async function loadDashProjects() {
     if (!projects.length) {
       list.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:4px 14px 8px;">No projects yet.</div>';
     }
-    for (const proj of projects) list.appendChild(buildDashProjectCard(proj, items, unassigned));
+    for (const proj of projects) list.appendChild(buildDashProjectCard(proj, items, unassigned, highlight));
   } catch {
     el('dash-proj-list').innerHTML = '<div style="font-size:11px;color:#ff6b6b;font-family:\'Space Mono\',monospace;padding:4px 14px;">Failed to load projects.</div>';
   }
 }
 
 // ── Project card builder ───────────────────────────────────────────────────────
-export function buildDashProjectCard(proj, allItems, unassigned) {
+export function buildDashProjectCard(proj, allItems, unassigned, highlight = null) {
   const card = document.createElement('div');
   card.className = 'dash-proj-card';
+
+  const isHighlighted = highlight?.highlight_type === 'project' && highlight?.highlight_id === proj.id;
 
   // Header
   const head = document.createElement('div');
@@ -49,9 +53,15 @@ export function buildDashProjectCard(proj, allItems, unassigned) {
     <span class="dash-proj-chevron">▶</span>
     <span class="dash-proj-title">${esc(proj.name)}</span>
     <span class="dash-proj-count">${(proj.items||[]).length} track${(proj.items||[]).length!==1?'s':''}</span>
+    <button class="mgmt-btn${isHighlighted ? ' active' : ''}" id="hl-tog-project-${proj.id}" data-highlighted="${isHighlighted ? '1' : '0'}" style="flex-shrink:0;">${isHighlighted ? '★ HIGHLIGHTED' : '☆ HIGHLIGHT'}</button>
     <button class="mgmt-btn danger" data-del="${proj.id}" style="flex-shrink:0;">DELETE</button>
   `;
   card.appendChild(head);
+
+  head.querySelector(`#hl-tog-project-${proj.id}`).addEventListener('click', e => {
+    e.stopPropagation();
+    toggleHighlight(head.querySelector(`#hl-tog-project-${proj.id}`), 'project', proj.id);
+  });
 
   // Body (hidden initially)
   const body = document.createElement('div');
@@ -154,7 +164,7 @@ export function buildDashProjectCard(proj, allItems, unassigned) {
 
   // Header click: toggle body (but not DELETE)
   head.addEventListener('click', e => {
-    if (e.target.closest('[data-del]')) return;
+    if (e.target.closest('[data-del]') || e.target.closest('[id^="hl-tog-project-"]')) return;
     const open = body.hidden;
     body.hidden = !open;
     if (open) head.classList.add('open'); else head.classList.remove('open');

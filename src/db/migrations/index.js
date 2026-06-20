@@ -415,4 +415,20 @@ CREATE INDEX IF NOT EXISTS idx_download_leads_email ON download_leads(email);
 CREATE INDEX IF NOT EXISTS idx_download_leads_created ON download_leads(created_at);
 `,
   },
+  {
+    filename: "016_highlight.sql",
+    sql: `-- Migration 016: Creator-chosen "highlight" for the curated library drawer
+-- Single-row table (id = 1). highlight_type/highlight_id NULL means no
+-- highlight set; the curated drawer falls back to its next-best candidate.
+
+CREATE TABLE IF NOT EXISTS highlight_config (
+  id             INTEGER PRIMARY KEY CHECK (id = 1),
+  highlight_type TEXT    CHECK (highlight_type IN ('track', 'project')),
+  highlight_id   INTEGER,
+  updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+INSERT OR IGNORE INTO highlight_config (id) VALUES (1);
+`,
+  },
 ];
