@@ -30,6 +30,11 @@ let _initExtSearchPanel     = () => {};
 let _loadCreatorType        = () => {};
 let _initUploadHandlers     = () => {};
 let _loadDashTokens         = () => {};
+let _loadDashShareLinks     = () => {};
+let _loadDashAllAccess      = () => {};
+let _loadDashSmartPlaylists = () => {};
+let _loadDashSchedulePreview = () => {};
+let _loadDashPosts          = () => {};
 
 export function init(callbacks = {}) {
   if (callbacks.loadDashStation)       _loadDashStation       = callbacks.loadDashStation;
@@ -51,6 +56,11 @@ export function init(callbacks = {}) {
   if (callbacks.loadCreatorType)       _loadCreatorType       = callbacks.loadCreatorType;
   if (callbacks.initUploadHandlers)    _initUploadHandlers    = callbacks.initUploadHandlers;
   if (callbacks.loadDashTokens)        _loadDashTokens        = callbacks.loadDashTokens;
+  if (callbacks.loadDashShareLinks)    _loadDashShareLinks    = callbacks.loadDashShareLinks;
+  if (callbacks.loadDashAllAccess)     _loadDashAllAccess     = callbacks.loadDashAllAccess;
+  if (callbacks.loadDashSmartPlaylists) _loadDashSmartPlaylists = callbacks.loadDashSmartPlaylists;
+  if (callbacks.loadDashSchedulePreview) _loadDashSchedulePreview = callbacks.loadDashSchedulePreview;
+  if (callbacks.loadDashPosts)          _loadDashPosts          = callbacks.loadDashPosts;
 }
 
 // ── Auth probe ─────────────────────────────────────────────────────────────────
@@ -244,10 +254,15 @@ export function loadDashboard() {
   _loadDashLive();
   _loadRadioHostStatus();
   _loadDashSchedule();
+  _loadDashSmartPlaylists();
+  _loadDashSchedulePreview();
   _loadDashProjects();
   _loadDashLibrary();
   loadDashAccounts();
   _loadDashTokens();
+  _loadDashShareLinks();
+  _loadDashAllAccess();
+  _loadDashPosts();
   _loadDashAnalytics();
   _loadDash2FA();
   loadDashPaymentConfig();

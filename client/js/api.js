@@ -240,6 +240,33 @@ export const payment = {
   },
 };
 
+// ── api.share ─────────────────────────────────────────────────────────────────────
+
+export const share = {
+  /**
+   * GET /api/share/{token} — resolve a public share link (no auth required).
+   * @param {string} token
+   * @returns {{ label, createdAt, expiresAt, target_type, track?, project? }}
+   */
+  resolve(token) {
+    return _json(`/api/share/${token}`);
+  },
+};
+
+// ── api.posts ─────────────────────────────────────────────────────────────────────
+
+export const posts = {
+  /**
+   * GET /api/posts?page={page}&limit={limit} — tier-gated creator posts.
+   * @param {number} [page=1]
+   * @param {number} [limit=20]
+   * @returns {{ posts: Array<{ id, title, body, visibility, published_at }>, page, limit }}
+   */
+  list(page = 1, limit = 20) {
+    return _json(`/api/posts?page=${page}&limit=${limit}`);
+  },
+};
+
 // ── api.dashboard ─────────────────────────────────────────────────────────────────
 
 export const dashboard = {
@@ -476,6 +503,65 @@ export const dashboard = {
     deleteBlock(id) {
       return _del(`/api/schedule/blocks/${id}`);
     },
+
+    /**
+     * GET /api/schedule/preview?from={ISO8601}&hours={hours}
+     * @param {string} [from] ISO8601 timestamp; defaults to now
+     * @param {number} [hours=24]
+     * @returns {{ from: string, hours: number, segments: Array<{ start, end, block: object|null }> }}
+     */
+    preview(from, hours = 24) {
+      const q = new URLSearchParams({ hours: String(hours) });
+      if (from) q.set('from', from);
+      return _json(`/api/schedule/preview?${q}`);
+    },
+
+    smartPlaylists: {
+      /**
+       * GET /api/schedule/smart-playlists
+       * @returns {Array<object>}
+       */
+      list() {
+        return _json('/api/schedule/smart-playlists');
+      },
+
+      /**
+       * POST /api/schedule/smart-playlists
+       * @param {{ name, description?, category?, tags_filter?, mode }} body
+       * @returns {{ res: Response, data: object }}
+       */
+      create(body) {
+        return _send('/api/schedule/smart-playlists', body);
+      },
+
+      /**
+       * PUT /api/schedule/smart-playlists/{id}
+       * @param {number} id
+       * @param {object} body
+       * @returns {{ res: Response, data: object }}
+       */
+      update(id, body) {
+        return _send(`/api/schedule/smart-playlists/${id}`, body, 'PUT');
+      },
+
+      /**
+       * DELETE /api/schedule/smart-playlists/{id}
+       * @param {number} id
+       * @returns {{ res: Response, data: object }}
+       */
+      remove(id) {
+        return _del(`/api/schedule/smart-playlists/${id}`);
+      },
+
+      /**
+       * GET /api/schedule/smart-playlists/{id}/preview
+       * @param {number} id
+       * @returns {{ count: number, tracks: Array }}
+       */
+      preview(id) {
+        return _json(`/api/schedule/smart-playlists/${id}/preview`);
+      },
+    },
   },
 
   // ── Vault projects ─────────────────────────────────────────────────────────────
@@ -542,6 +628,85 @@ export const dashboard = {
      */
     setHighlight(body) {
       return _send('/api/dashboard/vault/highlight', body, 'PUT');
+    },
+
+    /**
+     * PUT /api/dashboard/vault/all-access
+     * @param {{ enabled, subscribers_included, suggested_price, minimum_price, allow_free, payment_type, recurring_interval }} body
+     * @returns {{ res: Response, data: object }}
+     */
+    setAllAccess(body) {
+      return _send('/api/dashboard/vault/all-access', body, 'PUT');
+    },
+  },
+
+  // ── Share links ────────────────────────────────────────────────────────────────
+
+  share: {
+    /**
+     * GET /api/dashboard/share — all share links.
+     * @returns {Array<object>}
+     */
+    list() {
+      return _json('/api/dashboard/share');
+    },
+
+    /**
+     * POST /api/dashboard/share
+     * @param {{ target_type: 'track'|'project', target_id: number, label?: string, expires_in_hours?: number }} body
+     * @returns {{ res: Response, data: object }}
+     */
+    create(body) {
+      return _send('/api/dashboard/share', body);
+    },
+
+    /**
+     * DELETE /api/dashboard/share/{token}
+     * @param {string} token
+     * @returns {{ res: Response, data: object }}
+     */
+    remove(token) {
+      return _del(`/api/dashboard/share/${token}`);
+    },
+  },
+
+  // ── Creator posts ──────────────────────────────────────────────────────────────
+
+  posts: {
+    /**
+     * GET /api/dashboard/posts — all posts, newest first.
+     * @returns {Array<object>}
+     */
+    list() {
+      return _json('/api/dashboard/posts');
+    },
+
+    /**
+     * POST /api/dashboard/posts
+     * @param {{ title?, body, visibility }} body
+     * @returns {{ res: Response, data: object }}
+     */
+    create(body) {
+      return _send('/api/dashboard/posts', body);
+    },
+
+    /**
+     * PUT /api/dashboard/posts/{id}
+     * @param {number} id
+     * @param {object} body
+     * @returns {{ res: Response, data: object }}
+     */
+    update(id, body) {
+      return _send(`/api/dashboard/posts/${id}`, body, 'PUT');
+    },
+
+    /**
+     * DELETE /api/dashboard/posts/{id}
+     * @param {number} id
+     * @returns {{ res: Response, data: object }}
+     */
+    remove(id) {
+      return _del(`/api/dashboard/posts/${id}`);
     },
   },
 
@@ -662,6 +827,15 @@ export const dashboard = {
      */
     playcounts() {
       return _json('/api/analytics/playcounts');
+    },
+
+    /**
+     * GET /api/analytics/subscribers?days={days}
+     * @param {number} [days=90]
+     * @returns {{ activeTotal: number, history: Array<{ date, newSubscribers }> }}
+     */
+    subscribers(days = 90) {
+      return _json(`/api/analytics/subscribers?days=${days}`);
     },
   },
 

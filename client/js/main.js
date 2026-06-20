@@ -28,6 +28,7 @@ import * as player    from './player.js';
 import * as ascii     from './ascii.js';
 import * as auth      from './auth.js';
 import * as library      from './library.js';
+import * as postsModule  from './posts.js';
 import * as libraryModal from './library-modal.js';
 import * as payment      from './payment.js';
 
@@ -36,9 +37,13 @@ import * as station     from './dashboard/station.js';
 import * as bio         from './dashboard/bio.js';
 import * as vault       from './dashboard/vault.js';
 import * as projects    from './dashboard/projects.js';
+import * as shareLinks  from './dashboard/share.js';
+import * as allAccess   from './dashboard/allaccess.js';
 import * as broadcast   from './dashboard/broadcast.js';
 import * as live        from './dashboard/live.js';
 import * as schedule    from './dashboard/schedule.js';
+import * as smartPlaylists from './dashboard/smartplaylists.js';
+import * as dashPosts   from './dashboard/posts.js';
 import * as upload      from './dashboard/upload.js';
 import * as analytics   from './dashboard/analytics.js';
 import * as twofa       from './dashboard/twofa.js';
@@ -52,7 +57,10 @@ ascii.init({
 });
 
 auth.init({
-  loadLibrary: library.loadLibrary,
+  loadLibrary: () => {
+    library.loadLibrary();
+    postsModule.loadPosts();
+  },
 });
 
 library.init({
@@ -106,6 +114,11 @@ dashIndex.init({
   loadCreatorType:      search.loadCreatorType,
   initUploadHandlers:   upload.initUploadHandlers,
   loadDashTokens:       vault.loadDashTokens,
+  loadDashShareLinks:   shareLinks.loadDashShareLinks,
+  loadDashAllAccess:    allAccess.loadDashAllAccess,
+  loadDashSmartPlaylists: smartPlaylists.loadDashSmartPlaylists,
+  loadDashSchedulePreview: schedule.loadDashSchedulePreview,
+  loadDashPosts:           dashPosts.loadDashPosts,
 });
 
 vault.init({
@@ -119,6 +132,11 @@ projects.init({
   loadDashProjects:   projects.loadDashProjects,
   loadDashLibrary:    vault.loadDashLibrary,
   loadDashVaultStats: vault.loadDashVaultStats,
+});
+
+shareLinks.init({
+  loadDashLibrary:  vault.loadDashLibrary,
+  loadDashProjects: projects.loadDashProjects,
 });
 
 upload.init({
@@ -150,6 +168,8 @@ bio.init();
 broadcast.init();
 live.init();
 schedule.init();
+smartPlaylists.init();
+dashPosts.init();
 twofa.init();
 
 // ── Event handler wiring ───────────────────────────────────────────────────
@@ -166,9 +186,13 @@ station.initStationHandlers();
 bio.initBioHandlers();
 vault.initTokenHandlers();
 projects.initProjectHandlers();
+shareLinks.initShareLinkHandlers();
+allAccess.initAllAccessHandlers();
 broadcast.initBroadcastHandlers();
 live.initLiveHandlers();
 schedule.initScheduleHandlers();
+smartPlaylists.initSmartPlaylistHandlers();
+dashPosts.initPostHandlers();
 upload.initUploadHandlers();
 analytics.initAnalyticsHandlers();
 twofa.initTwoFAHandlers();
@@ -288,6 +312,7 @@ async function init() {
   // Library and queue
   library.loadLibrary();
   library.loadQueue();
+  postsModule.loadPosts();
 
   // Tip presets for modal
   payment.loadTipConfig();

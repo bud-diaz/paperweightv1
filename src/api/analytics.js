@@ -60,6 +60,32 @@ router.get('/top', (req, res) => {
   res.json(rows);
 });
 
+// GET /api/analytics/subscribers?days=90
+router.get('/subscribers', (req, res) => {
+  const days = Math.min(365, Math.max(1, parseInt(req.query.days, 10) || 90));
+
+  const history = getDb().prepare(`
+    SELECT
+      date(created_at) AS date,
+      COUNT(*) AS new_subscribers
+    FROM subscriptions
+    WHERE created_at >= date('now', :offset)
+    GROUP BY date(created_at)
+    ORDER BY date ASC
+  `).all({ offset: `-${days} days` });
+
+  const { active_total } = getDb().prepare(`
+    SELECT COUNT(*) AS active_total
+    FROM subscriptions
+    WHERE status = 'active'
+  `).get();
+
+  res.json({
+    activeTotal: active_total,
+    history: history.map(r => ({ date: r.date, newSubscribers: r.new_subscribers })),
+  });
+});
+
 // GET /api/analytics/playcounts — all-time play count per media id
 router.get('/playcounts', (req, res) => {
   const rows = getDb().prepare(`

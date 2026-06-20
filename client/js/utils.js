@@ -36,6 +36,14 @@ export function setDrawer(id, open) {
   document.getElementById(id).style.maxHeight = open ? '300px' : '0';
 }
 
+// Accepts empty/blank (treated as $0) or a non-negative decimal with at most
+// 2 places — i.e. a value that converts to a whole number of cents.
+export function isValidCentsInput(value) {
+  const trimmed = String(value ?? '').trim();
+  if (trimmed === '') return true;
+  return /^\d+(\.\d{1,2})?$/.test(trimmed);
+}
+
 export function trackColor(id) {
   return PALETTE[Math.abs(id || 0) % PALETTE.length];
 }

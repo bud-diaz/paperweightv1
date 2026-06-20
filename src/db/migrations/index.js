@@ -431,4 +431,66 @@ CREATE TABLE IF NOT EXISTS highlight_config (
 INSERT OR IGNORE INTO highlight_config (id) VALUES (1);
 `,
   },
+  {
+    filename: "017_share_links.sql",
+    sql: `-- Migration 017: Private share links for tracks/projects
+-- token is the credential itself: anyone with the URL can view metadata
+-- and stream the target without a listener account. expires_at NULL means
+-- the link never expires.
+
+CREATE TABLE IF NOT EXISTS share_links (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  token          TEXT    NOT NULL UNIQUE,
+  target_type    TEXT    NOT NULL CHECK(target_type IN ('track', 'project')),
+  target_id      INTEGER NOT NULL,
+  label          TEXT,
+  expires_at     TEXT,
+  open_count     INTEGER NOT NULL DEFAULT 0,
+  last_opened_at TEXT,
+  created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_share_links_token ON share_links(token);
+`,
+  },
+  {
+    filename: "018_smart_playlists.sql",
+    sql: `-- Migration 018: Smart playlists
+-- A named, saveable category + tags_filter query. schedule_blocks can point
+-- at one via target_type = 'smart_playlist' / target_id; the broadcast
+-- engine resolves the live track list from the vault at block-start time.
+
+CREATE TABLE IF NOT EXISTS smart_playlists (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT    NOT NULL,
+  description TEXT,
+  category    TEXT,
+  tags_filter TEXT,
+  mode        TEXT    NOT NULL DEFAULT 'shuffle'
+              CHECK(mode IN ('shuffle', 'sequential')),
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+`,
+  },
+  {
+    filename: "019_creator_posts.sql",
+    sql: `-- Migration 019: Creator posts
+-- Patreon-style text updates, not paywalled items. visibility gates the
+-- listener-facing GET /api/posts route by tier; the dashboard sees everything.
+
+CREATE TABLE IF NOT EXISTS creator_posts (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  title        TEXT,
+  body         TEXT    NOT NULL,
+  visibility   TEXT    NOT NULL DEFAULT 'supporters_only'
+               CHECK(visibility IN ('public', 'supporters_only')),
+  published_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_creator_posts_published ON creator_posts(visibility, published_at);
+`,
+  },
 ];

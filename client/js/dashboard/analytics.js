@@ -41,6 +41,7 @@ export async function loadAnalyticsExpanded() {
       api.dashboard.analytics.history(7),
       api.dashboard.analytics.top(5, '30d'),
     ]);
+    loadDashSubscribers(parseInt(el('subs-period-select').value, 10) || 30);
     // 7-day bar chart
     const barsEl = el('analytics-history-bars');
     if (histData.length) {
@@ -65,6 +66,35 @@ export async function loadAnalyticsExpanded() {
     } else {
       topEl.innerHTML = '<div style="font-family:\'Space Mono\',monospace;font-size:10px;color:var(--t4);">No plays recorded yet</div>';
     }
+  } catch {}
+}
+
+// ── Subscriber growth ──────────────────────────────────────────────────────────
+export async function loadDashSubscribers(days = 30) {
+  try {
+    const data = await api.dashboard.analytics.subscribers(days);
+    el('subs-active-total').textContent = data.activeTotal || 0;
+
+    const svg = el('subs-history-chart');
+    const byDate = new Map(data.history.map(h => [h.date, h.newSubscribers]));
+    const dates = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    const counts = dates.map(d => byDate.get(d) || 0);
+    const max = Math.max(1, ...counts);
+    const width = 300, height = 60, gap = 1;
+    const barWidth = (width / counts.length) - gap;
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.innerHTML = counts.map((c, i) => {
+      const h = Math.max(1, Math.round((c / max) * (height - 2)));
+      const x = i * (barWidth + gap);
+      const y = height - h;
+      return `<rect x="${x.toFixed(2)}" y="${y}" width="${barWidth.toFixed(2)}" height="${h}" fill="rgba(57,255,20,.4)"><title>${esc(dates[i])}: ${c}</title></rect>`;
+    }).join('');
   } catch {}
 }
 
@@ -96,6 +126,10 @@ export async function loadPlayCounts() {
 export function initAnalyticsHandlers() {
   el('analytics-details').addEventListener('toggle', () => {
     if (el('analytics-details').open) loadAnalyticsExpanded();
+  });
+
+  el('subs-period-select').addEventListener('change', () => {
+    loadDashSubscribers(parseInt(el('subs-period-select').value, 10) || 30);
   });
 
   el('btn-save-tip-cfg').addEventListener('click', async () => {

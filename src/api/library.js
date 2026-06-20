@@ -514,3 +514,5 @@ router.get('/:id/file', (req, res) => {
 module.exports = router;
 module.exports.clearArtworkCache = clearArtworkCache;
 module.exports.ARTWORK_DIR = ARTWORK_DIR;
+module.exports.formatItem = formatItem;
+module.exports.signDownloadUrl = signDownloadUrl;
