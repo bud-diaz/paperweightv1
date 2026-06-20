@@ -431,4 +431,26 @@ CREATE TABLE IF NOT EXISTS highlight_config (
 INSERT OR IGNORE INTO highlight_config (id) VALUES (1);
 `,
   },
+  {
+    filename: "017_share_links.sql",
+    sql: `-- Migration 017: Private share links for tracks/projects
+-- token is the credential itself: anyone with the URL can view metadata
+-- and stream the target without a listener account. expires_at NULL means
+-- the link never expires.
+
+CREATE TABLE IF NOT EXISTS share_links (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  token          TEXT    NOT NULL UNIQUE,
+  target_type    TEXT    NOT NULL CHECK(target_type IN ('track', 'project')),
+  target_id      INTEGER NOT NULL,
+  label          TEXT,
+  expires_at     TEXT,
+  open_count     INTEGER NOT NULL DEFAULT 0,
+  last_opened_at TEXT,
+  created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_share_links_token ON share_links(token);
+`,
+  },
 ];

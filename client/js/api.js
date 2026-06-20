@@ -240,6 +240,19 @@ export const payment = {
   },
 };
 
+// ── api.share ─────────────────────────────────────────────────────────────────────
+
+export const share = {
+  /**
+   * GET /api/share/{token} — resolve a public share link (no auth required).
+   * @param {string} token
+   * @returns {{ label, createdAt, expiresAt, target_type, track?, project? }}
+   */
+  resolve(token) {
+    return _json(`/api/share/${token}`);
+  },
+};
+
 // ── api.dashboard ─────────────────────────────────────────────────────────────────
 
 export const dashboard = {
@@ -542,6 +555,36 @@ export const dashboard = {
      */
     setHighlight(body) {
       return _send('/api/dashboard/vault/highlight', body, 'PUT');
+    },
+  },
+
+  // ── Share links ────────────────────────────────────────────────────────────────
+
+  share: {
+    /**
+     * GET /api/dashboard/share — all share links.
+     * @returns {Array<object>}
+     */
+    list() {
+      return _json('/api/dashboard/share');
+    },
+
+    /**
+     * POST /api/dashboard/share
+     * @param {{ target_type: 'track'|'project', target_id: number, label?: string, expires_in_hours?: number }} body
+     * @returns {{ res: Response, data: object }}
+     */
+    create(body) {
+      return _send('/api/dashboard/share', body);
+    },
+
+    /**
+     * DELETE /api/dashboard/share/{token}
+     * @param {string} token
+     * @returns {{ res: Response, data: object }}
+     */
+    remove(token) {
+      return _del(`/api/dashboard/share/${token}`);
     },
   },
 

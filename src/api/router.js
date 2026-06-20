@@ -33,6 +33,13 @@ const vaultModule = require('./vault');
 router.use('/vault',           vaultModule);
 router.use('/dashboard/vault', vaultModule.dashRouter);
 
+// Private share links (anonymous resolve, creator-managed)
+// Listener routes: /api/share/*
+// Creator routes:  /api/dashboard/share/* (requireDashboard applied inside dashRouter)
+const shareModule = require('./share');
+router.use('/share',           shareModule);
+router.use('/dashboard/share', shareModule.dashRouter);
+
 // Creator bio landing page (public profile + dashboard management)
 router.use('/creator',   require('./creator'));
 

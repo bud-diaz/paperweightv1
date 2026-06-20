@@ -626,6 +626,34 @@
 
           <div class="dash-divider"></div>
 
+          <!-- Share Links -->
+          <div class="dash-section">
+            <div class="dash-section-label">SHARE LINKS</div>
+            <div id="dash-share-list"></div>
+            <details id="dash-new-share">
+              <summary class="dash-summary">+ NEW SHARE LINK</summary>
+              <div class="dash-new-proj-body">
+                <div class="dash-edit-label">TARGET TYPE</div>
+                <select class="dash-input dash-input-gap" id="new-share-target-type">
+                  <option value="track">Track</option>
+                  <option value="project">Project</option>
+                </select>
+                <div class="dash-edit-label">TARGET ID</div>
+                <input class="dash-input dash-input-gap" id="new-share-target-id" type="number" min="1" placeholder="Track or project ID"/>
+                <div class="dash-edit-label">LABEL (OPTIONAL)</div>
+                <input class="dash-input dash-input-gap" id="new-share-label" type="text" placeholder="e.g. For Maria"/>
+                <div class="dash-edit-label">EXPIRES IN HOURS <span class="dash-label-note">leave blank for never</span></div>
+                <input class="dash-input dash-input-gap" id="new-share-expires" type="number" step="0.01" min="0" placeholder="optional"/>
+                <div class="dash-form-row">
+                  <span id="new-share-msg" class="dash-inline-msg"></span>
+                  <button class="mgmt-btn" id="btn-new-share">CREATE LINK</button>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div class="dash-divider"></div>
+
           <!-- Analytics -->
           <div class="dash-section">
             <details id="analytics-details">

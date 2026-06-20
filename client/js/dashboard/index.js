@@ -30,6 +30,7 @@ let _initExtSearchPanel     = () => {};
 let _loadCreatorType        = () => {};
 let _initUploadHandlers     = () => {};
 let _loadDashTokens         = () => {};
+let _loadDashShareLinks     = () => {};
 
 export function init(callbacks = {}) {
   if (callbacks.loadDashStation)       _loadDashStation       = callbacks.loadDashStation;
@@ -51,6 +52,7 @@ export function init(callbacks = {}) {
   if (callbacks.loadCreatorType)       _loadCreatorType       = callbacks.loadCreatorType;
   if (callbacks.initUploadHandlers)    _initUploadHandlers    = callbacks.initUploadHandlers;
   if (callbacks.loadDashTokens)        _loadDashTokens        = callbacks.loadDashTokens;
+  if (callbacks.loadDashShareLinks)    _loadDashShareLinks    = callbacks.loadDashShareLinks;
 }
 
 // ── Auth probe ─────────────────────────────────────────────────────────────────
@@ -248,6 +250,7 @@ export function loadDashboard() {
   _loadDashLibrary();
   loadDashAccounts();
   _loadDashTokens();
+  _loadDashShareLinks();
   _loadDashAnalytics();
   _loadDash2FA();
   loadDashPaymentConfig();
