@@ -13,6 +13,28 @@ process.env.PAPERWEIGHT_DATA_ROOT = app.getPath('userData');
 const dataRoot = process.env.PAPERWEIGHT_DATA_ROOT;
 const envPath = path.join(dataRoot, '.env');
 
+// better-sqlite3's native binary in the shared ../node_modules is built
+// against the host Node's ABI (used by `npm test`/`node src/index.js`/pkg),
+// not Electron's. Rather than rebuild that shared copy in place — which
+// would break the plain-Node path the moment anyone runs the Electron app —
+// `npm run electron:rebuild` (electron/scripts/rebuild-native.js) maintains
+// an isolated Electron-ABI build at electron/native/node_modules/better-sqlite3.
+// Redirect resolution to it here when running from source. Packaged builds
+// don't need this: electron-builder's extraResources overlay (see
+// electron/package.json) places the Electron-ABI build directly inside the
+// packaged node_modules, where normal resolution already finds it.
+if (!app.isPackaged) {
+  const Module = require('module');
+  const nativeBetterSqlite3 = path.join(__dirname, 'native', 'node_modules', 'better-sqlite3');
+  const originalResolveFilename = Module._resolveFilename;
+  Module._resolveFilename = function (request, ...rest) {
+    if (request === 'better-sqlite3') {
+      return originalResolveFilename.call(this, nativeBetterSqlite3, ...rest);
+    }
+    return originalResolveFilename.call(this, request, ...rest);
+  };
+}
+
 const { openSetupWindow } = require('./setup-window');
 
 let mainWindow = null;

@@ -6,8 +6,8 @@
   "main": "main.js",
   "scripts": {
     "start": "electron main.js",
-    "electron:rebuild": "electron-rebuild --module-dir ..",
-    "dist": "electron-builder --mac --win"
+    "electron:rebuild": "node scripts/rebuild-native.js",
+    "dist": "npm run electron:rebuild && electron-builder --mac --win"
   },
   "devDependencies": {
     "electron": "^31.0.0",
@@ -22,13 +22,15 @@
     },
     "files": [
       "**/*",
-      "!dist/**"
+      "!dist/**",
+      "!native/**"
     ],
     "extraResources": [
       { "from": "../src", "to": "src" },
       { "from": "../client", "to": "client" },
       { "from": "../node_modules", "to": "node_modules" },
-      { "from": "../package.json", "to": "package.json" }
+      { "from": "../package.json", "to": "package.json" },
+      { "from": "native/node_modules/better-sqlite3", "to": "node_modules/better-sqlite3" }
     ],
     "mac": {
       "target": ["dmg", "zip"],
