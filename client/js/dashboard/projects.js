@@ -3,7 +3,7 @@
  */
 
 import * as api from '../api.js';
-import { el, esc } from '../utils.js';
+import { el, esc, isValidCentsInput } from '../utils.js';
 import { toggleHighlight } from './vault.js';
 
 // ── Injected callbacks ─────────────────────────────────────────────────────────
@@ -208,12 +208,17 @@ export function buildDashProjectCard(proj, allItems, unassigned, highlight = nul
   // SAVE PRICING
   pricingDiv.querySelector(`#pprice-save-${proj.id}`).addEventListener('click', async () => {
     const msgEl     = pricingDiv.querySelector(`#pprice-msg-${proj.id}`);
-    const name      = pricingDiv.querySelector(`#pprice-name-${proj.id}`).value.trim();
-    const desc      = pricingDiv.querySelector(`#pprice-desc-${proj.id}`).value.trim();
-    const suggRaw   = parseFloat(pricingDiv.querySelector(`#pprice-sugg-${proj.id}`).value) || 0;
-    const minRaw    = parseFloat(pricingDiv.querySelector(`#pprice-min-${proj.id}`).value) || 0;
-    const allowFree = pricingDiv.querySelector(`#pprice-free-${proj.id}`).checked;
+    const name       = pricingDiv.querySelector(`#pprice-name-${proj.id}`).value.trim();
+    const desc       = pricingDiv.querySelector(`#pprice-desc-${proj.id}`).value.trim();
+    const suggInput  = pricingDiv.querySelector(`#pprice-sugg-${proj.id}`).value;
+    const minInput   = pricingDiv.querySelector(`#pprice-min-${proj.id}`).value;
+    const allowFree  = pricingDiv.querySelector(`#pprice-free-${proj.id}`).checked;
     if (!name) { msgEl.style.color='#ff6b6b'; msgEl.textContent='Name required'; return; }
+    if (!isValidCentsInput(suggInput) || !isValidCentsInput(minInput)) {
+      msgEl.style.color='#ff6b6b'; msgEl.textContent='Prices must be whole cents (max 2 decimal places)'; return;
+    }
+    const suggRaw = parseFloat(suggInput) || 0;
+    const minRaw  = parseFloat(minInput)  || 0;
     if (!allowFree && minRaw < 0.01) { msgEl.style.color='#ff6b6b'; msgEl.textContent='Minimum must be ≥ $0.01 when free is disabled'; return; }
     const { res } = await api.dashboard.vault.updateProject(proj.id, {
       name,
@@ -242,12 +247,17 @@ export function buildDashProjectCard(proj, allItems, unassigned, highlight = nul
 export function initProjectHandlers() {
   el('btn-new-proj').addEventListener('click', async () => {
     const msgEl    = el('new-proj-msg');
-    const name     = el('new-proj-name').value.trim();
-    const desc     = el('new-proj-desc').value.trim();
-    const suggRaw  = parseFloat(el('new-proj-sugg').value) || 0;
-    const minRaw   = parseFloat(el('new-proj-min').value)  || 0;
+    const name      = el('new-proj-name').value.trim();
+    const desc      = el('new-proj-desc').value.trim();
+    const suggInput = el('new-proj-sugg').value;
+    const minInput  = el('new-proj-min').value;
     const allowFree = el('new-proj-free').checked;
     if (!name) { msgEl.style.color='#ff6b6b'; msgEl.textContent='Name is required'; return; }
+    if (!isValidCentsInput(suggInput) || !isValidCentsInput(minInput)) {
+      msgEl.style.color='#ff6b6b'; msgEl.textContent='Prices must be whole cents (max 2 decimal places)'; return;
+    }
+    const suggRaw = parseFloat(suggInput) || 0;
+    const minRaw  = parseFloat(minInput)  || 0;
     if (!allowFree && minRaw < 0.01) { msgEl.style.color='#ff6b6b'; msgEl.textContent='Minimum must be ≥ $0.01 when free is disabled'; return; }
     msgEl.style.color = 'rgba(255,255,255,.4)';
     msgEl.textContent = 'Creating…';

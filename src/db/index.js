@@ -199,8 +199,9 @@ function log(level, component, message) {
     }
     const prefix = level === 'error' ? '[ERROR]' : level === 'warn' ? '[WARN]' : '[INFO]';
     console.log(`${prefix} [${component}] ${message}`);
-  } catch {
+  } catch (err) {
     console.log(`[${level}] [${component}] ${message}`);
+    console.error(`[db] Failed to write system_log row: ${err.message}`);
   }
 }
 

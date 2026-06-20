@@ -133,7 +133,20 @@ function buildTrackOffsets(batch) {
   return offsets;
 }
 
+// Cached result of the last directory scan. Invalidated whenever a new batch
+// of segments is about to be written (runFFmpeg) or the HLS dir is reset
+// (cleanHlsStreamDir), so repeated calls within the same batch avoid rescanning.
+let cachedSegmentNumber = null;
+
+function invalidateSegmentCache() {
+  cachedSegmentNumber = null;
+}
+
 function nextSegmentNumber() {
+  if (cachedSegmentNumber !== null) {
+    return Math.max(state.segmentCounter, cachedSegmentNumber, 0);
+  }
+
   let maxSeen = -1;
   try {
     if (fs.existsSync(HLS_STREAM_DIR)) {
@@ -145,7 +158,8 @@ function nextSegmentNumber() {
   } catch (err) {
     log('warn', 'broadcast', `Could not inspect HLS segment numbers: ${err.message}`);
   }
-  return Math.max(state.segmentCounter, maxSeen + 1, 0);
+  cachedSegmentNumber = Math.max(state.segmentCounter, maxSeen + 1, 0);
+  return cachedSegmentNumber;
 }
 
 // ─── Batch resolution ────────────────────────────────────────────────────────
@@ -171,6 +185,7 @@ function resolveBatch() {
         : buildShuffleBatch({ category: block.category || null });
       const tracks = homogenizeBatch(raw);
       if (tracks.length > 0) return { tracks, source: `block:${block.id}` };
+      log('warn', 'broadcast', `Block ${block.id} resolved to empty — falling back to global shuffle`);
     }
     // No active block — fall through to global shuffle
   }
@@ -231,6 +246,7 @@ function runFFmpeg(batch) {
     const hasVideo = batch.some(t => isVideoTrack(t));
     const concatPath = writeConcatManifest(batch);
     const args = buildFFmpegArgs(concatPath, hasVideo);
+    invalidateSegmentCache();
 
     const proc = spawn(ffmpegPath, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
     state.ffmpegProc = proc;
@@ -323,6 +339,7 @@ function cleanHlsStreamDir() {
     }
     fs.renameSync(freshDir, HLS_STREAM_DIR);
     state.segmentCounter = 0;
+    invalidateSegmentCache();
     if (fs.existsSync(gcDir)) {
       fs.rm(gcDir, { recursive: true, force: true }, err => {
         if (err) log('warn', 'broadcast', `Could not remove stale HLS directory: ${err.message}`);

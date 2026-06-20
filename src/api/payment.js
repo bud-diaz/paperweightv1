@@ -434,9 +434,10 @@ router.get('/web-success', asyncHandler(async (req, res) => {
       }
 
       // Set auth cookie — httpOnly, 1-year expiry
+      const isSecure = config.https || req.headers['x-forwarded-proto'] === 'https';
       res.cookie('pw_token', tokenRow.token, {
         httpOnly: true,
-        secure:   config.https,
+        secure:   isSecure,
         sameSite: 'lax',
         maxAge:   365 * 24 * 60 * 60 * 1000,
       });
