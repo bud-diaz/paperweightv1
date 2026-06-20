@@ -742,6 +742,22 @@
                 <div class="analytics-history" id="analytics-history-bars"></div>
                 <div class="dash-edit-label analytics-section-label analytics-top-heading">TOP TRACKS</div>
                 <div class="analytics-top-list" id="analytics-top-list"></div>
+
+                <div class="dash-edit-label analytics-section-label" style="display:flex;align-items:center;justify-content:space-between;">
+                  <span>SUBSCRIBERS</span>
+                  <select class="dash-select" id="subs-period-select" style="font-size:10px;padding:3px 6px;">
+                    <option value="7">7D</option>
+                    <option value="30" selected>30D</option>
+                    <option value="90">90D</option>
+                  </select>
+                </div>
+                <div class="stat-grid" style="grid-template-columns:1fr;margin-bottom:10px;">
+                  <div class="stat-card">
+                    <div class="stat-val" id="subs-active-total">—</div>
+                    <div class="stat-key">ACTIVE SUBSCRIBERS</div>
+                  </div>
+                </div>
+                <svg id="subs-history-chart" width="100%" height="60" style="display:block;overflow:visible;"></svg>
               </div>
             </details>
           </div>

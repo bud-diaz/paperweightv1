@@ -828,6 +828,15 @@ export const dashboard = {
     playcounts() {
       return _json('/api/analytics/playcounts');
     },
+
+    /**
+     * GET /api/analytics/subscribers?days={days}
+     * @param {number} [days=90]
+     * @returns {{ activeTotal: number, history: Array<{ date, newSubscribers }> }}
+     */
+    subscribers(days = 90) {
+      return _json(`/api/analytics/subscribers?days=${days}`);
+    },
   },
 
   // ── 2FA ────────────────────────────────────────────────────────────────────────
