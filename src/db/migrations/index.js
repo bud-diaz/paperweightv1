@@ -493,4 +493,11 @@ CREATE TABLE IF NOT EXISTS creator_posts (
 CREATE INDEX IF NOT EXISTS idx_creator_posts_published ON creator_posts(visibility, published_at);
 `,
   },
+  {
+    filename: "020_download_lead_updates_opt_in.sql",
+    sql: `-- Migration 020: Optional download-page updates consent
+-- Column added by guarded startup ALTER in src/db/index.js because SQLite
+-- does not support ALTER TABLE ADD COLUMN IF NOT EXISTS.
+`,
+  },
 ];

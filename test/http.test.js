@@ -52,6 +52,81 @@ test('health and local player assets are served', async () => {
   });
 });
 
+test('download lead stores normalized email, platform, and updates opt-in', async () => {
+  const db = freshDb();
+  await withServer(async baseUrl => {
+    const result = await request(baseUrl, '/api/download-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: '  Creator@Example.COM ', platform: ' MAC-ARM64 ', updatesOptIn: true }),
+    });
+
+    assert.equal(result.res.status, 200);
+    assert.equal(result.body.ok, true);
+
+    const row = db.prepare('SELECT email, platform, updates_opt_in FROM download_leads').get();
+    assert.deepEqual(row, {
+      email: 'creator@example.com',
+      platform: 'mac-arm64',
+      updates_opt_in: 1,
+    });
+  });
+});
+
+test('download lead stores updates opt-in as 0 when false or omitted', async () => {
+  const db = freshDb();
+  await withServer(async baseUrl => {
+    const explicitFalse = await request(baseUrl, '/api/download-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'false@example.com', platform: 'win', updatesOptIn: false }),
+    });
+    assert.equal(explicitFalse.res.status, 200);
+
+    const omitted = await request(baseUrl, '/api/download-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'omitted@example.com', platform: 'linux-x64' }),
+    });
+    assert.equal(omitted.res.status, 200);
+
+    const rows = db.prepare('SELECT email, updates_opt_in FROM download_leads ORDER BY id').all();
+    assert.deepEqual(rows, [
+      { email: 'false@example.com', updates_opt_in: 0 },
+      { email: 'omitted@example.com', updates_opt_in: 0 },
+    ]);
+  });
+});
+
+test('download lead rejects invalid email', async () => {
+  freshDb();
+  await withServer(async baseUrl => {
+    const result = await request(baseUrl, '/api/download-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'not-an-email', platform: 'win' }),
+    });
+
+    assert.equal(result.res.status, 400);
+    assert.match(result.body.error, /Valid email/);
+  });
+});
+
+test('download lead normalizes unknown platform to null', async () => {
+  const db = freshDb();
+  await withServer(async baseUrl => {
+    const result = await request(baseUrl, '/api/download-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'platform@example.com', platform: 'amiga' }),
+    });
+
+    assert.equal(result.res.status, 200);
+    const row = db.prepare('SELECT platform FROM download_leads').get();
+    assert.equal(row.platform, null);
+  });
+});
+
 test('HLS serves only the stream directory, not runtime work files', async () => {
   freshDb();
   const streamDir = path.join(config.paths.hlsOutput, 'stream');

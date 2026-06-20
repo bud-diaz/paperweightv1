@@ -385,10 +385,10 @@ router.delete('/tokens/:id', (req, res) => {
 // ─── Download leads ───────────────────────────────────────────────────────────
 
 // GET /api/dashboard/download-leads
-// Returns all emails captured on the download page, newest first.
+// Returns the latest emails captured on the download page, newest first.
 router.get('/download-leads', (req, res) => {
   const rows = getDb().prepare(
-    'SELECT id, email, platform, created_at FROM download_leads ORDER BY created_at DESC'
+    'SELECT id, email, platform, updates_opt_in AS updatesOptIn, created_at FROM download_leads ORDER BY created_at DESC LIMIT 500'
   ).all();
   res.json(rows);
 });

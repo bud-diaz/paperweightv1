@@ -73,6 +73,11 @@ try {
     }
   }
 
+  const downloadLeadColumns = db.pragma('table_info(download_leads)').map(col => col.name);
+  if (!downloadLeadColumns.includes('updates_opt_in')) {
+    throw new Error('download_leads.updates_opt_in was not created');
+  }
+
   console.log(`Migration check passed (${secondCount} migrations applied once).`);
 } catch (err) {
   console.error(`Migration check failed: ${err.message}`);

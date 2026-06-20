@@ -117,6 +117,11 @@ function runMigrations(database) {
       column: 'target_id',
       sql:    'ALTER TABLE schedule_blocks ADD COLUMN target_id INTEGER',
     },
+    {
+      table:  'download_leads',
+      column: 'updates_opt_in',
+      sql:    'ALTER TABLE download_leads ADD COLUMN updates_opt_in INTEGER NOT NULL DEFAULT 0',
+    },
   ];
 
   for (const guard of alterGuards) {
