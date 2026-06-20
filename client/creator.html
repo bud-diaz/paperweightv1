@@ -302,6 +302,8 @@
               <button class="drawer-close" id="lib-drawer-close" title="Close">✕</button>
             </div>
             <div class="drawer-scroll" id="lib-list"></div>
+            <div class="drawer-label" style="margin-top:18px;">POSTS</div>
+            <div class="drawer-scroll" id="posts-list"></div>
           </div>
         </div>
 
@@ -695,6 +697,32 @@
                 <div class="dash-form-row">
                   <span id="new-share-msg" class="dash-inline-msg"></span>
                   <button class="mgmt-btn" id="btn-new-share">CREATE LINK</button>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div class="dash-divider"></div>
+
+          <!-- Creator posts -->
+          <div class="dash-section">
+            <div class="dash-section-label">POSTS</div>
+            <div id="dash-posts-list"></div>
+            <details id="dash-new-post">
+              <summary class="dash-summary">+ NEW POST</summary>
+              <div class="dash-new-proj-body">
+                <div class="dash-edit-label">TITLE (OPTIONAL)</div>
+                <input class="dash-input dash-input-gap" id="post-new-title" type="text" placeholder="e.g. New track dropping Friday"/>
+                <div class="dash-edit-label">BODY</div>
+                <textarea class="dash-input dash-input-gap" id="post-new-body" rows="3" placeholder="What's new…"></textarea>
+                <div class="dash-edit-label">VISIBILITY</div>
+                <select class="dash-input dash-input-gap" id="post-new-visibility">
+                  <option value="public">Public</option>
+                  <option value="supporters_only" selected>Supporters Only</option>
+                </select>
+                <div class="dash-form-row">
+                  <span id="post-new-msg" class="dash-inline-msg"></span>
+                  <button class="mgmt-btn" id="btn-add-post">PUBLISH</button>
                 </div>
               </div>
             </details>

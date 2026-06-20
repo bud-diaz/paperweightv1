@@ -473,4 +473,24 @@ CREATE TABLE IF NOT EXISTS smart_playlists (
 );
 `,
   },
+  {
+    filename: "019_creator_posts.sql",
+    sql: `-- Migration 019: Creator posts
+-- Patreon-style text updates, not paywalled items. visibility gates the
+-- listener-facing GET /api/posts route by tier; the dashboard sees everything.
+
+CREATE TABLE IF NOT EXISTS creator_posts (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  title        TEXT,
+  body         TEXT    NOT NULL,
+  visibility   TEXT    NOT NULL DEFAULT 'supporters_only'
+               CHECK(visibility IN ('public', 'supporters_only')),
+  published_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_creator_posts_published ON creator_posts(visibility, published_at);
+`,
+  },
 ];

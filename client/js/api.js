@@ -253,6 +253,20 @@ export const share = {
   },
 };
 
+// ── api.posts ─────────────────────────────────────────────────────────────────────
+
+export const posts = {
+  /**
+   * GET /api/posts?page={page}&limit={limit} — tier-gated creator posts.
+   * @param {number} [page=1]
+   * @param {number} [limit=20]
+   * @returns {{ posts: Array<{ id, title, body, visibility, published_at }>, page, limit }}
+   */
+  list(page = 1, limit = 20) {
+    return _json(`/api/posts?page=${page}&limit=${limit}`);
+  },
+};
+
 // ── api.dashboard ─────────────────────────────────────────────────────────────────
 
 export const dashboard = {
@@ -653,6 +667,46 @@ export const dashboard = {
      */
     remove(token) {
       return _del(`/api/dashboard/share/${token}`);
+    },
+  },
+
+  // ── Creator posts ──────────────────────────────────────────────────────────────
+
+  posts: {
+    /**
+     * GET /api/dashboard/posts — all posts, newest first.
+     * @returns {Array<object>}
+     */
+    list() {
+      return _json('/api/dashboard/posts');
+    },
+
+    /**
+     * POST /api/dashboard/posts
+     * @param {{ title?, body, visibility }} body
+     * @returns {{ res: Response, data: object }}
+     */
+    create(body) {
+      return _send('/api/dashboard/posts', body);
+    },
+
+    /**
+     * PUT /api/dashboard/posts/{id}
+     * @param {number} id
+     * @param {object} body
+     * @returns {{ res: Response, data: object }}
+     */
+    update(id, body) {
+      return _send(`/api/dashboard/posts/${id}`, body, 'PUT');
+    },
+
+    /**
+     * DELETE /api/dashboard/posts/{id}
+     * @param {number} id
+     * @returns {{ res: Response, data: object }}
+     */
+    remove(id) {
+      return _del(`/api/dashboard/posts/${id}`);
     },
   },
 

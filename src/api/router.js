@@ -43,6 +43,11 @@ router.use('/dashboard/share', shareModule.dashRouter);
 // Creator bio landing page (public profile + dashboard management)
 router.use('/creator',   require('./creator'));
 
+// Creator posts (Patreon-style text updates, tier-gated for listeners)
+const postsModule = require('./posts');
+router.use('/posts',           postsModule);
+router.use('/dashboard/posts', postsModule.dashRouter);
+
 // First-launch legal acceptance
 router.use('/system',    require('./system'));
 
