@@ -31,6 +31,7 @@ let _loadCreatorType        = () => {};
 let _initUploadHandlers     = () => {};
 let _loadDashTokens         = () => {};
 let _loadDashShareLinks     = () => {};
+let _loadDashAllAccess      = () => {};
 
 export function init(callbacks = {}) {
   if (callbacks.loadDashStation)       _loadDashStation       = callbacks.loadDashStation;
@@ -53,6 +54,7 @@ export function init(callbacks = {}) {
   if (callbacks.initUploadHandlers)    _initUploadHandlers    = callbacks.initUploadHandlers;
   if (callbacks.loadDashTokens)        _loadDashTokens        = callbacks.loadDashTokens;
   if (callbacks.loadDashShareLinks)    _loadDashShareLinks    = callbacks.loadDashShareLinks;
+  if (callbacks.loadDashAllAccess)     _loadDashAllAccess     = callbacks.loadDashAllAccess;
 }
 
 // ── Auth probe ─────────────────────────────────────────────────────────────────
@@ -251,6 +253,7 @@ export function loadDashboard() {
   loadDashAccounts();
   _loadDashTokens();
   _loadDashShareLinks();
+  _loadDashAllAccess();
   _loadDashAnalytics();
   _loadDash2FA();
   loadDashPaymentConfig();

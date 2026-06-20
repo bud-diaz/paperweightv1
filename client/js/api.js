@@ -556,6 +556,15 @@ export const dashboard = {
     setHighlight(body) {
       return _send('/api/dashboard/vault/highlight', body, 'PUT');
     },
+
+    /**
+     * PUT /api/dashboard/vault/all-access
+     * @param {{ enabled, subscribers_included, suggested_price, minimum_price, allow_free, payment_type, recurring_interval }} body
+     * @returns {{ res: Response, data: object }}
+     */
+    setAllAccess(body) {
+      return _send('/api/dashboard/vault/all-access', body, 'PUT');
+    },
   },
 
   // ── Share links ────────────────────────────────────────────────────────────────

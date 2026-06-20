@@ -626,6 +626,54 @@
 
           <div class="dash-divider"></div>
 
+          <!-- All-Access Pricing -->
+          <div class="dash-section">
+            <div class="dash-section-label">ALL-ACCESS PRICING</div>
+            <div class="dash-new-proj-body">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+                <input type="checkbox" id="aa-enabled"/>
+                <label for="aa-enabled" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.4);cursor:pointer;">Enable All-Access tier</label>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+                <input type="checkbox" id="aa-subscribers-included"/>
+                <label for="aa-subscribers-included" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.4);cursor:pointer;">Include vault access for active Subscriber-tier members</label>
+              </div>
+              <div class="dash-edit-label">PRICING</div>
+              <div class="dash-proj-price-grid">
+                <div>
+                  <div class="dash-edit-label">SUGGESTED ($)</div>
+                  <input class="dash-input-sm" id="aa-sugg" type="number" step="0.01" min="0" placeholder="10.00"/>
+                </div>
+                <div>
+                  <div class="dash-edit-label">MINIMUM ($)</div>
+                  <input class="dash-input-sm" id="aa-min" type="number" step="0.01" min="0" placeholder="5.00"/>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+                <input type="checkbox" id="aa-free"/>
+                <label for="aa-free" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.4);cursor:pointer;">Allow free / pay-what-you-want</label>
+              </div>
+              <div class="dash-edit-label">PAYMENT TYPE</div>
+              <select class="dash-input dash-input-gap" id="aa-payment-type">
+                <option value="recurring">Recurring</option>
+                <option value="one_time">One-time</option>
+              </select>
+              <div id="aa-interval-row">
+                <div class="dash-edit-label">BILLING INTERVAL</div>
+                <select class="dash-input dash-input-gap" id="aa-interval">
+                  <option value="monthly">Monthly</option>
+                  <option value="annually">Annually</option>
+                </select>
+              </div>
+              <div class="dash-form-row">
+                <span id="aa-msg" class="dash-inline-msg"></span>
+                <button class="mgmt-btn" id="btn-aa-save">SAVE ALL-ACCESS CONFIG</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="dash-divider"></div>
+
           <!-- Share Links -->
           <div class="dash-section">
             <div class="dash-section-label">SHARE LINKS</div>

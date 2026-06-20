@@ -37,6 +37,7 @@ import * as bio         from './dashboard/bio.js';
 import * as vault       from './dashboard/vault.js';
 import * as projects    from './dashboard/projects.js';
 import * as shareLinks  from './dashboard/share.js';
+import * as allAccess   from './dashboard/allaccess.js';
 import * as broadcast   from './dashboard/broadcast.js';
 import * as live        from './dashboard/live.js';
 import * as schedule    from './dashboard/schedule.js';
@@ -108,6 +109,7 @@ dashIndex.init({
   initUploadHandlers:   upload.initUploadHandlers,
   loadDashTokens:       vault.loadDashTokens,
   loadDashShareLinks:   shareLinks.loadDashShareLinks,
+  loadDashAllAccess:    allAccess.loadDashAllAccess,
 });
 
 vault.init({
@@ -174,6 +176,7 @@ bio.initBioHandlers();
 vault.initTokenHandlers();
 projects.initProjectHandlers();
 shareLinks.initShareLinkHandlers();
+allAccess.initAllAccessHandlers();
 broadcast.initBroadcastHandlers();
 live.initLiveHandlers();
 schedule.initScheduleHandlers();
