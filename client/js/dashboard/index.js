@@ -8,7 +8,12 @@ import { el, esc } from '../utils.js';
 // ── Module-local state ─────────────────────────────────────────────────────────
 let dashboardInitialized = false;
 let pendingChallenge = null;
+let _platform = 'web';
 export let DASH_ACCOUNTS = [];
+
+export function isDesktopPlatform() {
+  return _platform === 'desktop';
+}
 
 // ── Injected callbacks ─────────────────────────────────────────────────────────
 let _loadDashStation        = () => {};
@@ -243,8 +248,24 @@ export async function checkLaunchAcceptance() {
   } catch {}
 }
 
+// ── Platform gating ─────────────────────────────────────────────────────────────
+// Hides panels reserved for the desktop app (smart playlists, external
+// search/import, token assignment) when running the web build.
+async function applyPlatformGating() {
+  try {
+    const { platform } = await api.dashboard.system.platform();
+    _platform = platform;
+  } catch {
+    _platform = 'web';
+  }
+  document.querySelectorAll('[data-desktop-only]').forEach(node => {
+    node.hidden = !isDesktopPlatform();
+  });
+}
+
 // ── Dashboard orchestrator ─────────────────────────────────────────────────────
-export function loadDashboard() {
+export async function loadDashboard() {
+  await applyPlatformGating();
   _bindVaultStatButtons();
   _loadCreatorType();
   loadDashRuntime();

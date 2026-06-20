@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { getDb } = require('../db');
 const { requireDashboard } = require('../auth/middleware');
+const { requireDesktop } = require('../auth/platform');
 const { resolveCurrentBlock, isValidTime, isValidDayOfWeek, parseTimeToMinutes } = require('../broadcast/scheduler');
 const { buildShuffleBatch, buildSequentialBatch, buildSmartPlaylistBatch } = require('../broadcast/playlist');
 
@@ -366,6 +367,9 @@ function matchesSmartPlaylistTracks(db, playlist) {
     return tagsFilter.every(t => mediaTags.includes(t));
   });
 }
+
+// Smart playlists are a desktop-only feature — gate the whole subtree.
+router.use('/smart-playlists', requireDesktop);
 
 router.get('/smart-playlists', (req, res) => {
   res.json(getDb().prepare('SELECT * FROM smart_playlists ORDER BY name ASC').all());

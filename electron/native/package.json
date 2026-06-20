@@ -1,0 +1,8 @@
+{
+  "name": "paperweight-electron-native",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "better-sqlite3": "^12.8.0"
+  }
+}

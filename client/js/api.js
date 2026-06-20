@@ -1033,5 +1033,13 @@ export const dashboard = {
         headers: { 'Content-Type': 'application/json' },
       });
     },
+
+    /**
+     * GET /api/system/platform
+     * @returns {{ platform: 'desktop'|'web' }}
+     */
+    platform() {
+      return _json('/api/system/platform');
+    },
   },
 };
