@@ -4,6 +4,7 @@
 
 import * as api from '../api.js';
 import { el, esc, trackColor } from '../utils.js';
+import { isDesktopPlatform } from './index.js';
 
 // ── Module-local state ─────────────────────────────────────────────────────────
 let vaultStatsBound   = false;
@@ -432,12 +433,13 @@ export async function loadDashTokens() {
               <option value="all_access"${t.tier==='all_access'?' selected':''}>All-Access</option>
             </select>
             <button class="mgmt-btn" id="tier-upd-${t.id}">UPDATE</button>
-            <button class="mgmt-btn" id="assign-tog-${t.id}" style="letter-spacing:.03em;">⊕ ASSIGN</button>
+            ${isDesktopPlatform() ? `<button class="mgmt-btn" id="assign-tog-${t.id}" style="letter-spacing:.03em;">⊕ ASSIGN</button>` : ''}
           ` : ''}
           <button class="mgmt-btn${t.is_active ? ' danger' : ''}" id="revoke-${t.id}" ${!t.is_active ? 'disabled' : ''}>
             ${t.is_active ? 'REVOKE' : 'REVOKED'}
           </button>
         </div>
+        ${t.is_active && isDesktopPlatform() ? `
         <div class="dash-tok-panel" id="assign-panel-${t.id}" hidden>
           <div id="assign-list-${t.id}"></div>
           <div class="dash-form-row" style="padding:6px 14px 0;gap:6px;">
@@ -448,7 +450,7 @@ export async function loadDashTokens() {
             <button class="mgmt-btn" id="assign-add-${t.id}">ASSIGN</button>
           </div>
           <div id="assign-msg-${t.id}" style="padding:3px 14px 6px;font-family:'Space Mono',monospace;font-size:10px;"></div>
-        </div>`;
+        </div>` : ''}`;
 
       if (t.is_active) {
         wrap.querySelector(`#tier-upd-${t.id}`).addEventListener('click', async () => {
@@ -458,36 +460,38 @@ export async function loadDashTokens() {
           loadDashTokens();
         });
 
-        wrap.querySelector(`#assign-tog-${t.id}`).addEventListener('click', async () => {
-          const panel = wrap.querySelector(`#assign-panel-${t.id}`);
-          panel.hidden = !panel.hidden;
-          if (!panel.hidden) {
-            await refreshAssignmentList(t.id, wrap);
-            _makeTypeahead(
-              wrap.querySelector(`#assign-email-${t.id}`),
-              wrap.querySelector(`#assign-drop-${t.id}`),
-              _getDashAccounts()
-            );
-          }
-        });
+        if (isDesktopPlatform()) {
+          wrap.querySelector(`#assign-tog-${t.id}`).addEventListener('click', async () => {
+            const panel = wrap.querySelector(`#assign-panel-${t.id}`);
+            panel.hidden = !panel.hidden;
+            if (!panel.hidden) {
+              await refreshAssignmentList(t.id, wrap);
+              _makeTypeahead(
+                wrap.querySelector(`#assign-email-${t.id}`),
+                wrap.querySelector(`#assign-drop-${t.id}`),
+                _getDashAccounts()
+              );
+            }
+          });
 
-        wrap.querySelector(`#assign-add-${t.id}`).addEventListener('click', async () => {
-          const emailInput = wrap.querySelector(`#assign-email-${t.id}`);
-          const msgEl      = wrap.querySelector(`#assign-msg-${t.id}`);
-          const email = emailInput.value.trim();
-          if (!email) return;
-          const { res, data } = await api.dashboard.tokens.assign(t.id, { email });
-          if (res.ok) {
-            emailInput.value  = '';
-            msgEl.style.color = 'rgba(255,255,255,.45)';
-            msgEl.textContent = `✓ Assigned to ${data.email}`;
-            setTimeout(() => { msgEl.textContent = ''; }, 2500);
-            await refreshAssignmentList(t.id, wrap);
-          } else {
-            msgEl.style.color = '#ff6b6b';
-            msgEl.textContent = data.error || 'Assignment failed';
-          }
-        });
+          wrap.querySelector(`#assign-add-${t.id}`).addEventListener('click', async () => {
+            const emailInput = wrap.querySelector(`#assign-email-${t.id}`);
+            const msgEl      = wrap.querySelector(`#assign-msg-${t.id}`);
+            const email = emailInput.value.trim();
+            if (!email) return;
+            const { res, data } = await api.dashboard.tokens.assign(t.id, { email });
+            if (res.ok) {
+              emailInput.value  = '';
+              msgEl.style.color = 'rgba(255,255,255,.45)';
+              msgEl.textContent = `✓ Assigned to ${data.email}`;
+              setTimeout(() => { msgEl.textContent = ''; }, 2500);
+              await refreshAssignmentList(t.id, wrap);
+            } else {
+              msgEl.style.color = '#ff6b6b';
+              msgEl.textContent = data.error || 'Assignment failed';
+            }
+          });
+        }
       }
 
       wrap.querySelector(`#revoke-${t.id}`).addEventListener('click', async () => {

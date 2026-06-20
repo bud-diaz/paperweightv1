@@ -13,8 +13,19 @@ const crypto = require('crypto');
 
 const isPackaged = typeof process.pkg !== 'undefined';
 
+// Set by electron/main.js before requiring this module (and src/index.js).
+// Electron apps run from a read-only install location on both Windows and
+// Mac, so — unlike the pkg .exe case — there is no writable directory next
+// to the binary; the Electron main process points this at app.getPath('userData')
+// instead and we just read the env var here to keep this file Electron-agnostic.
+const isElectron = process.env.PAPERWEIGHT_ELECTRON === 'true';
+
 const appRoot  = path.resolve(__dirname, '..');
-const dataRoot = isPackaged ? path.dirname(process.execPath) : appRoot;
+const dataRoot = isElectron
+  ? (process.env.PAPERWEIGHT_DATA_ROOT || appRoot)
+  : isPackaged
+    ? path.dirname(process.execPath)
+    : appRoot;
 
 function loadPackageVersion() {
   try {
@@ -63,6 +74,14 @@ function loadEnv() {
   if (!fs.existsSync(envPath)) {
     if (process.env.PAPERWEIGHT_ALLOW_MISSING_ENV === 'true') {
       return;
+    }
+
+    if (isElectron) {
+      // The Electron main process runs the setup wizard and writes .env via
+      // src/setup/provision.js before ever requiring src/index.js, so this
+      // branch is defensive only — it should never be hit in practice.
+      console.error('ERROR: .env missing in the Electron data root; the setup wizard should have created it.');
+      process.exit(1);
     }
 
     if (isPackaged) {
@@ -226,6 +245,12 @@ const config = {
 
   // true when the server is behind TLS (enables secure cookies, HTTPS redirects)
   https: process.env.HTTPS === 'true',
+
+  // 'desktop' when running inside the Electron app, or when explicitly opted
+  // into via DEPLOYMENT_PLATFORM (e.g. a pkg .exe a user wants treated as
+  // desktop-equivalent). Defaults to 'web' for plain `npm start`/hosted
+  // deployments — see src/auth/platform.js for the features this gates.
+  platform: (isElectron || process.env.DEPLOYMENT_PLATFORM === 'desktop') ? 'desktop' : 'web',
 };
 
 module.exports = config;

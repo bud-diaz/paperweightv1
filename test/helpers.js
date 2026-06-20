@@ -8,6 +8,11 @@
 // which is why this module sets them at load time and every test file requires
 // it first.
 process.env.PAPERWEIGHT_ALLOW_MISSING_ENV = 'true';
+// Most HTTP/feature tests exercise functionality (e.g. smart playlists)
+// rather than the desktop/web gate itself — treat the shared harness as
+// desktop so those tests aren't coupled to platform gating. The gate itself
+// is covered in isolation by test/platform.test.js.
+process.env.DEPLOYMENT_PLATFORM = 'desktop';
 
 const os = require('os');
 const fs = require('fs');

@@ -9,6 +9,7 @@ const { URL: NodeURL } = require('url');
 const multer = require('multer');
 const { getDb, log } = require('../db');
 const { requireDashboard } = require('../auth/middleware');
+const { requireDesktop } = require('../auth/platform');
 const { createToken, revokeToken, listTokens, updateTokenTier, listTokensForScope } = require('../auth');
 const broadcast = require('../broadcast');
 const live = require('../broadcast/live');
@@ -407,7 +408,7 @@ router.get('/accounts', (req, res) => {
 // ─── Token account assignments ────────────────────────────────────────────────
 
 // GET /api/dashboard/tokens/:id/assignments
-router.get('/tokens/:id/assignments', (req, res) => {
+router.get('/tokens/:id/assignments', requireDesktop, (req, res) => {
   const rows = getDb().prepare(`
     SELECT la.id, la.email, ta.created_at
     FROM token_assignments ta
@@ -420,7 +421,7 @@ router.get('/tokens/:id/assignments', (req, res) => {
 
 // POST /api/dashboard/tokens/:id/assignments
 // Body: { email }
-router.post('/tokens/:id/assignments', (req, res) => {
+router.post('/tokens/:id/assignments', requireDesktop, (req, res) => {
   const { email } = req.body;
   if (!email || typeof email !== 'string' || !email.includes('@')) {
     return res.status(400).json({ error: 'Valid email is required' });
@@ -447,7 +448,7 @@ router.post('/tokens/:id/assignments', (req, res) => {
 });
 
 // DELETE /api/dashboard/tokens/:id/assignments/:listener_id
-router.delete('/tokens/:id/assignments/:listener_id', (req, res) => {
+router.delete('/tokens/:id/assignments/:listener_id', requireDesktop, (req, res) => {
   const info = getDb().prepare(
     'DELETE FROM token_assignments WHERE token_id = ? AND listener_id = ?'
   ).run(req.params.id, req.params.listener_id);
@@ -613,7 +614,7 @@ router.get('/payment-config', (req, res) => {
 
 // GET /api/dashboard/webhook-log?limit=50&provider=stripe
 // Returns recent webhook events for production debugging.
-router.get('/webhook-log', (req, res) => {
+router.get('/webhook-log', requireDesktop, (req, res) => {
   const limitNum    = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
   const { provider } = req.query;
 
@@ -840,7 +841,7 @@ router.post('/radio-host', (req, res) => {
 });
 
 // GET /api/dashboard/external-search?platform=youtube|soundcloud&q=...
-router.get('/external-search', asyncHandler(async (req, res) => {
+router.get('/external-search', requireDesktop, asyncHandler(async (req, res) => {
   const { platform, q } = req.query;
   if (!q || !q.trim()) return res.json({ items: [] });
 
@@ -915,7 +916,7 @@ router.get('/external-search', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/dashboard/media/external
-router.post('/media/external', asyncHandler(async (req, res) => {
+router.post('/media/external', requireDesktop, asyncHandler(async (req, res) => {
   const { title, artist, platform, externalUrl, duration } = req.body || {};
   if (!title || !platform || !externalUrl) {
     return res.status(400).json({ error: 'title, platform, and externalUrl are required' });

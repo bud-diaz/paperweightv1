@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Paperweight Setup</title>
+<link rel="stylesheet" href="setup.css">
+</head>
+<body>
+  <div class="wizard">
+    <h1>Welcome to Paperweight</h1>
+    <p class="sub">Let's set up your station. This only takes a minute.</p>
+
+    <form id="setup-form">
+      <label>
+        Station name
+        <input type="text" id="stationName" placeholder="My Cool Station" required>
+      </label>
+
+      <label>
+        Station slug
+        <input type="text" id="slug" placeholder="auto-generated from station name">
+      </label>
+
+      <fieldset>
+        <legend>Identity</legend>
+        <label class="radio">
+          <input type="radio" name="identityMode" value="anonymous" checked> Anonymous station
+        </label>
+        <label class="radio">
+          <input type="radio" name="identityMode" value="creator"> Creator brand
+        </label>
+      </fieldset>
+
+      <div id="creator-fields" hidden>
+        <label>
+          Creator name
+          <input type="text" id="creatorName">
+        </label>
+        <label>
+          Station description
+          <textarea id="creatorDesc" rows="2"></textarea>
+        </label>
+      </div>
+
+      <label>
+        Vault folder
+        <div class="row">
+          <input type="text" id="vaultPath" value="./vault" readonly>
+          <button type="button" id="choose-vault-btn">Browse…</button>
+        </div>
+      </label>
+
+      <label>
+        Vault mode
+        <select id="vaultMode">
+          <option value="hybrid" selected>Hybrid (recommended)</option>
+          <option value="folder">Folder</option>
+          <option value="metadata">Metadata</option>
+        </select>
+      </label>
+
+      <label>
+        Cloudflare tunnel token (optional)
+        <input type="text" id="cfTunnelToken" placeholder="leave blank if not using a tunnel">
+      </label>
+
+      <p id="setup-error" class="error" hidden></p>
+
+      <button type="submit" id="submit-btn">Create station</button>
+    </form>
+
+    <div id="done-screen" hidden>
+      <h2>You're all set!</h2>
+      <p>Your dashboard token (keep this safe — you can use it to recover dashboard access):</p>
+      <div class="row">
+        <input type="text" id="dashboard-token-display" readonly>
+        <button type="button" id="copy-token-btn">Copy</button>
+      </div>
+      <p class="sub">Starting Paperweight…</p>
+    </div>
+  </div>
+
+  <script src="setup.js"></script>
+</body>
+</html>

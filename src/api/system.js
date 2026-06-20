@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { getDb } = require('../db');
 const { requireDashboard } = require('../auth/middleware');
+const { isDesktop } = require('../auth/platform');
 
 let _version;
 function getVersion() {
@@ -26,6 +27,12 @@ router.post('/launch-accept', requireDashboard, (req, res) => {
     WHERE id = 1
   `).run(getVersion());
   res.json({ ok: true });
+});
+
+// GET /api/system/platform — tells the dashboard whether to show desktop-only
+// panels (smart playlists, external search/import, token assignment).
+router.get('/platform', requireDashboard, (req, res) => {
+  res.json({ platform: isDesktop() ? 'desktop' : 'web' });
 });
 
 module.exports = router;
