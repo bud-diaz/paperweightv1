@@ -26,18 +26,20 @@ let _selectVOD        = () => {};
 let _startGatedPreview = () => {};
 let _openModal        = () => {};
 let _setModalTab      = () => {};
+let _openLibraryModal = () => {};
 
 /**
  * Register cross-module callbacks.
  * Called from main.js in Phase 8.
  *
- * @param {{ selectVOD, startGatedPreview, openModal, setModalTab }} cbs
+ * @param {{ selectVOD, startGatedPreview, openModal, setModalTab, openLibraryModal }} cbs
  */
-export function init({ selectVOD, startGatedPreview, openModal, setModalTab } = {}) {
+export function init({ selectVOD, startGatedPreview, openModal, setModalTab, openLibraryModal } = {}) {
   if (selectVOD)         _selectVOD         = selectVOD;
   if (startGatedPreview) _startGatedPreview  = startGatedPreview;
   if (openModal)         _openModal          = openModal;
   if (setModalTab)       _setModalTab        = setModalTab;
+  if (openLibraryModal)  _openLibraryModal   = openLibraryModal;
 }
 
 // ── Track normalization ───────────────────────────────────────────────────────
@@ -75,7 +77,7 @@ export async function loadLibrary() {
 
 // ── Library DOM ───────────────────────────────────────────────────────────────
 
-export function buildLibRow(t) {
+export function buildLibRow(t, onClick) {
   const row = document.createElement('div');
   row.className = 'lib-row';
   const isActive = state.track && state.track.id === t.id;
@@ -103,12 +105,53 @@ export function buildLibRow(t) {
       _openModal(); _setModalTab('subscribe');
     });
   }
-  row.addEventListener('click', () => _selectVOD(t));
+  row.addEventListener('click', () => (onClick || _selectVOD)(t));
   return row;
 }
 
-export function buildLibrary() {
-  const list = el('lib-list');
+function buildLibProjectSection(proj, onTrackClick) {
+  const section = document.createElement('div');
+  section.className = 'lib-project';
+
+  const firstVaultTrack = proj.tracks.find(t => t.visibility === 'vault');
+  const isGated = !!firstVaultTrack;
+
+  const header = document.createElement('div');
+  header.className = 'lib-project-header';
+  header.innerHTML = `
+    <span style="font-size:13px;color:rgba(255,255,255,.25);">⬡</span>
+    <span class="lib-project-name">${esc(proj.name)}</span>
+    <span class="lib-project-count">${proj.tracks.length}</span>
+    ${isGated ? '<button class="lib-proj-unlock-btn">SUPPORT TO UNLOCK</button>' : ''}
+    <span class="lib-project-chev">›</span>`;
+
+  if (isGated) {
+    header.querySelector('.lib-proj-unlock-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      _startGatedPreview(normalizeTrack(firstVaultTrack));
+    });
+  }
+
+  header.addEventListener('click', e => {
+    if (e.target.classList.contains('lib-proj-unlock-btn')) return;
+    section.classList.toggle('open');
+  });
+
+  const tracksDiv = document.createElement('div');
+  tracksDiv.className = 'lib-project-tracks';
+  proj.tracks.forEach(t => tracksDiv.appendChild(buildLibRow(normalizeTrack(t), onTrackClick)));
+
+  section.appendChild(header);
+  section.appendChild(tracksDiv);
+  return section;
+}
+
+// Renders the full project/standalone tree into the given container — used by
+// the library modal (full browser) and, historically, the drawer itself
+// before it was curated down to 3 rows. onTrackClick lets the modal play
+// directly while keeping buildLibRow's gating/unlock/queue logic shared.
+export function buildFullLibraryList(targetElId, onTrackClick) {
+  const list = el(targetElId);
   const { projects, standalone } = LIBRARY_STRUCTURE;
 
   if (!projects.length && !standalone.length) {
@@ -118,40 +161,7 @@ export function buildLibrary() {
   list.innerHTML = '';
 
   for (const proj of projects) {
-    const section = document.createElement('div');
-    section.className = 'lib-project';
-
-    const firstVaultTrack = proj.tracks.find(t => t.visibility === 'vault');
-    const isGated = !!firstVaultTrack;
-
-    const header = document.createElement('div');
-    header.className = 'lib-project-header';
-    header.innerHTML = `
-      <span style="font-size:13px;color:rgba(255,255,255,.25);">⬡</span>
-      <span class="lib-project-name">${esc(proj.name)}</span>
-      <span class="lib-project-count">${proj.tracks.length}</span>
-      ${isGated ? '<button class="lib-proj-unlock-btn">SUPPORT TO UNLOCK</button>' : ''}
-      <span class="lib-project-chev">›</span>`;
-
-    if (isGated) {
-      header.querySelector('.lib-proj-unlock-btn').addEventListener('click', e => {
-        e.stopPropagation();
-        _startGatedPreview(normalizeTrack(firstVaultTrack));
-      });
-    }
-
-    header.addEventListener('click', e => {
-      if (e.target.classList.contains('lib-proj-unlock-btn')) return;
-      section.classList.toggle('open');
-    });
-
-    const tracksDiv = document.createElement('div');
-    tracksDiv.className = 'lib-project-tracks';
-    proj.tracks.forEach(t => tracksDiv.appendChild(buildLibRow(normalizeTrack(t))));
-
-    section.appendChild(header);
-    section.appendChild(tracksDiv);
-    list.appendChild(section);
+    list.appendChild(buildLibProjectSection(proj, onTrackClick));
   }
 
   if (standalone.length) {
@@ -161,7 +171,49 @@ export function buildLibrary() {
       sep.textContent = 'SINGLES';
       list.appendChild(sep);
     }
-    standalone.forEach(t => list.appendChild(buildLibRow(normalizeTrack(t))));
+    standalone.forEach(t => list.appendChild(buildLibRow(normalizeTrack(t), onTrackClick)));
+  }
+}
+
+function buildCuratedProjectRow(proj, label) {
+  const row = document.createElement('div');
+  row.className = 'lib-row lib-row-curated';
+  const trackCount = proj.tracks.length;
+  row.innerHTML = `
+    <div class="lib-thumb" style="background:linear-gradient(135deg,#39ff1444,#39ff1411);border:1px solid #39ff1433;"><span>⬡</span></div>
+    <div class="lib-info">
+      <div class="lib-meta" style="letter-spacing:.12em;color:var(--t3);">${label}</div>
+      <div class="lib-title">${esc(proj.name)}</div>
+      <div class="lib-meta">${trackCount} track${trackCount !== 1 ? 's' : ''}</div>
+    </div>
+  `;
+  row.addEventListener('click', () => _openLibraryModal());
+  return row;
+}
+
+// ── Curated drawer (3 rows: latest project, most played, creator highlight) ──
+export function buildLibrary() {
+  const list = el('lib-list');
+  const { curated } = LIBRARY_STRUCTURE;
+
+  list.innerHTML = '';
+
+  if (curated?.recentProject) {
+    list.appendChild(buildCuratedProjectRow(curated.recentProject, 'LATEST'));
+  }
+  if (curated?.mostPlayed) {
+    list.appendChild(buildLibRow(normalizeTrack(curated.mostPlayed), () => _openLibraryModal()));
+  }
+  if (curated?.highlighted?.item) {
+    if (curated.highlighted.type === 'project') {
+      list.appendChild(buildCuratedProjectRow(curated.highlighted.item, 'FEATURED'));
+    } else {
+      list.appendChild(buildLibRow(normalizeTrack(curated.highlighted.item), () => _openLibraryModal()));
+    }
+  }
+
+  if (!list.children.length) {
+    list.innerHTML = '<div style="padding:10px 14px;font-family:\'Space Mono\',monospace;font-size:11px;color:rgba(255,255,255,.25);letter-spacing:.06em;">NO UPLOADS YET</div>';
   }
 }
 

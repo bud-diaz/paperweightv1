@@ -27,8 +27,9 @@ import * as hlsClient from './hls-client.js';
 import * as player    from './player.js';
 import * as ascii     from './ascii.js';
 import * as auth      from './auth.js';
-import * as library   from './library.js';
-import * as payment   from './payment.js';
+import * as library      from './library.js';
+import * as libraryModal from './library-modal.js';
+import * as payment      from './payment.js';
 
 import * as dashIndex   from './dashboard/index.js';
 import * as station     from './dashboard/station.js';
@@ -59,6 +60,7 @@ library.init({
   startGatedPreview: player.startGatedPreview,
   openModal:         payment.openModal,
   setModalTab:       payment.setModalTab,
+  openLibraryModal:  libraryModal.openLibraryModal,
 });
 
 hlsClient.init({
@@ -154,6 +156,7 @@ twofa.init();
 
 auth.initAuthHandlers();
 library.initListenerQueueHandlers();
+libraryModal.initLibraryModalHandlers();
 payment.initPaymentHandlers();
 payment.initFloatingTip();
 player.initShareHandlers();

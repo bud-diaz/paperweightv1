@@ -68,7 +68,10 @@ export function openVaultPanel(name) {
 // ── Locked tracks ──────────────────────────────────────────────────────────────
 export async function loadDashLockedTracks() {
   try {
-    const items  = await api.dashboard.media.list();
+    const [items, highlight] = await Promise.all([
+      api.dashboard.media.list(),
+      api.dashboard.vault.getHighlight(),
+    ]);
     const locked = items.filter(it => it.visibility === 'vault' || it.visibility === 'supporters_only');
     const list   = el('dash-locked-list');
     list.innerHTML = '';
@@ -76,13 +79,27 @@ export async function loadDashLockedTracks() {
       list.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No locked tracks.</div>';
       return;
     }
-    for (const item of locked) list.appendChild(buildDashLibItem(item, 'track', item.id, false));
+    for (const item of locked) list.appendChild(buildDashLibItem(item, 'track', item.id, false, highlight));
   } catch {}
 }
 
+// ── Highlight toggle (shared by tracks + projects) ─────────────────────────────
+// btn carries its own current state in a data attribute so repeated clicks
+// (without a full re-render) stay correct.
+export async function toggleHighlight(btn, type, id) {
+  const isHighlighted = btn.dataset.highlighted === '1';
+  btn.disabled = true;
+  await api.dashboard.vault.setHighlight(isHighlighted ? { type: null, id: null } : { type, id });
+  btn.disabled = false;
+  btn.dataset.highlighted = isHighlighted ? '0' : '1';
+  btn.textContent = isHighlighted ? '☆ HIGHLIGHT' : '★ HIGHLIGHTED';
+  btn.classList.toggle('active', !isHighlighted);
+}
+
 // ── Library item builder ───────────────────────────────────────────────────────
-export function buildDashLibItem(item, scopeType, scopeId, nested = false) {
+export function buildDashLibItem(item, scopeType, scopeId, nested = false, highlight = null) {
   const c    = trackColor(item.id);
+  const isHighlighted = highlight?.highlight_type === 'track' && highlight?.highlight_id === item.id;
   const wrap = document.createElement('div');
   if (nested) wrap.className = 'dash-lib-nested';
 
@@ -110,6 +127,7 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false) {
         </select>
         <button class="mgmt-btn" id="save-${item.id}">SAVE</button>
         <button class="mgmt-btn" id="edit-tog-${item.id}">✎ EDIT</button>
+        <button class="mgmt-btn${isHighlighted ? ' active' : ''}" id="hl-tog-${item.id}" data-highlighted="${isHighlighted ? '1' : '0'}">${isHighlighted ? '★ HIGHLIGHTED' : '☆ HIGHLIGHT'}</button>
         <button class="mgmt-btn" id="tok-tog-${panelId}" style="letter-spacing:.03em;">⬡ TOKEN</button>
       </div>
     </div>
@@ -253,6 +271,10 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false) {
     }
   });
 
+  wrap.querySelector(`#hl-tog-${item.id}`).addEventListener('click', () => {
+    toggleHighlight(wrap.querySelector(`#hl-tog-${item.id}`), 'track', item.id);
+  });
+
   wrap.querySelector(`#tok-tog-${panelId}`).addEventListener('click', async () => {
     const panel = document.getElementById(tokPanelId);
     panel.hidden = !panel.hidden;
@@ -276,7 +298,7 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false) {
 }
 
 // ── Library project builder ────────────────────────────────────────────────────
-export function buildDashLibProject(proj, allItems) {
+export function buildDashLibProject(proj, allItems, highlight = null) {
   const tracks = (proj.items || [])
     .map(pi => allItems.find(it => it.id === pi.content_id))
     .filter(Boolean);
@@ -326,7 +348,7 @@ export function buildDashLibProject(proj, allItems) {
   });
 
   wrap.appendChild(header);
-  tracks.forEach(item => wrap.appendChild(buildDashLibItem(item, 'track', item.id, true)));
+  tracks.forEach(item => wrap.appendChild(buildDashLibItem(item, 'track', item.id, true, highlight)));
   return wrap;
 }
 
@@ -358,9 +380,10 @@ export async function refreshDashTokenList(listElId, scopeType, scopeId) {
 // ── Full library view ──────────────────────────────────────────────────────────
 export async function loadDashLibrary() {
   try {
-    const [items, pricing] = await Promise.all([
+    const [items, pricing, highlight] = await Promise.all([
       api.dashboard.media.list(),
       api.dashboard.vault.pricing(),
+      api.dashboard.vault.getHighlight(),
     ]);
 
     const list        = el('dash-lib-list');
@@ -372,10 +395,10 @@ export async function loadDashLibrary() {
     list.innerHTML = '';
 
     for (const proj of (pricing.projects || [])) {
-      list.appendChild(buildDashLibProject(proj, items));
+      list.appendChild(buildDashLibProject(proj, items, highlight));
     }
     for (const item of standalone) {
-      list.appendChild(buildDashLibItem(item, 'track', item.id, false));
+      list.appendChild(buildDashLibItem(item, 'track', item.id, false, highlight));
     }
 
     if (!items.length) {

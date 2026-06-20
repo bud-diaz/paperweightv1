@@ -21,7 +21,7 @@
   var Bodies = Matter.Bodies;
   var Body = Matter.Body;
 
-  var PAD = 8;
+  var PAD = 4;
   var GAP_X = 10;
   var FLOAT_GAP = 18;
   var RELEASE_START = 400;

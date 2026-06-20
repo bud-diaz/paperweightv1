@@ -354,6 +354,36 @@ dashRouter.put('/all-access', (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /api/dashboard/vault/highlight
+dashRouter.get('/highlight', (req, res) => {
+  const row = getDb().prepare(
+    'SELECT highlight_type, highlight_id FROM highlight_config WHERE id = 1'
+  ).get();
+  res.json(row || { highlight_type: null, highlight_id: null });
+});
+
+// PUT /api/dashboard/vault/highlight
+// Body: { type: 'track'|'project'|null, id: number|null }
+dashRouter.put('/highlight', (req, res) => {
+  const { type, id } = req.body;
+  if (type && !['track', 'project'].includes(type)) {
+    return res.status(400).json({ error: 'type must be track, project, or null' });
+  }
+
+  const highlightType = type || null;
+  const highlightId = highlightType ? parseInt(id, 10) : null;
+  if (highlightType && !highlightId) {
+    return res.status(400).json({ error: 'id is required when type is set' });
+  }
+
+  getDb().prepare(
+    "UPDATE highlight_config SET highlight_type = ?, highlight_id = ?, updated_at = datetime('now') WHERE id = 1"
+  ).run(highlightType, highlightId);
+
+  log('info', 'vault', `Highlight set: type=${highlightType} id=${highlightId}`);
+  res.json({ ok: true });
+});
+
 // ─── Listener routes ──────────────────────────────────────────────────────────
 
 // GET /api/vault/unlock-options/:content_id

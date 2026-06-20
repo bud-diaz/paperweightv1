@@ -80,6 +80,8 @@ details[open] > summary .ds-chev { transform: rotate(180deg); }
 .mgmt-btn:active { transform: translateY(0); }
 .mgmt-btn.danger { background: rgba(255,50,50,.08); border-color: rgba(255,60,60,.22); color: rgba(255,100,100,.75); }
 .mgmt-btn.danger:hover { background: rgba(255,50,50,.16); color: #ff6666; }
+.mgmt-btn.active { background: rgba(57,255,20,.08); border-color: rgba(57,255,20,.3); color: #39ff14; }
+.mgmt-btn.active:hover { background: rgba(57,255,20,.16); color: #39ff14; }
 
 /* ── Dashboard auth gate ── */
 #dash-auth-gate {
