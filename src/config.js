@@ -100,10 +100,12 @@ function loadEnv() {
 
       const token = crypto.randomBytes(16).toString('hex');
       const signingSecret = crypto.randomBytes(32).toString('hex');
+      const deviceLock = require('./device-lock').computeFingerprint();
       const defaults = [
         '# Paperweight configuration — edit and restart the exe to apply changes',
         `DASHBOARD_TOKEN=${token}`,
         `DOWNLOAD_SIGNING_SECRET=${signingSecret}`,
+        `DEVICE_LOCK=${deviceLock}`,
         'STATION_NAME=My Station',
         'HOST=127.0.0.1',
         'PORT=3000',
@@ -179,6 +181,30 @@ function ensurePersistedSecret(key, bytes, label) {
   return value;
 }
 
+// Backfills DEVICE_LOCK into .env for a packaged install whose .env predates
+// this feature. Unlike ensurePersistedSecret, the value is computed (not
+// random), so it can't reuse that helper's generation logic.
+function ensureDeviceLock() {
+  if (hasEnvValue('DEVICE_LOCK')) return process.env.DEVICE_LOCK;
+  if (!isPackaged) return '';
+
+  const envPath = path.join(dataRoot, '.env');
+  if (!fs.existsSync(envPath)) return '';
+
+  const fingerprint = require('./device-lock').computeFingerprint();
+  process.env.DEVICE_LOCK = fingerprint;
+  try {
+    const contents = fs.readFileSync(envPath, 'utf8');
+    const line = `DEVICE_LOCK=${fingerprint}`;
+    const next = contents + (contents.endsWith('\n') ? '' : '\n') + line + '\n';
+    fs.writeFileSync(envPath, next, 'utf8');
+    console.log('[Paperweight] Locked this install to this machine (DEVICE_LOCK saved to .env).');
+  } catch (err) {
+    console.warn(`[Paperweight] Could not persist DEVICE_LOCK (${err.message}).`);
+  }
+  return fingerprint;
+}
+
 const config = {
   version: loadPackageVersion(),
 
@@ -236,6 +262,8 @@ const config = {
     downloadSigningSecret: ensurePersistedSecret('DOWNLOAD_SIGNING_SECRET', 32, 'signed download links'),
   },
 
+  deviceLock: ensureDeviceLock(),
+
   // Paperweight Cloud (next roadmap phase): native-app deep-link checkout and the
   // multi-station directory. Off by default — the routes guarded by this flag are
   // inert in the self-hosted build.
@@ -252,6 +280,23 @@ const config = {
   // deployments — see src/auth/platform.js for the features this gates.
   platform: (isElectron || process.env.DEPLOYMENT_PLATFORM === 'desktop') ? 'desktop' : 'web',
 };
+
+// Packaged-exe hardware lock: refuse to boot if this .env was set up on a
+// different machine. Deters casual copying of the exe + data folder pair —
+// not a security boundary, since the check ships inside the user's own pkg
+// bundle and can be bypassed by anyone willing to edit DEVICE_LOCK or the code.
+if (isPackaged && hasEnvValue('DEVICE_LOCK')) {
+  const { computeFingerprint } = require('./device-lock');
+  const currentFingerprint = computeFingerprint();
+  if (currentFingerprint !== process.env.DEVICE_LOCK) {
+    const envPath = path.join(dataRoot, '.env');
+    console.error('\n[Paperweight] This installation is locked to a different machine.');
+    console.error('[Paperweight] This .env / data folder was set up on another computer and cannot run here.');
+    console.error('[Paperweight] If you intentionally moved this install to new hardware, delete the');
+    console.error(`[Paperweight] DEVICE_LOCK line from:\n  ${envPath}\n[Paperweight] and restart.\n`);
+    process.exit(1);
+  }
+}
 
 module.exports = config;
 

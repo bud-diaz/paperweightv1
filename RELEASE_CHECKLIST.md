@@ -100,6 +100,24 @@ generated secrets are written back to `.env`, so they persist across restarts.
 Do not publish executable artifacts unless the same platform has passed this
 clean-folder smoke.
 
+### Hardware lock
+
+Packaged executables write a `DEVICE_LOCK` fingerprint into `.env` on first
+run (derived from a platform-specific stable machine id — Linux
+`/etc/machine-id`, macOS `IOPlatformUUID`, Windows registry `MachineGuid` —
+hashed with SHA-256; pure Node `os`/`fs`/`crypto`, no network calls). Every
+subsequent boot recomputes the fingerprint and refuses to start if it does not
+match what is stored in `.env`, printing the exact `.env` path and instructing
+the user to delete the `DEVICE_LOCK` line to move the install to new hardware.
+This only deters casual copying of the exe + data folder pair — it is not
+tamper-resistant against a user willing to read or edit the shipped code, and
+is not a security boundary.
+
+Manual QA before publishing: hand-edit `DEVICE_LOCK` in a clean-folder smoke's
+`.env` to a bogus value, restart the exe, confirm it exits with code 1 and
+prints the hardware-lock-mismatch message; then delete the `DEVICE_LOCK` line
+and restart, confirming it boots and re-enrolls.
+
 ## Do Not Ship If
 
 - `npm run release:check` fails.
