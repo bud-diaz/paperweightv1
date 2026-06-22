@@ -138,6 +138,8 @@ async function main() {
 
     if (env.STATION_SLUG) pass(`STATION_SLUG: ${env.STATION_SLUG}`);
     else warn('STATION_SLUG not set');
+
+    if (env.DEVICE_LOCK) pass('DEVICE_LOCK is set (this .env is hardware-locked to a packaged install)');
   }
 
   section('npm dependencies');
