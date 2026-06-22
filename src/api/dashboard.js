@@ -344,13 +344,13 @@ router.post('/broadcast/restart', (req, res) => {
 // ─── Token management ─────────────────────────────────────────────────────────
 
 // GET /api/dashboard/tokens
-router.get('/tokens', (req, res) => {
+router.get('/tokens', requireDesktop, (req, res) => {
   res.json(listTokens());
 });
 
 // POST /api/dashboard/tokens
 // Body: { label, tier?, scope_type?, scope_id? }
-router.post('/tokens', (req, res) => {
+router.post('/tokens', requireDesktop, (req, res) => {
   const { label, tier, scope_type, scope_id } = req.body;
   if (!label || typeof label !== 'string' || !label.trim()) {
     return res.status(400).json({ error: 'label is required' });
@@ -361,13 +361,13 @@ router.post('/tokens', (req, res) => {
 });
 
 // GET /api/dashboard/tokens/for/:scopeType/:scopeId
-router.get('/tokens/for/:scopeType/:scopeId', (req, res) => {
+router.get('/tokens/for/:scopeType/:scopeId', requireDesktop, (req, res) => {
   res.json(listTokensForScope(req.params.scopeType, req.params.scopeId));
 });
 
 // PATCH /api/dashboard/tokens/:id/tier
 // Body: { tier: 'subscriber'|'pro'|'all_access' }
-router.patch('/tokens/:id/tier', (req, res) => {
+router.patch('/tokens/:id/tier', requireDesktop, (req, res) => {
   const { tier } = req.body;
   try {
     updateTokenTier(req.params.id, tier);
@@ -378,7 +378,7 @@ router.patch('/tokens/:id/tier', (req, res) => {
 });
 
 // DELETE /api/dashboard/tokens/:id
-router.delete('/tokens/:id', (req, res) => {
+router.delete('/tokens/:id', requireDesktop, (req, res) => {
   revokeToken(req.params.id);
   res.json({ ok: true });
 });
@@ -502,7 +502,7 @@ router.get('/runtime', (req, res) => {
 // PUT /api/dashboard/station/url
 // Body: { url: "https://..." }
 // Updates the registered URL and persists it to .env so it survives restarts.
-router.put('/station/url', (req, res) => {
+router.put('/station/url', requireDesktop, (req, res) => {
   const { url } = req.body;
   if (!url || typeof url !== 'string' || !url.trim()) {
     return res.status(400).json({ error: 'url is required' });
@@ -792,7 +792,7 @@ router.delete('/broadcast/queue/:idx', (req, res) => {
 
 // ─── Radio Host mode toggle ───────────────────────────────────────────────────
 // GET /api/dashboard/radio-host
-router.get('/radio-host', (req, res) => {
+router.get('/radio-host', requireDesktop, (req, res) => {
   const creatorType = config.station.creatorType;
   const isRadioHost = creatorType === 'radio_host';
   const switches    = parseInt(process.env.RADIO_HOST_SWITCHES || '0', 10);
@@ -802,7 +802,7 @@ router.get('/radio-host', (req, res) => {
 
 // POST /api/dashboard/radio-host
 // Toggles CREATOR_TYPE between 'creator' and 'radio_host', tracks switch count.
-router.post('/radio-host', (req, res) => {
+router.post('/radio-host', requireDesktop, (req, res) => {
   const envPath = require('path').join(config.paths.root, '.env');
   const currentType = config.station.creatorType;
   const switches    = parseInt(process.env.RADIO_HOST_SWITCHES || '0', 10);
