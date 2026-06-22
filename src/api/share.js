@@ -22,10 +22,10 @@ function isExpired(row) {
 // Builds the public-facing payload for a track row: same shape as
 // formatItem, but the tier-gated downloadUrl is replaced with an
 // unauthenticated signed stream URL since the token is the credential.
-function buildTrackPayload(row) {
+function buildTrackPayload(row, shareToken) {
   const item = formatItem(row, 'free');
   delete item.downloadUrl;
-  item.streamUrl = signDownloadUrl(row.id).signedUrl;
+  item.streamUrl = signDownloadUrl(row.id, { type: 'share', token: shareToken }).signedUrl;
   return item;
 }
 
@@ -33,7 +33,7 @@ function buildSharePayload(db, row) {
   if (row.target_type === 'track') {
     const media = db.prepare('SELECT * FROM media WHERE id = ? AND is_active = 1').get(row.target_id);
     if (!media) return null;
-    return { target_type: 'track', track: buildTrackPayload(media) };
+    return { target_type: 'track', track: buildTrackPayload(media, row.token) };
   }
 
   const project = db.prepare('SELECT * FROM vault_projects WHERE id = ?').get(row.target_id);
@@ -52,7 +52,7 @@ function buildSharePayload(db, row) {
       id: project.id,
       name: project.name,
       description: project.description || null,
-      tracks: items.map(buildTrackPayload),
+      tracks: items.map(item => buildTrackPayload(item, row.token)),
     },
   };
   projectPayload.collection = projectPayload.project;

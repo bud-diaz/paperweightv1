@@ -1,4 +1,5 @@
 const router = require('express').Router();
+const crypto = require('crypto');
 const { getDb, log } = require('../db');
 const config = require('../config');
 const { paymentLimiter } = require('../middleware/rateLimiter');
@@ -30,6 +31,19 @@ function isSucceededPaymentIntent(pi) {
 function currentPeriodEndIso(sub) {
   if (!sub?.current_period_end) return null;
   return new Date(sub.current_period_end * 1000).toISOString();
+}
+
+function newCheckoutNonce() {
+  return crypto.randomBytes(24).toString('hex');
+}
+
+function createPendingListener(db, nonce) {
+  const email = `stripe-${nonce}@pending.paperweight.local`;
+  const passwordHash = crypto.randomBytes(32).toString('hex');
+  const info = db.prepare(
+    'INSERT INTO listener_accounts (email, password_hash) VALUES (?, ?)'
+  ).run(email, passwordHash);
+  return info.lastInsertRowid;
 }
 
 function refreshExistingStripeSubscription(db, sub) {
@@ -357,13 +371,32 @@ router.get('/checkout-url', paymentLimiter, asyncHandler(async (req, res) => {
 
   try {
     const stripe = require('stripe')(stripeKey);
-    const base = config.station.publicUrl || `http://localhost:${process.env.PORT || 3000}`;
+    const db = getDb();
+    const nonce = newCheckoutNonce();
+    const listenerId = req.tokenRow?.listener_id || createPendingListener(db, nonce);
+    const base = config.station.publicUrl || `http://localhost:${config.port}`;
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${base}/api/payment/web-success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${base}/api/payment/web-success?session_id={CHECKOUT_SESSION_ID}&nonce=${nonce}`,
       cancel_url:  `${base}/creator.html#library`,
+      metadata: {
+        listener_id: String(listenerId),
+        tier: 'subscriber',
+        nonce,
+      },
+      subscription_data: {
+        metadata: {
+          listener_id: String(listenerId),
+          tier: 'subscriber',
+          nonce,
+        },
+      },
     });
+    db.prepare(
+      'INSERT INTO pending_checkouts (nonce, provider, stripe_session_id, listener_id, tier, expires_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(nonce, 'stripe', session.id, listenerId, 'subscriber', expiresAt);
     res.json({ checkoutUrl: session.url });
   } catch {
     res.status(500).json({ error: 'Failed to create checkout session' });
@@ -372,66 +405,59 @@ router.get('/checkout-url', paymentLimiter, asyncHandler(async (req, res) => {
 
 // GET /api/payment/web-success?session_id=xxx
 // Stripe redirects here after a successful web checkout.
-// Retrieves the session, finds or creates the listener account, issues a token,
+// Retrieves a locally-bound checkout session, activates the pending listener,
 // sets the pw_token cookie, then redirects to the library with ?subscribed=1.
 router.get('/web-success', asyncHandler(async (req, res) => {
-  const { session_id } = req.query;
+  const { session_id, nonce } = req.query;
 
-  if (!session_id || !process.env.STRIPE_SECRET_KEY) {
+  if (!session_id || !nonce || !process.env.STRIPE_SECRET_KEY) {
     return res.redirect('/creator.html#library');
   }
 
   try {
+    const db = getDb();
+    const pending = db.prepare(
+      "SELECT * FROM pending_checkouts WHERE nonce = ? AND provider = 'stripe' AND consumed_at IS NULL"
+    ).get(String(nonce));
+    if (!pending || pending.stripe_session_id !== String(session_id) || new Date(pending.expires_at) < new Date()) {
+      return res.redirect('/creator.html#library');
+    }
+
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
     const session = await stripe.checkout.sessions.retrieve(session_id, {
       expand: ['subscription'],
     });
 
-    const email = session.customer_details?.email || session.customer_email;
     const sub   = session.subscription;
-    if (email) {
-      const db = getDb();
+    const metadataListenerId = parseInt(session.metadata?.listener_id || sub?.metadata?.listener_id, 10);
+    if (metadataListenerId !== pending.listener_id || session.metadata?.nonce !== String(nonce)) {
+      return res.redirect('/creator.html#library');
+    }
 
-      // INSERT OR IGNORE — idempotent if this handler runs more than once
-      // (e.g. user refreshes the success page, or webhook fires concurrently)
-      const ph = require('crypto').randomBytes(32).toString('hex');
-      db.prepare(
-        'INSERT OR IGNORE INTO listener_accounts (email, password_hash) VALUES (?, ?)'
-      ).run(email, ph);
-      const account = db.prepare('SELECT id FROM listener_accounts WHERE email = ?').get(email);
-
+    if (sub && sub.id && isStripeSubscriptionActive(sub) && currentPeriodEndIso(sub)) {
       // Get or create the listener's auth token
       let tokenRow = db.prepare(
         'SELECT * FROM tokens WHERE listener_id = ? AND is_active = 1 LIMIT 1'
-      ).get(account.id);
+      ).get(pending.listener_id);
 
       if (!tokenRow) {
-        const token = require('crypto').randomBytes(32).toString('hex');
+        const token = crypto.randomBytes(32).toString('hex');
+        const label = session.customer_details?.email || session.customer_email || null;
         const info = db.prepare(
           "INSERT INTO tokens (token, label, tier, listener_id) VALUES (?, ?, 'subscriber', ?)"
-        ).run(token, email, account.id);
+        ).run(token, label, pending.listener_id);
         tokenRow = db.prepare('SELECT * FROM tokens WHERE id = ?').get(info.lastInsertRowid);
       }
 
-      // Activate the subscription immediately — do not rely solely on the webhook.
-      // The webhook is still authoritative; this eliminates the race window where
-      // the listener lands on the library page before the webhook arrives, and
-      // attachTier finds no active subscription record → incorrectly downgrades to free.
-      // session.subscription is already the expanded object (expand: ['subscription']).
-      if (sub && sub.id && isStripeSubscriptionActive(sub) && currentPeriodEndIso(sub)) {
-        try {
-          activateSubscription(db, {
-            providerSubscriptionId: sub.id,
-            provider:               'stripe',
-            tier:                   'subscriber',
-            currentPeriodEnd:       currentPeriodEndIso(sub),
-            listenerIdOrEmail:      account.id,
-          });
-        } catch {
-          // If activation fails, the webhook will correct it.
-          // Don't block the cookie set or the redirect.
-        }
-      }
+      activateSubscription(db, {
+        providerSubscriptionId: sub.id,
+        provider:               'stripe',
+        tier:                   pending.tier,
+        currentPeriodEnd:       currentPeriodEndIso(sub),
+        listenerIdOrEmail:      pending.listener_id,
+      });
+
+      db.prepare("UPDATE pending_checkouts SET consumed_at = datetime('now') WHERE id = ?").run(pending.id);
 
       // Set auth cookie — httpOnly, 1-year expiry
       const isSecure = config.https || req.headers['x-forwarded-proto'] === 'https';
@@ -746,8 +772,7 @@ async function stripeWebhookHandler(req, res) {
         break;
       }
 
-      const email = session.customer_details?.email || session.customer_email;
-      if (!email || !session.subscription) break;
+      if (!session.subscription) break;
 
       // Stripe API call happens HERE, outside the transaction.
       let sub;
@@ -758,37 +783,36 @@ async function stripeWebhookHandler(req, res) {
         break;
       }
       if (!isStripeSubscriptionActive(sub) || !currentPeriodEndIso(sub)) break;
-      outcome = 'ok';
-      mutate = () => {
-        // INSERT OR IGNORE — idempotent if a duplicate event fires for same email
-        const ph = require('crypto').randomBytes(32).toString('hex');
-        db.prepare(
-          'INSERT OR IGNORE INTO listener_accounts (email, password_hash) VALUES (?, ?)'
-        ).run(email, ph);
-        const account = db.prepare('SELECT id FROM listener_accounts WHERE email = ?').get(email);
 
-        activateSubscription(db, {
-          providerSubscriptionId: sub.id,
-          provider: 'stripe',
-          tier: 'subscriber',
-          currentPeriodEnd: currentPeriodEndIso(sub),
-          listenerIdOrEmail: account.id,
+      // Recurring vault checkout: create the unlock, but do not create or bind a
+      // listener account from Stripe's returned customer email.
+      if (session.metadata?.vault_unlock_type && session.metadata?.vault_listener_id) {
+        const meta = session.metadata;
+        outcome = 'ok';
+        mutate = () => getCreateVaultUnlock()(db, {
+          listenerId:      parseInt(meta.vault_listener_id, 10),
+          unlockType:      meta.vault_unlock_type,
+          targetId:        meta.vault_target_id ? parseInt(meta.vault_target_id, 10) : null,
+          paymentType:     meta.vault_payment_type || 'recurring',
+          amountPaid:      session.amount_total || 0,
+          stripePaymentId: sub.id,
+          expiresAt:       currentPeriodEndIso(sub),
         });
+        break;
+      }
 
-        // Also handle vault unlock if metadata present (vault recurring checkout)
-        if (session.metadata?.vault_unlock_type && session.metadata?.vault_listener_id) {
-          const meta = session.metadata;
-          getCreateVaultUnlock()(db, {
-            listenerId:      parseInt(meta.vault_listener_id, 10),
-            unlockType:      meta.vault_unlock_type,
-            targetId:        meta.vault_target_id ? parseInt(meta.vault_target_id, 10) : null,
-            paymentType:     meta.vault_payment_type || 'recurring',
-            amountPaid:      session.amount_total || 0,
-            stripePaymentId: sub.id,
-            expiresAt:       currentPeriodEndIso(sub),
-          });
-        }
-      };
+      const listenerId = parseInt(session.metadata?.listener_id || sub.metadata?.listener_id, 10);
+      const tier = session.metadata?.tier || sub.metadata?.tier || 'subscriber';
+      if (!listenerId || !VALID_TIERS.has(tier)) break;
+
+      outcome = 'ok';
+      mutate = () => activateSubscription(db, {
+        providerSubscriptionId: sub.id,
+        provider: 'stripe',
+        tier,
+        currentPeriodEnd: currentPeriodEndIso(sub),
+        listenerIdOrEmail: listenerId,
+      });
       break;
     }
 
@@ -797,15 +821,16 @@ async function stripeWebhookHandler(req, res) {
       const sub = event.data.object;
       const tier = sub.metadata?.tier;
       const vaultUnlockType = sub.metadata?.vault_unlock_type;
+      const listenerId = parseInt(sub.metadata?.listener_id, 10);
 
-      if (tier && isStripeSubscriptionActive(sub) && currentPeriodEndIso(sub)) {
+      if (VALID_TIERS.has(tier) && listenerId && isStripeSubscriptionActive(sub) && currentPeriodEndIso(sub)) {
         outcome = 'ok';
         mutate = () => activateSubscription(db, {
           providerSubscriptionId: sub.id,
           provider: 'stripe',
           tier,
           currentPeriodEnd: currentPeriodEndIso(sub),
-          listenerIdOrEmail: parseInt(sub.metadata?.listener_id, 10),
+          listenerIdOrEmail: listenerId,
         });
       } else if (vaultUnlockType && sub.metadata?.vault_listener_id) {
         // Recurring vault unlock subscription

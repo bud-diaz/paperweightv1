@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { getDb } = require('../db');
 const { isSubscriberTier, canAccessMedia, canDownloadMedia } = require('../auth/access');
+const { effectiveTierForTokenRow } = require('../auth/middleware');
 const config = require('../config');
 const { ffmpegPath, installHint } = require('../runtime/ffmpeg');
 const { normalizeUnlockOptions } = require('./vault');
@@ -41,28 +42,71 @@ function signingSecret() {
   return config.auth.downloadSigningSecret;
 }
 
-function signDownloadUrl(mediaId) {
+function encodeDownloadContext(context = {}) {
+  if (context.type === 'listener' && context.tokenId) {
+    return `listener:${context.tokenId}`;
+  }
+  if (context.type === 'share' && context.token) {
+    return `share:${context.token}`;
+  }
+  return 'legacy';
+}
+
+function signDownloadUrl(mediaId, context = {}) {
   const exp = Math.floor(Date.now() / 1000) + 3600;
+  const ctx = encodeDownloadContext(context);
   const sig = crypto.createHmac('sha256', signingSecret())
-    .update(`${mediaId}:${exp}`)
+    .update(`${mediaId}:${exp}:${ctx}`)
     .digest('hex');
   return {
-    signedUrl: `/api/library/${mediaId}/file?exp=${exp}&sig=${sig}`,
+    signedUrl: `/api/library/${mediaId}/file?exp=${exp}&ctx=${encodeURIComponent(ctx)}&sig=${sig}`,
     expiresAt: new Date(exp * 1000).toISOString(),
   };
 }
 
-function verifyDownloadSig(mediaId, exp, sig) {
+function verifyDownloadSig(mediaId, exp, sig, ctx = 'legacy') {
   const now = Math.floor(Date.now() / 1000);
   if (!exp || !sig || parseInt(exp, 10) < now) return false;
   const expected = crypto.createHmac('sha256', signingSecret())
-    .update(`${mediaId}:${exp}`)
+    .update(`${mediaId}:${exp}:${ctx}`)
     .digest('hex');
   try {
     return crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'));
   } catch {
     return false;
   }
+}
+
+function shareLinkActive(db, token, mediaId) {
+  const row = db.prepare('SELECT * FROM share_links WHERE token = ?').get(token);
+  if (!row || (row.expires_at && new Date(row.expires_at).getTime() < Date.now())) return false;
+  if (row.target_type === 'track') return Number(row.target_id) === Number(mediaId);
+  if (row.target_type !== 'project') return false;
+  return !!db.prepare(
+    'SELECT 1 FROM vault_project_items WHERE project_id = ? AND content_id = ?'
+  ).get(row.target_id, mediaId);
+}
+
+function signedDownloadAllowed(db, row, ctx) {
+  if (!ctx || ctx === 'legacy') return false;
+
+  if (ctx.startsWith('share:')) {
+    return shareLinkActive(db, ctx.slice('share:'.length), row.id);
+  }
+
+  if (ctx.startsWith('listener:')) {
+    const tokenId = parseInt(ctx.slice('listener:'.length), 10);
+    if (!tokenId) return false;
+    const tokenRow = db.prepare('SELECT * FROM tokens WHERE id = ? AND is_active = 1').get(tokenId);
+    if (!tokenRow) return false;
+    const reqLike = {
+      tier: effectiveTierForTokenRow(tokenRow),
+      tokenRow,
+    };
+    return canDownloadMedia(reqLike, row, getProjectId(row.id)).allowed;
+  }
+
+  return false;
 }
 
 function parseTags(tags) {
@@ -406,14 +450,17 @@ router.get('/:id/download', (req, res) => {
     return res.status(404).json({ error: 'File not found on disk' });
   }
 
-  res.json(signDownloadUrl(row.id));
+  res.json(signDownloadUrl(row.id, { type: 'listener', tokenId: req.tokenRow?.id }));
 });
 
 router.get('/:id/artwork', (req, res) => {
   const row = getDb().prepare(
-    'SELECT id, filepath, artwork_url FROM media WHERE id = ? AND is_active = 1'
+    'SELECT * FROM media WHERE id = ? AND is_active = 1'
   ).get(req.params.id);
   if (!row) return res.status(404).end();
+
+  const access = canAccessMedia(req, row, getProjectId(row.id));
+  if (!access.allowed) return res.status(403).end();
 
   const id = String(row.id);
 
@@ -486,17 +533,23 @@ router.get('/:id/artwork', (req, res) => {
 
 router.get('/:id/file', (req, res) => {
   const { exp, sig } = req.query;
+  const ctx = typeof req.query.ctx === 'string' ? req.query.ctx : 'legacy';
 
-  if (!verifyDownloadSig(req.params.id, exp, sig)) {
+  if (!verifyDownloadSig(req.params.id, exp, sig, ctx)) {
     return res.status(403).json({ error: 'Invalid or expired download link' });
   }
 
-  const row = getDb().prepare(
+  const db = getDb();
+  const row = db.prepare(
     'SELECT * FROM media WHERE id = ? AND is_active = 1'
   ).get(req.params.id);
 
   if (!row) {
     return res.status(404).json({ error: 'File not found' });
+  }
+
+  if (!signedDownloadAllowed(db, row, ctx)) {
+    return res.status(403).json({ error: 'Download access no longer valid' });
   }
 
   const filepath = safeVaultPath(row.filepath);
