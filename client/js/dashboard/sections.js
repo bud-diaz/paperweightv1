@@ -105,6 +105,33 @@ function wireCollapseButtons(container) {
   });
 }
 
+function resetLayout(container, defaultOrder) {
+  localStorage.removeItem(STORAGE_ORDER);
+  localStorage.removeItem(STORAGE_COLLAPSED);
+  const byKey = new Map([...container.querySelectorAll(':scope > .dash-card')].map(c => [c.dataset.sectionKey, c]));
+  defaultOrder.forEach(key => {
+    const card = byKey.get(key);
+    if (card) {
+      card.classList.remove('collapsed');
+      container.appendChild(card);
+    }
+  });
+}
+
+function buildToolbar(container, defaultOrder) {
+  const bar = document.createElement('div');
+  bar.className = 'dash-sections-toolbar';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'dash-sections-reset-btn';
+  btn.textContent = 'RESET LAYOUT';
+  btn.addEventListener('click', () => resetLayout(container, defaultOrder));
+
+  bar.appendChild(btn);
+  return bar;
+}
+
 function wireDragReorder(container) {
   let dragCard = null;
 
@@ -154,8 +181,12 @@ export function init() {
   container.id = 'dash-sections';
   sections[0].parentNode.insertBefore(container, sections[0]);
 
-  sections.forEach((section, i) => container.appendChild(buildCard(section, i)));
+  const cards = sections.map((section, i) => buildCard(section, i));
+  cards.forEach(card => container.appendChild(card));
   content.querySelectorAll(':scope > .dash-divider').forEach(d => d.remove());
+
+  const defaultOrder = cards.map(c => c.dataset.sectionKey);
+  container.parentNode.insertBefore(buildToolbar(container, defaultOrder), container);
 
   applyStoredOrder(container);
   applyStoredCollapsed(container);

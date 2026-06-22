@@ -2,6 +2,14 @@
 .dash-section { padding: 20px 20px 0; }
 
 /* ── Collapsible / rearrangeable section cards ── */
+.dash-sections-toolbar { display: flex; justify-content: flex-end; padding: 12px 20px 0; }
+.dash-sections-reset-btn {
+  background: none; border: none; cursor: pointer;
+  font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em;
+  color: var(--t4); padding: 4px 2px;
+  transition: color var(--dur-fast) var(--ease-out-macos);
+}
+.dash-sections-reset-btn:hover { color: var(--t2); }
 #dash-sections { display: flex; flex-direction: column; }
 .dash-card { border-bottom: 1px solid var(--border); }
 .dash-card:last-child { border-bottom: none; }
