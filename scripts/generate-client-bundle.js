@@ -31,6 +31,9 @@ const MIME = {
   '.ttf':   'font/ttf',
   '.md':    'text/plain',
   '.json':  'application/json',
+  '.jpg':   'image/jpeg',
+  '.jpeg':  'image/jpeg',
+  '.png':   'image/png',
 };
 
 function mimeFor(ext) {
