@@ -121,16 +121,19 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
         </div>
       </div>
       <div class="mgmt-actions">
-        <select class="dash-select" id="vis-${item.id}">
-          <option value="public"${item.visibility==='public'?' selected':''}>PUBLIC</option>
-          <option value="supporters_only"${item.visibility==='supporters_only'?' selected':''}>SUPPORTERS</option>
-          <option value="vault"${item.visibility==='vault'?' selected':''}>VAULT</option>
-        </select>
-        <button class="mgmt-btn" id="save-${item.id}">SAVE</button>
-        <button class="mgmt-btn" id="edit-tog-${item.id}">✎ EDIT</button>
-        <button class="mgmt-btn${isHighlighted ? ' active' : ''}" id="hl-tog-${item.id}" data-highlighted="${isHighlighted ? '1' : '0'}">${isHighlighted ? '★ HIGHLIGHTED' : '☆ HIGHLIGHT'}</button>
-        <button class="mgmt-btn" id="tok-tog-${panelId}" style="letter-spacing:.03em;">⬡ TOKEN</button>
+        <button class="mgmt-btn" id="more-tog-${item.id}" title="Settings">⋯</button>
       </div>
+    </div>
+    <div class="mgmt-actions-panel" id="more-panel-${item.id}" hidden>
+      <select class="dash-select" id="vis-${item.id}">
+        <option value="public"${item.visibility==='public'?' selected':''}>PUBLIC</option>
+        <option value="supporters_only"${item.visibility==='supporters_only'?' selected':''}>SUPPORTERS</option>
+        <option value="vault"${item.visibility==='vault'?' selected':''}>VAULT</option>
+      </select>
+      <button class="mgmt-btn" id="save-${item.id}">SAVE</button>
+      <button class="mgmt-btn" id="edit-tog-${item.id}">✎ EDIT</button>
+      <button class="mgmt-btn${isHighlighted ? ' active' : ''}" id="hl-tog-${item.id}" data-highlighted="${isHighlighted ? '1' : '0'}">${isHighlighted ? '★ HIGHLIGHTED' : '☆ HIGHLIGHT'}</button>
+      <button class="mgmt-btn" id="tok-tog-${panelId}" style="letter-spacing:.03em;">⬡ TOKEN</button>
     </div>
     <div class="dash-tok-panel" id="${tokPanelId}" hidden>
       <div id="${tokListId}"></div>
@@ -182,6 +185,11 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
         <button class="mgmt-btn" id="edit-save-${item.id}">SAVE CHANGES</button>
       </div>
     </div>`;
+
+  wrap.querySelector(`#more-tog-${item.id}`).addEventListener('click', () => {
+    const panel = wrap.querySelector(`#more-panel-${item.id}`);
+    panel.hidden = !panel.hidden;
+  });
 
   const saveBtn = wrap.querySelector(`#save-${item.id}`);
   saveBtn.addEventListener('click', async () => {
