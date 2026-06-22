@@ -47,6 +47,7 @@ import * as dashPosts   from './dashboard/posts.js';
 import * as upload      from './dashboard/upload.js';
 import * as analytics   from './dashboard/analytics.js';
 import * as twofa       from './dashboard/twofa.js';
+import * as sections    from './dashboard/sections.js';
 import * as search      from './dashboard/search.js';
 
 // ── Cross-module callback wiring ─────────────────────────────────────────────
@@ -171,6 +172,7 @@ schedule.init();
 smartPlaylists.init();
 dashPosts.init();
 twofa.init();
+sections.init();
 
 // ── Event handler wiring ───────────────────────────────────────────────────
 
