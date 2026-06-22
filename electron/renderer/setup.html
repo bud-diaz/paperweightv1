@@ -64,6 +64,12 @@
         <input type="text" id="cfTunnelToken" placeholder="leave blank if not using a tunnel">
       </label>
 
+      <label>
+        Public URL (optional)
+        <input type="text" id="publicUrl" placeholder="https://your-tunnel.trycloudflare.com">
+        <p class="hint">Your station's actual reachable address — the tunnel, reverse-proxy, or public IP URL. Leave blank until you have one. Do not enter your paperweighthq.com slug URL here.</p>
+      </label>
+
       <p id="setup-error" class="error" hidden></p>
 
       <button type="submit" id="submit-btn">Create station</button>

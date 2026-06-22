@@ -84,3 +84,9 @@ button:hover { background: #3a3a43; }
   font-size: 13px;
   margin: -4px 0 12px;
 }
+
+.hint {
+  color: #9a9aa2;
+  font-size: 11px;
+  margin: 4px 0 0;
+}

@@ -51,6 +51,7 @@ form.addEventListener('submit', async e => {
     vaultPath: vaultPathInput.value,
     vaultMode: document.getElementById('vaultMode').value,
     cfTunnelToken: document.getElementById('cfTunnelToken').value,
+    publicUrl: document.getElementById('publicUrl').value,
   };
 
   const result = await window.electronAPI.submitSetup(formData);
