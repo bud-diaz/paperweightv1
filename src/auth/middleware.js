@@ -40,7 +40,14 @@ function attachTier(req, res, next) {
     return next();
   }
 
-  req.tier = row.tier;
+  req.tier = effectiveTierForTokenRow(row);
+
+  next();
+}
+
+function effectiveTierForTokenRow(row) {
+  if (!row) return 'free';
+  let tier = row.tier;
 
   // Stripe-linked listener tokens are downgraded immediately when their latest
   // active subscription period is missing or expired.
@@ -50,10 +57,10 @@ function attachTier(req, res, next) {
         "SELECT current_period_end FROM subscriptions WHERE listener_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
       ).get(row.listener_id);
       if (!sub || new Date(sub.current_period_end) < new Date()) {
-        req.tier = 'free';
+        tier = 'free';
       }
     } catch {
-      // Leave req.tier at row.tier on DB errors — downgrading a paying subscriber
+      // Leave tier at row.tier on DB errors — downgrading a paying subscriber
       // on a transient DB hiccup would incorrectly lock them out of content.
     }
   }
@@ -67,14 +74,14 @@ function attachTier(req, res, next) {
         WHERE ta.listener_id = ? AND t.is_active = 1
       `).all(row.listener_id);
       for (const a of assigned) {
-        if (isHigherTier(a.tier, req.tier)) {
-          req.tier = a.tier;
+        if (isHigherTier(a.tier, tier)) {
+          tier = a.tier;
         }
       }
     } catch {}
   }
 
-  next();
+  return tier;
 }
 
 function requireSubscriber(req, res, next) {
@@ -116,4 +123,4 @@ function requireDashboard(req, res, next) {
   res.status(401).json({ error: 'Dashboard access denied' });
 }
 
-module.exports = { attachTier, requireSubscriber, requireAllAccess, requireDashboard };
+module.exports = { attachTier, effectiveTierForTokenRow, requireSubscriber, requireAllAccess, requireDashboard };

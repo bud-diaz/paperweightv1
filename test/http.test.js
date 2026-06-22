@@ -13,10 +13,11 @@ const { createApp } = require('../src/index');
 const config = require('../src/config');
 const { parseEnvValue, parseTrustProxy } = require('../src/config');
 const { resolveAvailableUploadPath, sanitizeUploadName } = require('../src/api/dashboard');
+const { ARTWORK_DIR } = require('../src/api/library');
 
 async function withServer(fn) {
   const app = createApp();
-  const server = app.listen(0);
+  const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
   try {
@@ -325,6 +326,11 @@ test('library visibility and gated downloads are enforced', async () => {
     assert.equal(allowed.res.status, 200);
     assert.match(allowed.body.signedUrl, new RegExp(`/api/library/${publicMedia.id}/file`));
 
+    db.prepare('UPDATE tokens SET is_active = 0 WHERE id = ?').run(token.id);
+    const revokedFile = await request(baseUrl, allowed.body.signedUrl);
+    assert.equal(revokedFile.res.status, 403);
+    db.prepare('UPDATE tokens SET is_active = 1 WHERE id = ?').run(token.id);
+
     const outside = await request(baseUrl, `/api/library/${outsideMedia.id}/download`, {
       headers: { Authorization: `Bearer ${token.token}` },
     });
@@ -333,6 +339,35 @@ test('library visibility and gated downloads are enforced', async () => {
 
   try { fs.unlinkSync(publicFile); } catch {}
   try { fs.unlinkSync(outsideFile); } catch {}
+});
+
+test('artwork follows media access policy', async () => {
+  const db = freshDb();
+  fs.mkdirSync(config.vault.path, { recursive: true });
+  fs.mkdirSync(ARTWORK_DIR, { recursive: true });
+  const supporterFile = path.join(config.vault.path, `supporter-art-${Date.now()}.mp3`);
+  fs.writeFileSync(supporterFile, 'not-real-audio');
+  const supporterMedia = seedMedia(db, { visibility: 'supporters_only', filepath: supporterFile });
+  fs.writeFileSync(path.join(ARTWORK_DIR, `${supporterMedia.id}.jpg`), Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
+
+  const listenerId = seedListener(db);
+  const token = seedToken(db, { tier: 'subscriber', listenerId });
+  db.prepare(
+    "INSERT INTO subscriptions (listener_id, tier, provider, provider_subscription_id, status, current_period_end) VALUES (?, 'subscriber', 'stripe', ?, 'active', ?)"
+  ).run(listenerId, 'sub_artwork', futureIso());
+
+  await withServer(async baseUrl => {
+    const denied = await request(baseUrl, `/api/library/${supporterMedia.id}/artwork`);
+    assert.equal(denied.res.status, 403);
+
+    const allowed = await request(baseUrl, `/api/library/${supporterMedia.id}/artwork`, {
+      headers: { Authorization: `Bearer ${token.token}` },
+    });
+    assert.equal(allowed.res.status, 200);
+    assert.equal(allowed.res.headers.get('content-type'), 'image/jpeg');
+  });
+
+  try { fs.unlinkSync(supporterFile); } catch {}
 });
 
 test('dashboard upload rejects unsupported multipart file types', async () => {
@@ -450,6 +485,11 @@ test('private share links resolve without listener auth and track opens', async 
     assert.equal(firstOpen.res.status, 200);
     assert.equal(firstOpen.body.track.id, media.id);
     assert.match(firstOpen.body.track.streamUrl, new RegExp(`/api/library/${media.id}/file`));
+
+    db.prepare("UPDATE share_links SET expires_at = datetime('now', '-1 minute') WHERE token = ?").run(created.body.token);
+    const expiredDownload = await request(baseUrl, firstOpen.body.track.streamUrl);
+    assert.equal(expiredDownload.res.status, 403);
+    db.prepare("UPDATE share_links SET expires_at = datetime('now', '+1 hour') WHERE token = ?").run(created.body.token);
 
     const secondOpen = await request(baseUrl, `/api/share/${created.body.token}`);
     assert.equal(secondOpen.res.status, 200);

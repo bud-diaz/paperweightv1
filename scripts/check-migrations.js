@@ -63,13 +63,13 @@ try {
     }
   }
 
-  // Migrations 013–015: tables consumed by live API routes.
-  for (const table of ['creator_profile', 'launch_acceptance', 'download_leads']) {
+  // Migrations 013–021: tables consumed by live API routes.
+  for (const table of ['creator_profile', 'launch_acceptance', 'download_leads', 'pending_checkouts']) {
     const row = db.prepare(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?"
     ).get(table);
     if (!row) {
-      throw new Error(`${table} table was not created (migration 013–015 missing or broken)`);
+      throw new Error(`${table} table was not created (migration missing or broken)`);
     }
   }
 
