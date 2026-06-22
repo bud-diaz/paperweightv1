@@ -100,7 +100,9 @@
 
 /* ── Card ── */
 #player-card {
-  background: var(--card);
+  background: rgba(17,17,22,.5);
+  -webkit-backdrop-filter: blur(var(--vibrancy-blur)) saturate(var(--vibrancy-sat));
+  backdrop-filter: blur(var(--vibrancy-blur)) saturate(var(--vibrancy-sat));
   border: 1px solid var(--border);
   border-top-color: var(--border-hairline-top);
   border-radius: var(--radius-card); overflow: hidden;
