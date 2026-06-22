@@ -40,6 +40,17 @@ test('buildEnv sets TRUST_PROXY=loopback when a Cloudflare tunnel token is given
   assert.match(built.contents, /^TRUST_PROXY=loopback$/m);
 });
 
+test('buildEnv leaves STATION_PUBLIC_URL blank by default instead of the self-referential vanity URL', () => {
+  const built = buildEnv({ stationName: 'Test Station' });
+  assert.match(built.contents, /^STATION_PUBLIC_URL=$/m);
+  assert.equal(built.stationPublicUrl, '');
+});
+
+test('buildEnv writes an explicitly provided publicUrl as-is', () => {
+  const built = buildEnv({ stationName: 'Test Station', publicUrl: 'https://my-tunnel.trycloudflare.com' });
+  assert.match(built.contents, /^STATION_PUBLIC_URL=https:\/\/my-tunnel\.trycloudflare\.com$/m);
+});
+
 test('provisionEnv writes .env and creates the expected directory tree', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-provision-'));
   try {

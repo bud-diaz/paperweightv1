@@ -40,13 +40,19 @@ function buildEnv({
   vaultPath = './vault',
   vaultMode = 'hybrid',
   cfTunnelToken = '',
+  publicUrl = '',
 }) {
   const cleanStationName = cleanEnvValue('Station name', stationName);
   if (!cleanStationName) throw new Error('Station name is required.');
 
   const slugAuto = slugify(cleanStationName) || 'paperweight';
   const cleanSlug = cleanEnvValue('Station slug', slug || slugAuto) || slugAuto;
-  const stationPublicUrl = `https://${cleanSlug}.paperweighthq.com`;
+  // STATION_PUBLIC_URL must be the station's actual reachable address (tunnel,
+  // reverse proxy, or public IP) — never the <slug>.paperweighthq.com vanity
+  // URL itself. system.pape's redirect for that vanity URL targets whatever
+  // is stored here, so setting it to itself creates a redirect loop and the
+  // anti-loop guard silently bounces visitors to the apex site instead.
+  const stationPublicUrl = cleanEnvValue('Station public URL', publicUrl);
 
   const stationIdentity = identityMode === 'creator' ? 'creator' : 'anonymous';
   const cleanCreatorName = stationIdentity === 'creator' ? cleanEnvValue('Creator name', creatorName) : '';

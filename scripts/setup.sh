@@ -57,7 +57,6 @@ echo ""
 echo "Station slug (used in your public URL: https://<slug>.paperweighthq.com)"
 read -rp "Slug [$SLUG_AUTO]: " SLUG_INPUT
 STATION_SLUG="$(clean_env_value "Station slug" "${SLUG_INPUT:-$SLUG_AUTO}")"
-STATION_PUBLIC_URL="https://${STATION_SLUG}.paperweighthq.com"
 
 echo ""
 echo "Identity mode:"
@@ -102,6 +101,16 @@ TRUST_PROXY_VALUE=false
 if [[ -n "$CF_TUNNEL_TOKEN" ]]; then
   TRUST_PROXY_VALUE=loopback
 fi
+
+echo ""
+echo "Public URL (optional):"
+echo "  Your station's actual reachable address once it's online — the tunnel,"
+echo "  reverse-proxy, or public IP URL listeners will use. This is what"
+echo "  https://${STATION_SLUG}.paperweighthq.com will redirect to. Do NOT enter"
+echo "  that paperweighthq.com URL itself here — that causes a redirect loop."
+echo "  Leave blank if you don't have one yet; you can set it later in .env."
+read -rp "Public URL (press Enter to skip): " STATION_PUBLIC_URL
+STATION_PUBLIC_URL="$(clean_env_value "Station public URL" "$STATION_PUBLIC_URL")"
 
 DASHBOARD_TOKEN="$(node -e "const c=require('crypto');console.log(c.randomBytes(32).toString('hex'))")"
 DOWNLOAD_SIGNING_SECRET="$(node -e "const c=require('crypto');console.log(c.randomBytes(32).toString('hex'))")"
@@ -166,7 +175,11 @@ echo "  Identity:        $STATION_IDENTITY"
 echo "  Vault:           $VAULT_ABS"
 echo "  Vault mode:      $VAULT_MODE"
 echo ""
-echo "  Station URL:     $STATION_PUBLIC_URL"
+if [[ -n "$STATION_PUBLIC_URL" ]]; then
+  echo "  Station URL:     $STATION_PUBLIC_URL"
+else
+  echo "  Station URL:     (not set — set STATION_PUBLIC_URL in .env once you have a public address)"
+fi
 echo "  Dashboard token: $DASHBOARD_TOKEN"
 echo "  Save this token. It is required for the creator dashboard."
 echo ""
