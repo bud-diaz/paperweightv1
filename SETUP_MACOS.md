@@ -2,13 +2,33 @@
 
 This guide installs Paperweight on a Mac for a self-hosted creator station.
 
-## Requirements
+## Desktop App (Recommended)
+
+Build (or download, if a release is published) the Electron desktop app and run
+the installer — it includes a graphical setup wizard, a system tray icon with
+"Launch at Login", and keeps the station running without a terminal window:
+
+```bash
+cd electron
+npm ci
+npm run dist
+```
+
+Open the generated `electron/dist/*.dmg` and drag Paperweight to Applications.
+The app isn't notarized yet, so Gatekeeper will warn the first time — right-click
+the app and choose **Open**, or use **System Settings -> Privacy & Security ->
+Open Anyway**. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for details.
+
+The rest of this guide covers the alternative: running Paperweight from source
+with a terminal and PM2.
+
+## Advanced: Install From Source
 
 - macOS 13 or newer.
 - Homebrew from https://brew.sh.
 - Disk space for your media vault.
 
-## Install
+### Install
 
 From the Paperweight folder:
 
@@ -35,7 +55,7 @@ http://localhost:3000/#dashboard
 
 Use the dashboard token printed by `scripts/setup.sh`.
 
-## Keep It Running
+### Keep It Running
 
 For a simple local station, leave the terminal open. For a persistent station:
 
@@ -50,13 +70,13 @@ To start PM2 automatically after login, follow PM2's macOS startup output:
 pm2 startup
 ```
 
-## Public Access
+### Public Access
 
 Use HTTPS when exposing a station publicly. Cloudflare Tunnel, Caddy, nginx, or another reverse proxy can sit in front of Paperweight. Set `STATION_PUBLIC_URL` and `HTTPS=true` in `.env` when public traffic uses TLS.
 
 If your station has a `STATION_SLUG`, set `STATION_PUBLIC_URL` to your station's actual server address — the tunnel, reverse-proxy, or public IP URL where listeners can reach it (e.g., `https://your-tunnel.trycloudflare.com` or `https://mystation.example.com`). This is what `<slug>.paperweighthq.com` redirects visitors to. Do not set it to `https://<slug>.paperweighthq.com` itself — that creates a redirect loop.
 
-## Smoke Check
+### Smoke Check
 
 ```bash
 npm run release:check

@@ -103,3 +103,20 @@ That runs: release cleanliness check, tests, preflight, migration/scheduler/anal
 ```bash
 npm run smoke:exe
 ```
+
+## Desktop Packaging
+
+There are two separate desktop packaging paths — do not conflate them:
+
+- `scripts/build-exe.js` (`npm run build:exe`) produces a headless `@yao-pkg/pkg`
+  binary for **Linux x64 / Raspberry Pi ARM64 only**. It just starts the server and
+  opens a browser tab; there is no installer.
+- `electron/` is the **Windows/macOS desktop app** (Electron + electron-builder:
+  NSIS on Windows, DMG on macOS). It has a graphical first-run setup wizard
+  (`electron/setup-window.js` + shared `src/setup/provision.js`), a system tray,
+  and auto-login into the dashboard. Build it with `cd electron && npm run dist`.
+  It is not code-signed/notarized yet — see TROUBLESHOOTING.md.
+
+`src/config.js` distinguishes the two at runtime via `process.pkg` (`isPackaged`)
+vs. `process.env.PAPERWEIGHT_ELECTRON` (`isElectron`); they never run in the same
+process.

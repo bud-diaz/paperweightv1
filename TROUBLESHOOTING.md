@@ -95,7 +95,22 @@ The Windows installer adds a firewall rule for port 3000. Verify:
 Get-NetFirewallRule -DisplayName "Paperweight"
 ```
 
-If using an unsigned convenience executable, Windows SmartScreen may warn. Source installs avoid this path.
+The Electron desktop app and the Linux/Pi convenience executable are not
+code-signed, so Windows SmartScreen may warn ("Windows protected your PC").
+Click **More info -> Run anyway** to continue. Source installs avoid this
+warning entirely.
+
+## macOS Gatekeeper Blocks The App
+
+The Electron desktop app is not notarized, so Gatekeeper may report it as
+damaged or from an unidentified developer. Either:
+
+- Right-click (or Control-click) the app and choose **Open**, then confirm
+  in the dialog, or
+- Open **System Settings -> Privacy & Security** and click **Open Anyway**
+  next to the Paperweight warning.
+
+This is a one-time step per install; it does not recur on subsequent launches.
 
 ## Raspberry Pi Runs Hot Or Slow
 

@@ -17,7 +17,6 @@ const { exec } = require('child_process');
 // app.start() resolves, not before.
 const app = require('./index');
 const config = require('./config');
-const { createDesktopShortcut } = require('./desktop-shortcut');
 
 function openBrowser(target) {
   const cmd = process.platform === 'darwin'
@@ -58,8 +57,6 @@ function waitForServer(url, attemptsLeft) {
 // Start the server, then build the URL from the actual bound port (config.port
 // is updated by start() if a fallback port was used).
 app.start().then(() => {
-  if (config.isFirstRun) createDesktopShortcut();
-
   const host = config.host;
   const port = config.port;
   const browserHost = host === '0.0.0.0' || host === '::' ? 'localhost' : host;

@@ -33,16 +33,12 @@ Expected result:
 
 ## Platform Smoke Passes
 
-Run the install/start/smoke path on each supported platform before public release:
+Run the install/start/smoke path on each supported platform before public release.
 
-- Windows 10/11 x64
-- macOS
-- Linux x64
-- Raspberry Pi OS 64-bit or Ubuntu on Raspberry Pi
+Linux x64 and Raspberry Pi OS 64-bit / Ubuntu on Raspberry Pi (source install or
+pkg exe):
 
-For each platform:
-
-1. Run the platform installer.
+1. Run the platform installer (`scripts/install.sh`).
 2. Run `bash scripts/setup.sh`.
 3. Run `npm run preflight`.
 4. Start Paperweight with `npm start`.
@@ -53,6 +49,11 @@ For each platform:
 9. Confirm the library shows public media.
 10. Confirm `supporters_only` and `vault` media are gated for free listeners.
 
+Windows 10/11 x64 and macOS (Electron desktop app — see "Desktop App Packaging"
+below for the build steps and manual QA checklist covering setup wizard,
+auto-login, tray, and shortcuts). After the app is running, also work through
+steps 5-10 above against its local server.
+
 ## Public Station Checks
 
 - Public URL resolves to the station.
@@ -62,9 +63,11 @@ For each platform:
 - PayPal is not partially configured.
 - Payment webhooks show successful verification in dashboard logs after a test event.
 
-## Convenience Executable Packaging
+## Convenience Executable Packaging (Linux / Raspberry Pi)
 
-Executables are optional convenience artifacts, not the primary public distribution path.
+Executables are optional convenience artifacts for Linux and Raspberry Pi, not the
+primary public distribution path. Windows and macOS ship as the Electron desktop
+app instead — see "Desktop App Packaging (Windows / macOS)" below.
 
 Build each target **on its matching OS and architecture** — `better-sqlite3` is a
 native module, so a binary built on one platform will not load on another. Use a
@@ -78,10 +81,9 @@ npm run build:exe # runs release:check, then packages this OS/arch to dist/
 `build:exe` runs the full `release:check` first, so FFmpeg/ffprobe must be on
 `PATH` on the build machine (preflight fails otherwise).
 
-Supported explicit targets are `win-x64`, `macos-x64`, `macos-arm64`,
-`linux-x64`, and `linux-arm64` (`pi`). The `Build Executables` GitHub Actions
-workflow builds each target on a matching native runner and uploads the smoke
-tested artifacts.
+Supported explicit targets are `linux-x64` and `linux-arm64` (`pi`). The
+`Build Executables` GitHub Actions workflow builds each target on a matching
+native runner and uploads the smoke tested artifacts.
 
 ### Clean-folder smoke (required before publishing an exe)
 
@@ -117,6 +119,37 @@ Manual QA before publishing: hand-edit `DEVICE_LOCK` in a clean-folder smoke's
 `.env` to a bogus value, restart the exe, confirm it exits with code 1 and
 prints the hardware-lock-mismatch message; then delete the `DEVICE_LOCK` line
 and restart, confirming it boots and re-enrolls.
+
+## Desktop App Packaging (Windows / macOS)
+
+Windows and macOS users install the Electron desktop app, not the pkg
+convenience executable. Build it on each matching OS:
+
+```bash
+cd electron
+npm ci
+npm run dist   # rebuilds better-sqlite3 for Electron's ABI, then runs electron-builder
+```
+
+This produces an NSIS installer (`electron/dist/*.exe`) on Windows and a DMG +
+ZIP (`electron/dist/*.dmg`, `*.zip`) on macOS.
+
+The app is **not code-signed or notarized**. Expect Windows SmartScreen and
+macOS Gatekeeper warnings on first run — see TROUBLESHOOTING.md for the
+"Run anyway" / "Open Anyway" workaround. Treat signing/notarization as a
+follow-up, not a gate for this checklist.
+
+Manual QA before publishing:
+
+1. Install on a clean machine (no prior `.env`/userData folder).
+2. Confirm the graphical setup wizard appears and writes `.env`.
+3. Confirm the main window opens already logged into the dashboard.
+4. Confirm the tray icon appears with "Open Dashboard", "Launch at Login", and
+   "Quit Paperweight".
+5. On Windows, confirm the installer created a Desktop and Start Menu shortcut.
+6. Quit via the tray "Quit Paperweight" and relaunch — confirm it boots straight
+   to the main window (no setup wizard) and the station configured in step 2/3
+   persists.
 
 ## Do Not Ship If
 
