@@ -66,6 +66,11 @@ details[open] > summary .ds-chev { transform: rotate(180deg); }
 .mgmt-title { font-family: 'DM Serif Display', serif; font-size: 14px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mgmt-meta  { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); margin-top: 1px; }
 .mgmt-actions { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+.mgmt-actions-panel {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  padding: 0 16px 8px 56px; margin: -4px 4px 0;
+}
+.mgmt-actions-panel[hidden] { display: none; }
 
 /* ── Unified button spec ── */
 .mgmt-btn {
