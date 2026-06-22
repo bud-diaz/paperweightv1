@@ -1,5 +1,43 @@
 /* ── Dashboard ── */
 .dash-section { padding: 20px 20px 0; }
+
+/* ── Collapsible / rearrangeable section cards ── */
+.dash-sections-toolbar { display: flex; justify-content: flex-end; padding: 12px 20px 0; }
+.dash-sections-reset-btn {
+  background: none; border: none; cursor: pointer;
+  font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em;
+  color: var(--t4); padding: 4px 2px;
+  transition: color var(--dur-fast) var(--ease-out-macos);
+}
+.dash-sections-reset-btn:hover { color: var(--t2); }
+#dash-sections { display: flex; flex-direction: column; }
+.dash-card { border-bottom: 1px solid var(--border); }
+.dash-card:last-child { border-bottom: none; }
+.dash-card.dragging { opacity: .45; }
+.dash-card-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 20px 0;
+  cursor: grab; user-select: none;
+}
+.dash-card-head:active { cursor: grabbing; }
+.dash-drag-handle {
+  font-size: 13px; color: var(--t4); line-height: 1;
+  flex-shrink: 0; touch-action: none;
+}
+.dash-card-title {
+  flex: 1; font-family: 'Space Mono', monospace; font-size: 10px;
+  letter-spacing: .14em; color: var(--t4); text-transform: uppercase;
+}
+.dash-card-collapse-btn {
+  background: none; border: none; color: var(--t3); cursor: pointer;
+  font-size: 10px; padding: 4px 6px; line-height: 1; flex-shrink: 0;
+  transition: transform .2s var(--ease-out-macos), color var(--dur-fast) var(--ease-out-macos);
+}
+.dash-card-collapse-btn:hover { color: var(--t1); }
+.dash-card.collapsed .dash-card-collapse-btn { transform: rotate(-90deg); }
+.dash-card.collapsed .dash-card-body { display: none; }
+.dash-card > .dash-card-body > .dash-section { padding: 6px 20px 20px; }
+.dash-card > .dash-card-body > .dash-section > .dash-section-label:first-child { display: none; }
 .dash-section-label {
   font-size: 12px; letter-spacing: .16em; color: var(--t2);
   font-family: 'Space Mono', monospace; margin-bottom: 12px;
