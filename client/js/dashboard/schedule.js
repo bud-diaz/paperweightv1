@@ -4,6 +4,7 @@
 
 import * as api from '../api.js';
 import { el, esc, fmt } from '../utils.js';
+import { isDesktopPlatform } from './index.js';
 
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
@@ -112,6 +113,7 @@ export async function loadDashSchedule() {
         const unsupported = b.target_type && !supportedSource(b.target_type)
           ? ' / source not supported by UI'
           : '';
+        const canEdit = isDesktopPlatform();
         const row = document.createElement('div');
         row.innerHTML = `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-radius:7px;margin-bottom:1px;">
@@ -119,11 +121,13 @@ export async function loadDashSchedule() {
               <div style="font-family:'DM Serif Display',serif;font-size:15px;color:rgba(255,255,255,.78);">${label}</div>
               <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);margin-top:2px;">${dayLabel} / ${timeRange} / ${b.category || 'any'} / ${b.mode}${targetInfo}${unsupported}</div>
             </div>
+            ${canEdit ? `
             <div style="display:flex;align-items:center;gap:8px;">
               <button class="mgmt-btn" data-edit-block="${b.id}">EDIT</button>
               <button class="mgmt-btn danger" data-del-block="${b.id}">DEL</button>
-            </div>
+            </div>` : ''}
           </div>
+          ${canEdit ? `
           <div class="sched-edit-form" id="sched-edit-${b.id}" hidden style="padding:0 14px 10px;display:none;">
             <div class="dash-form-row" style="flex-wrap:wrap;gap:6px;margin-bottom:6px;">
               <input type="text" class="dash-input dash-input-sm" id="se-label-${b.id}" placeholder="Label..." value="${esc(b.label||'')}" style="flex:2;min-width:80px;"/>
@@ -161,8 +165,10 @@ export async function loadDashSchedule() {
               <span id="se-msg-${b.id}" style="font-family:'Space Mono',monospace;font-size:10px;flex:1;"></span>
               <button class="mgmt-btn" id="se-save-${b.id}">SAVE</button>
             </div>
-          </div>`;
+          </div>` : ''}`;
         list.appendChild(row);
+
+        if (!canEdit) continue;
 
         const sourceEl = row.querySelector(`#se-src-${b.id}`);
         const targetEl = row.querySelector(`#se-tid-${b.id}`);
@@ -221,7 +227,7 @@ export async function loadDashSchedule() {
 
 export async function loadDashSchedulePreview() {
   const list = el('dash-sched-preview-list');
-  if (!list) return;
+  if (!list || !isDesktopPlatform()) return;
   const { from, to } = previewRange();
   list.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">Loading...</div>';
   try {
