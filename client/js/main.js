@@ -384,6 +384,7 @@ async function init() {
 
   // Creator bio landing page (parallel — non-blocking)
   bio.loadBioPanel();
+  postsModule.loadBioMessages();
 
   // Stream status + polling
   await hlsClient.fetchStreamStatus();
