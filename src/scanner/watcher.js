@@ -19,7 +19,7 @@ function startWatcher(vaultPath, adapter) {
   watcherInstance = chokidar.watch(vaultPath, {
     persistent: true,
     followSymlinks: false,
-    ignoreInitial: true,
+    ignoreInitial: false,
     awaitWriteFinish: {
       stabilityThreshold: 2000,
       pollInterval: 500,
