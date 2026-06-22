@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 /**
- * Convenience executable packaging for Paperweight.
+ * Convenience executable packaging for Paperweight — Linux / Raspberry Pi only.
  *
- * Public distribution is source/install-script based. This script remains for
- * users who want a native executable on the same platform they build on.
+ * Windows and macOS users should install the Electron desktop app instead
+ * (see electron/, built with `cd electron && npm run dist`), which ships a
+ * graphical setup wizard, system tray, and native installer (NSIS/DMG) with
+ * Desktop/Start Menu shortcuts. This script remains for Linux/Pi users who
+ * want a single self-bootstrapping binary on the same platform they build on.
  *
  * Native modules are platform-specific. Build each target on its matching OS
  * and architecture; do not treat --allow-cross as a release build.
@@ -19,9 +22,6 @@ const ROOT = path.resolve(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
 
 const TARGETS = [
-  { key: 'win-x64',     aliases: ['windows', 'win'],                     platform: 'win32',  arch: 'x64',   label: 'Windows x64',                 target: 'node20-win-x64',     nodeVersion: '20.18.1', abi: '115', out: 'paperweight-win-x64.exe' },
-  { key: 'macos-x64',   aliases: ['mac-x64'],                             platform: 'darwin', arch: 'x64',   label: 'macOS Intel',                  target: 'node20-macos-x64',   nodeVersion: '20.18.1', abi: '115', out: 'paperweight-macos-x64' },
-  { key: 'macos-arm64', aliases: ['macos', 'mac', 'darwin-arm64'],        platform: 'darwin', arch: 'arm64', label: 'macOS Apple Silicon',           target: 'node20-macos-arm64', nodeVersion: '20.18.1', abi: '115', out: 'paperweight-macos-arm64' },
   { key: 'linux-x64',   aliases: ['linux'],                               platform: 'linux',  arch: 'x64',   label: 'Linux x64',                    target: 'node20-linux-x64',   nodeVersion: '20.18.1', abi: '115', out: 'paperweight-linux-x64' },
   { key: 'linux-arm64', aliases: ['pi', 'raspberry-pi', 'raspi'],         platform: 'linux',  arch: 'arm64', label: 'Raspberry Pi / Linux ARM64',    target: 'node20-linux-arm64', nodeVersion: '20.18.1', abi: '115', out: 'paperweight-linux-arm64' },
 ];
@@ -32,7 +32,7 @@ function usage() {
   npm run build:exe -- --target linux-arm64
   npm run build:exe -- --all --allow-cross
 
-Targets:
+Targets (Linux/Pi only — Windows/macOS use the Electron app, see electron/):
 ${TARGETS.map(t => `  ${t.key.padEnd(13)} ${t.label}`).join('\n')}
 `);
 }
@@ -94,6 +94,9 @@ if (args.includes('--all')) {
 
 if (targets.length === 0) {
   console.error(`No packaged target is configured for ${process.platform}/${process.arch}.`);
+  if (process.platform === 'win32' || process.platform === 'darwin') {
+    console.error('Windows and macOS now ship as the Electron desktop app: cd electron && npm run dist');
+  }
   usage();
   process.exit(1);
 }
