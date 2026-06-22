@@ -186,6 +186,10 @@ function main() {
   }));
   fs.writeFileSync(path.join(buildDir, 'icon.icns'), buildIcns(icnsEntries));
 
+  // Small flat PNG for the system tray (nativeImage.createFromPath wants a
+  // plain raster image here, not an .ico/.icns container).
+  fs.writeFileSync(path.join(buildDir, 'tray-icon.png'), encodePng(resizeNearest(basePixels, SIZE, 32), 32));
+
   console.log(`[Paperweight] Wrote placeholder icons to ${buildDir}`);
 }
 

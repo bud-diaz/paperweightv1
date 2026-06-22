@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, session } = require('electron');
+const { app, BrowserWindow, session, Tray, Menu, nativeImage } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -39,6 +39,8 @@ const { openSetupWindow } = require('./setup-window');
 
 let mainWindow = null;
 let serverApp = null;
+let tray = null;
+let isQuitting = false;
 
 // Logs the desktop window in automatically so the operator never has to paste
 // the dashboard token. Performs the same login request the web client would,
@@ -92,6 +94,16 @@ async function openMainWindow() {
     },
   });
 
+  // The broadcast keeps running whether the window is open or not — closing
+  // it should hide the app to the tray, not stop the station. Only the tray's
+  // "Quit Paperweight" (or platform quit shortcuts, which set isQuitting via
+  // the 'before-quit' handler) should actually tear the app down.
+  mainWindow.on('close', event => {
+    if (isQuitting) return;
+    event.preventDefault();
+    mainWindow.hide();
+  });
+
   mainWindow.loadURL(`http://${config.host}:${config.port}/creator.html?desktop=1`);
 }
 
@@ -99,6 +111,47 @@ async function startServerAndOpenWindow() {
   serverApp = require('../src/index');
   await serverApp.start();
   await openMainWindow();
+  createTray();
+}
+
+function showMainWindow() {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function quitApp() {
+  isQuitting = true;
+  app.quit();
+}
+
+function buildTrayMenu() {
+  const openAtLogin = app.getLoginItemSettings().openAtLogin;
+  return Menu.buildFromTemplate([
+    { label: 'Open Dashboard', click: showMainWindow },
+    { type: 'separator' },
+    {
+      label: 'Launch at Login',
+      type: 'checkbox',
+      checked: openAtLogin,
+      click: item => {
+        app.setLoginItemSettings({ openAtLogin: item.checked });
+      },
+    },
+    { type: 'separator' },
+    { label: 'Quit Paperweight', click: quitApp },
+  ]);
+}
+
+function createTray() {
+  if (tray) return;
+  const iconPath = path.join(__dirname, 'build', 'tray-icon.png');
+  const icon = nativeImage.createFromPath(iconPath);
+  tray = new Tray(icon.isEmpty() ? icon : icon.resize({ width: 16, height: 16 }));
+  tray.setToolTip('Paperweight');
+  tray.setContextMenu(buildTrayMenu());
+  tray.on('click', showMainWindow);
 }
 
 // Called by the setup wizard (via IPC) once .env has been provisioned.
@@ -124,20 +177,17 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
-  });
+  app.on('second-instance', showMainWindow);
 
   app.whenReady().then(boot);
 
-  app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
-  });
+  // The tray icon keeps the app (and the broadcast) alive after the window is
+  // closed on every platform, so window-all-closed should never quit here —
+  // only the tray's "Quit Paperweight" / quitApp() does that.
+  app.on('window-all-closed', () => {});
 
   app.on('before-quit', () => {
+    isQuitting = true;
     if (serverApp) {
       try { serverApp.shutdown(); } catch {}
     }
