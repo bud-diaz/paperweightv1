@@ -475,7 +475,7 @@
                 <button class="mgmt-btn" id="btn-recheck-health">RE-CHECK</button>
               </div>
             </div>
-            <div class="station-update-row">
+            <div class="station-update-row" data-desktop-only>
               <input type="url" class="dash-input dash-input-sm" id="station-url-input" placeholder="https://radio.yoursite.com"/>
               <button class="mgmt-btn" id="btn-update-url">UPDATE</button>
             </div>
@@ -566,7 +566,7 @@
                 <div class="stat-val" id="vs-locked">—</div>
                 <div class="stat-key">LOCKED</div>
               </button>
-              <button class="vault-stat-btn" id="vsb-tokens">
+              <button class="vault-stat-btn" id="vsb-tokens" data-desktop-only>
                 <div class="stat-val" id="vs-tokens">—</div>
                 <div class="stat-key">TOKENS</div>
               </button>
@@ -577,7 +577,7 @@
             <div class="vault-panel" id="vault-panel-locked" hidden>
               <div id="dash-locked-list"></div>
             </div>
-            <div class="vault-panel" id="vault-panel-tokens" hidden>
+            <div class="vault-panel" id="vault-panel-tokens" hidden data-desktop-only>
               <div id="dash-token-list"></div>
               <div class="dash-form-row token-create-row">
                 <input type="text" class="dash-input dash-input-sm" id="new-token-label" placeholder="Label (e.g. Maria)"/>
@@ -834,11 +834,11 @@
                 </div>
                 <div id="live-meter"></div>
               </div>
-              <div class="rh-toggle-row">
+              <div class="rh-toggle-row" data-desktop-only>
                 <span class="rh-toggle-label">RADIO HOST MODE</span>
                 <button id="rh-switch" class="rh-switch" title="Toggle Radio Host mode"></button>
               </div>
-              <div id="rh-switches-info" class="rh-switches-used"></div>
+              <div id="rh-switches-info" class="rh-switches-used" data-desktop-only></div>
             </div>
           </div>
 
@@ -855,7 +855,7 @@
               <summary class="dash-summary">VIEW BLOCKS</summary>
               <div id="dash-sched-list"></div>
             </details>
-            <details class="sched-add-details">
+            <details class="sched-add-details" data-desktop-only>
               <summary class="dash-summary">+ ADD BLOCK</summary>
               <div class="dash-form-row sched-add-primary">
                 <input type="text"  class="dash-input dash-input-sm" id="sched-label" placeholder="Label…"/>
@@ -916,7 +916,7 @@
                 </div>
               </details>
             </details>
-            <details id="sched-preview-details">
+            <details id="sched-preview-details" data-desktop-only>
               <summary class="dash-summary">SCHEDULE PREVIEW</summary>
               <div class="sched-preview-controls">
                 <input type="datetime-local" class="dash-input dash-input-sm" id="sched-preview-from"/>

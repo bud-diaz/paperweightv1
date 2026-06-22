@@ -26,13 +26,15 @@ export function init(callbacks = {}) {
 // ── Vault stats ────────────────────────────────────────────────────────────────
 export async function loadDashVaultStats() {
   try {
-    const [mediaItems, tokens] = await Promise.all([
-      api.dashboard.media.list(),
-      api.dashboard.tokens.list(),
-    ]);
+    const mediaItems = await api.dashboard.media.list();
     const lockedCount = mediaItems.filter(it => it.visibility === 'vault' || it.visibility === 'supporters_only').length;
     el('vs-tracks').textContent = mediaItems.length;
     el('vs-locked').textContent = lockedCount;
+  } catch {}
+
+  if (!isDesktopPlatform()) return;
+  try {
+    const tokens = await api.dashboard.tokens.list();
     el('vs-tokens').textContent = tokens.length;
   } catch {}
 }
@@ -129,9 +131,10 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
         <button class="mgmt-btn" id="save-${item.id}">SAVE</button>
         <button class="mgmt-btn" id="edit-tog-${item.id}">✎ EDIT</button>
         <button class="mgmt-btn${isHighlighted ? ' active' : ''}" id="hl-tog-${item.id}" data-highlighted="${isHighlighted ? '1' : '0'}">${isHighlighted ? '★ HIGHLIGHTED' : '☆ HIGHLIGHT'}</button>
-        <button class="mgmt-btn" id="tok-tog-${panelId}" style="letter-spacing:.03em;">⬡ TOKEN</button>
+        ${isDesktopPlatform() ? `<button class="mgmt-btn" id="tok-tog-${panelId}" style="letter-spacing:.03em;">⬡ TOKEN</button>` : ''}
       </div>
     </div>
+    ${isDesktopPlatform() ? `
     <div class="dash-tok-panel" id="${tokPanelId}" hidden>
       <div id="${tokListId}"></div>
       <div class="dash-form-row" style="padding:6px 14px 0;gap:6px;">
@@ -139,7 +142,7 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
         <button class="mgmt-btn" id="tok-create-${panelId}">CREATE</button>
       </div>
       <div id="${tokResultId}" style="padding:3px 14px 4px;"></div>
-    </div>
+    </div>` : ''}
     <div class="dash-edit-panel" id="edit-panel-${item.id}" hidden>
       <div class="dash-edit-grid">
         <div>
@@ -276,24 +279,26 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
     toggleHighlight(wrap.querySelector(`#hl-tog-${item.id}`), 'track', item.id);
   });
 
-  wrap.querySelector(`#tok-tog-${panelId}`).addEventListener('click', async () => {
-    const panel = document.getElementById(tokPanelId);
-    panel.hidden = !panel.hidden;
-    if (!panel.hidden) await refreshDashTokenList(tokListId, scopeType, scopeId);
-  });
+  if (isDesktopPlatform()) {
+    wrap.querySelector(`#tok-tog-${panelId}`).addEventListener('click', async () => {
+      const panel = document.getElementById(tokPanelId);
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden) await refreshDashTokenList(tokListId, scopeType, scopeId);
+    });
 
-  wrap.querySelector(`#tok-create-${panelId}`).addEventListener('click', async () => {
-    const label = document.getElementById(tokLabelId).value.trim();
-    if (!label) return;
-    const { res, data } = await api.dashboard.tokens.create({ label, tier: 'subscriber', scope_type: scopeType, scope_id: scopeId });
-    if (res.ok) {
-      document.getElementById(tokLabelId).value = '';
-      document.getElementById(tokResultId).innerHTML = `
-        <div class="dash-success-msg" style="font-size:10px;margin-bottom:4px;">Share once — won't be shown again:</div>
-        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.6);word-break:break-all;">${esc(data.token)}</div>`;
-      await refreshDashTokenList(tokListId, scopeType, scopeId);
-    }
-  });
+    wrap.querySelector(`#tok-create-${panelId}`).addEventListener('click', async () => {
+      const label = document.getElementById(tokLabelId).value.trim();
+      if (!label) return;
+      const { res, data } = await api.dashboard.tokens.create({ label, tier: 'subscriber', scope_type: scopeType, scope_id: scopeId });
+      if (res.ok) {
+        document.getElementById(tokLabelId).value = '';
+        document.getElementById(tokResultId).innerHTML = `
+          <div class="dash-success-msg" style="font-size:10px;margin-bottom:4px;">Share once — won't be shown again:</div>
+          <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.6);word-break:break-all;">${esc(data.token)}</div>`;
+        await refreshDashTokenList(tokListId, scopeType, scopeId);
+      }
+    });
+  }
 
   return wrap;
 }
@@ -318,8 +323,9 @@ export function buildDashLibProject(proj, allItems, highlight = null) {
     <div class="dash-lib-proj-header">
       <span class="dash-lib-proj-name">${esc(proj.name)}</span>
       <span style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.25);">${tracks.length} TRACKS</span>
-      <button class="mgmt-btn" id="tok-tog-${projPanelId}" style="letter-spacing:.03em;">⬡ COLLECTION TOKEN</button>
+      ${isDesktopPlatform() ? `<button class="mgmt-btn" id="tok-tog-${projPanelId}" style="letter-spacing:.03em;">⬡ COLLECTION TOKEN</button>` : ''}
     </div>
+    ${isDesktopPlatform() ? `
     <div class="dash-tok-panel" id="${tokPanelId}" hidden>
       <div id="${tokListId}"></div>
       <div class="dash-form-row" style="padding:6px 14px 0;gap:6px;">
@@ -327,26 +333,28 @@ export function buildDashLibProject(proj, allItems, highlight = null) {
         <button class="mgmt-btn" id="tok-create-${projPanelId}">CREATE</button>
       </div>
       <div id="${tokResultId}" style="padding:3px 14px 4px;"></div>
-    </div>`;
+    </div>` : ''}`;
 
-  header.querySelector(`#tok-tog-${projPanelId}`).addEventListener('click', async () => {
-    const panel = document.getElementById(tokPanelId);
-    panel.hidden = !panel.hidden;
-    if (!panel.hidden) await refreshDashTokenList(tokListId, 'project', proj.id);
-  });
+  if (isDesktopPlatform()) {
+    header.querySelector(`#tok-tog-${projPanelId}`).addEventListener('click', async () => {
+      const panel = document.getElementById(tokPanelId);
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden) await refreshDashTokenList(tokListId, 'project', proj.id);
+    });
 
-  header.querySelector(`#tok-create-${projPanelId}`).addEventListener('click', async () => {
-    const label = document.getElementById(tokLabelId).value.trim();
-    if (!label) return;
-    const { res, data } = await api.dashboard.tokens.create({ label, tier: 'subscriber', scope_type: 'project', scope_id: proj.id });
-    if (res.ok) {
-      document.getElementById(tokLabelId).value = '';
-      document.getElementById(tokResultId).innerHTML = `
-        <div class="dash-success-msg" style="font-size:10px;margin-bottom:4px;">Share once — won't be shown again:</div>
-        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.6);word-break:break-all;">${esc(data.token)}</div>`;
-      await refreshDashTokenList(tokListId, 'project', proj.id);
-    }
-  });
+    header.querySelector(`#tok-create-${projPanelId}`).addEventListener('click', async () => {
+      const label = document.getElementById(tokLabelId).value.trim();
+      if (!label) return;
+      const { res, data } = await api.dashboard.tokens.create({ label, tier: 'subscriber', scope_type: 'project', scope_id: proj.id });
+      if (res.ok) {
+        document.getElementById(tokLabelId).value = '';
+        document.getElementById(tokResultId).innerHTML = `
+          <div class="dash-success-msg" style="font-size:10px;margin-bottom:4px;">Share once — won't be shown again:</div>
+          <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.6);word-break:break-all;">${esc(data.token)}</div>`;
+        await refreshDashTokenList(tokListId, 'project', proj.id);
+      }
+    });
+  }
 
   wrap.appendChild(header);
   tracks.forEach(item => wrap.appendChild(buildDashLibItem(item, 'track', item.id, true, highlight)));
@@ -410,6 +418,7 @@ export async function loadDashLibrary() {
 
 // ── Token management ───────────────────────────────────────────────────────────
 export async function loadDashTokens() {
+  if (!isDesktopPlatform()) return;
   try {
     const tokens = await api.dashboard.tokens.list();
     const list   = el('dash-token-list');

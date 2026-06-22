@@ -507,3 +507,149 @@ test('subscriber analytics returns daily active totals and excludes expired rows
     assert.equal(result.body.rows[0].active_total, 1);
   });
 });
+
+// ── Phase 7: scheduler + access-token/config routes are desktop-only ──────────
+// The shared test harness (helpers.js) sets DEPLOYMENT_PLATFORM=desktop so the
+// rest of the suite isn't coupled to platform gating, so these tests flip
+// config.platform to 'web' to exercise the 403 side, then restore 'desktop'.
+test('schedule block CRUD and preview are desktop-only, list and current stay on web', async () => {
+  freshDb();
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN } };
+
+  await withServer(async baseUrl => {
+    // Desktop (default in this harness): full CRUD + preview works.
+    const create = await request(baseUrl, '/api/schedule/blocks', {
+      method: 'POST',
+      headers: { ...auth.headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start_time: '08:00', end_time: '12:00' }),
+    });
+    assert.equal(create.res.status, 201);
+
+    const blockId = create.body.id;
+    const update = await request(baseUrl, `/api/schedule/blocks/${blockId}`, {
+      method: 'PUT',
+      headers: { ...auth.headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start_time: '09:00', end_time: '13:00' }),
+    });
+    assert.equal(update.res.status, 200);
+
+    const items = await request(baseUrl, `/api/schedule/blocks/${blockId}/items`, {
+      method: 'PUT',
+      headers: { ...auth.headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: [] }),
+    });
+    assert.equal(items.res.status, 200);
+
+    const preview = await request(baseUrl, '/api/schedule/preview', auth);
+    assert.equal(preview.res.status, 200);
+
+    config.platform = 'web';
+    try {
+      const list = await request(baseUrl, '/api/schedule/', auth);
+      assert.equal(list.res.status, 200);
+
+      const current = await request(baseUrl, '/api/schedule/current');
+      assert.equal(current.res.status, 200);
+
+      const webCreate = await request(baseUrl, '/api/schedule/blocks', {
+        method: 'POST',
+        headers: { ...auth.headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_time: '14:00', end_time: '16:00' }),
+      });
+      assert.equal(webCreate.res.status, 403);
+
+      const webUpdate = await request(baseUrl, `/api/schedule/blocks/${blockId}`, {
+        method: 'PUT',
+        headers: { ...auth.headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_time: '09:00', end_time: '13:00' }),
+      });
+      assert.equal(webUpdate.res.status, 403);
+
+      const webItems = await request(baseUrl, `/api/schedule/blocks/${blockId}/items`, {
+        method: 'PUT',
+        headers: { ...auth.headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: [] }),
+      });
+      assert.equal(webItems.res.status, 403);
+
+      const webPreview = await request(baseUrl, '/api/schedule/preview', auth);
+      assert.equal(webPreview.res.status, 403);
+
+      const webDel = await request(baseUrl, `/api/schedule/blocks/${blockId}`, { method: 'DELETE', headers: auth.headers });
+      assert.equal(webDel.res.status, 403);
+    } finally {
+      config.platform = 'desktop';
+    }
+
+    const del = await request(baseUrl, `/api/schedule/blocks/${blockId}`, { method: 'DELETE', headers: auth.headers });
+    assert.equal(del.res.status, 200);
+  });
+});
+
+test('access-token CRUD, radio-host toggle, and station URL update are desktop-only', async () => {
+  freshDb();
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN } };
+  const jsonAuth = { headers: { ...auth.headers, 'Content-Type': 'application/json' } };
+
+  await withServer(async baseUrl => {
+    // Desktop (default in this harness): full token CRUD + radio-host read works.
+    const create = await request(baseUrl, '/api/dashboard/tokens', {
+      method: 'POST',
+      headers: jsonAuth.headers,
+      body: JSON.stringify({ label: 'Test', tier: 'subscriber' }),
+    });
+    assert.equal(create.res.status, 201);
+
+    const tokenId = create.body.id;
+    const list = await request(baseUrl, '/api/dashboard/tokens', auth);
+    assert.equal(list.res.status, 200);
+
+    const tier = await request(baseUrl, `/api/dashboard/tokens/${tokenId}/tier`, {
+      method: 'PATCH',
+      headers: jsonAuth.headers,
+      body: JSON.stringify({ tier: 'pro' }),
+    });
+    assert.equal(tier.res.status, 200);
+
+    const radioHost = await request(baseUrl, '/api/dashboard/radio-host', auth);
+    assert.equal(radioHost.res.status, 200);
+
+    config.platform = 'web';
+    try {
+      const webList = await request(baseUrl, '/api/dashboard/tokens', auth);
+      assert.equal(webList.res.status, 403);
+
+      const webCreate = await request(baseUrl, '/api/dashboard/tokens', {
+        method: 'POST',
+        headers: jsonAuth.headers,
+        body: JSON.stringify({ label: 'Test2', tier: 'subscriber' }),
+      });
+      assert.equal(webCreate.res.status, 403);
+
+      const webTier = await request(baseUrl, `/api/dashboard/tokens/${tokenId}/tier`, {
+        method: 'PATCH',
+        headers: jsonAuth.headers,
+        body: JSON.stringify({ tier: 'all_access' }),
+      });
+      assert.equal(webTier.res.status, 403);
+
+      const webRadioHost = await request(baseUrl, '/api/dashboard/radio-host', auth);
+      assert.equal(webRadioHost.res.status, 403);
+
+      const webUrl = await request(baseUrl, '/api/dashboard/station/url', {
+        method: 'PUT',
+        headers: jsonAuth.headers,
+        body: JSON.stringify({ url: 'https://example.com' }),
+      });
+      assert.equal(webUrl.res.status, 403);
+
+      const webDel = await request(baseUrl, `/api/dashboard/tokens/${tokenId}`, { method: 'DELETE', headers: auth.headers });
+      assert.equal(webDel.res.status, 403);
+    } finally {
+      config.platform = 'desktop';
+    }
+
+    const del = await request(baseUrl, `/api/dashboard/tokens/${tokenId}`, { method: 'DELETE', headers: auth.headers });
+    assert.equal(del.res.status, 200);
+  });
+});

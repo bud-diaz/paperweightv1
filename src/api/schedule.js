@@ -257,7 +257,7 @@ router.get('/', (req, res) => {
   res.json(withItems);
 });
 
-router.post('/blocks', (req, res) => {
+router.post('/blocks', requireDesktop, (req, res) => {
   const validated = validateBlockInput(req.body);
   if (validated.error) return res.status(400).json({ error: validated.error });
 
@@ -270,7 +270,7 @@ router.post('/blocks', (req, res) => {
   res.status(201).json(block);
 });
 
-router.put('/blocks/:id', (req, res) => {
+router.put('/blocks/:id', requireDesktop, (req, res) => {
   const db = getDb();
   const existing = db.prepare('SELECT * FROM schedule_blocks WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Block not found' });
@@ -296,14 +296,14 @@ router.put('/blocks/:id', (req, res) => {
   res.json(db.prepare('SELECT * FROM schedule_blocks WHERE id = ?').get(req.params.id));
 });
 
-router.delete('/blocks/:id', (req, res) => {
+router.delete('/blocks/:id', requireDesktop, (req, res) => {
   const changes = getDb().prepare('DELETE FROM schedule_blocks WHERE id = ?').run(req.params.id).changes;
   if (!changes) return res.status(404).json({ error: 'Block not found' });
   res.json({ ok: true });
 });
 
 // Dry-run the schedule between `from` and `to` without mutating broadcast state.
-router.get('/preview', (req, res) => {
+router.get('/preview', requireDesktop, (req, res) => {
   const parsed = parsePreviewWindow(req);
   if (parsed.error) return res.status(400).json({ error: parsed.error });
 
@@ -427,7 +427,7 @@ router.get('/smart-playlists/:id/preview', (req, res) => {
   res.json({ count: tracks.length, tracks });
 });
 
-router.put('/blocks/:id/items', (req, res) => {
+router.put('/blocks/:id/items', requireDesktop, (req, res) => {
   const db = getDb();
   const block = db.prepare('SELECT * FROM schedule_blocks WHERE id = ?').get(req.params.id);
   if (!block) return res.status(404).json({ error: 'Block not found' });
