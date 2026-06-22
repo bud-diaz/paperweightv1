@@ -68,6 +68,8 @@ function parseEnvValue(raw) {
   return value;
 }
 
+let isFirstRun = false;
+
 function loadEnv() {
   const envPath = path.join(dataRoot, '.env');
 
@@ -117,6 +119,7 @@ function loadEnv() {
       fs.writeFileSync(envPath, defaults, 'utf8');
       console.log(`[Paperweight] Created default .env at:\n  ${envPath}`);
       console.log(`[Paperweight] Your dashboard token is: ${token}\n`);
+      isFirstRun = true;
     } else {
       console.error('ERROR: .env file not found. Run scripts/setup.sh first.');
       process.exit(1);
@@ -207,6 +210,11 @@ function ensureDeviceLock() {
 
 const config = {
   version: loadPackageVersion(),
+
+  // True only for the run that just created a default .env (packaged exe,
+  // empty install folder). Used to gate one-time first-run setup such as
+  // creating a Desktop shortcut.
+  isFirstRun,
 
   host: process.env.HOST || '127.0.0.1',
   port: parseInt(process.env.PORT || '3000', 10),
