@@ -767,6 +767,8 @@ const PLATFORMS = {
   }
 };
 
+const APP_VERSION = '1.5.1';
+
 /* ── State ────────────────────────────────────────────────────────────────── */
 let activePlatform = null;
 let drawerOpen = true;
@@ -900,6 +902,24 @@ function updateGate() {
   btn.classList.toggle('gated', !ready);
   btn.setAttribute('aria-disabled', String(!ready));
 }
+
+function getTrackingParams() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    source: params.get('utm_source') || params.get('source') || null,
+    medium: params.get('utm_medium') || null,
+    campaign: params.get('utm_campaign') || params.get('campaign') || null,
+  };
+}
+
+function postJson(url, payload) {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
 document.getElementById('gate-chk-license').addEventListener('change', updateGate);
 document.getElementById('gate-chk-content').addEventListener('change', updateGate);
 document.getElementById('gate-email').addEventListener('input', updateGate);
@@ -916,6 +936,8 @@ document.getElementById('dl-btn').addEventListener('click', function(e) {
   const href = this.href;
   const email = (document.getElementById('gate-email').value || '').trim();
   const updatesOptIn = document.getElementById('gate-chk-updates').checked;
+  const platform = PLATFORMS[activePlatform];
+  const tracking = getTrackingParams();
   const downloadWindow = window.open('about:blank', '_blank');
   if (downloadWindow) {
     downloadWindow.opener = null;
@@ -934,15 +956,28 @@ document.getElementById('dl-btn').addEventListener('click', function(e) {
 
   setGateStatus(updatesOptIn ? 'Saving update preference…' : 'Saving email…');
 
-  fetch('/api/download-lead', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, platform: activePlatform, updatesOptIn }),
-  }).then(res => {
-    if (!res.ok) throw new Error('Lead capture failed');
+  const leadRequest = postJson('/api/download-lead', {
+    email,
+    platform: activePlatform,
+    updatesOptIn,
+  });
+
+  const eventRequest = postJson('/api/download-events', {
+    email,
+    platform: activePlatform,
+    artifact: platform?.file || null,
+    version: APP_VERSION,
+    referrer: document.referrer || null,
+    ...tracking,
+  });
+
+  Promise.allSettled([leadRequest, eventRequest]).then(results => {
+    const failed = results.some(result => result.status === 'rejected' || !result.value.ok);
+    if (failed) {
+      setGateStatus('Could not save all tracking details, but your download will still open.', 'warn');
+      return;
+    }
     setGateStatus(updatesOptIn ? `Updates enabled for ${email}.` : 'Email saved for this download.', 'ok');
-  }).catch(() => {
-    setGateStatus('Could not save email, but your download will still open.', 'warn');
   }).finally(openDownload);
 });
 

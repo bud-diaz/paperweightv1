@@ -128,6 +128,73 @@ test('download lead normalizes unknown platform to null', async () => {
   });
 });
 
+test('download event stores platform, version, UTM fields, and hashed IP', async () => {
+  const db = freshDb();
+  await withServer(async baseUrl => {
+    const result = await request(baseUrl, '/api/download-events', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'PaperweightTest/1.0',
+        'Referer': 'https://paperweighthq.com/download?utm_source=x',
+        'X-Forwarded-For': '203.0.113.10',
+      },
+      body: JSON.stringify({
+        email: '  Creator@Example.COM ',
+        platform: ' LINUX-X64 ',
+        artifact: 'paperweight-linux-x64',
+        version: '1.5.1',
+        source: 'launch',
+        medium: 'discord',
+        campaign: 'paperweight-v1',
+      }),
+    });
+
+    assert.equal(result.res.status, 200);
+    assert.equal(result.body.ok, true);
+
+    const row = db.prepare(`
+      SELECT email, platform, artifact, version, source, medium, campaign, referrer, ip_hash, user_agent
+      FROM download_events
+    `).get();
+    assert.equal(row.email, 'creator@example.com');
+    assert.equal(row.platform, 'linux-x64');
+    assert.equal(row.artifact, 'paperweight-linux-x64');
+    assert.equal(row.version, '1.5.1');
+    assert.equal(row.source, 'launch');
+    assert.equal(row.medium, 'discord');
+    assert.equal(row.campaign, 'paperweight-v1');
+    assert.equal(row.referrer, 'https://paperweighthq.com/download?utm_source=x');
+    assert.match(row.ip_hash, /^[a-f0-9]{64}$/);
+    assert.equal(row.user_agent, 'PaperweightTest/1.0');
+  });
+});
+
+test('download event requires a known platform', async () => {
+  freshDb();
+  await withServer(async baseUrl => {
+    const result = await request(baseUrl, '/api/download-events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform: 'amiga' }),
+    });
+
+    assert.equal(result.res.status, 400);
+    assert.match(result.body.error, /Valid platform/);
+  });
+});
+
+test('telemetry reporter creates a stable anonymous install key', () => {
+  freshDb();
+  const { _private } = require('../src/telemetry/reporter');
+  const first = _private.getStationKey();
+  const second = _private.getStationKey();
+
+  assert.match(first, /^pwinst_[a-f0-9]{32}$/);
+  assert.equal(second, first);
+  assert.ok(fs.existsSync(_private.INSTALL_ID_FILE));
+});
+
 test('HLS serves only the stream directory, not runtime work files', async () => {
   freshDb();
   const streamDir = path.join(config.paths.hlsOutput, 'stream');
