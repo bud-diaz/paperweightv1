@@ -51,8 +51,9 @@ router.use('/dashboard/posts', postsModule.dashRouter);
 // First-launch legal acceptance
 router.use('/system',    require('./system'));
 
-// Download page email capture (public, no auth required)
+// Download page email/event capture (public, no auth required)
 router.use('/download-lead', require('./download-lead'));
+router.use('/download-events', require('./download-events'));
 
 // downloads.js defines two routes:
 //   GET /library/:id/signed-url  (mounted at / so becomes /api/library/:id/signed-url)

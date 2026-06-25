@@ -7,15 +7,22 @@
  *                            e.g. https://system.paperweighthq.com
  *   PAPE_TELEMETRY_SECRET  — shared secret matching PAPERWEIGHT_TELEMETRY_SECRET in system.pape
  *
- * Station identity (at least one required):
+ * Station identity:
  *   STATION_KEY            — explicit stable identifier for this station
- *                            defaults to STATION_SLUG if set, which is already globally unique
+ *   STATION_SLUG           — used as the station key when present
+ *
+ * If neither STATION_KEY nor STATION_SLUG is set, Paperweight creates a stable
+ * anonymous install key in DATA_PATH so first-launch telemetry can still be
+ * deduplicated in system.pape.
  *
  * If PAPE_URL or PAPE_TELEMETRY_SECRET are missing, reporting is silently disabled.
  */
 
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const { getDb } = require('../db');
 const broadcast = require('../broadcast');
 const { getListenerCount } = require('../api/stream');
@@ -25,11 +32,41 @@ const PAPE_URL = process.env.PAPE_URL;
 const PAPE_TELEMETRY_SECRET = process.env.PAPE_TELEMETRY_SECRET;
 // STATION_SLUG is already globally unique (it's the *.paperweighthq.com subdomain),
 // so use it as the key fallback when STATION_KEY isn't explicitly set.
-const STATION_KEY = process.env.STATION_KEY || config.station?.slug || null;
+const CONFIGURED_STATION_KEY = process.env.STATION_KEY || config.station?.slug || null;
+const INSTALL_ID_FILE = path.join(config.paths.data, 'paperweight-install.json');
 const INTERVAL_MS = Number(process.env.PAPE_REPORT_INTERVAL_MS ?? 5 * 60 * 1000);
 
+let cachedInstallKey = null;
+
+function readInstallKey() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(INSTALL_ID_FILE, 'utf8'));
+    if (typeof parsed.installKey === 'string' && parsed.installKey.startsWith('pwinst_')) {
+      return parsed.installKey;
+    }
+  } catch {}
+  return null;
+}
+
+function createInstallKey() {
+  const installKey = `pwinst_${crypto.randomBytes(16).toString('hex')}`;
+  fs.mkdirSync(config.paths.data, { recursive: true });
+  fs.writeFileSync(
+    INSTALL_ID_FILE,
+    JSON.stringify({ installKey, createdAt: new Date().toISOString() }, null, 2),
+    { mode: 0o600 }
+  );
+  return installKey;
+}
+
+function getStationKey() {
+  if (CONFIGURED_STATION_KEY) return CONFIGURED_STATION_KEY;
+  if (!cachedInstallKey) cachedInstallKey = readInstallKey() || createInstallKey();
+  return cachedInstallKey;
+}
+
 function isConfigured() {
-  return !!(PAPE_URL && PAPE_TELEMETRY_SECRET && STATION_KEY);
+  return !!(PAPE_URL && PAPE_TELEMETRY_SECRET);
 }
 
 async function buildPayload() {
@@ -77,7 +114,7 @@ async function buildPayload() {
   try { version = require('../../package.json').version; } catch {}
 
   return {
-    stationKey: STATION_KEY,
+    stationKey: getStationKey(),
     slug: config.station?.slug || null,
     publicUrl,
     version,
@@ -123,14 +160,23 @@ async function report() {
 function start() {
   if (!isConfigured()) {
     if (PAPE_URL || PAPE_TELEMETRY_SECRET) {
-      console.warn('[telemetry] PAPE_URL and PAPE_TELEMETRY_SECRET must both be set, and this station must have a STATION_KEY or STATION_SLUG. Reporting disabled.');
+      console.warn('[telemetry] PAPE_URL and PAPE_TELEMETRY_SECRET must both be set. Reporting disabled.');
     }
     return;
   }
 
-  console.log(`[telemetry] Reporting to ${PAPE_URL} every ${INTERVAL_MS / 1000}s as station "${STATION_KEY}"`);
+  const stationKey = getStationKey();
+  console.log(`[telemetry] Reporting to ${PAPE_URL} every ${INTERVAL_MS / 1000}s as station "${stationKey}"`);
   report(); // immediate first report
   setInterval(report, INTERVAL_MS);
 }
 
-module.exports = { start };
+module.exports = {
+  start,
+  _private: {
+    getStationKey,
+    readInstallKey,
+    createInstallKey,
+    INSTALL_ID_FILE,
+  },
+};
