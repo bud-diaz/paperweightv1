@@ -1,6 +1,6 @@
 {
   "name": "paperweight-desktop",
-  "version": "1.0.0",
+  "version": "1.5.1",
   "private": true,
   "description": "Paperweight desktop app (Windows & Mac)",
   "main": "main.js",
@@ -28,7 +28,7 @@
     "extraResources": [
       { "from": "../src", "to": "src" },
       { "from": "../client", "to": "client" },
-      { "from": "../node_modules", "to": "node_modules" },
+      { "from": "../node_modules", "to": "node_modules", "filter": ["!better-sqlite3/**"] },
       { "from": "../package.json", "to": "package.json" },
       { "from": "native/node_modules/better-sqlite3", "to": "node_modules/better-sqlite3" }
     ],

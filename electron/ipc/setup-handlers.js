@@ -20,12 +20,17 @@ function registerSetupHandlers({ dataRoot, win, onComplete }) {
   ipcMain.handle('setup:submit', async (event, formData) => {
     try {
       const result = provisionEnv(formData || {}, dataRoot);
-      win.close();
-      onComplete();
       return { ok: true, dashboardToken: result.dashboardToken };
     } catch (err) {
       return { ok: false, error: err.message };
     }
+  });
+
+  // Called by the renderer after the user has acknowledged the dashboard
+  // token. Closes the setup window and hands off to the main app.
+  ipcMain.handle('setup:close', async () => {
+    win.close();
+    onComplete();
   });
 }
 

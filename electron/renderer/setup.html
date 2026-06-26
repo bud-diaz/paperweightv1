@@ -77,12 +77,13 @@
 
     <div id="done-screen" hidden>
       <h2>You're all set!</h2>
-      <p>Your dashboard token (keep this safe — you can use it to recover dashboard access):</p>
+      <p>Your dashboard token — copy it now. It won't be shown again here, only in your <code>.env</code> file.</p>
       <div class="row">
         <input type="text" id="dashboard-token-display" readonly>
         <button type="button" id="copy-token-btn">Copy</button>
       </div>
-      <p class="sub">Starting Paperweight…</p>
+      <p class="hint">This token is your key to the dashboard. Store it somewhere safe before continuing.</p>
+      <button type="button" id="launch-btn">I've saved my token — Launch Paperweight →</button>
     </div>
   </div>
 
