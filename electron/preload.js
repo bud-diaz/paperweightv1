@@ -10,4 +10,5 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   submitSetup: formData => ipcRenderer.invoke('setup:submit', formData),
   chooseVaultFolder: () => ipcRenderer.invoke('setup:choose-folder'),
+  closeSetup: () => ipcRenderer.invoke('setup:close'),
 });

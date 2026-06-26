@@ -73,3 +73,9 @@ document.getElementById('copy-token-btn').addEventListener('click', () => {
   input.select();
   document.execCommand('copy');
 });
+
+document.getElementById('launch-btn').addEventListener('click', async () => {
+  document.getElementById('launch-btn').disabled = true;
+  document.getElementById('launch-btn').textContent = 'Launching…';
+  await window.electronAPI.closeSetup();
+});
