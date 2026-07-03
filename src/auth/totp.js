@@ -58,15 +58,24 @@ function computeTOTP(secret, counter) {
   return String(code).padStart(6, '0');
 }
 
-// tolerance: how many 30s windows either side to accept (handles clock skew)
-function verifyTOTP(secret, code, tolerance = 1) {
+// Returns the counter that a code matches, or null. Only accepts counters
+// strictly greater than `after` so an already-consumed code cannot be replayed.
+// tolerance: how many 30s windows either side to accept (handles clock skew).
+function matchTOTPCounter(secret, code, { after = -1, tolerance = 1 } = {}) {
   const codeStr = String(code || '').replace(/\s/g, '');
-  if (!/^\d{6}$/.test(codeStr)) return false;
+  if (!/^\d{6}$/.test(codeStr)) return null;
   const counter = Math.floor(Date.now() / 1000 / 30);
   for (let i = -tolerance; i <= tolerance; i++) {
-    if (computeTOTP(secret, counter + i) === codeStr) return true;
+    const c = counter + i;
+    if (c <= after) continue;
+    if (computeTOTP(secret, c) === codeStr) return c;
   }
-  return false;
+  return null;
+}
+
+// tolerance: how many 30s windows either side to accept (handles clock skew)
+function verifyTOTP(secret, code, tolerance = 1) {
+  return matchTOTPCounter(secret, code, { tolerance }) !== null;
 }
 
 function generateSecret(bytes = 20) {
@@ -91,4 +100,4 @@ function hashCode(code) {
   return crypto.createHash('sha256').update(String(code)).digest('hex');
 }
 
-module.exports = { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCode };
+module.exports = { generateSecret, verifyTOTP, matchTOTPCounter, computeTOTP, getOtpauthUri, generateRecoveryCodes, hashCode };

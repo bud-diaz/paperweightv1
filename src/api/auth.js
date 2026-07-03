@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const config = require('../config');
 const { getDb } = require('../db');
 const { createSession, deleteSession } = require('../auth/sessions');
-const { verifyTOTP, hashCode } = require('../auth/totp');
+const { matchTOTPCounter, hashCode } = require('../auth/totp');
 const { authLimiter } = require('../middleware/rateLimiter');
 
 function safeEqual(a, b) {
@@ -96,7 +96,7 @@ router.post('/dashboard/verify-2fa', authLimiter, (req, res) => {
 
   try {
     const row = getDb()
-      .prepare('SELECT secret, recovery_codes FROM dashboard_2fa WHERE id = 1 AND enabled = 1')
+      .prepare('SELECT secret, recovery_codes, last_totp_counter FROM dashboard_2fa WHERE id = 1 AND enabled = 1')
       .get();
 
     if (!row) {
@@ -105,18 +105,27 @@ router.post('/dashboard/verify-2fa', authLimiter, (req, res) => {
 
     const codeStr = String(code).replace(/[\s-]/g, '');
 
-    // Try TOTP first
-    if (verifyTOTP(row.secret, codeStr)) {
+    // Try TOTP first — reject any counter at or below the last one accepted so a
+    // valid code cannot be replayed within its window.
+    const matchedCounter = matchTOTPCounter(row.secret, codeStr, {
+      after: Number.isInteger(row.last_totp_counter) ? row.last_totp_counter : -1,
+    });
+    if (matchedCounter !== null) {
+      getDb()
+        .prepare('UPDATE dashboard_2fa SET last_totp_counter = ? WHERE id = 1')
+        .run(matchedCounter);
       const sessionId = createSession();
       res.cookie(SESSION_COOKIE, sessionId, sessionCookieOpts(req));
       return res.json({ ok: true });
     }
 
-    // Try recovery code (hashed, single-use)
+    // Try recovery code (hashed, single-use). Accept both the canonical dash-free
+    // hash and the legacy dashed-format hash for backward compatibility.
     let codes = [];
     try { codes = JSON.parse(row.recovery_codes); } catch {}
-    const codeHash = hashCode(codeStr.toUpperCase());
-    const idx = codes.indexOf(codeHash);
+    const upper = codeStr.toUpperCase();
+    const dashed = upper.length === 12 ? `${upper.slice(0, 4)}-${upper.slice(4, 8)}-${upper.slice(8, 12)}` : upper;
+    const idx = codes.findIndex(h => h === hashCode(upper) || h === hashCode(dashed));
     if (idx !== -1) {
       codes.splice(idx, 1);
       getDb()

@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const crypto = require('crypto');
 const { getDb } = require('../db');
-const { authLimiter } = require('../middleware/rateLimiter');
+const { leadLimiter } = require('../middleware/rateLimiter');
 
 const VALID_PLATFORMS = new Set(['win', 'mac-arm64', 'mac-x64', 'linux-x64', 'linux-arm64']);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -30,10 +30,9 @@ function cleanString(value, max = MAX_FIELD_LENGTH) {
 }
 
 function getIp(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.trim()) {
-    return forwarded.split(',')[0].trim();
-  }
+  // Trust only Express's resolved req.ip, which honors the configured
+  // `trust proxy` hop count. Reading the raw X-Forwarded-For header directly
+  // would let any client forge the value regardless of that setting.
   return req.ip || req.socket?.remoteAddress || '';
 }
 
@@ -61,7 +60,7 @@ function buildEvent(req) {
   };
 }
 
-router.post('/', authLimiter, (req, res) => {
+router.post('/', leadLimiter, (req, res) => {
   const event = buildEvent(req);
 
   if (!event.platform) {

@@ -53,8 +53,16 @@ function csrfCheck(req, res, next) {
   const refererHeader = req.headers.referer;
   const source = originHeader || (refererHeader ? parseOrigin(refererHeader) : null);
 
-  // If no origin/referer at all, let it through — curl, native mobile, server-to-server
-  if (!source) return next();
+  if (!source) {
+    // Dashboard sessions are browser-only, so a missing Origin/Referer on a
+    // state-changing request is not a legitimate dashboard call — fail closed.
+    if (req.cookies?.pw_dashboard_session) {
+      return res.status(403).json({ error: 'Cross-origin request blocked' });
+    }
+    // Listener cookie with no origin/referer: allow — curl, native mobile,
+    // server-to-server. Native clients authenticate with Bearer tokens anyway.
+    return next();
+  }
 
   if (allowedOrigins(req).has(source)) return next();
 

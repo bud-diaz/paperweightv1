@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { getDb } = require('../db');
 const { canDownloadMedia } = require('../auth/access');
+const { effectiveTierForTokenRow } = require('../auth/middleware');
 const { normalizeUnlockOptions } = require('./vault');
 const { safeVaultPath } = require('./safeVaultPath');
 
@@ -69,8 +70,9 @@ router.get('/download/:token', (req, res) => {
     return res.status(400).json({ error: 'Invalid token' });
   }
 
-  const record = getDb().prepare(
-    'SELECT dt.*, m.filepath, m.filename, m.title FROM download_tokens dt JOIN media m ON m.id = dt.media_id WHERE dt.token = ?'
+  const db = getDb();
+  const record = db.prepare(
+    'SELECT dt.*, m.filepath, m.filename, m.title, m.visibility FROM download_tokens dt JOIN media m ON m.id = dt.media_id WHERE dt.token = ?'
   ).get(token);
 
   if (!record) {
@@ -81,6 +83,18 @@ router.get('/download/:token', (req, res) => {
     return res.status(403).json({ error: 'Download token has expired', expiresAt: record.expires_at });
   }
 
+  // Re-authorize at redemption time: the listener's subscription may have lapsed
+  // or the vault unlock been revoked since the token was issued.
+  const tokenRow = record.listener_id
+    ? db.prepare('SELECT * FROM tokens WHERE listener_id = ? AND is_active = 1 LIMIT 1').get(record.listener_id)
+    : null;
+  const reqLike = { tier: tokenRow ? effectiveTierForTokenRow(tokenRow) : 'free', tokenRow };
+  const media = { id: record.media_id, visibility: record.visibility, filepath: record.filepath };
+  const access = canDownloadMedia(reqLike, media, getProjectId(db, record.media_id));
+  if (!access.allowed) {
+    return res.status(403).json({ error: access.error || 'Access to this download has been revoked' });
+  }
+
   const filepath = safeVaultPath(record.filepath);
   if (!filepath) {
     return res.status(403).json({ error: 'File path is outside the vault' });
@@ -89,6 +103,9 @@ router.get('/download/:token', (req, res) => {
   if (!fs.existsSync(filepath)) {
     return res.status(404).json({ error: 'File not found on disk' });
   }
+
+  // Single-use: consume the token so a leaked link can't be replayed.
+  db.prepare('DELETE FROM download_tokens WHERE id = ?').run(record.id);
 
   res.download(filepath, path.basename(filepath));
 });

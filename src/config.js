@@ -116,7 +116,7 @@ function loadEnv() {
       ].join('\n');
       fs.writeFileSync(envPath, defaults, 'utf8');
       console.log(`[Paperweight] Created default .env at:\n  ${envPath}`);
-      console.log(`[Paperweight] Your dashboard token is: ${token}\n`);
+      announceDashboardToken(token, path.dirname(envPath));
     } else {
       console.error('ERROR: .env file not found. Run scripts/setup.sh first.');
       process.exit(1);
@@ -136,6 +136,28 @@ function loadEnv() {
 }
 
 loadEnv();
+
+// Surface a freshly generated dashboard token without leaking it to log
+// aggregators: print to the console only on an interactive TTY; otherwise write
+// it to a 0600 file and print just the path.
+function announceDashboardToken(token, dir) {
+  let filePath = null;
+  try {
+    filePath = path.join(dir, 'dashboard-token.txt');
+    fs.writeFileSync(filePath, `${token}\n`, { mode: 0o600 });
+    fs.chmodSync(filePath, 0o600);
+  } catch {
+    filePath = null;
+  }
+
+  if (process.stdout.isTTY) {
+    console.log(`\n[Paperweight] Your dashboard token is: ${token}\n`);
+  } else if (filePath) {
+    console.log(`\n[Paperweight] Dashboard token written to ${filePath} (0600). Keep it secret — it is not printed to stdout in non-interactive mode.\n`);
+  } else {
+    console.log('\n[Paperweight] A dashboard token was generated but could not be written to disk; set DASHBOARD_TOKEN in your .env to a value you control.\n');
+  }
+}
 
 const hasEnvValue = key => !!(process.env[key] && process.env[key].trim());
 
@@ -253,7 +275,7 @@ const config = {
       // stays closed rather than minting a usable token nobody knows.
       if (process.env.PAPERWEIGHT_ALLOW_MISSING_ENV === 'true') return '';
       const token = ensurePersistedSecret('DASHBOARD_TOKEN', 16, 'dashboard login');
-      console.log(`\n[Paperweight] Your dashboard token is: ${token}\n`);
+      announceDashboardToken(token, dataRoot);
       return token;
     })(),
     // Separate secret for HMAC-signed download URLs so it never shares entropy
@@ -315,6 +337,10 @@ function warnStartupConfig() {
   const stripeAny = stripeKeys.some(hasEnvValue);
   if (stripeAny && !hasEnvValue('STRIPE_WEBHOOK_SECRET')) {
     warnings.push('Stripe is partially configured without STRIPE_WEBHOOK_SECRET; subscription state will not be authoritative.');
+  }
+
+  if (config.trustProxy === true) {
+    warnings.push('TRUST_PROXY=true trusts every hop, so client-supplied X-Forwarded-For can spoof req.ip and defeat IP rate limiting; set it to the exact number of proxy hops in front of this server (e.g. TRUST_PROXY=1).');
   }
 
   const paypalKeys = ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PAYPAL_WEBHOOK_ID', 'PAYPAL_PLAN_PRO', 'PAYPAL_PLAN_ALL_ACCESS'];

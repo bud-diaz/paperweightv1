@@ -122,12 +122,53 @@ function runMigrations(database) {
       column: 'updates_opt_in',
       sql:    'ALTER TABLE download_leads ADD COLUMN updates_opt_in INTEGER NOT NULL DEFAULT 0',
     },
+    {
+      // Store only a SHA-256 hash of each API token, never the plaintext.
+      table:  'tokens',
+      column: 'token_hash',
+      sql:    'ALTER TABLE tokens ADD COLUMN token_hash TEXT',
+    },
+    {
+      // Last accepted TOTP counter — reject replays of an already-used code.
+      table:  'dashboard_2fa',
+      column: 'last_totp_counter',
+      sql:    'ALTER TABLE dashboard_2fa ADD COLUMN last_totp_counter INTEGER',
+    },
   ];
 
   for (const guard of alterGuards) {
     const cols = database.pragma(`table_info(${guard.table})`);
+    // Skip guards whose table does not exist yet (created by an earlier migration).
+    if (cols.length === 0) continue;
     if (!cols.some(c => c.name === guard.column)) {
       database.exec(guard.sql);
+    }
+  }
+
+  // Token hashing at rest: backfill token_hash from any legacy plaintext token,
+  // then overwrite the plaintext `token` column with the hash so the raw value is
+  // never persisted. Idempotent — only touches rows still holding a plaintext
+  // token (token != token_hash). The `token` column keeps its NOT NULL/UNIQUE
+  // shape by storing the hash there too, so lookups can key off either column.
+  {
+    const tokenCols = database.pragma('table_info(tokens)').map(c => c.name);
+    if (tokenCols.includes('token_hash')) {
+      const sha256 = value => crypto.createHash('sha256').update(String(value)).digest('hex');
+      const pending = database
+        .prepare('SELECT id, token, token_hash FROM tokens WHERE token_hash IS NULL OR token_hash <> token')
+        .all();
+      if (pending.length > 0) {
+        const upd = database.prepare('UPDATE tokens SET token = ?, token_hash = ? WHERE id = ?');
+        const backfill = database.transaction(rows => {
+          for (const row of rows) {
+            // If token_hash is already set, `token` is the plaintext to scrub.
+            const hash = row.token_hash || sha256(row.token);
+            upd.run(hash, hash, row.id);
+          }
+        });
+        backfill(pending);
+      }
+      database.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_tokens_token_hash ON tokens(token_hash)');
     }
   }
 

@@ -1,4 +1,5 @@
 const express = require('express');
+const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 const fs = require('fs');
@@ -57,11 +58,51 @@ function bundledStaticMiddleware() {
   };
 }
 
+// Strict Content-Security-Policy for the app + dashboard. creator.html loads no
+// inline scripts and no inline event handlers, so script-src can stay 'self'.
+// 'unsafe-inline' is kept only for style-src (the frontend uses inline style="…"
+// attributes); style injection is far lower risk than script injection.
+const APP_CSP_DIRECTIVES = {
+  defaultSrc: ["'self'"],
+  scriptSrc:  ["'self'"],
+  styleSrc:   ["'self'", "'unsafe-inline'"],
+  imgSrc:     ["'self'", 'data:', 'blob:'],
+  mediaSrc:   ["'self'", 'blob:'],
+  connectSrc: ["'self'"],
+  workerSrc:  ["'self'", 'blob:'],
+  fontSrc:    ["'self'"],
+  objectSrc:  ["'none'"],
+  frameAncestors: ["'none'"],
+  baseUri:    ["'self'"],
+  formAction: ["'self'"],
+};
+
+// The static /landing/* marketing pages use inline <script>, inline on* handlers,
+// and <style> blocks, so they need a looser policy. They carry no auth and no
+// sensitive data, but still get object-src/frame-ancestors locked down.
+const LANDING_CSP =
+  "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+  "img-src 'self' data: blob:; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
+
+function relaxCspForLanding(req, res, next) {
+  res.setHeader('Content-Security-Policy', LANDING_CSP);
+  next();
+}
+
 function createApp() {
   const app = express();
   if (config.trustProxy !== false) {
     app.set('trust proxy', config.trustProxy);
   }
+
+  app.use(helmet({
+    contentSecurityPolicy: { useDefaults: false, directives: APP_CSP_DIRECTIVES },
+    xFrameOptions: { action: 'deny' },
+    // HSTS is meaningful only over HTTPS; self-hosted HTTP deployments skip it.
+    strictTransportSecurity: config.https ? undefined : false,
+    // Cross-origin isolation headers left at helmet defaults (COEP off) so the
+    // player and its blob-based HLS media keep working same-origin.
+  }));
 
   app.post('/api/payment/webhook/stripe',
     express.raw({ type: 'application/json' }),
@@ -135,9 +176,9 @@ function createApp() {
       res.sendFile(path.join(config.paths.app, 'landing', diskFile));
     };
   }
-  app.get('/landing/license',               serveLanding('/landing/license.html',               'license.html'));
-  app.get('/landing/content-responsibility', serveLanding('/landing/content-responsibility.html', 'content-responsibility.html'));
-  app.get('/landing/download',               serveLanding('/landing/download.html',               'download.html'));
+  app.get('/landing/license',               relaxCspForLanding, serveLanding('/landing/license.html',               'license.html'));
+  app.get('/landing/content-responsibility', relaxCspForLanding, serveLanding('/landing/content-responsibility.html', 'content-responsibility.html'));
+  app.get('/landing/download',               relaxCspForLanding, serveLanding('/landing/download.html',               'download.html'));
 
   app.get('/manifest.json', (req, res) => {
     const name = config.station.name || 'Paperweight';

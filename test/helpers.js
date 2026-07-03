@@ -57,11 +57,15 @@ function seedListener(db, email) {
 }
 
 function seedToken(db, { tier = 'free', listenerId = null, scopeType = null, scopeId = null } = {}) {
+  // Mirror production: only the hash is persisted; the raw token is returned so
+  // tests can redeem it. `token` and `token_hash` both hold the hash on disk.
   const token = crypto.randomBytes(16).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
   const info = db.prepare(
-    'INSERT INTO tokens (token, label, tier, listener_id, scope_type, scope_id) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(token, null, tier, listenerId, scopeType, scopeId);
-  return db.prepare('SELECT * FROM tokens WHERE id = ?').get(info.lastInsertRowid);
+    'INSERT INTO tokens (token, token_hash, label, tier, listener_id, scope_type, scope_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(tokenHash, tokenHash, null, tier, listenerId, scopeType, scopeId);
+  const row = db.prepare('SELECT * FROM tokens WHERE id = ?').get(info.lastInsertRowid);
+  return { ...row, token };
 }
 
 function futureIso(ms = 24 * 60 * 60 * 1000) {

@@ -6,10 +6,10 @@ const { tokenRedeemLimiter } = require('../middleware/rateLimiter');
 
 const COOKIE_NAME = 'pw_token';
 
-function cookieOpts() {
+function cookieOpts(req) {
   return {
     httpOnly: true,
-    secure: config.https,
+    secure: config.https || !!(req && req.secure),
     sameSite: 'Strict',
     maxAge: 365 * 24 * 60 * 60 * 1000,
   };
@@ -29,7 +29,7 @@ router.post('/redeem', tokenRedeemLimiter, (req, res) => {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
-  res.cookie(COOKIE_NAME, token.trim(), cookieOpts());
+  res.cookie(COOKIE_NAME, token.trim(), cookieOpts(req));
   res.json({ tier: row.tier });
 });
 
