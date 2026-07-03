@@ -596,6 +596,18 @@ function createVaultUnlock(db, { listenerId, unlockType, targetId, paymentType, 
     if (existing) return existing.id;
   }
 
+  // Free unlocks carry no payment id, so the payment-id unique index can't dedupe
+  // them. Collapse repeat requests to a single active row per (listener, target)
+  // to stop a listener from spamming unbounded free-unlock rows.
+  if (isFreeOneTime) {
+    const existingFree = db.prepare(
+      `SELECT id FROM vault_unlocks
+       WHERE listener_id = ? AND unlock_type = ? AND stripe_payment_id IS NULL AND active = 1
+         AND ((target_id IS NULL AND ? IS NULL) OR target_id = ?)`
+    ).get(listenerId, unlockType, targetId || null, targetId || null);
+    if (existingFree) return existingFree.id;
+  }
+
   // ON CONFLICT DO NOTHING — backstop against idx_vault_unlocks_payment so a
   // duplicate payment id can never create a second unlock row, even outside the
   // webhook transaction (e.g. a checkout success-redirect racing the webhook).

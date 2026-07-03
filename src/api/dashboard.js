@@ -4,13 +4,15 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
+const dns = require('dns').promises;
+const net = require('net');
 const crypto = require('crypto');
 const { URL: NodeURL } = require('url');
 const multer = require('multer');
 const { getDb, log } = require('../db');
 const { requireDashboard } = require('../auth/middleware');
 const { requireDesktop } = require('../auth/platform');
-const { createToken, revokeToken, listTokens, updateTokenTier, listTokensForScope } = require('../auth');
+const { createToken, revokeToken, listTokens, updateTokenTier, listTokensForScope, hashToken } = require('../auth');
 const broadcast = require('../broadcast');
 const live = require('../broadcast/live');
 const config = require('../config');
@@ -356,7 +358,7 @@ router.post('/tokens', requireDesktop, (req, res) => {
     return res.status(400).json({ error: 'label is required' });
   }
   const token = createToken(label.trim(), tier, scope_type || null, scope_id ?? null);
-  const row   = getDb().prepare('SELECT id FROM tokens WHERE token = ?').get(token);
+  const row   = getDb().prepare('SELECT id FROM tokens WHERE token_hash = ?').get(hashToken(token));
   res.status(201).json({ id: row?.id, token, label: label.trim(), tier: tier || 'subscriber', scope_type: scope_type || null, scope_id: scope_id ?? null });
 });
 
@@ -546,19 +548,58 @@ router.get('/station/health', asyncHandler(async (req, res) => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// Ping a URL's /api/health endpoint and return { reachable, latencyMs, error? }
-function pingUrl(baseUrl) {
-  return new Promise(resolve => {
-    const start = Date.now();
-    let target;
-    try {
-      target = new NodeURL('/api/health', baseUrl).href;
-    } catch {
-      return resolve({ reachable: false, latencyMs: 0, error: 'Invalid URL' });
-    }
+// True for loopback, private, link-local (incl. cloud metadata 169.254.169.254),
+// unique-local, and other non-public ranges we must not let this server reach.
+function isBlockedAddress(ip) {
+  const type = net.isIP(ip);
+  if (type === 4) {
+    const p = ip.split('.').map(Number);
+    if (p.some(o => Number.isNaN(o))) return true;
+    if (p[0] === 0 || p[0] === 127 || p[0] === 10) return true;            // 0/8, loopback, 10/8
+    if (p[0] === 169 && p[1] === 254) return true;                          // link-local + metadata
+    if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;             // 172.16/12
+    if (p[0] === 192 && p[1] === 168) return true;                          // 192.168/16
+    if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return true;            // CGNAT 100.64/10
+    return false;
+  }
+  if (type === 6) {
+    const v = ip.toLowerCase();
+    if (v === '::1' || v === '::') return true;                             // loopback / unspecified
+    if (v.startsWith('fe80') || v.startsWith('fc') || v.startsWith('fd')) return true; // link-local / ULA
+    const mapped = v.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);               // IPv4-mapped
+    if (mapped) return isBlockedAddress(mapped[1]);
+    return false;
+  }
+  return true; // not a recognizable IP literal — refuse
+}
 
-    const lib = target.startsWith('https:') ? https : http;
-    const req = lib.get(target, { timeout: 5000 }, res => {
+// Ping a URL's /api/health endpoint and return { reachable, latencyMs, error? }.
+// Resolves the host first and refuses private/loopback/metadata targets so the
+// owner-set station URL can't be used to probe the server's internal network.
+async function pingUrl(baseUrl) {
+  const start = Date.now();
+  let parsed;
+  try {
+    parsed = new NodeURL('/api/health', baseUrl);
+  } catch {
+    return { reachable: false, latencyMs: 0, error: 'Invalid URL' };
+  }
+
+  const hostname = parsed.hostname;
+  try {
+    const resolved = net.isIP(hostname)
+      ? [{ address: hostname }]
+      : await dns.lookup(hostname, { all: true });
+    if (resolved.some(r => isBlockedAddress(r.address))) {
+      return { reachable: false, latencyMs: 0, error: 'URL resolves to a private or reserved address' };
+    }
+  } catch {
+    return { reachable: false, latencyMs: Date.now() - start, error: 'DNS resolution failed' };
+  }
+
+  return new Promise(resolve => {
+    const lib = parsed.protocol === 'https:' ? https : http;
+    const req = lib.get(parsed.href, { timeout: 5000 }, res => {
       res.resume();
       resolve({ reachable: res.statusCode >= 200 && res.statusCode < 500, latencyMs: Date.now() - start });
     });
@@ -668,7 +709,9 @@ router.post('/2fa/confirm', (req, res) => {
   }
 
   const recoveryCodes = generateRecoveryCodes();
-  const hashedCodes   = recoveryCodes.map(hashCode);
+  // Store the hash of the dash-free, uppercase form so it matches how codes are
+  // normalized at verification time (verify-2fa strips dashes before hashing).
+  const hashedCodes   = recoveryCodes.map(c => hashCode(c.replace(/[\s-]/g, '').toUpperCase()));
 
   getDb().prepare(`
     INSERT INTO dashboard_2fa (id, secret, enabled, recovery_codes)

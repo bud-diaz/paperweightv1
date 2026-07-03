@@ -29,6 +29,13 @@ const paymentLimiter = make({
   max: 20,
 });
 
+// Public download-page lead/event capture — unauthenticated, so keep it tight to
+// blunt email-injection and analytics-poisoning spam.
+const leadLimiter = make({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20,
+});
+
 // General API — loose limit to stop hammering
 const generalLimiter = make({
   windowMs: 15 * 60 * 1000,
@@ -40,4 +47,4 @@ const previewLimiter = make({
   max: 30,
 });
 
-module.exports = { authLimiter, tokenRedeemLimiter, paymentLimiter, generalLimiter, previewLimiter };
+module.exports = { authLimiter, tokenRedeemLimiter, paymentLimiter, leadLimiter, generalLimiter, previewLimiter };

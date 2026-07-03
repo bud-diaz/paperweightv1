@@ -258,9 +258,9 @@ function _showVaultGate(t, opts) {
     div.className = 'vg-option';
     div.innerHTML = `
       <div>
-        <div class="vg-option-label">${labelText}</div>
-        <div class="vg-option-price">${priceText}</div>
-        ${subText ? `<div class="vg-option-sub">${subText}</div>` : ''}
+        <div class="vg-option-label">${esc(labelText)}</div>
+        <div class="vg-option-price">${esc(priceText)}</div>
+        ${subText ? `<div class="vg-option-sub">${esc(subText)}</div>` : ''}
       </div>
       <button class="vg-btn">UNLOCK</button>`;
     div.querySelector('.vg-btn').addEventListener('click', onClick);
@@ -278,7 +278,7 @@ function _showVaultGate(t, opts) {
   if (opts.project) {
     const p     = opts.project;
     const price = p.allowFree ? 'FREE' : `$${(p.minimumPrice / 100).toFixed(2)}`;
-    const sub   = `${esc(p.name)} · ${p.paymentType === 'recurring' ? `per ${p.recurringInterval || 'month'}` : 'one-time'}`;
+    const sub   = `${p.name} · ${p.paymentType === 'recurring' ? `per ${p.recurringInterval || 'month'}` : 'one-time'}`;
     makeOption('FULL COLLECTION', price, sub,
       () => startVaultUnlock('project', p.id, p.minimumPrice, p.paymentType, p.recurringInterval));
   }

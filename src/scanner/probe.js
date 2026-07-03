@@ -59,6 +59,7 @@ function probe(filepath) {
       '-print_format', 'json',
       '-show_format',
       '-show_streams',
+      '--',            // end of options: a filename starting with '-' is not parsed as a flag
       filepath,
     ];
 

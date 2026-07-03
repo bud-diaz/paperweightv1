@@ -46,3 +46,4 @@ src/ffmpeg-bundle.js
 *.tmp
 *_temp.html
 *_temp.*
+dashboard-token.txt

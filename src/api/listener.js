@@ -2,6 +2,7 @@ const router = require('express').Router();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { getDb } = require('../db');
+const { hashToken } = require('../auth');
 const { authLimiter } = require('../middleware/rateLimiter');
 const { cloudOnly } = require('../middleware/cloudGate');
 const asyncHandler = require('../middleware/asyncHandler');
@@ -15,29 +16,26 @@ function generateToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
-function cookieOpts() {
+function cookieOpts(req) {
   return {
     httpOnly: true,
-    secure: config.https,
+    secure: config.https || !!(req && req.secure),
     sameSite: 'Strict',
     maxAge: 365 * 24 * 60 * 60 * 1000,
   };
 }
 
-// Returns the listener's active token row, or creates a new one.
-function getOrCreateToken(db, listenerId, tier) {
-  const existing = db.prepare(
-    'SELECT * FROM tokens WHERE listener_id = ? AND is_active = 1 LIMIT 1'
-  ).get(listenerId);
-
-  if (existing) return existing;
-
+// Mints a fresh per-login token for the listener and stores only its hash.
+// Returns { token (raw, shown once), tier }. Each call issues a new token so the
+// raw value never has to be recovered from the database — supports multiple
+// concurrent devices, each with its own credential.
+function issueToken(db, listenerId, tier) {
   const token = generateToken();
-  const info = db.prepare(
-    "INSERT INTO tokens (token, label, tier, listener_id) VALUES (?, ?, ?, ?)"
-  ).run(token, null, tier, listenerId);
-
-  return db.prepare('SELECT * FROM tokens WHERE id = ?').get(info.lastInsertRowid);
+  const tokenHash = hashToken(token);
+  db.prepare(
+    "INSERT INTO tokens (token, token_hash, label, tier, listener_id) VALUES (?, ?, ?, ?, ?)"
+  ).run(tokenHash, tokenHash, null, tier, listenerId);
+  return { token, tier };
 }
 
 // Returns the listener's active subscription, if any.
@@ -77,10 +75,10 @@ router.post('/register', authLimiter, asyncHandler(async (req, res) => {
     ).run(email.toLowerCase().trim(), passwordHash);
 
     const listenerId = info.lastInsertRowid;
-    const tokenRow = getOrCreateToken(db, listenerId, 'free');
+    const issued = issueToken(db, listenerId, 'free');
 
-    res.cookie('pw_token', tokenRow.token, cookieOpts());
-    res.status(201).json({ token: tokenRow.token, tier: tokenRow.tier });
+    res.cookie('pw_token', issued.token, cookieOpts(req));
+    res.status(201).json({ token: issued.token, tier: issued.tier });
   } catch (err) {
     res.status(500).json({ error: 'Registration failed' });
   }
@@ -112,14 +110,14 @@ router.post('/login', authLimiter, asyncHandler(async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const tokenRow = getOrCreateToken(db, account.id, 'free');
+    const issued = issueToken(db, account.id, 'free');
 
     // Sync tier from active subscription if one exists
     const sub = getActiveSubscription(db, account.id);
-    const tier = sub ? sub.tier : tokenRow.tier;
+    const tier = sub ? sub.tier : issued.tier;
 
-    res.cookie('pw_token', tokenRow.token, cookieOpts());
-    res.json({ token: tokenRow.token, tier });
+    res.cookie('pw_token', issued.token, cookieOpts(req));
+    res.json({ token: issued.token, tier });
   } catch (err) {
     res.status(500).json({ error: 'Login failed' });
   }

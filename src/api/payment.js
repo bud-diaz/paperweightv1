@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const crypto = require('crypto');
 const { getDb, log } = require('../db');
+const { hashToken } = require('../auth');
 const config = require('../config');
 const { paymentLimiter } = require('../middleware/rateLimiter');
 const { cloudOnly } = require('../middleware/cloudGate');
@@ -18,6 +19,21 @@ const ACTIVE_STRIPE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
 
 function isStripeSubscriptionActive(sub) {
   return !!(sub && ACTIVE_STRIPE_SUBSCRIPTION_STATUSES.has(sub.status));
+}
+
+// Maps a subscription's paid Stripe price to a tier using the server's own price
+// IDs. This is the authoritative source — prefer it over client-influenced
+// metadata so a subscriber can never be granted a higher tier than they paid for.
+function tierFromStripeSubscription(sub) {
+  const priceId = sub?.items?.data?.[0]?.price?.id;
+  if (!priceId) return null;
+  const byPrice = {
+    [process.env.STRIPE_PRICE_SUBSCRIBER]: 'subscriber',
+    [process.env.STRIPE_PRICE_PRO]:        'pro',
+    [process.env.STRIPE_PRICE_ALL_ACCESS]: 'all_access',
+  };
+  const tier = byPrice[priceId];
+  return VALID_TIERS.has(tier) ? tier : null;
 }
 
 function isPaidCheckoutSession(session) {
@@ -54,7 +70,7 @@ function refreshExistingStripeSubscription(db, sub) {
   const periodEnd = currentPeriodEndIso(sub);
   if (!existing || !periodEnd) return false;
 
-  const tier = sub.metadata?.tier || existing.tier;
+  const tier = tierFromStripeSubscription(sub) || sub.metadata?.tier || existing.tier;
   db.prepare(
     "UPDATE subscriptions SET tier = ?, status = 'active', current_period_end = ? WHERE id = ?"
   ).run(tier, periodEnd, existing.id);
@@ -435,19 +451,14 @@ router.get('/web-success', asyncHandler(async (req, res) => {
     }
 
     if (sub && sub.id && isStripeSubscriptionActive(sub) && currentPeriodEndIso(sub)) {
-      // Get or create the listener's auth token
-      let tokenRow = db.prepare(
-        'SELECT * FROM tokens WHERE listener_id = ? AND is_active = 1 LIMIT 1'
-      ).get(pending.listener_id);
-
-      if (!tokenRow) {
-        const token = crypto.randomBytes(32).toString('hex');
-        const label = session.customer_details?.email || session.customer_email || null;
-        const info = db.prepare(
-          "INSERT INTO tokens (token, label, tier, listener_id) VALUES (?, ?, 'subscriber', ?)"
-        ).run(token, label, pending.listener_id);
-        tokenRow = db.prepare('SELECT * FROM tokens WHERE id = ?').get(info.lastInsertRowid);
-      }
+      // Mint a fresh auth token for this browser and store only its hash. The raw
+      // value is used once (below) to set the cookie and is never persisted.
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const rawTokenHash = hashToken(rawToken);
+      const label = session.customer_details?.email || session.customer_email || null;
+      db.prepare(
+        "INSERT INTO tokens (token, token_hash, label, tier, listener_id) VALUES (?, ?, ?, 'subscriber', ?)"
+      ).run(rawTokenHash, rawTokenHash, label, pending.listener_id);
 
       activateSubscription(db, {
         providerSubscriptionId: sub.id,
@@ -460,8 +471,8 @@ router.get('/web-success', asyncHandler(async (req, res) => {
       db.prepare("UPDATE pending_checkouts SET consumed_at = datetime('now') WHERE id = ?").run(pending.id);
 
       // Set auth cookie — httpOnly, 1-year expiry
-      const isSecure = config.https || req.headers['x-forwarded-proto'] === 'https';
-      res.cookie('pw_token', tokenRow.token, {
+      const isSecure = config.https || req.secure || req.headers['x-forwarded-proto'] === 'https';
+      res.cookie('pw_token', rawToken, {
         httpOnly: true,
         secure:   isSecure,
         sameSite: 'lax',
@@ -802,7 +813,7 @@ async function stripeWebhookHandler(req, res) {
       }
 
       const listenerId = parseInt(session.metadata?.listener_id || sub.metadata?.listener_id, 10);
-      const tier = session.metadata?.tier || sub.metadata?.tier || 'subscriber';
+      const tier = tierFromStripeSubscription(sub) || session.metadata?.tier || sub.metadata?.tier || 'subscriber';
       if (!listenerId || !VALID_TIERS.has(tier)) break;
 
       outcome = 'ok';
@@ -819,7 +830,7 @@ async function stripeWebhookHandler(req, res) {
     case 'customer.subscription.created':
     case 'customer.subscription.updated': {
       const sub = event.data.object;
-      const tier = sub.metadata?.tier;
+      const tier = tierFromStripeSubscription(sub) || sub.metadata?.tier;
       const vaultUnlockType = sub.metadata?.vault_unlock_type;
       const listenerId = parseInt(sub.metadata?.listener_id, 10);
 

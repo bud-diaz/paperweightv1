@@ -5,14 +5,21 @@ function generateToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
+// Tokens are stored only as their SHA-256 hash; the raw value is returned to the
+// caller once (to set as a cookie / Bearer credential) and never persisted.
+function hashToken(token) {
+  return crypto.createHash('sha256').update(String(token)).digest('hex');
+}
+
 const VALID_TIERS = ['subscriber', 'pro', 'all_access'];
 
 function createToken(label, tier = 'subscriber', scopeType = null, scopeId = null) {
   const safeTier = VALID_TIERS.includes(tier) ? tier : 'subscriber';
   const token = generateToken();
+  const tokenHash = hashToken(token);
   getDb().prepare(
-    'INSERT INTO tokens (token, label, tier, scope_type, scope_id) VALUES (?, ?, ?, ?, ?)'
-  ).run(token, label || null, safeTier, scopeType || null, scopeId != null ? Number(scopeId) : null);
+    'INSERT INTO tokens (token, token_hash, label, tier, scope_type, scope_id) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(tokenHash, tokenHash, label || null, safeTier, scopeType || null, scopeId != null ? Number(scopeId) : null);
   return token;
 }
 
@@ -35,8 +42,8 @@ function validateToken(tokenStr) {
   if (!tokenStr || typeof tokenStr !== 'string') return null;
   const db = getDb();
   const row = db.prepare(
-    'SELECT * FROM tokens WHERE token = ? AND is_active = 1'
-  ).get(tokenStr);
+    'SELECT * FROM tokens WHERE token_hash = ? AND is_active = 1'
+  ).get(hashToken(tokenStr));
   if (row) {
     db.prepare("UPDATE tokens SET last_used = datetime('now') WHERE id = ?").run(row.id);
   }
@@ -53,4 +60,4 @@ function listTokens() {
   ).all();
 }
 
-module.exports = { createToken, validateToken, revokeToken, listTokens, updateTokenTier, listTokensForScope };
+module.exports = { createToken, validateToken, revokeToken, listTokens, updateTokenTier, listTokensForScope, hashToken, generateToken };
