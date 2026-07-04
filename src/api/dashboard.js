@@ -4,8 +4,6 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
-const dns = require('dns').promises;
-const net = require('net');
 const crypto = require('crypto');
 const { URL: NodeURL } = require('url');
 const multer = require('multer');
@@ -22,6 +20,7 @@ const { getFFmpegStatus } = require('../runtime/ffmpeg');
 const asyncHandler = require('../middleware/asyncHandler');
 const { clearArtworkCache, ARTWORK_DIR } = require('./library');
 const { validateSlug } = require('../auth/reserved-slugs');
+const { resolvesToBlockedAddress } = require('../runtime/net-guard');
 
 router.use(requireDashboard);
 
@@ -396,6 +395,77 @@ router.get('/download-leads', (req, res) => {
   res.json(rows);
 });
 
+// ─── CSV exports ─────────────────────────────────────────────────────────────
+// Lets creators pull their audience into a mailing tool without any built-in
+// bulk mailer. Values are formula-escaped so a hostile email like
+// "=HYPERLINK(...)" can't execute when the CSV is opened in a spreadsheet.
+
+function csvEscape(value) {
+  if (value === null || value === undefined) return '';
+  let s = String(value);
+  if (/^[=+\-@\t]/.test(s)) s = `'${s}`;
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function sendCsv(res, filename, headers, rows) {
+  const lines = [headers.join(',')];
+  for (const row of rows) {
+    lines.push(headers.map(h => csvEscape(row[h])).join(','));
+  }
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(lines.join('\r\n') + '\r\n');
+}
+
+// GET /api/dashboard/export/download-leads.csv
+router.get('/export/download-leads.csv', (req, res) => {
+  const rows = getDb().prepare(
+    'SELECT email, platform, updates_opt_in, created_at FROM download_leads ORDER BY created_at DESC'
+  ).all();
+  sendCsv(res, 'download-leads.csv', ['email', 'platform', 'updates_opt_in', 'created_at'], rows);
+});
+
+// GET /api/dashboard/export/subscribers.csv — listeners with an active subscription.
+router.get('/export/subscribers.csv', (req, res) => {
+  const rows = getDb().prepare(`
+    SELECT la.email, s.tier, s.provider, s.status, s.current_period_end, la.created_at
+    FROM listener_accounts la
+    JOIN subscriptions s ON s.listener_id = la.id AND s.status = 'active'
+    WHERE la.is_active = 1 AND la.email NOT LIKE '%@pending.paperweight.local'
+    ORDER BY s.created_at DESC
+  `).all();
+  sendCsv(res, 'subscribers.csv', ['email', 'tier', 'provider', 'status', 'current_period_end', 'created_at'], rows);
+});
+
+// GET /api/dashboard/export/listeners.csv — every registered listener account.
+router.get('/export/listeners.csv', (req, res) => {
+  const rows = getDb().prepare(`
+    SELECT email, created_at FROM listener_accounts
+    WHERE is_active = 1 AND email NOT LIKE '%@pending.paperweight.local'
+    ORDER BY created_at DESC
+  `).all();
+  sendCsv(res, 'listeners.csv', ['email', 'created_at'], rows);
+});
+
+// ─── Database backup ─────────────────────────────────────────────────────────
+
+// GET /api/dashboard/backup
+// Streams a consistent hot backup of the SQLite database (better-sqlite3 online
+// backup API — safe while the server runs). The temp file is removed after the
+// download; scripts/backup.js is the scheduled/local variant that keeps copies.
+router.get('/backup', asyncHandler(async (req, res) => {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
+  const backupDir = path.join(config.paths.data, 'backups');
+  fs.mkdirSync(backupDir, { recursive: true });
+  const dest = path.join(backupDir, `paperweight-download-${stamp}.db`);
+
+  await getDb().backup(dest);
+  log('info', 'dashboard', 'Database backup downloaded');
+  res.download(dest, `paperweight-backup-${stamp}.db`, () => {
+    fs.unlink(dest, () => {});
+  });
+}));
+
 // ─── Listener accounts list ──────────────────────────────────────────────────
 
 // GET /api/dashboard/accounts
@@ -405,6 +475,23 @@ router.get('/accounts', (req, res) => {
     'SELECT id, email, created_at FROM listener_accounts WHERE is_active = 1 ORDER BY email ASC'
   ).all();
   res.json(accounts);
+});
+
+// POST /api/dashboard/accounts/:id/reset-link
+// Mints a password reset link for a listener account so the creator can hand it
+// out over their own channel. This is the recovery path when SMTP is not
+// configured (and works either way).
+router.post('/accounts/:id/reset-link', (req, res) => {
+  const db = getDb();
+  const account = db.prepare(
+    'SELECT id, email FROM listener_accounts WHERE id = ? AND is_active = 1'
+  ).get(req.params.id);
+  if (!account) return res.status(404).json({ error: 'Listener account not found' });
+
+  const { createPasswordReset, resetLinkUrl } = require('./listener');
+  const { token, expiresAt } = createPasswordReset(db, account.id, 'dashboard');
+  log('info', 'dashboard', `Password reset link generated for listener #${account.id}`);
+  res.json({ email: account.email, url: resetLinkUrl(req, token), expiresAt });
 });
 
 // ─── Token account assignments ────────────────────────────────────────────────
@@ -548,31 +635,6 @@ router.get('/station/health', asyncHandler(async (req, res) => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// True for loopback, private, link-local (incl. cloud metadata 169.254.169.254),
-// unique-local, and other non-public ranges we must not let this server reach.
-function isBlockedAddress(ip) {
-  const type = net.isIP(ip);
-  if (type === 4) {
-    const p = ip.split('.').map(Number);
-    if (p.some(o => Number.isNaN(o))) return true;
-    if (p[0] === 0 || p[0] === 127 || p[0] === 10) return true;            // 0/8, loopback, 10/8
-    if (p[0] === 169 && p[1] === 254) return true;                          // link-local + metadata
-    if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;             // 172.16/12
-    if (p[0] === 192 && p[1] === 168) return true;                          // 192.168/16
-    if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return true;            // CGNAT 100.64/10
-    return false;
-  }
-  if (type === 6) {
-    const v = ip.toLowerCase();
-    if (v === '::1' || v === '::') return true;                             // loopback / unspecified
-    if (v.startsWith('fe80') || v.startsWith('fc') || v.startsWith('fd')) return true; // link-local / ULA
-    const mapped = v.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);               // IPv4-mapped
-    if (mapped) return isBlockedAddress(mapped[1]);
-    return false;
-  }
-  return true; // not a recognizable IP literal — refuse
-}
-
 // Ping a URL's /api/health endpoint and return { reachable, latencyMs, error? }.
 // Resolves the host first and refuses private/loopback/metadata targets so the
 // owner-set station URL can't be used to probe the server's internal network.
@@ -585,16 +647,8 @@ async function pingUrl(baseUrl) {
     return { reachable: false, latencyMs: 0, error: 'Invalid URL' };
   }
 
-  const hostname = parsed.hostname;
-  try {
-    const resolved = net.isIP(hostname)
-      ? [{ address: hostname }]
-      : await dns.lookup(hostname, { all: true });
-    if (resolved.some(r => isBlockedAddress(r.address))) {
-      return { reachable: false, latencyMs: 0, error: 'URL resolves to a private or reserved address' };
-    }
-  } catch {
-    return { reachable: false, latencyMs: Date.now() - start, error: 'DNS resolution failed' };
+  if (await resolvesToBlockedAddress(parsed.hostname)) {
+    return { reachable: false, latencyMs: Date.now() - start, error: 'URL resolves to a private or reserved address' };
   }
 
   return new Promise(resolve => {
@@ -619,6 +673,57 @@ function updateEnvKey(key, value) {
     : content.trimEnd() + `\n${key}=${value}\n`;
   fs.writeFileSync(envPath, content, 'utf8');
 }
+
+// ─── Station settings (notifications + RSS feed) ────────────────────────────
+
+// GET /api/dashboard/settings
+router.get('/settings', (req, res) => {
+  const { getSetting, getBoolSetting } = require('../db/settings');
+  const { isEmailConfigured } = require('../email');
+  res.json({
+    notifyWebhookUrl: getSetting('notify_webhook_url') || '',
+    notifyLiveEnabled: getBoolSetting('notify_live_enabled', true),
+    feedEnabled: getBoolSetting('feed_enabled', false),
+    feedScope: getSetting('feed_scope') || 'podcasts',
+    emailConfigured: isEmailConfigured(),
+  });
+});
+
+// PUT /api/dashboard/settings
+// Body: any subset of { notifyWebhookUrl, notifyLiveEnabled, feedEnabled, feedScope }
+router.put('/settings', (req, res) => {
+  const { setSetting } = require('../db/settings');
+  const body = req.body || {};
+
+  if (body.notifyWebhookUrl !== undefined) {
+    const url = String(body.notifyWebhookUrl || '').trim();
+    if (url) {
+      let parsed;
+      try { parsed = new NodeURL(url); } catch {
+        return res.status(400).json({ error: 'notifyWebhookUrl is not a valid URL' });
+      }
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        return res.status(400).json({ error: 'notifyWebhookUrl must be http(s)' });
+      }
+    }
+    setSetting('notify_webhook_url', url || null);
+  }
+  if (body.notifyLiveEnabled !== undefined) {
+    setSetting('notify_live_enabled', body.notifyLiveEnabled ? '1' : '0');
+  }
+  if (body.feedEnabled !== undefined) {
+    setSetting('feed_enabled', body.feedEnabled ? '1' : '0');
+  }
+  if (body.feedScope !== undefined) {
+    if (!['podcasts', 'all'].includes(body.feedScope)) {
+      return res.status(400).json({ error: "feedScope must be 'podcasts' or 'all'" });
+    }
+    setSetting('feed_scope', body.feedScope);
+  }
+
+  log('info', 'dashboard', 'Station settings updated');
+  res.json({ ok: true });
+});
 
 // GET /api/dashboard/payment-config
 // Returns which payment env vars are configured (never exposes the values themselves).
@@ -756,6 +861,7 @@ router.get('/live/status', (req, res) => {
 router.post('/live/start', (req, res) => {
   try {
     live.startLive();
+    require('../notify').liveStarted();
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message });

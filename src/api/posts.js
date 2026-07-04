@@ -63,7 +63,10 @@ dashRouter.post('/', (req, res) => {
     VALUES (:title, :body, :visibility)
   `).run(validated.value);
 
-  res.status(201).json(getDb().prepare('SELECT * FROM creator_posts WHERE id = ?').get(result.lastInsertRowid));
+  const post = getDb().prepare('SELECT * FROM creator_posts WHERE id = ?').get(result.lastInsertRowid);
+  // Webhook announce + optional supporter email — best-effort, never blocks publishing.
+  require('../notify').postPublished(post, { emailSupporters: !!(req.body || {}).notify_supporters });
+  res.status(201).json(post);
 });
 
 dashRouter.put('/:id', (req, res) => {

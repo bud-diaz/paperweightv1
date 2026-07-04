@@ -164,6 +164,40 @@ export const auth = {
   },
 
   /**
+   * POST /api/listener/request-password-reset — always resolves ok:true.
+   * @param {string} email
+   * @returns {{ res: Response, data: { ok: boolean, emailEnabled: boolean } }}
+   */
+  requestPasswordReset(email) {
+    return _send('/api/listener/request-password-reset', { email });
+  },
+
+  /**
+   * POST /api/listener/reset-password — complete a reset link.
+   * @param {string} token
+   * @param {string} password
+   * @returns {{ res: Response, data: { error?: string } }}
+   */
+  resetPassword(token, password) {
+    return _send('/api/listener/reset-password', { token, password });
+  },
+
+  /**
+   * DELETE /api/listener/account — permanent account deletion.
+   * @param {{ password?: string, confirmEmail?: string }} body
+   * @returns {{ res: Response, data: { error?: string, warnings?: string[] } }}
+   */
+  async deleteAccount(body) {
+    const res = await _fetch('/api/listener/account', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { res, data };
+  },
+
+  /**
    * POST /api/auth/dashboard/login — exchange dashboard token for session cookie.
    * On success returns {} or { requires2FA: true, challenge: string }.
    * @param {string} token
@@ -218,6 +252,22 @@ export const payment = {
   checkoutUrl(tier) {
     const url = '/api/payment/checkout-url' + (tier ? `?tier=${encodeURIComponent(tier)}` : '');
     return _json(url);
+  },
+
+  /**
+   * POST /api/payment/subscription/cancel — cancel own subscription at the provider.
+   * @returns {{ res: Response, data: { ok?: boolean, provider?: string, effectiveUntil?: string, error?: string } }}
+   */
+  cancelSubscription() {
+    return _send('/api/payment/subscription/cancel', {});
+  },
+
+  /**
+   * POST /api/payment/portal — Stripe billing portal session URL.
+   * @returns {{ res: Response, data: { url?: string, error?: string } }}
+   */
+  billingPortal() {
+    return _send('/api/payment/portal', {});
   },
 
   /**
@@ -335,6 +385,36 @@ export const dashboard = {
    */
   externalSearch(platform, q) {
     return _json(`/api/dashboard/external-search?platform=${encodeURIComponent(platform)}&q=${encodeURIComponent(q)}`);
+  },
+
+  /**
+   * POST /api/dashboard/accounts/{id}/reset-link — mint a password reset link.
+   * @param {number} accountId
+   * @returns {{ res: Response, data: { url?: string, email?: string, expiresAt?: string, error?: string } }}
+   */
+  resetLink(accountId) {
+    return _send(`/api/dashboard/accounts/${accountId}/reset-link`, {});
+  },
+
+  // ── Settings (notifications + RSS feed) ───────────────────────────────────────
+
+  settings: {
+    /**
+     * GET /api/dashboard/settings
+     * @returns {{ notifyWebhookUrl, notifyLiveEnabled, feedEnabled, feedScope, emailConfigured }}
+     */
+    get() {
+      return _json('/api/dashboard/settings');
+    },
+
+    /**
+     * PUT /api/dashboard/settings
+     * @param {object} body  any subset of { notifyWebhookUrl, notifyLiveEnabled, feedEnabled, feedScope }
+     * @returns {{ res: Response, data: { error?: string } }}
+     */
+    update(body) {
+      return _send('/api/dashboard/settings', body, 'PUT');
+    },
   },
 
   // ── Station ────────────────────────────────────────────────────────────────────

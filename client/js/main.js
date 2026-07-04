@@ -49,6 +49,7 @@ import * as analytics   from './dashboard/analytics.js';
 import * as twofa       from './dashboard/twofa.js';
 import * as sections    from './dashboard/sections.js';
 import * as search      from './dashboard/search.js';
+import * as tools       from './dashboard/tools.js';
 
 // ── Cross-module callback wiring ─────────────────────────────────────────────
 
@@ -120,6 +121,7 @@ dashIndex.init({
   loadDashSmartPlaylists: smartPlaylists.loadDashSmartPlaylists,
   loadDashSchedulePreview: schedule.loadDashSchedulePreview,
   loadDashPosts:           dashPosts.loadDashPosts,
+  loadDashSettings:        tools.loadDashSettings,
 });
 
 vault.init({
@@ -173,6 +175,7 @@ smartPlaylists.init();
 dashPosts.init();
 twofa.init();
 sections.init();
+tools.init();
 
 // ── Event handler wiring ───────────────────────────────────────────────────
 
@@ -197,6 +200,7 @@ smartPlaylists.initSmartPlaylistHandlers();
 dashPosts.initPostHandlers();
 upload.initUploadHandlers();
 analytics.initAnalyticsHandlers();
+tools.initToolsHandlers();
 twofa.initTwoFAHandlers();
 search.initRadioHostHandlers();
 

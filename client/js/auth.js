@@ -38,19 +38,29 @@ export function init({ loadLibrary } = {}) {
 export async function loadAuthState() {
   try {
     const me = await api.auth.me();
-    if (me.tier === 'free') {
-      Object.assign(authState, { loggedIn: false, email: '', tier: 'free', hasPassword: false });
-    } else {
-      try {
-        const acc = await api.auth.listenerMe();
-        Object.assign(authState, { loggedIn: true, email: acc.email || '', tier: me.tier, hasPassword: !!acc.hasPassword });
-      } catch {
+    try {
+      // A listener account can exist at any tier (including free), and its
+      // owner must always be able to log out, export, or delete it.
+      const acc = await api.auth.listenerMe();
+      Object.assign(authState, {
+        loggedIn: true,
+        email: acc.email || '',
+        tier: me.tier,
+        hasPassword: !!acc.hasPassword,
+        hasAccount: true,
+        subscriptionStatus: acc.subscriptionStatus || null,
+        provider: acc.provider || null,
+      });
+    } catch {
+      if (me.tier === 'free') {
+        Object.assign(authState, { loggedIn: false, email: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null });
+      } else {
         // Creator-issued token: valid non-free tier but no listener account
-        Object.assign(authState, { loggedIn: true, email: '', tier: me.tier, hasPassword: true });
+        Object.assign(authState, { loggedIn: true, email: '', tier: me.tier, hasPassword: true, hasAccount: false, subscriptionStatus: null, provider: null });
       }
     }
   } catch {
-    Object.assign(authState, { loggedIn: false, email: '', tier: 'free', hasPassword: false });
+    Object.assign(authState, { loggedIn: false, email: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null });
   }
   renderAuthSection();
 }
@@ -84,6 +94,15 @@ export function renderAuthSection() {
     const needsPw = authState.tier !== 'free' && !authState.hasPassword;
     el('auth-set-pw').hidden = !needsPw;
     if (!needsPw) el('auth-setpw-form').hidden = true;
+
+    // Account management — only meaningful for real listener accounts (not
+    // creator-issued tokens, which have no account behind them).
+    const hasAccount = !!authState.hasAccount;
+    const activeSub  = authState.subscriptionStatus === 'active';
+    el('auth-export-btn').hidden     = !hasAccount;
+    el('auth-delete-btn').hidden     = !hasAccount;
+    el('auth-cancel-sub-btn').hidden = !(hasAccount && activeSub);
+    el('auth-portal-btn').hidden     = !(hasAccount && activeSub && authState.provider === 'stripe');
   } else {
     status.textContent = '';
   }
@@ -182,6 +201,178 @@ export async function handleSetPassword() {
   btn.disabled = false; btn.textContent = 'SET PASSWORD';
 }
 
+// ── Forgot password ───────────────────────────────────────────────────────────
+
+async function handleForgotPassword() {
+  const email = el('auth-email').value.trim();
+  const msg = el('auth-msg');
+  msg.className = 'auth-msg';
+  if (!email || !email.includes('@')) {
+    msg.className = 'auth-msg error';
+    msg.textContent = 'Enter your email above first, then click forgot password.';
+    return;
+  }
+  try {
+    const { data } = await api.auth.requestPasswordReset(email);
+    msg.className = 'auth-msg success';
+    msg.textContent = data.emailEnabled
+      ? 'If an account exists for that email, a reset link is on its way.'
+      : 'This station has no email set up — ask the creator to generate a reset link for you.';
+  } catch {
+    msg.className = 'auth-msg error';
+    msg.textContent = 'Network error — please try again.';
+  }
+}
+
+// ── Password reset completion (#reset=<token> links) ─────────────────────────
+
+/**
+ * If the URL carries a reset token (from an emailed or creator-generated
+ * link), show a standalone overlay to choose a new password. Independent of
+ * drawer state so the link works no matter where it is opened.
+ */
+export function maybeShowResetForm() {
+  const match = window.location.hash.match(/^#reset=([A-Za-z0-9]+)$/);
+  if (!match) return;
+  const token = match[1];
+
+  const wrap = document.createElement('div');
+  wrap.id = 'reset-overlay';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  wrap.innerHTML = `
+    <div style="width:100%;max-width:340px;background:#0d0d0d;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:22px;">
+      <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.14em;color:rgba(255,255,255,.6);margin-bottom:14px;">CHOOSE A NEW PASSWORD</div>
+      <input class="auth-input" id="reset-password-input" type="password" placeholder="new password (min 8 chars)" autocomplete="new-password" style="width:100%;margin-bottom:10px;"/>
+      <button class="auth-submit" id="reset-submit-btn" style="width:100%;">SET NEW PASSWORD</button>
+      <div class="auth-msg" id="reset-msg" style="margin-top:8px;"></div>
+      <button id="reset-cancel-btn" style="background:none;border:none;color:rgba(255,255,255,.3);font-family:'Space Mono',monospace;font-size:10px;cursor:pointer;margin-top:10px;padding:0;">CANCEL</button>
+    </div>`;
+  document.body.appendChild(wrap);
+
+  function closeOverlay() {
+    wrap.remove();
+    if (window.location.hash.startsWith('#reset=')) {
+      history.replaceState(null, '', window.location.pathname);
+    }
+  }
+
+  wrap.querySelector('#reset-cancel-btn').addEventListener('click', closeOverlay);
+  const submit = wrap.querySelector('#reset-submit-btn');
+  const input = wrap.querySelector('#reset-password-input');
+  const msg = wrap.querySelector('#reset-msg');
+
+  async function submitReset() {
+    const password = input.value;
+    msg.className = 'auth-msg';
+    if (!password || password.length < 8) {
+      msg.className = 'auth-msg error';
+      msg.textContent = 'Password must be at least 8 characters.';
+      return;
+    }
+    submit.disabled = true;
+    submit.textContent = '…';
+    try {
+      const { res, data } = await api.auth.resetPassword(token, password);
+      if (!res.ok) {
+        msg.className = 'auth-msg error';
+        msg.textContent = data.error || 'Reset failed.';
+      } else {
+        msg.className = 'auth-msg success';
+        msg.textContent = 'Password updated — you can now log in.';
+        setTimeout(() => {
+          closeOverlay();
+          toggleAuthSection(true);
+          setAuthTab('login');
+        }, 1400);
+        return;
+      }
+    } catch {
+      msg.className = 'auth-msg error';
+      msg.textContent = 'Network error — please try again.';
+    }
+    submit.disabled = false;
+    submit.textContent = 'SET NEW PASSWORD';
+  }
+
+  submit.addEventListener('click', submitReset);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') submitReset(); });
+  setTimeout(() => input.focus(), 80);
+}
+
+// ── Account management (cancel / billing portal / export / delete) ───────────
+
+async function handleCancelSubscription() {
+  const msg = el('auth-manage-msg');
+  msg.className = 'auth-msg';
+  if (!confirm('Cancel your subscription? You keep access until the end of the paid period.')) return;
+  try {
+    const { res, data } = await api.payment.cancelSubscription();
+    if (!res.ok) {
+      msg.className = 'auth-msg error';
+      msg.textContent = data.error || 'Cancellation failed.';
+      return;
+    }
+    msg.className = 'auth-msg success';
+    msg.textContent = data.effectiveUntil
+      ? `Cancelled — access continues until ${new Date(data.effectiveUntil).toLocaleDateString()}.`
+      : 'Cancellation requested — your provider will process it shortly.';
+    el('auth-cancel-sub-btn').hidden = true;
+  } catch {
+    msg.className = 'auth-msg error';
+    msg.textContent = 'Network error — please try again.';
+  }
+}
+
+async function handleBillingPortal() {
+  const msg = el('auth-manage-msg');
+  msg.className = 'auth-msg';
+  try {
+    const { res, data } = await api.payment.billingPortal();
+    if (!res.ok || !data.url) {
+      msg.className = 'auth-msg error';
+      msg.textContent = data.error || 'Could not open the billing portal.';
+      return;
+    }
+    window.open(data.url, '_blank');
+  } catch {
+    msg.className = 'auth-msg error';
+    msg.textContent = 'Network error — please try again.';
+  }
+}
+
+async function handleDeleteAccount() {
+  const msg = el('auth-manage-msg');
+  msg.className = 'auth-msg';
+  if (!confirm('Permanently delete your account? Unlocked content and subscriptions will be lost. This cannot be undone.')) return;
+
+  const body = {};
+  if (authState.hasPassword) {
+    const password = prompt('Enter your password to confirm deletion:');
+    if (!password) return;
+    body.password = password;
+  } else {
+    const confirmEmail = prompt('Type your account email to confirm deletion:');
+    if (!confirmEmail) return;
+    body.confirmEmail = confirmEmail;
+  }
+
+  try {
+    const { res, data } = await api.auth.deleteAccount(body);
+    if (!res.ok) {
+      msg.className = 'auth-msg error';
+      msg.textContent = data.error || 'Deletion failed.';
+      return;
+    }
+    msg.className = 'auth-msg success';
+    msg.textContent = (data.warnings || []).join(' ') || 'Account deleted.';
+    Object.assign(authState, { loggedIn: false, email: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null });
+    setTimeout(() => { renderAuthSection(); _loadLibrary(); }, 1200);
+  } catch {
+    msg.className = 'auth-msg error';
+    msg.textContent = 'Network error — please try again.';
+  }
+}
+
 // ── Event wiring (called from main.js in Phase 8) ─────────────────────────────
 
 export function initAuthHandlers() {
@@ -197,4 +388,11 @@ export function initAuthHandlers() {
     el('auth-new-password').focus();
   });
   el('auth-setpw-btn').addEventListener('click', handleSetPassword);
+  el('auth-forgot-btn').addEventListener('click', handleForgotPassword);
+  el('auth-cancel-sub-btn').addEventListener('click', handleCancelSubscription);
+  el('auth-portal-btn').addEventListener('click', handleBillingPortal);
+  el('auth-export-btn').addEventListener('click', () => { window.location.href = '/api/listener/export'; });
+  el('auth-delete-btn').addEventListener('click', handleDeleteAccount);
+
+  maybeShowResetForm();
 }
