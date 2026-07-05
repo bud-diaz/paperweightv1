@@ -40,6 +40,7 @@ let _loadDashAllAccess      = () => {};
 let _loadDashSmartPlaylists = () => {};
 let _loadDashSchedulePreview = () => {};
 let _loadDashPosts          = () => {};
+let _loadDashSettings       = () => {};
 
 export function init(callbacks = {}) {
   if (callbacks.loadDashStation)       _loadDashStation       = callbacks.loadDashStation;
@@ -66,6 +67,7 @@ export function init(callbacks = {}) {
   if (callbacks.loadDashSmartPlaylists) _loadDashSmartPlaylists = callbacks.loadDashSmartPlaylists;
   if (callbacks.loadDashSchedulePreview) _loadDashSchedulePreview = callbacks.loadDashSchedulePreview;
   if (callbacks.loadDashPosts)          _loadDashPosts          = callbacks.loadDashPosts;
+  if (callbacks.loadDashSettings)       _loadDashSettings       = callbacks.loadDashSettings;
 }
 
 // ── Auth probe ─────────────────────────────────────────────────────────────────
@@ -284,6 +286,7 @@ export async function loadDashboard() {
   _loadDashShareLinks();
   _loadDashAllAccess();
   _loadDashPosts();
+  _loadDashSettings();
   _loadDashAnalytics();
   _loadDash2FA();
   loadDashPaymentConfig();

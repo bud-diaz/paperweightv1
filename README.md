@@ -12,10 +12,15 @@ It is built for one creator or a small trusted team running one station on Windo
 - Live mic broadcast from the creator dashboard (go-live directly from the browser).
 - Public library and archive browsing from `vault/`.
 - Visibility controls: public, supporters-only, and vault.
-- Listener accounts, creator-issued access tokens, and account token assignments.
-- Stripe subscriptions, tips, and vault unlock checkout when configured.
+- Listener accounts with password reset (via SMTP or creator-generated links), data export, and self-service deletion.
+- Creator-issued access tokens and account token assignments.
+- Stripe subscriptions, tips, and vault unlock checkout when configured — with listener self-service cancellation and Stripe billing portal.
 - PayPal subscriptions with verified webhooks when configured.
 - Creator dashboard for media, schedule, uploads, tokens, payments, and analytics.
+- CSV exports (subscribers, listeners, download leads) and one-click hot database backups.
+- Optional go-live / new-post announcements to a Discord-compatible webhook, and opt-in supporter email on new posts.
+- Optional public RSS/podcast feed of public media at `/feed.xml`.
+- Embeddable mini player at `/embed` for external websites.
 - Optional TOTP 2FA on dashboard login.
 - Desktop app for Windows and macOS (Electron); convenience executable packaging for Linux/Raspberry Pi.
 
@@ -172,7 +177,7 @@ hls_output/
 - One station owner or small trusted team.
 - Dashboard auth is a shared owner token, not named team accounts.
 - No listener email verification.
-- No listener password reset flow.
+- Password reset emails require SMTP configuration; without it, the creator generates reset links from the dashboard.
 - Payments require provider setup and verified webhooks.
 - FFmpeg/ffprobe remain external system dependencies.
 

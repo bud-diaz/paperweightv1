@@ -135,6 +135,115 @@ function cancelSubscription(db, { providerSubscriptionId }) {
   return true;
 }
 
+// Cancels a subscription at the payment provider. Stripe defaults to
+// cancel-at-period-end (access continues until the paid period lapses; the
+// customer.subscription.deleted webhook downgrades locally). immediate: true is
+// used by account deletion. PayPal only supports immediate cancellation of
+// future billing; its CANCELLED webhook performs the local downgrade.
+async function providerCancelSubscription(sub, { immediate = false } = {}) {
+  if (sub.provider === 'stripe') {
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeKey) throw new Error('Stripe is not configured on this server');
+    const stripe = require('stripe')(stripeKey);
+    if (immediate) {
+      await stripe.subscriptions.cancel(sub.provider_subscription_id);
+    } else {
+      await stripe.subscriptions.update(sub.provider_subscription_id, { cancel_at_period_end: true });
+    }
+    return;
+  }
+
+  if (sub.provider === 'paypal') {
+    const clientId = process.env.PAYPAL_CLIENT_ID;
+    const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+    if (!clientId || !clientSecret) throw new Error('PayPal is not configured on this server');
+    const accessToken = await getPayPalAccessToken(clientId, clientSecret);
+    const cancelRes = await fetch(
+      `https://api-m.paypal.com/v1/billing/subscriptions/${encodeURIComponent(sub.provider_subscription_id)}/cancel`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ reason: 'Cancelled by the listener from the station player' }),
+      }
+    );
+    // 204 = cancelled; 422 = already cancelled/expired — treat as success.
+    if (!cancelRes.ok && cancelRes.status !== 422) {
+      throw new Error(`PayPal cancel failed with HTTP ${cancelRes.status}`);
+    }
+    return;
+  }
+
+  throw new Error(`Unknown subscription provider: ${sub.provider}`);
+}
+
+// POST /api/payment/subscription/cancel
+// Self-service cancellation for the authenticated listener's active subscription.
+router.post('/subscription/cancel', paymentLimiter, asyncHandler(async (req, res) => {
+  if (!req.tokenRow || !req.tokenRow.listener_id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const db = getDb();
+  const sub = db.prepare(
+    "SELECT * FROM subscriptions WHERE listener_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
+  ).get(req.tokenRow.listener_id);
+  if (!sub) return res.status(404).json({ error: 'No active subscription found' });
+
+  try {
+    await providerCancelSubscription(sub);
+  } catch (err) {
+    log('error', 'payment', `Listener-initiated cancel failed for ${sub.provider} ${sub.provider_subscription_id}: ${err.message}`);
+    return res.status(502).json({ error: `Could not cancel with ${sub.provider} — try again or cancel from your ${sub.provider} account.` });
+  }
+
+  log('info', 'payment', `Listener #${sub.listener_id} cancelled ${sub.provider} subscription ${sub.provider_subscription_id}`);
+  res.json({
+    ok: true,
+    provider: sub.provider,
+    // Stripe access continues until the paid period ends; PayPal processes the
+    // cancellation on its side and the webhook downgrades when it lands.
+    effectiveUntil: sub.provider === 'stripe' ? sub.current_period_end : null,
+  });
+}));
+
+// POST /api/payment/portal
+// Returns a Stripe billing-portal URL where the listener can manage payment
+// methods, invoices, and cancellation. Stripe subscriptions only.
+router.post('/portal', paymentLimiter, asyncHandler(async (req, res) => {
+  if (!req.tokenRow || !req.tokenRow.listener_id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey) return res.status(503).json({ error: 'Stripe is not configured on this server' });
+
+  const db = getDb();
+  const sub = db.prepare(
+    "SELECT * FROM subscriptions WHERE listener_id = ? AND provider = 'stripe' AND status = 'active' ORDER BY created_at DESC LIMIT 1"
+  ).get(req.tokenRow.listener_id);
+  if (!sub) return res.status(404).json({ error: 'No active Stripe subscription found' });
+
+  try {
+    const stripe = require('stripe')(stripeKey);
+    const stripeSub = await stripe.subscriptions.retrieve(sub.provider_subscription_id);
+    const customer = typeof stripeSub.customer === 'string' ? stripeSub.customer : stripeSub.customer?.id;
+    if (!customer) return res.status(502).json({ error: 'Stripe subscription has no customer attached' });
+
+    const base = config.station.publicUrl || `${req.protocol}://${req.get('host')}`;
+    const session = await stripe.billingPortal.sessions.create({
+      customer,
+      return_url: `${base}/#player`,
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    log('error', 'payment', `Billing portal session failed: ${err.message}`);
+    res.status(502).json({ error: 'Could not open the billing portal — try again later' });
+  }
+}));
+
 // ─── Checkout ─────────────────────────────────────────────────────────────────
 
 // POST /api/payment/checkout
@@ -946,6 +1055,7 @@ module.exports.stripeWebhookHandler = stripeWebhookHandler;
 module.exports.activateSubscription = activateSubscription;
 module.exports.cancelSubscription = cancelSubscription;
 module.exports.claimAndRun = claimAndRun;
+module.exports.providerCancelSubscription = providerCancelSubscription;
 module.exports.currentPeriodEndIso = currentPeriodEndIso;
 module.exports.isPaidCheckoutSession = isPaidCheckoutSession;
 module.exports.isSucceededPaymentIntent = isSucceededPaymentIntent;

@@ -77,6 +77,20 @@ const APP_CSP_DIRECTIVES = {
   formAction: ["'self'"],
 };
 
+// The /embed mini player must be frameable on other sites — that is its whole
+// point — so it swaps frame-ancestors 'none' for * and drops X-Frame-Options.
+// It carries no auth and only plays the public stream.
+const EMBED_CSP =
+  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+  "img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; " +
+  "worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors *";
+
+function relaxCspForEmbed(req, res, next) {
+  res.setHeader('Content-Security-Policy', EMBED_CSP);
+  res.removeHeader('X-Frame-Options');
+  next();
+}
+
 // The static /landing/* marketing pages use inline <script>, inline on* handlers,
 // and <style> blocks, so they need a looser policy. They carry no auth and no
 // sensitive data, but still get object-src/frame-ancestors locked down.
@@ -156,6 +170,26 @@ function createApp() {
   } else {
     app.use(express.static(path.join(config.paths.app, 'client')));
   }
+
+  // Public RSS/podcast feed (creator-enabled via dashboard settings).
+  const feed = require('./api/feed');
+  app.get('/feed.xml', asyncHandler(feed.feedXml));
+  app.get('/feed/enclosure/:id', asyncHandler(feed.enclosure));
+
+  // Embeddable mini player — served like other client assets but with a
+  // frameable CSP. Overrides next to the exe win, then bundle, then app files.
+  app.get('/embed', relaxCspForEmbed, (req, res) => {
+    const override = path.join(config.paths.root, 'client', 'embed.html');
+    if (fs.existsSync(override)) return res.sendFile(override);
+    if (isPackaged) {
+      const entry = require('./client-bundle')['/embed.html'];
+      if (entry) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.end(entry.data);
+      }
+    }
+    res.sendFile(path.join(config.paths.app, 'client', 'embed.html'));
+  });
 
   app.get('/landing', (req, res) => {
     res.redirect('/creator.html');

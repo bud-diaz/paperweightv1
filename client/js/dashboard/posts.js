@@ -134,11 +134,13 @@ export function initPostHandlers() {
       title:      el('post-new-title').value.trim() || null,
       body,
       visibility: el('post-new-visibility').value,
+      notify_supporters: !!el('post-new-notify')?.checked,
     };
     const { res, data } = await api.dashboard.posts.create(payload);
     if (res.ok) {
       el('post-new-title').value = '';
       el('post-new-body').value  = '';
+      if (el('post-new-notify')) el('post-new-notify').checked = false;
       const preview = el('post-new-preview');
       if (preview) {
         preview.hidden = true;

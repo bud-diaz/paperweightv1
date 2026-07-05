@@ -22,7 +22,16 @@ Back up these regularly:
 
 Do not bother backing up `hls_output/`; it is regenerated.
 
-For SQLite, stop the server before copying `data/paperweight.db`, or use SQLite backup tooling if you need hot backups.
+For the database, use the built-in hot backup (safe while the server is running — it uses SQLite's online backup API):
+
+```bash
+npm run backup                       # writes data/backups/paperweight-<timestamp>.db
+node scripts/backup.js --keep=30     # keep more history (default keeps 14)
+```
+
+The dashboard's STATION section also has a **DB BACKUP** button that downloads a consistent snapshot through the browser. Schedule `npm run backup` with cron/Task Scheduler for unattended installs, and copy `data/backups/` somewhere off the machine.
+
+Copying `data/paperweight.db` by hand is still fine — but stop the server first if you do it that way.
 
 ## Restore
 
@@ -60,6 +69,29 @@ PayPal:
 - Paperweight verifies PayPal webhook signatures before granting access.
 
 Payments are disabled when the relevant provider variables are blank.
+
+Listeners with an active subscription can cancel it themselves from the player's ACCOUNT panel; Stripe subscribers also get a MANAGE BILLING button that opens the Stripe billing portal (enable the portal once in the Stripe dashboard under Settings → Billing → Customer portal).
+
+## Email (SMTP)
+
+Optional. When configured, Paperweight can email password reset links to listeners and (per post, opt-in) email new posts to active supporters. Add to `.env`:
+
+```bash
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587            # default 587 (465 when SMTP_SECURE=implicit)
+SMTP_SECURE=starttls     # starttls (default) | implicit | none
+SMTP_USER=you@example.com
+SMTP_PASS=app-password
+SMTP_FROM="My Station <station@example.com>"
+```
+
+Without SMTP, password recovery still works: the dashboard's NOTIFICATIONS & FEED section can generate a one-hour reset link for any listener account, which you hand to the listener over your own channel.
+
+## Notifications and RSS
+
+- A Discord-compatible webhook URL can be set in the dashboard (NOTIFICATIONS & FEED). It announces go-live and new posts.
+- The RSS/podcast feed is off by default. Enabling it publishes PUBLIC media (podcasts category or all public items, your choice) at `/feed.xml` with downloadable enclosures. Gated media never appears in the feed.
+- `/embed` is a small frameable player page for embedding the live stream on external sites; copy the iframe snippet from the dashboard or the player's share panel.
 
 ## Dashboard Token
 

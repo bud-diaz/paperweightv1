@@ -15,6 +15,7 @@ npm run check:analytics  # analytics write-path check
 npm run check:package    # package metadata and asset check
 npm run check:clean      # release cleanliness check
 npm run release:check    # full pre-release gate (clean + tests + preflight + all checks + audit)
+npm run backup           # hot SQLite backup to data/backups/ (safe while running)
 npm run smoke            # HTTP smoke test against a running server
 npm run smoke:exe        # executable clean-folder smoke test
 npm run build:exe        # optional convenience executable packaging
@@ -29,7 +30,14 @@ Paperweight is a single-process Express server with three boot-time subsystems:
 
 - Broadcast engine (`src/broadcast/`): spawns FFmpeg, reads a concat manifest, writes HLS output to `hls_output/stream/`, and writes now-playing state to `hls_output/state.json`.
 - Vault scanner (`src/scanner/`): watches `vault/` with chokidar, probes files with ffprobe, and upserts media rows.
-- HTTP server (`src/index.js` -> `src/api/router.js`): all API routes live under `/api`; the single-file frontend is `client/creator.html`.
+- HTTP server (`src/index.js` -> `src/api/router.js`): all API routes live under `/api`; the single-file frontend is `client/creator.html`. Three public non-API routes are mounted directly in `src/index.js`: `/feed.xml` + `/feed/enclosure/:id` (creator-enabled RSS feed, `src/api/feed.js`) and `/embed` (frameable mini player, `client/embed.html` + `client/js/embed.js`).
+
+Supporting modules:
+
+- `src/email/`: pure-Node SMTP client (no new deps) configured by `SMTP_*` env vars; email features degrade gracefully when unconfigured (`isEmailConfigured()`).
+- `src/notify/`: best-effort outbound notifications — Discord-compatible webhook on go-live/new post, optional supporter email on post publish. Never blocks the triggering request.
+- `src/runtime/net-guard.js`: SSRF guard for owner-configured URLs (station health ping, notify webhook).
+- `scripts/backup.js` (`npm run backup`): hot SQLite backup with pruning; `GET /api/dashboard/backup` streams one through the browser.
 
 Plain Express and `better-sqlite3` are used directly. There is no ORM.
 
@@ -41,7 +49,9 @@ Schema files live in `src/db/migrations/`. Applied SQL migrations are tracked in
 
 Current migration sequence:
 
-`001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments -> `010` webhook idempotency -> `011` payment idempotency -> `012` dashboard 2FA -> `013` creator profile -> `014` launch acceptance -> `015` download leads.
+`001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments -> `010` webhook idempotency -> `011` payment idempotency -> `012` dashboard 2FA -> `013` creator profile -> `014` launch acceptance -> `015` download leads -> `016` highlight -> `017` share links -> `018` smart playlists -> `019` creator posts -> `020` download lead opt-in -> `021` pending checkouts -> `022` download events -> `023` password resets -> `024` app settings.
+
+The source of truth for migrations is the inline SQL in `src/db/migrations/index.js`; the standalone `.sql` files are documentation copies. Small creator-configurable flags (notify webhook URL, feed enablement) live in the `app_settings` key/value table via `src/db/settings.js`.
 
 Never add recurring destructive SQL to a migration file. Do not use `DROP TABLE media` or table rebuilds in automatically applied SQL migrations.
 

@@ -488,13 +488,13 @@ export function initShareHandlers() {
         const text = encodeURIComponent(`Listening to ${getStationName()} — ${window.location.href}`);
         window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
       } else if (action === 'embed') {
-        const code = `<iframe src="${window.location.href}" width="560" height="480" frameborder="0" allowfullscreen></iframe>`;
+        const code = `<iframe src="${window.location.origin}/embed" width="420" height="96" style="border:0;" title="Radio player" allow="autoplay"></iframe>`;
         navigator.clipboard?.writeText(code).catch(() => {});
         const lbl = btn.querySelector('.share-opt-label');
         lbl.textContent = 'COPIED';
         setTimeout(() => { lbl.textContent = 'EMBED'; }, 2000);
       } else if (action === 'rss') {
-        window.open('/api/library', '_blank');
+        window.open('/feed.xml', '_blank');
       }
     });
   });

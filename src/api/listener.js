@@ -1,12 +1,14 @@
 const router = require('express').Router();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const { getDb } = require('../db');
+const { getDb, log } = require('../db');
 const { hashToken } = require('../auth');
 const { authLimiter } = require('../middleware/rateLimiter');
 const { cloudOnly } = require('../middleware/cloudGate');
 const asyncHandler = require('../middleware/asyncHandler');
 const config = require('../config');
+const { isEmailConfigured, sendMail } = require('../email');
+const { publicBaseUrl } = require('../runtime/base-url');
 
 const BCRYPT_ROUNDS = 10;
 
@@ -43,6 +45,24 @@ function getActiveSubscription(db, listenerId) {
   return db.prepare(
     "SELECT * FROM subscriptions WHERE listener_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
   ).get(listenerId) || null;
+}
+
+const RESET_TTL_MINUTES = 60;
+
+// Creates a password reset row and returns the raw token (stored only as a
+// SHA-256 hash). `via` is 'email' (listener-requested) or 'dashboard' (creator
+// generated a link manually — the no-SMTP fallback).
+function createPasswordReset(db, listenerId, via) {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + RESET_TTL_MINUTES * 60 * 1000).toISOString();
+  db.prepare(
+    'INSERT INTO password_resets (listener_id, token_hash, created_via, expires_at) VALUES (?, ?, ?, ?)'
+  ).run(listenerId, hashToken(token), via, expiresAt);
+  return { token, expiresAt };
+}
+
+function resetLinkUrl(req, token) {
+  return `${publicBaseUrl(req)}/#reset=${token}`;
 }
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
@@ -160,6 +180,186 @@ router.get('/me', (req, res) => {
   });
 });
 
+// POST /api/listener/request-password-reset
+// Body: { email }
+// Always answers { ok: true } so account existence is never revealed. When the
+// account exists and SMTP is configured, a reset link is emailed in the
+// background (fire-and-forget, so response timing stays constant too).
+router.post('/request-password-reset', authLimiter, (req, res) => {
+  const emailEnabled = isEmailConfigured();
+  const { email } = req.body || {};
+
+  if (email && typeof email === 'string' && email.includes('@') && emailEnabled) {
+    const db = getDb();
+    const account = db.prepare(
+      'SELECT id, email FROM listener_accounts WHERE email = ? AND is_active = 1'
+    ).get(email.toLowerCase().trim());
+
+    if (account) {
+      const { token } = createPasswordReset(db, account.id, 'email');
+      const url = resetLinkUrl(req, token);
+      const station = config.station.name || 'Paperweight';
+      setImmediate(() => {
+        sendMail({
+          to: account.email,
+          subject: `Reset your ${station} password`,
+          text: [
+            `A password reset was requested for your ${station} account.`,
+            '',
+            `Open this link to choose a new password (valid for ${RESET_TTL_MINUTES} minutes):`,
+            url,
+            '',
+            "If you didn't request this, you can ignore this email — your password is unchanged.",
+          ].join('\n'),
+        }).catch(err => {
+          log('error', 'listener', `Password reset email to listener #${account.id} failed: ${err.message}`);
+        });
+      });
+    }
+  }
+
+  res.json({ ok: true, emailEnabled });
+});
+
+// POST /api/listener/reset-password
+// Body: { token, password } — completes a reset started by
+// request-password-reset or a dashboard-generated link.
+router.post('/reset-password', authLimiter, asyncHandler(async (req, res) => {
+  const { token, password } = req.body || {};
+
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'Reset token is required' });
+  }
+  if (!password || typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+
+  const db = getDb();
+  const reset = db.prepare('SELECT * FROM password_resets WHERE token_hash = ?').get(hashToken(token));
+  const expired = reset && new Date(reset.expires_at).getTime() < Date.now();
+  if (!reset || reset.used_at || expired) {
+    return res.status(400).json({ error: 'Reset link is invalid or has expired' });
+  }
+
+  const account = db.prepare(
+    'SELECT id FROM listener_accounts WHERE id = ? AND is_active = 1'
+  ).get(reset.listener_id);
+  if (!account) {
+    return res.status(400).json({ error: 'Reset link is invalid or has expired' });
+  }
+
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  db.transaction(() => {
+    db.prepare('UPDATE listener_accounts SET password_hash = ? WHERE id = ?').run(passwordHash, account.id);
+    // Consume every outstanding reset for this listener, not just the one used.
+    db.prepare(
+      "UPDATE password_resets SET used_at = datetime('now') WHERE listener_id = ? AND used_at IS NULL"
+    ).run(account.id);
+  })();
+
+  log('info', 'listener', `Password reset completed for listener #${account.id}`);
+  res.json({ ok: true });
+}));
+
+// GET /api/listener/export
+// Returns everything stored about the authenticated listener as downloadable JSON.
+router.get('/export', (req, res) => {
+  if (!req.tokenRow || !req.tokenRow.listener_id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const db = getDb();
+  const account = db.prepare(
+    'SELECT id, email, created_at FROM listener_accounts WHERE id = ? AND is_active = 1'
+  ).get(req.tokenRow.listener_id);
+  if (!account) return res.status(401).json({ error: 'Account not found' });
+
+  const subscriptions = db.prepare(
+    'SELECT tier, provider, provider_subscription_id, status, current_period_end, created_at FROM subscriptions WHERE listener_id = ? ORDER BY created_at'
+  ).all(account.id);
+  const vaultUnlocks = db.prepare(
+    'SELECT unlock_type, target_id, amount_paid, payment_type, active, expires_at, created_at FROM vault_unlocks WHERE listener_id = ? ORDER BY created_at'
+  ).all(account.id);
+  const tokenAssignments = db.prepare(
+    `SELECT t.label, t.tier, ta.created_at FROM token_assignments ta
+     JOIN tokens t ON t.id = ta.token_id WHERE ta.listener_id = ? ORDER BY ta.created_at`
+  ).all(account.id);
+  const savedStations = db.prepare(
+    'SELECT core_url, slug, name, created_at FROM listener_saved_stations WHERE listener_id = ? ORDER BY created_at'
+  ).all(account.id);
+
+  res.setHeader('Content-Disposition', 'attachment; filename="paperweight-account-export.json"');
+  res.json({
+    exportedAt: new Date().toISOString(),
+    station: config.station.name,
+    account: { email: account.email, createdAt: account.created_at },
+    tier: req.tier,
+    subscriptions,
+    vaultUnlocks,
+    tokenAssignments,
+    savedStations,
+  });
+});
+
+// DELETE /api/listener/account
+// Body: { password } — or { confirmEmail } for accounts auto-created by Stripe
+// that never set a password. Cancels active subscriptions at the provider
+// (best effort), revokes tokens, and scrubs the account's PII. Purchase records
+// (subscriptions, vault unlocks) are kept for accounting, detached from any
+// usable identity.
+router.delete('/account', authLimiter, asyncHandler(async (req, res) => {
+  if (!req.tokenRow || !req.tokenRow.listener_id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const db = getDb();
+  const account = db.prepare(
+    'SELECT * FROM listener_accounts WHERE id = ? AND is_active = 1'
+  ).get(req.tokenRow.listener_id);
+  if (!account) return res.status(401).json({ error: 'Account not found' });
+
+  const { password, confirmEmail } = req.body || {};
+  const hasRealPassword = account.password_hash.startsWith('$2');
+  if (hasRealPassword) {
+    if (!password) return res.status(400).json({ error: 'Current password is required' });
+    const match = await bcrypt.compare(password, account.password_hash);
+    if (!match) return res.status(401).json({ error: 'Incorrect password' });
+  } else if (!confirmEmail || String(confirmEmail).toLowerCase().trim() !== account.email) {
+    return res.status(400).json({ error: 'confirmEmail must match the account email' });
+  }
+
+  // Best-effort provider-side cancellation so deleted accounts stop being billed.
+  const { providerCancelSubscription } = require('./payment');
+  const activeSubs = db.prepare(
+    "SELECT * FROM subscriptions WHERE listener_id = ? AND status = 'active'"
+  ).all(account.id);
+  const cancelWarnings = [];
+  for (const sub of activeSubs) {
+    try {
+      await providerCancelSubscription(sub, { immediate: true });
+    } catch (err) {
+      log('warn', 'listener', `Account deletion: could not cancel ${sub.provider} subscription ${sub.provider_subscription_id}: ${err.message}`);
+      cancelWarnings.push(`Could not cancel ${sub.provider} subscription — cancel it from your ${sub.provider} account.`);
+    }
+  }
+
+  db.transaction(() => {
+    db.prepare('DELETE FROM tokens WHERE listener_id = ?').run(account.id);
+    db.prepare('DELETE FROM token_assignments WHERE listener_id = ?').run(account.id);
+    db.prepare('DELETE FROM listener_saved_stations WHERE listener_id = ?').run(account.id);
+    db.prepare('DELETE FROM download_tokens WHERE listener_id = ?').run(account.id);
+    db.prepare('DELETE FROM password_resets WHERE listener_id = ?').run(account.id);
+    db.prepare('UPDATE vault_unlocks SET active = 0 WHERE listener_id = ?').run(account.id);
+    db.prepare("UPDATE subscriptions SET status = 'expired' WHERE listener_id = ? AND status = 'active'").run(account.id);
+    db.prepare('UPDATE listener_accounts SET email = ?, password_hash = ?, is_active = 0 WHERE id = ?')
+      .run(`deleted-${account.id}@account.invalid`, crypto.randomBytes(32).toString('hex'), account.id);
+  })();
+
+  res.clearCookie('pw_token');
+  log('info', 'listener', `Listener account #${account.id} deleted at owner request`);
+  res.json({ ok: true, warnings: cancelWarnings.length ? cancelWarnings : undefined });
+}));
+
 // PATCH /api/listener/password
 // Allows a listener to set or change their password.
 // Used primarily by subscribers auto-created by Stripe (who have no usable password).
@@ -252,3 +452,6 @@ router.delete('/saved-stations/:id', cloudOnly, (req, res) => {
 });
 
 module.exports = router;
+// Shared with the dashboard "generate reset link" route (no-SMTP fallback).
+module.exports.createPasswordReset = createPasswordReset;
+module.exports.resetLinkUrl = resetLinkUrl;

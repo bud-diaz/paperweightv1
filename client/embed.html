@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paperweight Player</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #0a0a0a;
+    color: #fff;
+    font-family: Georgia, 'Times New Roman', serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .embed-card {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    border: 1px solid rgba(255,255,255,.15);
+  }
+  .embed-play {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.4);
+    background: transparent;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .embed-play:hover { background: rgba(255,255,255,.1); }
+  .embed-meta { flex: 1; min-width: 0; }
+  .embed-station {
+    font-size: 13px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    opacity: .7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .embed-station a { color: inherit; text-decoration: none; }
+  .embed-station a:hover { text-decoration: underline; }
+  .embed-now {
+    font-size: 15px;
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .embed-live {
+    display: none;
+    font-size: 10px;
+    letter-spacing: .15em;
+    color: #f66;
+    border: 1px solid #f66;
+    padding: 2px 6px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .embed-live.on { display: inline-block; }
+</style>
+</head>
+<body>
+  <div class="embed-card">
+    <button class="embed-play" id="embed-play" aria-label="Play">&#9654;</button>
+    <div class="embed-meta">
+      <div class="embed-station"><a id="embed-station-link" href="/" target="_blank" rel="noopener">Paperweight</a><span class="embed-live" id="embed-live">LIVE</span></div>
+      <div class="embed-now" id="embed-now">&nbsp;</div>
+    </div>
+  </div>
+  <audio id="embed-audio" preload="none"></audio>
+  <script src="/vendor/hls.min.js"></script>
+  <script src="/js/embed.js"></script>
+</body>
+</html>

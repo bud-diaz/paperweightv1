@@ -360,6 +360,7 @@
                   <input class="auth-input" id="auth-email" type="email" placeholder="email address" autocomplete="email"/>
                   <input class="auth-input" id="auth-password" type="password" placeholder="password (min 8 chars)" autocomplete="current-password"/>
                   <button class="auth-submit" id="auth-submit-btn">LOG IN</button>
+                  <button id="auth-forgot-btn" style="background:none;border:none;color:rgba(255,255,255,.35);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.06em;cursor:pointer;padding:6px 0;text-align:left;">FORGOT PASSWORD?</button>
                   <div class="auth-msg" id="auth-msg"></div>
                 </div>
               </div>
@@ -375,6 +376,13 @@
                   <button class="auth-submit" id="auth-setpw-btn">SET PASSWORD</button>
                   <div class="auth-msg" id="auth-setpw-msg"></div>
                 </div>
+                <div id="auth-manage" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">
+                  <button class="mgmt-btn" id="auth-portal-btn" hidden>MANAGE BILLING</button>
+                  <button class="mgmt-btn" id="auth-cancel-sub-btn" hidden>CANCEL SUBSCRIPTION</button>
+                  <button class="mgmt-btn" id="auth-export-btn" hidden>DOWNLOAD MY DATA</button>
+                  <button class="mgmt-btn danger" id="auth-delete-btn" hidden>DELETE ACCOUNT</button>
+                </div>
+                <div class="auth-msg" id="auth-manage-msg"></div>
               </div>
             </div>
             </div><!-- /auth-body -->
@@ -484,6 +492,51 @@
               <button class="mgmt-btn" id="btn-update-url">UPDATE</button>
             </div>
             <div id="station-url-msg"></div>
+            <div class="dash-edit-label" style="margin-top:14px;">EXPORTS &amp; BACKUP</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">
+              <a class="mgmt-btn" href="/api/dashboard/export/subscribers.csv" download style="text-decoration:none;">SUBSCRIBERS CSV</a>
+              <a class="mgmt-btn" href="/api/dashboard/export/listeners.csv" download style="text-decoration:none;">LISTENERS CSV</a>
+              <a class="mgmt-btn" href="/api/dashboard/export/download-leads.csv" download style="text-decoration:none;">LEADS CSV</a>
+              <a class="mgmt-btn" href="/api/dashboard/backup" download style="text-decoration:none;">DB BACKUP</a>
+              <button class="mgmt-btn" id="btn-copy-embed">COPY EMBED CODE</button>
+            </div>
+          </div>
+
+          <div class="dash-divider"></div>
+
+          <!-- Notifications, feed & account recovery -->
+          <div class="dash-section" id="dash-tools-section">
+            <div class="dash-section-label">NOTIFICATIONS &amp; FEED</div>
+            <div class="dash-edit-label">WEBHOOK URL (DISCORD-COMPATIBLE) — ANNOUNCES GO-LIVE AND NEW POSTS</div>
+            <input class="dash-input dash-input-sm dash-input-gap" id="set-webhook-url" type="url" placeholder="https://discord.com/api/webhooks/…"/>
+            <div style="display:flex;flex-wrap:wrap;gap:16px;padding:6px 0;">
+              <label class="toggle-sw" title="Announce on the webhook when you go live">
+                <input type="checkbox" id="set-notify-live">
+                <span class="toggle-track"></span>
+                <span class="toggle-label">ANNOUNCE GO-LIVE</span>
+              </label>
+              <label class="toggle-sw" title="Publish public media as an RSS/podcast feed at /feed.xml">
+                <input type="checkbox" id="set-feed-enabled">
+                <span class="toggle-track"></span>
+                <span class="toggle-label">PUBLIC RSS FEED</span>
+              </label>
+              <select class="dash-select" id="set-feed-scope">
+                <option value="podcasts">Podcasts category only</option>
+                <option value="all">All public media</option>
+              </select>
+              <button class="mgmt-btn" id="btn-copy-rss">COPY FEED URL</button>
+            </div>
+            <div id="set-email-status" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0 6px;"></div>
+            <div class="dash-form-row">
+              <span id="set-msg" class="dash-inline-msg"></span>
+              <button class="mgmt-btn" id="set-save-btn">SAVE SETTINGS</button>
+            </div>
+            <div class="dash-edit-label" style="margin-top:14px;">LISTENER ACCOUNT RECOVERY</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:4px 0;">
+              <input class="dash-input dash-input-sm" id="reset-link-email" type="email" placeholder="listener email…" style="flex:1;min-width:160px;"/>
+              <button class="mgmt-btn" id="btn-reset-link">GENERATE RESET LINK</button>
+            </div>
+            <div id="reset-link-output" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.45);word-break:break-all;padding:4px 0;"></div>
           </div>
 
           <div class="dash-divider"></div>
@@ -739,6 +792,11 @@
                   <option value="public">Public</option>
                   <option value="supporters_only" selected>Supporters Only</option>
                 </select>
+                <label class="toggle-sw" id="post-new-notify-row" hidden style="margin-bottom:8px;" title="Requires SMTP configuration in .env">
+                  <input type="checkbox" id="post-new-notify">
+                  <span class="toggle-track"></span>
+                  <span class="toggle-label">EMAIL SUPPORTERS</span>
+                </label>
                 <div class="dash-form-row" style="justify-content:flex-end;margin-bottom:6px;">
                   <button class="mgmt-btn" id="btn-post-preview" type="button">PREVIEW</button>
                 </div>
