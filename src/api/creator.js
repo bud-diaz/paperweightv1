@@ -5,10 +5,9 @@ const multer = require('multer');
 const { getDb, log } = require('../db');
 const { requireDashboard } = require('../auth/middleware');
 const config = require('../config');
+const { IMAGE_MIMES, IMAGE_EXTS, sniffImageFile, setImageHeaders } = require('../runtime/images');
 
 const PIC_DIR = path.join(config.paths.data, 'creator-assets');
-const PIC_EXTS = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif' };
-const PIC_MIMES = new Set(Object.keys(PIC_EXTS));
 
 const picStorage = multer.diskStorage({
   destination(req, file, cb) {
@@ -16,7 +15,7 @@ const picStorage = multer.diskStorage({
     cb(null, PIC_DIR);
   },
   filename(req, file, cb) {
-    cb(null, `profile_tmp_${Date.now()}${PIC_EXTS[file.mimetype] || '.jpg'}`);
+    cb(null, `profile_tmp_${Date.now()}${IMAGE_EXTS[file.mimetype] || '.jpg'}`);
   },
 });
 
@@ -24,10 +23,14 @@ const uploadPic = multer({
   storage: picStorage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter(req, file, cb) {
-    if (PIC_MIMES.has(file.mimetype)) cb(null, true);
+    if (IMAGE_MIMES.has(file.mimetype)) cb(null, true);
     else cb(new Error('Only image files are accepted for profile picture'));
   },
 });
+
+function removeFile(filepath) {
+  try { if (filepath) fs.unlinkSync(filepath); } catch {}
+}
 
 // GET /api/creator/profile — public, no auth
 router.get('/profile', (req, res) => {
@@ -78,6 +81,9 @@ router.get('/pic', (req, res) => {
   if (!row || !row.profile_pic_url) return res.status(404).end();
   const p = path.join(PIC_DIR, path.basename(row.profile_pic_url));
   if (!fs.existsSync(p)) return res.status(404).end();
+  const ext = path.extname(p).toLowerCase();
+  const mime = Object.entries(IMAGE_EXTS).find(([, e]) => e === ext)?.[0] || 'application/octet-stream';
+  setImageHeaders(res, mime);
   res.sendFile(p);
 });
 
@@ -131,20 +137,26 @@ router.post('/dashboard/pic', requireDashboard, (req, res) => {
     if (err) return res.status(400).json({ error: err.message });
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-    const ext = PIC_EXTS[req.file.mimetype] || '.jpg';
+    const detectedMime = sniffImageFile(req.file.path);
+    if (!detectedMime || !IMAGE_MIMES.has(detectedMime)) {
+      removeFile(req.file.path);
+      return res.status(400).json({ error: 'Uploaded profile picture is not a supported image file' });
+    }
+
+    const ext = IMAGE_EXTS[detectedMime];
     const finalName = `profile${ext}`;
     const finalPath = path.join(PIC_DIR, finalName);
 
     // Remove old pics across all extensions
-    for (const e of Object.values(PIC_EXTS)) {
+    for (const e of Object.values(IMAGE_EXTS)) {
       const old = path.join(PIC_DIR, `profile${e}`);
-      if (fs.existsSync(old)) { try { fs.unlinkSync(old); } catch {} }
+      if (fs.existsSync(old)) removeFile(old);
     }
 
     try {
       fs.renameSync(req.file.path, finalPath);
     } catch (moveErr) {
-      try { fs.unlinkSync(req.file.path); } catch {}
+      removeFile(req.file.path);
       log('error', 'creator', `Profile pic move failed: ${moveErr.message}`);
       return res.status(500).json({ error: 'Upload failed while saving profile picture' });
     }

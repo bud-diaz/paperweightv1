@@ -1,4 +1,4 @@
-const config = require('../config');
+const { allowedStationOrigins } = require('../runtime/base-url');
 
 // Mutating HTTP methods that carry a session cookie and originate from the browser.
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -16,23 +16,7 @@ function parseOrigin(url) {
 // Returns the expected set of allowed origins for this station.
 // Always includes localhost variants so the local dashboard keeps working.
 function allowedOrigins(req) {
-  const origins = new Set([
-    `http://localhost:${config.port}`,
-    `http://127.0.0.1:${config.port}`,
-  ]);
-
-  if (config.station.publicUrl) {
-    const pub = parseOrigin(config.station.publicUrl);
-    if (pub) origins.add(pub);
-  }
-
-  // Allow same-origin requests where the host header matches
-  if (req.headers.host) {
-    const scheme = config.https ? 'https' : 'http';
-    origins.add(`${scheme}://${req.headers.host}`);
-  }
-
-  return origins;
+  return allowedStationOrigins(req);
 }
 
 // Middleware that blocks cross-origin state-changing requests that arrive with a
