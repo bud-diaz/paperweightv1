@@ -2,12 +2,13 @@
   "name": "paperweight-desktop",
   "version": "1.5.1",
   "private": true,
-  "description": "Paperweight desktop app (Windows & Mac)",
+  "description": "Paperweight desktop app (Windows, macOS & Linux)",
   "main": "main.js",
   "scripts": {
     "start": "electron main.js",
     "electron:rebuild": "node scripts/rebuild-native.js",
-    "dist": "npm run electron:rebuild && electron-builder --mac --win"
+    "dist": "npm run electron:rebuild && electron-builder --mac --win",
+    "dist:linux": "npm run electron:rebuild && electron-builder --linux"
   },
   "devDependencies": {
     "electron": "^31.0.0",
@@ -40,6 +41,13 @@
     "win": {
       "target": ["nsis"],
       "icon": "build/icon.ico"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "build/icon.png",
+      "category": "Audio",
+      "synopsis": "Self-hosted, creator-first streaming and distribution",
+      "maintainer": "Paperweight Systems LLC <rollingwoodsmedia@gmail.com>"
     }
   }
 }

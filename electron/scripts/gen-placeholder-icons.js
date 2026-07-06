@@ -1,7 +1,7 @@
 'use strict';
 
 // Generates minimal placeholder app icons (electron/build/icon.ico,
-// electron/build/icon.icns) with zero external dependencies, since no
+// electron/build/icon.icns, electron/build/icon.png) with zero external dependencies, since no
 // image-processing tooling (ImageMagick, sharp, PIL) is available in this
 // environment. Produces a flat navy square with a lighter "P" monogram,
 // encoded as a single raw PNG payload embedded directly in each container
@@ -185,6 +185,11 @@ function main() {
     png: encodePng(resizeNearest(basePixels, SIZE, size), size),
   }));
   fs.writeFileSync(path.join(buildDir, 'icon.icns'), buildIcns(icnsEntries));
+
+  // Plain 512x512 PNG for the Linux desktop app (electron-builder's linux.icon).
+  // 256 -> 512 is an exact 2x nearest-neighbor upscale of a flat two-color
+  // image, so edges stay crisp.
+  fs.writeFileSync(path.join(buildDir, 'icon.png'), encodePng(resizeNearest(basePixels, SIZE, 512), 512));
 
   // Small flat PNG for the system tray (nativeImage.createFromPath wants a
   // plain raster image here, not an .ico/.icns container).

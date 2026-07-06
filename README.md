@@ -4,7 +4,7 @@ Self-hosted, creator-first streaming and distribution.
 
 Paperweight turns your own machine into a creator-owned station: it scans a local media vault, broadcasts a continuous HLS stream, serves a listener player, and provides a local creator dashboard for scheduling, uploads, access tokens, vault pricing, analytics, tips, and payment-backed unlocks.
 
-It is built for one creator or a small trusted team running one station on Windows, macOS, Linux, or a 64-bit Raspberry Pi. It is not a multi-tenant SaaS platform. Windows and macOS install as a desktop app; Linux and Raspberry Pi install from source.
+It is built for one creator or a small trusted team running one station on Windows, macOS, Linux, or a 64-bit Raspberry Pi. It is not a multi-tenant SaaS platform. Windows, macOS, and desktop Linux (Ubuntu-class) install as a desktop app; headless Linux and Raspberry Pi install from source.
 
 ## What It Does
 
@@ -22,7 +22,7 @@ It is built for one creator or a small trusted team running one station on Windo
 - Optional public RSS/podcast feed of public media at `/feed.xml`.
 - Embeddable mini player at `/embed` for external websites.
 - Optional TOTP 2FA on dashboard login.
-- Desktop app for Windows and macOS (Electron); convenience executable packaging for Linux/Raspberry Pi.
+- Desktop app for Windows, macOS, and Linux (Electron); convenience executable packaging for headless Linux/Raspberry Pi.
 
 ## Supported Platforms
 
@@ -30,7 +30,8 @@ It is built for one creator or a small trusted team running one station on Windo
 |---|---|
 | Windows 10/11 x64 | Electron desktop app installer (`cd electron && npm run dist`) |
 | macOS | Electron desktop app installer (`cd electron && npm run dist`) |
-| Linux x64 | `scripts/install.sh`, then `scripts/setup.sh` |
+| Linux x64 desktop (Ubuntu-class) | Electron desktop app — AppImage/deb (`cd electron && npm run dist:linux`) |
+| Linux x64 server/headless | `scripts/install.sh`, then `scripts/setup.sh` |
 | Raspberry Pi 64-bit | `scripts/install.sh`, then `scripts/setup.sh` |
 
 FFmpeg and ffprobe are required on every platform. The Linux/Pi installers verify
@@ -38,25 +39,26 @@ or install them; the desktop app's setup wizard checks for them on first run.
 
 The Electron app isn't code-signed yet, so Windows SmartScreen / macOS Gatekeeper
 will warn on first run — see [TROUBLESHOOTING.md](TROUBLESHOOTING.md). If you'd
-rather run from source on Windows or macOS instead of using the desktop app, the
-same `scripts/install.ps1` / `scripts/install-macos.sh` + `scripts/setup.sh` flow
-documented for Linux still works.
+rather run from source instead of using the desktop app, the same
+`scripts/install.ps1` / `scripts/install-macos.sh` / `scripts/install.sh` +
+`scripts/setup.sh` flow documented for Linux still works.
 
 ## Quick Start
 
-Windows / macOS (desktop app):
+Windows / macOS / Linux desktop (desktop app):
 
 ```bash
 cd electron
 npm ci
-npm run dist
+npm run dist         # Windows / macOS
+npm run dist:linux   # Linux
 ```
 
 Then run the installer produced in `electron/dist/` (NSIS `.exe` on Windows, `.dmg`
-on macOS). The app walks you through setup on first launch — no terminal needed
-after this.
+on macOS, `.AppImage` or `.deb` on Linux). The app walks you through setup on
+first launch — no terminal needed after this.
 
-Linux / Raspberry Pi:
+Linux server / Raspberry Pi (from source):
 
 ```bash
 bash scripts/install.sh
@@ -129,12 +131,13 @@ npm run build:exe
 By default this builds the native executable for the current OS/CPU. The
 `Build Executables` GitHub Actions workflow builds and smoke-tests Linux x64
 and Raspberry Pi/Linux ARM64 artifacts on matching hosted runners, and
-separately builds the Windows/macOS Electron installers as a packaging check.
+separately builds the Windows/macOS/Linux Electron installers as a packaging check.
 
-Windows and macOS desktop app packaging:
+Desktop app packaging (run on the matching OS):
 
 ```bash
-cd electron && npm ci && npm run dist
+cd electron && npm ci && npm run dist         # Windows / macOS
+cd electron && npm ci && npm run dist:linux   # Linux (AppImage + deb)
 ```
 
 ## Project Layout
@@ -151,7 +154,7 @@ src/
   middleware/           CSRF and rate limit middleware
   scanner/              vault watcher, adapters, ffprobe metadata
   setup/                shared .env/folder provisioning (Electron wizard + setup.sh)
-electron/               Windows/macOS desktop app (Electron + electron-builder)
+electron/               Windows/macOS/Linux desktop app (Electron + electron-builder)
 scripts/
   install.ps1           Windows source-install (alternative to the desktop app)
   install-macos.sh      macOS source-install (alternative to the desktop app)

@@ -112,12 +112,20 @@ jobs:
         include:
           - label: Windows
             os: windows-latest
+            dist-command: npm run dist
             artifact-glob: electron/dist/*.exe
           - label: macOS
             os: macos-latest
+            dist-command: npm run dist
             artifact-glob: |
               electron/dist/*.dmg
               electron/dist/*.zip
+          - label: Linux
+            os: ubuntu-24.04
+            dist-command: npm run dist:linux
+            artifact-glob: |
+              electron/dist/*.AppImage
+              electron/dist/*.deb
 
     steps:
       - name: Check out repository
@@ -137,7 +145,7 @@ jobs:
         working-directory: electron
 
       - name: Build Electron installer
-        run: npm run dist
+        run: ${{ matrix.dist-command }}
         working-directory: electron
 
       - name: Upload Electron installer

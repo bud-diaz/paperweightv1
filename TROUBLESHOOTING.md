@@ -112,6 +112,32 @@ damaged or from an unidentified developer. Either:
 
 This is a one-time step per install; it does not recur on subsequent launches.
 
+## Linux Desktop App Won't Launch Or Has No Tray Icon
+
+The AppImage must be marked executable before it will run:
+
+```bash
+chmod +x Paperweight-*.AppImage
+./Paperweight-*.AppImage
+```
+
+If the AppImage exits immediately with a FUSE error, install the FUSE 2
+compatibility library (Ubuntu 22.04 and later ship only FUSE 3 by default):
+
+```bash
+sudo apt-get install libfuse2t64   # Ubuntu 24.04+; use libfuse2 on 22.04
+```
+
+The `.deb` install (`sudo apt install ./paperweight-desktop_*.deb`) avoids the
+FUSE requirement and adds Paperweight to the application menu.
+
+The tray icon requires AppIndicator support. Ubuntu's default GNOME session
+ships with it enabled; on stock GNOME distributions install and enable the
+"AppIndicator and KStatusNotifierItem Support" extension. Closing the window
+hides the app to the tray without stopping the broadcast — if you have no tray
+icon, relaunch the app to bring the window back (it is single-instance, so a
+second launch just reopens the existing window).
+
 ## Raspberry Pi Runs Hot Or Slow
 
 - Use a 64-bit OS.

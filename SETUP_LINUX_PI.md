@@ -1,6 +1,15 @@
 # Paperweight Linux / Raspberry Pi Setup
 
-This guide installs Paperweight on Debian, Ubuntu, Raspberry Pi OS 64-bit, or an Ubuntu-based mini PC.
+This guide installs Paperweight from source on Debian, Ubuntu, Raspberry Pi OS 64-bit, or an Ubuntu-based mini PC.
+
+> **Running a desktop?** If your Linux machine has a graphical desktop (Ubuntu
+> Desktop and similar), you can use the Paperweight desktop app instead of a
+> source install: build or download the AppImage/`.deb`
+> (`cd electron && npm ci && npm run dist:linux`), install FFmpeg
+> (`sudo apt-get install -y ffmpeg`), and launch the app — it walks you through
+> setup graphically, no terminal needed afterwards. The rest of this guide
+> covers the source install, which is the right choice for servers, headless
+> boxes, and Raspberry Pi.
 
 ## Requirements
 
