@@ -6,6 +6,7 @@ const config = require('../config');
 const { paymentLimiter } = require('../middleware/rateLimiter');
 const { cloudOnly } = require('../middleware/cloudGate');
 const asyncHandler = require('../middleware/asyncHandler');
+const { publicBaseUrl } = require('../runtime/base-url');
 
 const VALID_TIERS = new Set(['subscriber', 'pro', 'all_access']);
 
@@ -232,7 +233,7 @@ router.post('/portal', paymentLimiter, asyncHandler(async (req, res) => {
     const customer = typeof stripeSub.customer === 'string' ? stripeSub.customer : stripeSub.customer?.id;
     if (!customer) return res.status(502).json({ error: 'Stripe subscription has no customer attached' });
 
-    const base = config.station.publicUrl || `${req.protocol}://${req.get('host')}`;
+    const base = publicBaseUrl(req);
     const session = await stripe.billingPortal.sessions.create({
       customer,
       return_url: `${base}/#player`,
@@ -291,7 +292,7 @@ async function handleStripeCheckout(req, res, tier) {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${config.station.publicUrl || req.headers.origin || `${req.protocol}://${req.get('host')}`}/payment/success?session_id={CHECKOUT_SESSION_ID}&tier=${tier}`,
+      success_url: `${publicBaseUrl(req)}/payment/success?session_id={CHECKOUT_SESSION_ID}&tier=${tier}`,
       cancel_url: `paperweightplay://payment/cancel`,
       metadata: {
         listener_id: String(req.tokenRow.listener_id),
@@ -341,7 +342,7 @@ async function handlePayPalCheckout(req, res, tier) {
         plan_id: planId,
         custom_id: `${req.tokenRow.listener_id}:${tier}`,
         application_context: {
-          return_url: `${config.station.publicUrl || ''}/payment/success?tier=${tier}`,
+          return_url: `${publicBaseUrl(req)}/payment/success?tier=${tier}`,
           cancel_url: 'paperweightplay://payment/cancel',
           user_action: 'SUBSCRIBE_NOW',
         },
@@ -499,7 +500,7 @@ router.get('/checkout-url', paymentLimiter, asyncHandler(async (req, res) => {
     const db = getDb();
     const nonce = newCheckoutNonce();
     const listenerId = req.tokenRow?.listener_id || createPendingListener(db, nonce);
-    const base = config.station.publicUrl || `http://localhost:${config.port}`;
+    const base = publicBaseUrl(req);
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -627,8 +628,7 @@ router.post('/tip', paymentLimiter, asyncHandler(async (req, res) => {
 
   try {
     const stripe      = require('stripe')(stripeKey);
-    const base        = config.station.publicUrl
-      || `${req.protocol}://${req.get('host')}`;
+    const base        = publicBaseUrl(req);
     const stationName = config.station.name || 'the station';
 
     const session = await stripe.checkout.sessions.create({

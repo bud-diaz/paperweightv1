@@ -21,6 +21,8 @@ const asyncHandler = require('../middleware/asyncHandler');
 const { clearArtworkCache, ARTWORK_DIR } = require('./library');
 const { validateSlug } = require('../auth/reserved-slugs');
 const { resolvesToBlockedAddress } = require('../runtime/net-guard');
+const { isValidExternalHttpUrl } = require('../runtime/base-url');
+const { IMAGE_MIMES, IMAGE_EXTS, sniffImageFile } = require('../runtime/images');
 
 router.use(requireDashboard);
 
@@ -90,16 +92,13 @@ const upload = multer({
   },
 });
 
-const ARTWORK_IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-const ARTWORK_IMG_EXTS = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif' };
-
 const artworkStorage = multer.diskStorage({
   destination(req, file, cb) {
     fs.mkdirSync(ARTWORK_DIR, { recursive: true });
     cb(null, ARTWORK_DIR);
   },
   filename(req, file, cb) {
-    const ext = ARTWORK_IMG_EXTS[file.mimetype] || '.jpg';
+    const ext = IMAGE_EXTS[file.mimetype] || '.jpg';
     cb(null, `${req.params.id}_tmp_${Date.now()}${ext}`);
   },
 });
@@ -108,10 +107,14 @@ const uploadArtwork = multer({
   storage: artworkStorage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter(req, file, cb) {
-    if (ARTWORK_IMAGE_MIMES.has(file.mimetype)) cb(null, true);
+    if (IMAGE_MIMES.has(file.mimetype)) cb(null, true);
     else cb(new Error('Only image files are accepted for artwork'));
   },
 });
+
+function removeFile(filepath) {
+  try { if (filepath) fs.unlinkSync(filepath); } catch {}
+}
 
 // ─── Vault stats ─────────────────────────────────────────────────────────────
 
@@ -233,6 +236,10 @@ router.patch('/media/:id', (req, res) => {
     params.push(visibility);
   }
 
+  if (artwork_url !== undefined && artwork_url !== '' && artwork_url !== null && !isValidExternalHttpUrl(artwork_url)) {
+    return res.status(400).json({ error: 'artwork_url must be an http or https URL' });
+  }
+
   for (const [field, val] of Object.entries({ title, artist, album, producer, credits, artwork_url })) {
     if (val !== undefined) {
       setClauses.push(`${field} = ?`);
@@ -256,29 +263,38 @@ router.patch('/media/:id', (req, res) => {
 });
 
 // POST /api/dashboard/media/:id/artwork — upload an image file as artwork
-router.post('/media/:id/artwork', uploadArtwork.single('artwork'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No image file provided' });
+router.post('/media/:id/artwork', (req, res) => {
+  uploadArtwork.single('artwork')(req, res, err => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'No image file provided' });
 
-  const id    = req.params.id;
-  const ext   = ARTWORK_IMG_EXTS[req.file.mimetype] || '.jpg';
-  // Remove any existing uploaded artwork for this id (all extensions)
-  for (const e of Object.values(ARTWORK_IMG_EXTS)) {
-    const old = path.join(ARTWORK_DIR, `${id}${e}`);
-    if (fs.existsSync(old)) { try { fs.unlinkSync(old); } catch {} }
-  }
+    const detectedMime = sniffImageFile(req.file.path);
+    if (!detectedMime || !IMAGE_MIMES.has(detectedMime)) {
+      removeFile(req.file.path);
+      return res.status(400).json({ error: 'Uploaded artwork is not a supported image file' });
+    }
 
-  // Move tmp file to canonical name
-  const dest = path.join(ARTWORK_DIR, `${id}${ext}`);
-  try {
-    fs.renameSync(req.file.path, dest);
-  } catch {
-    fs.copyFileSync(req.file.path, dest);
-    fs.unlinkSync(req.file.path);
-  }
+    const id    = req.params.id;
+    const ext   = IMAGE_EXTS[detectedMime];
+    // Remove any existing uploaded artwork for this id (all extensions)
+    for (const e of Object.values(IMAGE_EXTS)) {
+      const old = path.join(ARTWORK_DIR, `${id}${e}`);
+      if (fs.existsSync(old)) removeFile(old);
+    }
 
-  clearArtworkCache(id);
-  log('info', 'dashboard', `Artwork uploaded for media ${id}`);
-  res.json({ ok: true, artworkUrl: `/api/library/${id}/artwork` });
+    // Move tmp file to canonical name
+    const dest = path.join(ARTWORK_DIR, `${id}${ext}`);
+    try {
+      fs.renameSync(req.file.path, dest);
+    } catch {
+      fs.copyFileSync(req.file.path, dest);
+      removeFile(req.file.path);
+    }
+
+    clearArtworkCache(id);
+    log('info', 'dashboard', `Artwork uploaded for media ${id}`);
+    res.json({ ok: true, artworkUrl: `/api/library/${id}/artwork` });
+  });
 });
 
 // ─── Tip configuration ────────────────────────────────────────────────────────

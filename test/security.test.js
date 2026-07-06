@@ -9,11 +9,16 @@ process.env.DOWNLOAD_SIGNING_SECRET = 'test-download-secret';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
-const { freshDb, getDb } = require('./helpers');
+const { freshDb, getDb, seedMedia } = require('./helpers');
 const { createToken, validateToken } = require('../src/auth');
 const { computeTOTP } = require('../src/auth/totp');
 const { createApp } = require('../src/index');
+const config = require('../src/config');
+const { ARTWORK_DIR } = require('../src/api/library');
+const { publicBaseUrl } = require('../src/runtime/base-url');
 
 const DASH_HEADER = { 'X-Dashboard-Token': 'test-dashboard-token', 'Content-Type': 'application/json' };
 
@@ -35,6 +40,14 @@ async function json(baseUrl, pathname, options = {}) {
   let body = null;
   try { body = text ? JSON.parse(text) : null; } catch {}
   return { res, body };
+}
+
+function cookieValue(setCookie) {
+  return String(setCookie || '').split(';')[0];
+}
+
+function escapeRe(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function currentTotp(secret) {
@@ -108,4 +121,147 @@ test('2FA recovery codes validate, and TOTP codes cannot be replayed', async () 
     });
     assert.equal(replay.res.status, 401);
   });
+});
+
+test('dashboard password reset links ignore poisoned Host headers', async () => {
+  const db = freshDb();
+  const listener = db.prepare(
+    'INSERT INTO listener_accounts (email, password_hash) VALUES (?, ?)'
+  ).run('reset@example.com', 'x');
+
+  await withServer(async baseUrl => {
+    const link = await json(baseUrl, `/api/dashboard/accounts/${listener.lastInsertRowid}/reset-link`, {
+      method: 'POST',
+      headers: {
+        ...DASH_HEADER,
+        Host: 'evil.example',
+      },
+    });
+    assert.equal(link.res.status, 200);
+    assert.match(link.body.url, new RegExp(`^${escapeRe(publicBaseUrl())}/#reset=[0-9a-f]{64}$`));
+    assert.ok(!link.body.url.includes('evil.example'));
+  });
+});
+
+test('generated station icon escapes XML text content', async () => {
+  freshDb();
+  const originalName = config.station.name;
+  config.station.name = '<svg onload=alert(1)>';
+  try {
+    await withServer(async baseUrl => {
+      const res = await fetch(`${baseUrl}/icon.png`);
+      const body = await res.text();
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+      assert.match(body, /&lt;/);
+      assert.ok(!body.includes('<text x="256" y="310" text-anchor="middle" font-family="Georgia,serif" font-size="220" fill="#ffffff"><'));
+    });
+  } finally {
+    config.station.name = originalName;
+  }
+});
+
+test('artwork URLs only redirect to valid http and https URLs', async () => {
+  const db = freshDb();
+  const media = seedMedia(db, { filepath: path.join(config.vault.path, 'missing-artwork.mp3') });
+
+  await withServer(async baseUrl => {
+    const cases = ['javascript:alert(1)', '//evil.example/art.jpg', 'http://[broken'];
+    for (const artworkUrl of cases) {
+      db.prepare('UPDATE media SET artwork_url = ? WHERE id = ?').run(artworkUrl, media.id);
+      const denied = await fetch(`${baseUrl}/api/library/${media.id}/artwork`, { redirect: 'manual' });
+      assert.equal(denied.status, 404);
+      assert.equal(denied.headers.get('location'), null);
+    }
+
+    db.prepare('UPDATE media SET artwork_url = ? WHERE id = ?').run('https://cdn.example/art.jpg', media.id);
+    const allowed = await fetch(`${baseUrl}/api/library/${media.id}/artwork`, { redirect: 'manual' });
+    assert.equal(allowed.status, 302);
+    assert.equal(allowed.headers.get('location'), 'https://cdn.example/art.jpg');
+  });
+});
+
+test('dashboard rejects invalid artwork_url updates', async () => {
+  const db = freshDb();
+  const media = seedMedia(db);
+
+  await withServer(async baseUrl => {
+    const rejected = await json(baseUrl, `/api/dashboard/media/${media.id}`, {
+      method: 'PATCH',
+      headers: DASH_HEADER,
+      body: JSON.stringify({ artwork_url: 'javascript:alert(1)' }),
+    });
+    assert.equal(rejected.res.status, 400);
+
+    const accepted = await json(baseUrl, `/api/dashboard/media/${media.id}`, {
+      method: 'PATCH',
+      headers: DASH_HEADER,
+      body: JSON.stringify({ artwork_url: 'https://cdn.example/art.jpg' }),
+    });
+    assert.equal(accepted.res.status, 200);
+  });
+});
+
+test('spoofed artwork image uploads are rejected and temp files are removed', async () => {
+  freshDb();
+  fs.mkdirSync(ARTWORK_DIR, { recursive: true });
+
+  await withServer(async baseUrl => {
+    const form = new FormData();
+    form.append('artwork', new Blob(['not an image'], { type: 'image/png' }), 'spoof.png');
+    const res = await fetch(`${baseUrl}/api/dashboard/media/123/artwork`, {
+      method: 'POST',
+      headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+      body: form,
+    });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.match(body.error, /not a supported image file/);
+    const leftovers = fs.readdirSync(ARTWORK_DIR).filter(name => name.includes('_tmp_'));
+    assert.deepEqual(leftovers, []);
+  });
+});
+
+test('listener token logout paths clear cookies with matching attributes', async () => {
+  freshDb();
+  const originalHttps = config.https;
+  config.https = true;
+  try {
+    await withServer(async baseUrl => {
+      const tokenLogout = await fetch(`${baseUrl}/api/tokens/logout`, { method: 'POST' });
+      const tokenCookie = tokenLogout.headers.get('set-cookie');
+      assert.match(tokenCookie, /^pw_token=/);
+      assert.match(tokenCookie, /Secure/);
+      assert.match(tokenCookie, /SameSite=Strict/);
+      assert.match(tokenCookie, /Expires=Thu, 01 Jan 1970 00:00:00 GMT/);
+
+      const register = await json(baseUrl, '/api/listener/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'delete@example.com', password: 'password123' }),
+      });
+      assert.equal(register.res.status, 201);
+
+      const listenerLogout = await fetch(`${baseUrl}/api/listener/logout`, { method: 'POST' });
+      const listenerCookie = listenerLogout.headers.get('set-cookie');
+      assert.match(listenerCookie, /Secure/);
+      assert.match(listenerCookie, /SameSite=Strict/);
+
+      const accountDelete = await fetch(`${baseUrl}/api/listener/account`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${register.body.token}`,
+        },
+        body: JSON.stringify({ password: 'password123' }),
+      });
+      assert.equal(accountDelete.status, 200);
+      const accountCookie = accountDelete.headers.get('set-cookie');
+      assert.equal(cookieValue(accountCookie), 'pw_token=');
+      assert.match(accountCookie, /Secure/);
+      assert.match(accountCookie, /SameSite=Strict/);
+    });
+  } finally {
+    config.https = originalHttps;
+  }
 });

@@ -4,6 +4,7 @@ const { getDb, log } = require('../db');
 const { requireDashboard } = require('../auth/middleware');
 const { formatItem, signDownloadUrl } = require('./library');
 const asyncHandler = require('../middleware/asyncHandler');
+const { publicBaseUrl } = require('../runtime/base-url');
 
 const dashRouter = require('express').Router();
 
@@ -12,7 +13,7 @@ function generateToken() {
 }
 
 function publicShareUrl(req, token) {
-  return `${req.protocol}://${req.get('host')}/share/${token}`;
+  return `${publicBaseUrl(req)}/share/${token}`;
 }
 
 function isExpired(row) {

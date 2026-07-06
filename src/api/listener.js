@@ -9,6 +9,7 @@ const asyncHandler = require('../middleware/asyncHandler');
 const config = require('../config');
 const { isEmailConfigured, sendMail } = require('../email');
 const { publicBaseUrl } = require('../runtime/base-url');
+const { listenerCookieOpts, clearListenerCookie } = require('../auth/cookies');
 
 const BCRYPT_ROUNDS = 10;
 
@@ -16,15 +17,6 @@ const BCRYPT_ROUNDS = 10;
 
 function generateToken() {
   return crypto.randomBytes(32).toString('hex');
-}
-
-function cookieOpts(req) {
-  return {
-    httpOnly: true,
-    secure: config.https || !!(req && req.secure),
-    sameSite: 'Strict',
-    maxAge: 365 * 24 * 60 * 60 * 1000,
-  };
 }
 
 // Mints a fresh per-login token for the listener and stores only its hash.
@@ -97,7 +89,7 @@ router.post('/register', authLimiter, asyncHandler(async (req, res) => {
     const listenerId = info.lastInsertRowid;
     const issued = issueToken(db, listenerId, 'free');
 
-    res.cookie('pw_token', issued.token, cookieOpts(req));
+    res.cookie('pw_token', issued.token, listenerCookieOpts(req));
     res.status(201).json({ token: issued.token, tier: issued.tier });
   } catch (err) {
     res.status(500).json({ error: 'Registration failed' });
@@ -136,7 +128,7 @@ router.post('/login', authLimiter, asyncHandler(async (req, res) => {
     const sub = getActiveSubscription(db, account.id);
     const tier = sub ? sub.tier : issued.tier;
 
-    res.cookie('pw_token', issued.token, cookieOpts(req));
+    res.cookie('pw_token', issued.token, listenerCookieOpts(req));
     res.json({ token: issued.token, tier });
   } catch (err) {
     res.status(500).json({ error: 'Login failed' });
@@ -146,7 +138,7 @@ router.post('/login', authLimiter, asyncHandler(async (req, res) => {
 // POST /api/listener/logout
 // Clears the pw_token cookie for web clients.
 router.post('/logout', (req, res) => {
-  res.clearCookie('pw_token');
+  clearListenerCookie(res, req);
   res.json({ ok: true });
 });
 
@@ -355,7 +347,7 @@ router.delete('/account', authLimiter, asyncHandler(async (req, res) => {
       .run(`deleted-${account.id}@account.invalid`, crypto.randomBytes(32).toString('hex'), account.id);
   })();
 
-  res.clearCookie('pw_token');
+  clearListenerCookie(res, req);
   log('info', 'listener', `Listener account #${account.id} deleted at owner request`);
   res.json({ ok: true, warnings: cancelWarnings.length ? cancelWarnings : undefined });
 }));

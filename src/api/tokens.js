@@ -1,19 +1,8 @@
 const router = require('express').Router();
 const { validateToken } = require('../auth');
-const config = require('../config');
 const { isSubscriberTier } = require('../auth/access');
 const { tokenRedeemLimiter } = require('../middleware/rateLimiter');
-
-const COOKIE_NAME = 'pw_token';
-
-function cookieOpts(req) {
-  return {
-    httpOnly: true,
-    secure: config.https || !!(req && req.secure),
-    sameSite: 'Strict',
-    maxAge: 365 * 24 * 60 * 60 * 1000,
-  };
-}
+const { LISTENER_COOKIE_NAME, listenerCookieOpts, clearListenerCookie } = require('../auth/cookies');
 
 // POST /api/tokens/redeem
 // Body: { token: string }
@@ -29,13 +18,13 @@ router.post('/redeem', tokenRedeemLimiter, (req, res) => {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
-  res.cookie(COOKIE_NAME, token.trim(), cookieOpts(req));
+  res.cookie(LISTENER_COOKIE_NAME, token.trim(), listenerCookieOpts(req));
   res.json({ tier: row.tier });
 });
 
 // POST /api/tokens/logout
 router.post('/logout', (req, res) => {
-  res.clearCookie(COOKIE_NAME);
+  clearListenerCookie(res, req);
   res.json({ ok: true });
 });
 

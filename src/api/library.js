@@ -12,6 +12,8 @@ const { normalizeUnlockOptions } = require('./vault');
 const { previewLimiter } = require('../middleware/rateLimiter');
 const { safeVaultPath } = require('./safeVaultPath');
 const asyncHandler = require('../middleware/asyncHandler');
+const { isValidExternalHttpUrl } = require('../runtime/base-url');
+const { setImageHeaders } = require('../runtime/images');
 
 const PREVIEW_DIR = path.join(config.paths.hlsOutput, 'previews');
 const PREVIEW_DURATION = 60;
@@ -32,6 +34,11 @@ function findUploadedArtwork(id) {
     if (fs.existsSync(p)) return { filepath: p, mime: ARTWORK_MIME[ext] };
   }
   return null;
+}
+
+function redirectArtworkUrl(res, rawUrl) {
+  if (!isValidExternalHttpUrl(rawUrl)) return res.status(404).end();
+  return res.redirect(302, rawUrl);
 }
 
 function clearArtworkCache(id) {
@@ -467,22 +474,24 @@ router.get('/:id/artwork', (req, res) => {
   // Check for a manually uploaded artwork file first (overrides embedded + url)
   const uploaded = findUploadedArtwork(id);
   if (uploaded) {
-    res.setHeader('Content-Type', uploaded.mime);
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    setImageHeaders(res, uploaded.mime);
     return res.end(fs.readFileSync(uploaded.filepath));
   }
 
   if (artworkCache.has(id)) {
     const buf = artworkCache.get(id);
-    if (!buf) return res.status(404).end();
-    res.setHeader('Content-Type', 'image/jpeg');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    if (!buf) {
+      if (row.artwork_url) return redirectArtworkUrl(res, row.artwork_url);
+      return res.status(404).end();
+    }
+    setImageHeaders(res, 'image/jpeg');
     return res.end(buf);
   }
 
   const filepath = safeVaultPath(row.filepath);
   if (!filepath || !fs.existsSync(filepath)) {
     artworkCache.set(id, null);
+    if (row.artwork_url) return redirectArtworkUrl(res, row.artwork_url);
     return res.status(404).end();
   }
 
@@ -509,7 +518,7 @@ router.get('/:id/artwork', (req, res) => {
     artworkPending.delete(id);
     if (!buf && row.artwork_url) {
       // Fall back to the manually specified artwork URL
-      for (const r of pending) r.redirect(302, row.artwork_url);
+      for (const r of pending) redirectArtworkUrl(r, row.artwork_url);
       return;
     }
     if (artworkCache.size >= MAX_ARTWORK_CACHE) {
@@ -518,8 +527,7 @@ router.get('/:id/artwork', (req, res) => {
     artworkCache.set(id, buf);
     for (const r of pending) {
       if (!buf) { r.status(404).end(); continue; }
-      r.setHeader('Content-Type', 'image/jpeg');
-      r.setHeader('Cache-Control', 'public, max-age=3600');
+      setImageHeaders(r, 'image/jpeg');
       r.end(buf);
     }
   }
