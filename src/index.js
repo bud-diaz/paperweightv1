@@ -113,6 +113,18 @@ function relaxCspForLanding(req, res, next) {
   next();
 }
 
+const LISTEN_CSP =
+  "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+  "img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; " +
+  "connect-src 'self' https://system.paperweighthq.com; frame-src https:; " +
+  "object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
+
+function relaxCspForListen(req, res, next) {
+  res.setHeader('Content-Security-Policy', LISTEN_CSP);
+  next();
+}
+
 function createApp() {
   const app = express();
   if (config.trustProxy !== false) {
@@ -223,6 +235,7 @@ function createApp() {
   app.get('/landing/license',               relaxCspForLanding, serveLanding('/landing/license.html',               'license.html'));
   app.get('/landing/content-responsibility', relaxCspForLanding, serveLanding('/landing/content-responsibility.html', 'content-responsibility.html'));
   app.get('/landing/download',               relaxCspForLanding, serveLanding('/landing/download.html',               'download.html'));
+  app.get('/landing/listen',                 relaxCspForListen,  serveLanding('/landing/listen.html',                 'listen.html'));
 
   app.get('/manifest.json', (req, res) => {
     const name = config.station.name || 'Paperweight';

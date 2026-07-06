@@ -7,9 +7,45 @@ import { el, esc } from '../utils.js';
 
 export function init() {}
 
+function renderSearchableControls(data) {
+  const toggle = el('set-station-searchable');
+  const hint = el('station-searchable-hint');
+  const msg = el('station-searchable-msg');
+  const requirements = data.requirements || {};
+  const missing = [];
+
+  toggle.checked = !!data.searchable;
+  msg.textContent = '';
+  msg.className = '';
+
+  if (!requirements.cloudflareTunnel) missing.push('a Cloudflare tunnel token in .env');
+  if (!requirements.publicUrlSet) missing.push('a registered public URL');
+
+  toggle.disabled = missing.length > 0;
+
+  if (missing.length) {
+    hint.textContent = `Requires ${missing.join(' and ')}.`;
+    if (data.searchable) {
+      msg.className = 'dash-error-msg';
+      msg.textContent = `Searchability is on, but now missing ${missing.join(' and ')}. Directory removal follows the next telemetry update.`;
+    }
+  } else {
+    hint.textContent = 'Reachability is verified when you switch this on. Directory updates within ~5 minutes.';
+  }
+}
+
+function describeFailedChecks(checks = {}) {
+  const failed = [];
+  if (checks.cloudflareTunnel === false) failed.push('Cloudflare tunnel token missing');
+  if (checks.publicUrlSet === false) failed.push('public URL missing');
+  if (checks.reachable === false) failed.push('station unreachable');
+  return failed.length ? ` (${failed.join(', ')})` : '';
+}
+
 export async function loadDashStation() {
   try {
     const data = await api.dashboard.station.get();
+    renderSearchableControls(data);
     if (!data.slug) {
       el('station-unclaimed').hidden   = false;
       el('station-reg-content').hidden = true;
@@ -55,6 +91,38 @@ export async function checkStationHealth() {
 
 export function initStationHandlers() {
   el('btn-recheck-health').addEventListener('click', checkStationHealth);
+
+  el('set-station-searchable').addEventListener('change', async () => {
+    const toggle = el('set-station-searchable');
+    const msg = el('station-searchable-msg');
+    const checked = toggle.checked;
+    toggle.disabled = true;
+    msg.textContent = '';
+    msg.className = '';
+
+    try {
+      const { res, data } = await api.dashboard.station.setSearchable(checked);
+      if (res.ok) {
+        msg.className = 'dash-success-msg';
+        msg.textContent = checked
+          ? 'Station will appear in the directory within ~5 minutes.'
+          : 'Station will be removed from the directory within ~5 minutes.';
+        setTimeout(() => { msg.textContent = ''; }, 3000);
+      } else {
+        toggle.checked = !checked;
+        msg.className = 'dash-error-msg';
+        msg.textContent = `${data.error || 'Update failed'}${describeFailedChecks(data.checks)}`;
+        checkStationHealth();
+      }
+    } catch {
+      toggle.checked = !checked;
+      msg.className = 'dash-error-msg';
+      msg.textContent = 'Update failed';
+      checkStationHealth();
+    } finally {
+      toggle.disabled = false;
+    }
+  });
 
   el('btn-update-url').addEventListener('click', async () => {
     const url = el('station-url-input').value.trim();

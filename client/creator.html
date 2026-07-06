@@ -492,6 +492,15 @@
               <button class="mgmt-btn" id="btn-update-url">UPDATE</button>
             </div>
             <div id="station-url-msg"></div>
+            <div data-desktop-only style="padding:8px 0 2px;">
+              <label class="toggle-sw" title="List this station in the public Paperweight directory">
+                <input type="checkbox" id="set-station-searchable">
+                <span class="toggle-track"></span>
+                <span class="toggle-label">SEARCHABLE IN DIRECTORY</span>
+              </label>
+              <div id="station-searchable-hint" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;"></div>
+              <div id="station-searchable-msg"></div>
+            </div>
             <div class="dash-edit-label" style="margin-top:14px;">EXPORTS &amp; BACKUP</div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">
               <a class="mgmt-btn" href="/api/dashboard/export/subscribers.csv" download style="text-decoration:none;">SUBSCRIBERS CSV</a>

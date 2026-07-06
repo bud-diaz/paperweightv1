@@ -242,6 +242,7 @@ const config = {
     creatorDesc: process.env.CREATOR_DESC        || '',
     slug:        process.env.STATION_SLUG        || '',
     publicUrl:   process.env.STATION_PUBLIC_URL  || '',
+    cloudflareTunnel: !!(process.env.CLOUDFLARE_TUNNEL_TOKEN && process.env.CLOUDFLARE_TUNNEL_TOKEN.trim()),
   },
 
   externalSearch: {

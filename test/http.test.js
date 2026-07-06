@@ -195,6 +195,121 @@ test('telemetry reporter creates a stable anonymous install key', () => {
   assert.ok(fs.existsSync(_private.INSTALL_ID_FILE));
 });
 
+test('telemetry reporter includes directory searchability per payload', async () => {
+  freshDb();
+  const { setSetting } = require('../src/db/settings');
+  const { _private } = require('../src/telemetry/reporter');
+
+  setSetting('station_searchable', '1');
+  const payload = await _private.buildPayload();
+
+  assert.equal(payload.searchable, true);
+});
+
+test('station searchability route enforces desktop and enable requirements', async () => {
+  const db = freshDb();
+  const { getSetting, setSetting } = require('../src/db/settings');
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN, 'Content-Type': 'application/json' } };
+  const originalPlatform = config.platform;
+  const originalTunnel = config.station.cloudflareTunnel;
+  const originalPublicUrl = config.station.publicUrl;
+
+  try {
+    config.platform = 'desktop';
+    config.station.cloudflareTunnel = false;
+    config.station.publicUrl = '';
+
+    await withServer(async baseUrl => {
+      setSetting('station_searchable', '1');
+      const disable = await request(baseUrl, '/api/dashboard/station/searchable', {
+        method: 'PUT',
+        headers: auth.headers,
+        body: JSON.stringify({ enabled: false }),
+      });
+      assert.equal(disable.res.status, 200);
+      assert.equal(disable.body.searchable, false);
+      assert.equal(getSetting('station_searchable'), '0');
+
+      const noTunnel = await request(baseUrl, '/api/dashboard/station/searchable', {
+        method: 'PUT',
+        headers: auth.headers,
+        body: JSON.stringify({ enabled: true }),
+      });
+      assert.equal(noTunnel.res.status, 409);
+      assert.equal(noTunnel.body.checks.cloudflareTunnel, false);
+
+      config.station.cloudflareTunnel = true;
+      const noUrl = await request(baseUrl, '/api/dashboard/station/searchable', {
+        method: 'PUT',
+        headers: auth.headers,
+        body: JSON.stringify({ enabled: true }),
+      });
+      assert.equal(noUrl.res.status, 409);
+      assert.equal(noUrl.body.checks.publicUrlSet, false);
+
+      db.prepare("INSERT INTO station_registry (id, slug, url) VALUES (1, 'local-test', 'http://127.0.0.1:1')").run();
+      const privateUrl = await request(baseUrl, '/api/dashboard/station/searchable', {
+        method: 'PUT',
+        headers: auth.headers,
+        body: JSON.stringify({ enabled: true }),
+      });
+      assert.equal(privateUrl.res.status, 409);
+      assert.equal(privateUrl.body.checks.reachable, false);
+      assert.match(privateUrl.body.error, /private|reserved/i);
+
+      config.platform = 'web';
+      const web = await request(baseUrl, '/api/dashboard/station/searchable', {
+        method: 'PUT',
+        headers: auth.headers,
+        body: JSON.stringify({ enabled: false }),
+      });
+      assert.equal(web.res.status, 403);
+    });
+  } finally {
+    config.platform = originalPlatform;
+    config.station.cloudflareTunnel = originalTunnel;
+    config.station.publicUrl = originalPublicUrl;
+  }
+});
+
+test('dashboard station read includes searchability and requirements', async () => {
+  const db = freshDb();
+  const { setSetting } = require('../src/db/settings');
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN } };
+  const originalTunnel = config.station.cloudflareTunnel;
+
+  try {
+    config.station.cloudflareTunnel = true;
+    setSetting('station_searchable', '1');
+    db.prepare("INSERT INTO station_registry (id, slug, url) VALUES (1, 'station-test', 'https://station.example.com')").run();
+
+    await withServer(async baseUrl => {
+      const station = await request(baseUrl, '/api/dashboard/station', auth);
+      assert.equal(station.res.status, 200);
+      assert.equal(station.body.searchable, true);
+      assert.deepEqual(station.body.requirements, {
+        cloudflareTunnel: true,
+        publicUrlSet: true,
+      });
+    });
+  } finally {
+    config.station.cloudflareTunnel = originalTunnel;
+  }
+});
+
+test('listen landing page serves with directory CSP', async () => {
+  freshDb();
+  await withServer(async baseUrl => {
+    const page = await request(baseUrl, '/landing/listen');
+    assert.equal(page.res.status, 200);
+    assert.match(page.text, /id="station-frame"/);
+    const csp = page.res.headers.get('content-security-policy') || '';
+    assert.match(csp, /connect-src 'self' https:\/\/system\.paperweighthq\.com/);
+    assert.match(csp, /frame-src https:/);
+    assert.match(csp, /https:\/\/fonts\.googleapis\.com/);
+  });
+});
+
 test('HLS serves only the stream directory, not runtime work files', async () => {
   freshDb();
   const streamDir = path.join(config.paths.hlsOutput, 'stream');

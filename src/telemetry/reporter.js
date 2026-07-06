@@ -10,6 +10,8 @@
  * Station identity:
  *   STATION_KEY            — explicit stable identifier for this station
  *   STATION_SLUG           — used as the station key when present
+ *   searchable             — per-report opt-in flag for the public directory;
+ *                            see docs/system-pape-directory.md
  *
  * If neither STATION_KEY nor STATION_SLUG is set, Paperweight creates a stable
  * anonymous install key in DATA_PATH so first-launch telemetry can still be
@@ -27,6 +29,7 @@ const { getDb } = require('../db');
 const broadcast = require('../broadcast');
 const { getListenerCount } = require('../api/stream');
 const config = require('../config');
+const { getBoolSetting } = require('../db/settings');
 
 const PAPE_URL = process.env.PAPE_URL;
 const PAPE_TELEMETRY_SECRET = process.env.PAPE_TELEMETRY_SECRET;
@@ -86,7 +89,7 @@ async function buildPayload() {
       COUNT(*) AS totalTracks,
       SUM(CASE WHEN visibility = 'vault' THEN 1 ELSE 0 END) AS vaultTracks
     FROM media
-    WHERE status = 'ready'
+    WHERE is_active = 1
   `).get();
 
   const todayListeners = db.prepare(`
@@ -117,6 +120,8 @@ async function buildPayload() {
     stationKey: getStationKey(),
     slug: config.station?.slug || null,
     publicUrl,
+    // Read per report, never cache: turning this off must de-index on the next cycle.
+    searchable: getBoolSetting('station_searchable', false),
     version,
     platform: process.platform,
     listeners: getListenerCount(),
@@ -174,6 +179,7 @@ function start() {
 module.exports = {
   start,
   _private: {
+    buildPayload,
     getStationKey,
     readInstallKey,
     createInstallKey,

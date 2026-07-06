@@ -23,6 +23,7 @@ const { validateSlug } = require('../auth/reserved-slugs');
 const { resolvesToBlockedAddress } = require('../runtime/net-guard');
 const { isValidExternalHttpUrl } = require('../runtime/base-url');
 const { IMAGE_MIMES, IMAGE_EXTS, sniffImageFile } = require('../runtime/images');
+const { getBoolSetting, setSetting } = require('../db/settings');
 
 router.use(requireDashboard);
 
@@ -582,7 +583,17 @@ router.get('/station', (req, res) => {
   }
 
   if (!row) {
-    return res.json({ slug: null, url: null, claimedAt: null, updatedAt: null });
+    return res.json({
+      slug: null,
+      url: null,
+      claimedAt: null,
+      updatedAt: null,
+      searchable: getBoolSetting('station_searchable', false),
+      requirements: {
+        cloudflareTunnel: config.station.cloudflareTunnel,
+        publicUrlSet: false,
+      },
+    });
   }
 
   res.json({
@@ -590,6 +601,11 @@ router.get('/station', (req, res) => {
     url:       row.url,
     claimedAt: row.claimed_at,
     updatedAt: row.updated_at,
+    searchable: getBoolSetting('station_searchable', false),
+    requirements: {
+      cloudflareTunnel: config.station.cloudflareTunnel,
+      publicUrlSet: !!(row && row.url),
+    },
   });
 });
 
@@ -647,6 +663,40 @@ router.get('/station/health', asyncHandler(async (req, res) => {
 
   const result = await pingUrl(row.url);
   res.json({ ...result, checkedAt: new Date().toISOString() });
+}));
+
+// PUT /api/dashboard/station/searchable
+// Body: { enabled: boolean }
+router.put('/station/searchable', requireDesktop, asyncHandler(async (req, res) => {
+  const enabled = !!(req.body && req.body.enabled);
+
+  if (!enabled) {
+    setSetting('station_searchable', '0');
+    log('info', 'dashboard', 'Station directory searchability disabled');
+    return res.json({ ok: true, searchable: false });
+  }
+
+  const row = getDb().prepare('SELECT url FROM station_registry WHERE id = 1').get();
+  const publicUrl = (row && row.url) || config.station.publicUrl || null;
+  const checks = {
+    cloudflareTunnel: config.station.cloudflareTunnel,
+    publicUrlSet: !!publicUrl,
+    reachable: false,
+  };
+
+  if (!checks.cloudflareTunnel || !checks.publicUrlSet) {
+    return res.status(409).json({ error: 'Requirements not met', checks });
+  }
+
+  const ping = await pingUrl(publicUrl);
+  checks.reachable = ping.reachable === true;
+  if (!checks.reachable) {
+    return res.status(409).json({ error: ping.error || 'Station not reachable from the outside', checks });
+  }
+
+  setSetting('station_searchable', '1');
+  log('info', 'dashboard', 'Station directory searchability enabled');
+  res.json({ ok: true, searchable: true, checks });
 }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
