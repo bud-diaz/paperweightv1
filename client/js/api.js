@@ -444,6 +444,15 @@ export const dashboard = {
     updateUrl(url) {
       return _send('/api/dashboard/station/url', { url }, 'PUT');
     },
+
+    /**
+     * PUT /api/dashboard/station/searchable
+     * @param {boolean} enabled
+     * @returns {{ res: Response, data: { error?: string, checks?: object } }}
+     */
+    setSearchable(enabled) {
+      return _send('/api/dashboard/station/searchable', { enabled }, 'PUT');
+    },
   },
 
   // ── Media ──────────────────────────────────────────────────────────────────────

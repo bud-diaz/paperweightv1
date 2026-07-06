@@ -51,7 +51,7 @@ Current migration sequence:
 
 `001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments -> `010` webhook idempotency -> `011` payment idempotency -> `012` dashboard 2FA -> `013` creator profile -> `014` launch acceptance -> `015` download leads -> `016` highlight -> `017` share links -> `018` smart playlists -> `019` creator posts -> `020` download lead opt-in -> `021` pending checkouts -> `022` download events -> `023` password resets -> `024` app settings.
 
-The source of truth for migrations is the inline SQL in `src/db/migrations/index.js`; the standalone `.sql` files are documentation copies. Small creator-configurable flags (notify webhook URL, feed enablement) live in the `app_settings` key/value table via `src/db/settings.js`.
+The source of truth for migrations is the inline SQL in `src/db/migrations/index.js`; the standalone `.sql` files are documentation copies. Small creator-configurable flags (notify webhook URL, feed enablement, `station_searchable`) live in the `app_settings` key/value table via `src/db/settings.js`.
 
 Never add recurring destructive SQL to a migration file. Do not use `DROP TABLE media` or table rebuilds in automatically applied SQL migrations.
 
@@ -99,6 +99,10 @@ Runtime data:
 - `hls_output/`
 
 The SPA fallback checks `dataRoot/client/creator.html` before the bundled frontend so users can override frontend files next to the executable.
+
+`PUT /api/dashboard/station/searchable` is desktop-only and verifies Cloudflare tunnel configuration, public URL registration, and external reachability before enabling directory searchability.
+
+`landing/listen.html` is the standalone public station search/player page; Express serves it at `/landing/listen`, while Vercel clean URLs serve it as `/listen`.
 
 ## Before Packaging
 

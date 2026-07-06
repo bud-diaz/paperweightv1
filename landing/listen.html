@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Paperweight Listen</title>
+<meta name="description" content="Search and play public Paperweight stations.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080808;--bg2:#0d0d0d;--text:#f4f1e8;--t-mid:rgba(244,241,232,.68);
+  --t-muted:rgba(244,241,232,.44);--border:rgba(244,241,232,.12);
+  --neon:#39ff14;--discord:#5865F2;--serif:'DM Serif Display',serif;--mono:'Space Mono',monospace;
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh;overflow-x:hidden}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:100;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")}
+body:after{content:"";position:fixed;inset:-20%;pointer-events:none;z-index:-1;background:radial-gradient(circle at 50% 8%,rgba(57,255,20,.13),transparent 34%),radial-gradient(circle at 20% 70%,rgba(88,101,242,.09),transparent 30%);filter:blur(18px)}
+a{color:inherit}.nav{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:18px;padding:18px clamp(18px,4vw,48px);background:linear-gradient(to bottom,rgba(8,8,8,.9),rgba(8,8,8,.45),transparent);backdrop-filter:blur(8px)}
+.nav-brand{font-family:var(--serif);font-size:23px;text-decoration:none;letter-spacing:-.02em;margin-right:auto}.nav-link,.nav-cta{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;text-decoration:none;color:var(--t-mid)}
+.nav-cta{border:1px solid rgba(57,255,20,.42);color:var(--neon);padding:9px 13px;border-radius:4px;background:rgba(57,255,20,.06)}.nav-cta:hover{background:rgba(57,255,20,.12)}
+.shell{min-height:100vh;display:grid;place-items:center;padding:96px 18px 36px}.intro{text-align:center;max-width:720px;margin:0 auto 28px}.eyebrow{display:inline-flex;align-items:center;gap:9px;color:var(--neon);font-size:10px;text-transform:uppercase;letter-spacing:.2em;margin-bottom:18px}.live-dot{width:7px;height:7px;border-radius:50%;background:var(--neon);box-shadow:0 0 12px var(--neon)}
+h1{font-family:var(--serif);font-weight:400;font-size:clamp(3rem,8vw,6rem);line-height:1;margin:0 0 18px;letter-spacing:-.03em}.intro p{margin:0 auto;color:var(--t-mid);line-height:1.8;font-size:14px;max-width:560px}
+.mock-card{width:min(100%,560px);margin:0 auto;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.035));border:1px solid var(--border);border-radius:14px;box-shadow:0 30px 90px rgba(0,0,0,.5),0 0 0 1px rgba(57,255,20,.04);overflow:hidden;position:relative}
+.mc-topbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:14px 16px 0}.mc-wordmark{font-family:var(--serif);font-size:16px;letter-spacing:-.02em}
+.mc-view-toggle{display:flex;align-items:center;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;overflow:hidden}.mc-view-tab{font-family:var(--mono);font-size:8px;letter-spacing:.1em;padding:5px 13px;color:var(--t-muted);text-transform:uppercase;border:0;background:transparent;cursor:pointer}.mc-view-tab.active{background:rgba(255,255,255,.1);color:var(--text)}
+.mc-live-badge{display:inline-flex;align-items:center;gap:5px;justify-self:end;background:var(--neon);border-radius:3px;padding:2px 7px;font-size:9px;font-weight:700;letter-spacing:.1em;color:#000}.mc-live-badge-dot{width:5px;height:5px;border-radius:50%;background:#000}
+.pane{padding:16px}.search-box{display:flex;gap:8px;margin-bottom:12px}.search-box input{width:100%;border:1px solid rgba(244,241,232,.14);background:#070707;color:var(--text);border-radius:6px;padding:12px 13px;font:12px var(--mono);outline:none}.search-box input:focus{border-color:rgba(57,255,20,.55);box-shadow:0 0 0 2px rgba(57,255,20,.08)}
+.results{display:grid;gap:8px;min-height:280px}.result-row{width:100%;text-align:left;border:1px solid rgba(244,241,232,.11);background:rgba(255,255,255,.035);border-radius:8px;padding:12px;cursor:pointer;color:var(--text);font:inherit}.result-row:hover{border-color:rgba(57,255,20,.38);background:rgba(57,255,20,.06)}
+.result-top{display:flex;align-items:center;gap:8px;min-width:0}.station-name{font-family:var(--serif);font-size:22px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.station-slug{font-size:10px;color:var(--t-muted);margin-top:2px}.listener-count{margin-left:auto;color:var(--t-muted);font-size:10px;white-space:nowrap}.now-playing{font-size:11px;color:var(--t-mid);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.state{display:grid;place-items:center;text-align:center;min-height:280px;border:1px dashed rgba(244,241,232,.12);border-radius:8px;color:var(--t-muted);font-size:12px;line-height:1.7;padding:20px}.player-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.player-title{font-family:var(--serif);font-size:25px;line-height:1.1}.player-url{font-size:10px;color:var(--t-muted);margin-top:4px}
+.frame-wrap{background:#050505;border:1px solid rgba(57,255,20,.18);border-radius:10px;overflow:hidden;min-height:300px}.frame-wrap iframe{display:block;width:100%;height:420px;border:0;background:#050505}.open-link{display:inline-flex;margin-top:12px;color:var(--neon);text-decoration:none;font-size:11px;text-transform:uppercase;letter-spacing:.08em}.open-link[hidden]{display:none}
+.mc-accent{height:3px;background:linear-gradient(90deg,transparent,var(--neon),transparent);opacity:.65}.hidden{display:none}.bad-url{color:#ff6680}.footer-note{margin-top:20px;text-align:center;color:var(--t-muted);font-size:10px}
+@media (max-width:640px){.nav{gap:12px;padding:14px 16px}.nav-link{display:none}.nav-brand{font-size:20px}.shell{padding-top:82px}.mc-topbar{grid-template-columns:1fr;gap:10px}.mc-view-toggle{justify-self:start}.mc-live-badge{display:none}.station-name{font-size:19px}.frame-wrap iframe{height:360px}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/" class="nav-brand">Paperweight</a>
+  <a href="https://discord.gg/AHE6VuPT" class="nav-link" target="_blank" rel="noopener">Discord</a>
+  <a href="/" class="nav-cta">Get Started &rarr;</a>
+</nav>
+<main class="shell">
+  <div>
+    <section class="intro">
+      <div class="eyebrow"><span class="live-dot"></span>Public Stations</div>
+      <h1>Listen to Paperweight</h1>
+      <p>Find opted-in creator stations and play their live embedded signal from one place.</p>
+    </section>
+    <section class="mock-card" aria-label="Station player">
+      <div class="mc-topbar">
+        <span class="mc-wordmark">Paperweight</span>
+        <div class="mc-view-toggle" role="tablist" aria-label="Player views">
+          <button class="mc-view-tab" id="tab-play" type="button" role="tab" aria-controls="pane-play">Play</button>
+          <button class="mc-view-tab active" id="tab-search" type="button" role="tab" aria-controls="pane-search">Search</button>
+        </div>
+        <div style="justify-self:end"><div class="mc-live-badge"><div class="mc-live-badge-dot"></div>LIVE</div></div>
+      </div>
+      <div class="pane" id="pane-search" role="tabpanel" aria-labelledby="tab-search">
+        <div class="search-box">
+          <input id="station-query" type="search" autocomplete="off" placeholder="Search stations">
+        </div>
+        <div class="results" id="station-results">
+          <div class="state">Type to search stations</div>
+        </div>
+      </div>
+      <div class="pane hidden" id="pane-play" role="tabpanel" aria-labelledby="tab-play">
+        <div id="no-selection" class="state">Search for a station, then choose one to start listening.</div>
+        <div id="player-selected" class="hidden">
+          <div class="player-head">
+            <div>
+              <div class="player-title" id="player-name"></div>
+              <div class="player-url" id="player-slug"></div>
+            </div>
+            <div class="mc-live-badge hidden" id="player-live"><div class="mc-live-badge-dot"></div>LIVE</div>
+          </div>
+          <div class="frame-wrap"><iframe id="station-frame" title="Selected station player" allow="autoplay"></iframe></div>
+          <a class="open-link" id="open-station" target="_blank" rel="noopener">Open station &rarr;</a>
+          <div class="footer-note" id="player-now"></div>
+        </div>
+      </div>
+      <div class="mc-accent"></div>
+    </section>
+  </div>
+</main>
+<script>
+const API_URL = 'https://system.paperweighthq.com/api/modules/paperweight/stations';
+const tabs = { play: document.getElementById('tab-play'), search: document.getElementById('tab-search') };
+const panes = { play: document.getElementById('pane-play'), search: document.getElementById('pane-search') };
+const resultsEl = document.getElementById('station-results');
+const queryEl = document.getElementById('station-query');
+let selectedStation = null;
+let searchTimer = null;
+let activeRequest = 0;
+
+function setText(id, value) {
+  document.getElementById(id).textContent = value || '';
+}
+
+function showPane(name) {
+  for (const key of Object.keys(panes)) {
+    const active = key === name;
+    panes[key].classList.toggle('hidden', !active);
+    tabs[key].classList.toggle('active', active);
+    tabs[key].setAttribute('aria-selected', active ? 'true' : 'false');
+  }
+  if (name === 'play' && !selectedStation) {
+    document.getElementById('station-frame').removeAttribute('src');
+  }
+}
+
+function state(message, className) {
+  resultsEl.replaceChildren();
+  const node = document.createElement('div');
+  node.className = className ? `state ${className}` : 'state';
+  node.textContent = message;
+  resultsEl.appendChild(node);
+}
+
+function validStationUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function selectStation(station) {
+  const parsed = validStationUrl(station.url);
+  if (!parsed) {
+    selectedStation = null;
+    showPane('play');
+    document.getElementById('no-selection').classList.remove('hidden');
+    document.getElementById('player-selected').classList.add('hidden');
+    document.getElementById('no-selection').textContent = 'This station has an invalid player URL.';
+    document.getElementById('no-selection').classList.add('bad-url');
+    return;
+  }
+
+  selectedStation = station;
+  document.getElementById('no-selection').classList.add('hidden');
+  document.getElementById('player-selected').classList.remove('hidden');
+  document.getElementById('no-selection').classList.remove('bad-url');
+  setText('player-name', station.name || station.slug || 'Untitled station');
+  setText('player-slug', station.slug ? `/${station.slug}` : parsed.hostname);
+  setText('player-now', station.nowPlaying ? `Now playing: ${station.nowPlaying}` : '');
+  document.getElementById('player-live').classList.toggle('hidden', !station.live);
+  document.getElementById('station-frame').src = new URL('/embed', parsed).href;
+  document.getElementById('open-station').href = parsed.href;
+  showPane('play');
+}
+
+function renderStations(stations) {
+  resultsEl.replaceChildren();
+  if (!stations.length) {
+    state('No stations found');
+    return;
+  }
+  for (const station of stations) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'result-row';
+    row.addEventListener('click', () => selectStation(station));
+
+    const top = document.createElement('div');
+    top.className = 'result-top';
+    const name = document.createElement('div');
+    name.className = 'station-name';
+    name.textContent = station.name || station.slug || 'Untitled station';
+    top.appendChild(name);
+    if (station.live) {
+      const badge = document.createElement('span');
+      badge.className = 'mc-live-badge';
+      const dot = document.createElement('span');
+      dot.className = 'mc-live-badge-dot';
+      badge.append(dot, document.createTextNode('LIVE'));
+      top.appendChild(badge);
+    }
+    const listeners = document.createElement('span');
+    listeners.className = 'listener-count';
+    listeners.textContent = `${Number(station.listeners || 0)} listening`;
+    top.appendChild(listeners);
+
+    const slug = document.createElement('div');
+    slug.className = 'station-slug';
+    slug.textContent = station.slug ? `/${station.slug}` : '';
+    const now = document.createElement('div');
+    now.className = 'now-playing';
+    now.textContent = station.nowPlaying || 'Live station';
+    row.append(top, slug, now);
+    resultsEl.appendChild(row);
+  }
+}
+
+async function searchStations() {
+  const q = queryEl.value.trim();
+  if (!q) {
+    state('Type to search stations');
+    return;
+  }
+  const requestId = ++activeRequest;
+  state('Searching stations...');
+  try {
+    const url = new URL(API_URL);
+    url.searchParams.set('q', q);
+    url.searchParams.set('limit', '20');
+    const res = await fetch(url.href, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`Directory returned ${res.status}`);
+    const data = await res.json();
+    if (requestId !== activeRequest) return;
+    renderStations(Array.isArray(data.stations) ? data.stations : []);
+  } catch {
+    if (requestId === activeRequest) state('Directory unavailable - try again later.');
+  }
+}
+
+tabs.play.addEventListener('click', () => showPane('play'));
+tabs.search.addEventListener('click', () => showPane('search'));
+queryEl.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(searchStations, 300);
+});
+showPane('search');
+</script>
+</body>
+</html>
