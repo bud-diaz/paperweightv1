@@ -126,17 +126,56 @@ function quitApp() {
   app.quit();
 }
 
+// Electron's login-item API only covers Windows and macOS; on Linux,
+// setLoginItemSettings is a no-op and getLoginItemSettings always reports
+// false. Freedesktop autostart (an XDG .desktop entry in ~/.config/autostart)
+// is the equivalent honored by GNOME, KDE, and the other mainstream desktops,
+// so implement the same tray checkbox with that file's existence as the state.
+const linuxAutostartFile = path.join(app.getPath('appData'), 'autostart', 'paperweight.desktop');
+
+function getOpenAtLogin() {
+  if (process.platform === 'linux') return fs.existsSync(linuxAutostartFile);
+  return app.getLoginItemSettings().openAtLogin;
+}
+
+function setOpenAtLogin(enabled) {
+  if (process.platform !== 'linux') {
+    app.setLoginItemSettings({ openAtLogin: enabled });
+    return;
+  }
+  if (!enabled) {
+    fs.rmSync(linuxAutostartFile, { force: true });
+    return;
+  }
+  // For AppImage builds process.execPath points inside the extracted mount,
+  // which disappears on quit — the APPIMAGE env var carries the real path.
+  const execPath = process.env.APPIMAGE || process.execPath;
+  fs.mkdirSync(path.dirname(linuxAutostartFile), { recursive: true });
+  fs.writeFileSync(linuxAutostartFile, [
+    '[Desktop Entry]',
+    'Type=Application',
+    'Name=Paperweight',
+    'Comment=Self-hosted, creator-first streaming and distribution',
+    `Exec="${execPath}"`,
+    'X-GNOME-Autostart-enabled=true',
+    '',
+  ].join('\n'));
+}
+
 function buildTrayMenu() {
-  const openAtLogin = app.getLoginItemSettings().openAtLogin;
   return Menu.buildFromTemplate([
     { label: 'Open Dashboard', click: showMainWindow },
     { type: 'separator' },
     {
       label: 'Launch at Login',
       type: 'checkbox',
-      checked: openAtLogin,
+      checked: getOpenAtLogin(),
       click: item => {
-        app.setLoginItemSettings({ openAtLogin: item.checked });
+        try {
+          setOpenAtLogin(item.checked);
+        } catch (err) {
+          console.error('[Paperweight] Failed to update Launch at Login:', err);
+        }
       },
     },
     { type: 'separator' },

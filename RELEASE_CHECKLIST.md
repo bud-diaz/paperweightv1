@@ -49,7 +49,7 @@ pkg exe):
 9. Confirm the library shows public media.
 10. Confirm `supporters_only` and `vault` media are gated for free listeners.
 
-Windows 10/11 x64 and macOS (Electron desktop app — see "Desktop App Packaging"
+Windows 10/11 x64, macOS, and desktop Linux (Electron desktop app — see "Desktop App Packaging"
 below for the build steps and manual QA checklist covering setup wizard,
 auto-login, tray, and shortcuts). After the app is running, also work through
 steps 5-10 above against its local server.
@@ -65,9 +65,9 @@ steps 5-10 above against its local server.
 
 ## Convenience Executable Packaging (Linux / Raspberry Pi)
 
-Executables are optional convenience artifacts for Linux and Raspberry Pi, not the
-primary public distribution path. Windows and macOS ship as the Electron desktop
-app instead — see "Desktop App Packaging (Windows / macOS)" below.
+Executables are optional convenience artifacts for headless Linux and Raspberry Pi,
+not the primary public distribution path. Windows, macOS, and desktop Linux ship as
+the Electron desktop app instead — see "Desktop App Packaging" below.
 
 Build each target **on its matching OS and architecture** — `better-sqlite3` is a
 native module, so a binary built on one platform will not load on another. Use a
@@ -120,19 +120,21 @@ Manual QA before publishing: hand-edit `DEVICE_LOCK` in a clean-folder smoke's
 prints the hardware-lock-mismatch message; then delete the `DEVICE_LOCK` line
 and restart, confirming it boots and re-enrolls.
 
-## Desktop App Packaging (Windows / macOS)
+## Desktop App Packaging (Windows / macOS / Linux)
 
-Windows and macOS users install the Electron desktop app, not the pkg
-convenience executable. Build it on each matching OS:
+Windows, macOS, and desktop Linux users install the Electron desktop app, not
+the pkg convenience executable. Build it on each matching OS:
 
 ```bash
 cd electron
 npm ci
-npm run dist   # rebuilds better-sqlite3 for Electron's ABI, then runs electron-builder
+npm run dist         # Windows / macOS: rebuilds better-sqlite3 for Electron's ABI, then runs electron-builder
+npm run dist:linux   # Linux: same, targeting AppImage + deb
 ```
 
-This produces an NSIS installer (`electron/dist/*.exe`) on Windows and a DMG +
-ZIP (`electron/dist/*.dmg`, `*.zip`) on macOS.
+This produces an NSIS installer (`electron/dist/*.exe`) on Windows, a DMG +
+ZIP (`electron/dist/*.dmg`, `*.zip`) on macOS, and an AppImage + Debian package
+(`electron/dist/*.AppImage`, `*.deb`) on Linux.
 
 The app is **not code-signed or notarized**. Expect Windows SmartScreen and
 macOS Gatekeeper warnings on first run — see TROUBLESHOOTING.md for the
@@ -147,6 +149,8 @@ Manual QA before publishing:
 4. Confirm the tray icon appears with "Open Dashboard", "Launch at Login", and
    "Quit Paperweight".
 5. On Windows, confirm the installer created a Desktop and Start Menu shortcut.
+   On Linux (deb install), confirm Paperweight appears in the application menu;
+   for the AppImage, confirm it launches after `chmod +x`.
 6. Quit via the tray "Quit Paperweight" and relaunch — confirm it boots straight
    to the main window (no setup wizard) and the station configured in step 2/3
    persists.
