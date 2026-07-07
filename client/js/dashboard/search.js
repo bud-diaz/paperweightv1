@@ -30,6 +30,8 @@ export async function loadCreatorType() {
       const tog = el('broadcast-header-toggle');
       if (adv && tog) { adv.classList.add('open'); tog.classList.add('open'); }
     }
+    // Anonymous stations get the same monetization lockout as radio hosts.
+    document.body.classList.toggle('anonymous-mode', data.stationIdentity === 'anonymous');
   } catch {}
 }
 

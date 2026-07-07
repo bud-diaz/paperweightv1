@@ -970,7 +970,10 @@ router.post('/live/stop', (req, res) => {
 
 // GET /api/dashboard/creator-type
 router.get('/creator-type', (req, res) => {
-  res.json({ creatorType: config.station.creatorType });
+  res.json({
+    creatorType: config.station.creatorType,
+    stationIdentity: config.station.identity,
+  });
 });
 
 // ─── Broadcast queue ──────────────────────────────────────────────────────────

@@ -354,7 +354,7 @@ export const dashboard = {
 
   /**
    * GET /api/dashboard/creator-type — current creator type config.
-   * @returns {{ creatorType: string }}
+   * @returns {{ creatorType: string, stationIdentity: string }}
    */
   creatorType() {
     return _json('/api/dashboard/creator-type');
