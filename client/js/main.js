@@ -277,21 +277,140 @@ function enterDashboard() {
   dashIndex.initDashboard();
 }
 
-// ─── Wordmark long-press → creator dashboard ────────────────────────────────
+// ─── Wordmark: long-press → creator dashboard, short press → station search ─
 (function() {
-  const wordmark = el('pw-wordmark-text');
-  let timer = null;
+  const wordmark  = el('pw-wordmark-text');
+  const searchEl  = el('pw-station-search');
+  const resultsEl = el('pw-station-results');
+  const DIRECTORY_URL = 'https://system.paperweighthq.com/api/modules/paperweight/stations';
+  const IDLE_MS = 5000;
+
+  let pressTimer = null;
+  let idleTimer = null;
+  let debounceTimer = null;
+  let activeRequest = 0;
+
+  // Any activity in the field or dropdown re-arms the 5 s idle revert.
+  function armIdle() {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(closeSearch, IDLE_MS);
+  }
+
+  function openSearch() {
+    wordmark.hidden = true;
+    searchEl.hidden = false;
+    searchEl.value = '';
+    searchEl.focus();
+    armIdle();
+  }
+
+  function closeSearch() {
+    clearTimeout(idleTimer); idleTimer = null;
+    clearTimeout(debounceTimer); debounceTimer = null;
+    activeRequest++; // drop any in-flight directory response
+    searchEl.hidden = true;
+    resultsEl.hidden = true;
+    resultsEl.replaceChildren();
+    wordmark.hidden = false;
+  }
+
+  function note(message) {
+    resultsEl.replaceChildren();
+    const div = document.createElement('div');
+    div.className = 'pw-station-note';
+    div.textContent = message;
+    resultsEl.appendChild(div);
+    resultsEl.hidden = false;
+  }
+
+  function validStationUrl(url) {
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function renderStations(stations) {
+    resultsEl.replaceChildren();
+    for (const station of stations) {
+      const parsed = validStationUrl(station.url);
+      if (!parsed) continue;
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'pw-station-row';
+      const name = document.createElement('span');
+      name.textContent = station.name || station.slug || 'Untitled station';
+      row.appendChild(name);
+      if (station.live) {
+        const live = document.createElement('span');
+        live.className = 'pw-station-live';
+        live.textContent = 'LIVE';
+        row.appendChild(live);
+      }
+      const slug = document.createElement('span');
+      slug.className = 'pw-station-slug';
+      slug.textContent = station.slug ? `/${station.slug}` : parsed.hostname;
+      row.appendChild(slug);
+      row.addEventListener('click', () => {
+        window.open(parsed.href, '_blank', 'noopener');
+        closeSearch();
+      });
+      resultsEl.appendChild(row);
+    }
+    if (!resultsEl.children.length) { note('No stations found'); return; }
+    resultsEl.hidden = false;
+  }
+
+  async function searchStations() {
+    const q = searchEl.value.trim();
+    if (!q) { resultsEl.hidden = true; resultsEl.replaceChildren(); return; }
+    const requestId = ++activeRequest;
+    try {
+      const url = new URL(DIRECTORY_URL);
+      url.searchParams.set('q', q);
+      url.searchParams.set('limit', '8');
+      const res = await fetch(url.href, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`Directory returned ${res.status}`);
+      const data = await res.json();
+      if (requestId !== activeRequest) return;
+      renderStations(Array.isArray(data.stations) ? data.stations : []);
+    } catch {
+      if (requestId === activeRequest) note('Directory unavailable');
+    }
+  }
+
+  // Long press (600 ms) still opens the creator dashboard; releasing earlier
+  // counts as a short press and swaps the wordmark for the search field.
   function start(e) {
     e.preventDefault();
-    timer = setTimeout(() => { timer = null; enterDashboard(); }, 600);
+    pressTimer = setTimeout(() => { pressTimer = null; enterDashboard(); }, 600);
   }
-  function cancel() { if (timer) { clearTimeout(timer); timer = null; } }
+  function cancel() { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } }
+  function release() {
+    const shortPress = pressTimer !== null;
+    cancel();
+    if (shortPress) openSearch();
+  }
   wordmark.addEventListener('mousedown',   start);
   wordmark.addEventListener('touchstart',  start, { passive: false });
-  wordmark.addEventListener('mouseup',     cancel);
+  wordmark.addEventListener('mouseup',     release);
   wordmark.addEventListener('mouseleave',  cancel);
-  wordmark.addEventListener('touchend',    cancel);
+  wordmark.addEventListener('touchend',    release);
   wordmark.addEventListener('touchcancel', cancel);
+
+  searchEl.addEventListener('input', () => {
+    armIdle();
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(searchStations, 300);
+  });
+  searchEl.addEventListener('focus', armIdle);
+  searchEl.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeSearch();
+  });
+  resultsEl.addEventListener('pointermove', armIdle);
+  resultsEl.addEventListener('pointerdown', armIdle);
 })();
 
 // ─── Init ────────────────────────────────────────────────────────────────────

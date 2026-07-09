@@ -63,7 +63,8 @@
  *   #waveform        click → seekWaveform
  *   #art-flip        click → flip art card / renderArtBack
  *   .view-tab (all)  click → switch PLAY/STUDIO view
- *   #pw-wordmark-text mousedown/touchstart/up/leave → long-press enterDashboard
+ *   #pw-wordmark-text mousedown/touchstart/up/leave → long-press enterDashboard,
+ *                     short press → station-directory search field (main.js)
  */
 
 import {
