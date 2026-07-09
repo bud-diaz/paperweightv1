@@ -4,6 +4,10 @@
  * Owns local state: asciiMode, asciiRafId, asciiAnalyser, asciiAudioCtx,
  *   asciiAudioSrc, asciiArtImg, asciiArtId, asciiVidOff, asciiStartTime.
  *
+ * Also owns the listener's "real video" preference (localStorage-persisted):
+ * when set, video tracks show the real <video id="video-el"> instead of the
+ * ASCII-art render of it.
+ *
  * Reads currentIsVideo and stationName via injected callbacks (init()) to
  * avoid importing hls-client.js — those values are hls-client's local state.
  */
@@ -23,6 +27,8 @@ let asciiArtId     = null;
 let asciiVidOff    = null;
 let asciiStartTime = null;
 
+const REAL_VIDEO_PREF_KEY = 'pw_real_video_pref';
+
 // ── Injected callbacks ────────────────────────────────────────────────────────
 
 let _isVideoMode    = () => false;
@@ -39,9 +45,41 @@ export function init({ isVideoMode, getStationName } = {}) {
   if (getStationName) _getStationName = getStationName;
 }
 
+// ── Real-video preference ─────────────────────────────────────────────────────
+
+export function getRealVideoPref() {
+  try { return localStorage.getItem(REAL_VIDEO_PREF_KEY) === '1'; }
+  catch { return false; }
+}
+
+export function setRealVideoPref(pref) {
+  try { localStorage.setItem(REAL_VIDEO_PREF_KEY, pref ? '1' : '0'); } catch {}
+  applyRealVideoPref();
+}
+
+function applyRealVideoPref() {
+  if (!_isVideoMode()) return;
+  if (getRealVideoPref()) {
+    if (asciiMode === 'video') asciiStop();
+  } else if (asciiMode !== 'video') {
+    asciiStart('video');
+  }
+}
+
+export function initRealVideoToggleHandlers() {
+  const checkbox = el('real-video-toggle');
+  if (!checkbox) return;
+  checkbox.checked = getRealVideoPref();
+  checkbox.addEventListener('change', () => setRealVideoPref(checkbox.checked));
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function asciiStart(mode) {
+  if (mode === 'video' && getRealVideoPref()) {
+    if (asciiMode !== null) asciiStop();
+    return;
+  }
   if (asciiMode === mode) return;
   asciiMode = mode;
   const canvas = el('asci-canvas');

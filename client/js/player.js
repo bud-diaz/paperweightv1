@@ -14,6 +14,7 @@
  *   #share-tab-label           (color, textContent)
  *   #auth-badge                (class: visible)
  *   #type-badge                (background, innerHTML/textContent)
+ *   #real-video-toggle-wrap    (hidden)
  *   #back-live-btn             (display)
  *   #track-title               (textContent)
  *   #track-creator             (textContent)
@@ -246,6 +247,10 @@ export function render() {
   } else {
     badge.textContent = t.type === 'video' ? '● VIDEO' : '◉ AUDIO';
   }
+
+  // real-video toggle — only relevant for the live video stream, never previews
+  const rvWrap = el('real-video-toggle-wrap');
+  if (rvWrap) rvWrap.hidden = state.isPreview || t.type !== 'video';
 
   // back-live btn
   el('back-live-btn').style.display = state.track ? 'inline-block' : 'none';
