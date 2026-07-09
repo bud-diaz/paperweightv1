@@ -92,8 +92,55 @@ body::before{
   padding:7px 16px;border-radius:5px;text-decoration:none;
   box-shadow:0 0 16px rgba(57,255,20,.35);
   transition:box-shadow .2s,transform .12s;white-space:nowrap;
+  border:0;cursor:pointer;
 }
 .nav-cta:hover{box-shadow:0 0 32px rgba(57,255,20,.6);transform:translateY(-1px);text-decoration:none;color:#000}
+
+/* ── Get Started modal ───────────────────────────────────────────────────── */
+.gs-overlay{
+  position:fixed;inset:0;z-index:300;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(4,4,4,.72);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  padding:24px;
+}
+.gs-overlay[hidden]{display:none}
+.gs-modal{
+  position:relative;width:min(400px,100%);
+  background:linear-gradient(160deg,#161616,#0e0e0e);
+  border:1px solid rgba(255,255,255,.1);border-radius:16px;
+  box-shadow:0 0 60px rgba(57,255,20,.08),0 32px 64px rgba(0,0,0,.85);
+  padding:28px 24px 24px;
+}
+.gs-close{
+  position:absolute;top:12px;right:14px;
+  background:none;border:0;cursor:pointer;
+  color:var(--t-muted);font-size:20px;line-height:1;padding:4px;
+  transition:color .15s;
+}
+.gs-close:hover{color:var(--text)}
+.gs-title{
+  font-family:var(--serif);font-size:24px;letter-spacing:-.02em;
+  margin-bottom:18px;
+}
+.gs-option{
+  display:block;text-decoration:none;color:var(--text);
+  font-family:var(--mono);font-size:12px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:10px;padding:16px 18px;
+  transition:border-color .15s,background .15s;
+}
+.gs-option+.gs-option{margin-top:10px}
+.gs-option span{
+  display:block;margin-top:6px;
+  font-weight:400;font-size:10px;letter-spacing:.05em;text-transform:none;
+  color:var(--t-muted);
+}
+.gs-option:hover{
+  border-color:rgba(57,255,20,.45);background:rgba(57,255,20,.07);
+  text-decoration:none;color:var(--neon);
+}
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
 .btn-neon{
@@ -551,8 +598,18 @@ footer{
 <nav class="nav">
   <a href="#" class="nav-brand">Paperweight</a>
   <a href="https://discord.gg/AHE6VuPT" class="nav-link" target="_blank" rel="noopener">Discord</a>
-  <a href="/download" class="nav-cta">Get Started →</a>
+  <button type="button" class="nav-cta" id="get-started-btn" aria-haspopup="dialog" aria-expanded="false">Get Started →</button>
 </nav>
+
+<!-- Get Started modal -->
+<div class="gs-overlay" id="gs-overlay" hidden>
+  <div class="gs-modal" role="dialog" aria-modal="true" aria-label="Get started">
+    <button type="button" class="gs-close" id="gs-close" aria-label="Close">&times;</button>
+    <div class="gs-title">Get started</div>
+    <a href="/listen" class="gs-option">Listen →<span>Find and play public stations</span></a>
+    <a href="/download" class="gs-option">Download →<span>Run your own station</span></a>
+  </div>
+</div>
 
 <!-- ── S1: Hero ─────────────────────────────────────────────────────────── -->
 <section class="s-hero">
@@ -959,6 +1016,21 @@ document.querySelectorAll('.mm-tab').forEach(tab => {
     const cta = document.getElementById('mm-cta');
     if (cta) cta.textContent = ctaText[t] || 'Continue';
   });
+});
+
+/* ── Get Started modal toggle ────────────────────────────────────────────── */
+const gsBtn     = document.getElementById('get-started-btn');
+const gsOverlay = document.getElementById('gs-overlay');
+const gsClose   = document.getElementById('gs-close');
+function setGsOpen(open) {
+  gsOverlay.hidden = !open;
+  gsBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+gsBtn.addEventListener('click', () => setGsOpen(gsOverlay.hidden));
+gsClose.addEventListener('click', () => setGsOpen(false));
+gsOverlay.addEventListener('click', e => { if (e.target === gsOverlay) setGsOpen(false); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !gsOverlay.hidden) setGsOpen(false);
 });
 
 /* ── Library drawer toggle ───────────────────────────────────────────────── */

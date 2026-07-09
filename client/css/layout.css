@@ -131,6 +131,44 @@
   cursor: default; user-select: none; -webkit-user-select: none;
 }
 .pw-sub { font-size: 12px; color: var(--t4); letter-spacing: .1em; margin-top: 2px; }
+
+/* Wordmark ↔ station-directory search swap */
+.pw-brand { position: relative; min-width: 0; }
+.pw-station-search {
+  width: 150px; max-width: 100%;
+  font-family: 'Space Mono', monospace; font-size: 12px;
+  color: var(--t1); background: var(--inset);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 5px 9px; outline: none;
+}
+.pw-station-search:focus { border-color: var(--border-strong); }
+.pw-station-search[hidden] { display: none; }
+.pw-station-results {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+  width: 230px; max-height: 260px; overflow-y: auto;
+  background: var(--raised); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-1);
+  padding: 4px;
+}
+.pw-station-results[hidden] { display: none; }
+.pw-station-row {
+  display: block; width: 100%; text-align: left;
+  background: none; border: none; cursor: pointer;
+  border-radius: var(--radius-xs); padding: 7px 8px;
+  font-family: 'Space Mono', monospace; font-size: 12px; color: var(--t1);
+}
+.pw-station-row:hover { background: var(--inset); }
+.pw-station-row .pw-station-slug {
+  display: block; margin-top: 2px; font-size: 10px; color: var(--t3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pw-station-row .pw-station-live {
+  margin-left: 6px; font-size: 9px; letter-spacing: .12em; color: var(--color);
+}
+.pw-station-note {
+  padding: 7px 8px; font-family: 'Space Mono', monospace;
+  font-size: 11px; color: var(--t3);
+}
 #topbar-right { justify-self: end; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 #view-toggle {
@@ -165,6 +203,8 @@
 @media (max-width: 380px) {
   .view-tab { padding: 4px 7px; font-size: 11px; }
   .pw-wordmark { max-width: 100px; }
+  .pw-station-search { width: 100px; }
+  .pw-station-results { width: min(230px, 72vw); }
 }
 
 /* ── Art zone ── */

@@ -149,7 +149,11 @@
 
     <!-- Top bar -->
     <div id="topbar">
-      <span class="pw-wordmark" id="pw-wordmark-text">Paperweight</span>
+      <div class="pw-brand" id="pw-brand">
+        <span class="pw-wordmark" id="pw-wordmark-text">Paperweight</span>
+        <input id="pw-station-search" class="pw-station-search" type="search" autocomplete="off" placeholder="Search stations" aria-label="Search public stations" hidden>
+        <div id="pw-station-results" class="pw-station-results" hidden></div>
+      </div>
       <div id="view-toggle">
         <button class="view-tab active" data-view="player">PLAY</button>
         <button class="view-tab" data-view="dashboard">STUDIO</button>

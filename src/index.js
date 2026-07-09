@@ -78,7 +78,8 @@ const APP_CSP_DIRECTIVES = {
   styleSrc:   ["'self'", "'unsafe-inline'"],
   imgSrc:     ["'self'", 'data:', 'blob:'],
   mediaSrc:   ["'self'", 'blob:'],
-  connectSrc: ["'self'"],
+  // The public station directory powers the player's wordmark station search.
+  connectSrc: ["'self'", 'https://system.paperweighthq.com'],
   workerSrc:  ["'self'", 'blob:'],
   fontSrc:    ["'self'"],
   objectSrc:  ["'none'"],

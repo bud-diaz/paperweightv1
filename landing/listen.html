@@ -23,7 +23,7 @@ a{color:inherit}.nav{position:fixed;top:0;left:0;right:0;z-index:20;display:flex
 .shell{min-height:100vh;display:grid;place-items:center;padding:96px 18px 36px}.intro{text-align:center;max-width:720px;margin:0 auto 28px}.eyebrow{display:inline-flex;align-items:center;gap:9px;color:var(--neon);font-size:10px;text-transform:uppercase;letter-spacing:.2em;margin-bottom:18px}.live-dot{width:7px;height:7px;border-radius:50%;background:var(--neon);box-shadow:0 0 12px var(--neon)}
 h1{font-family:var(--serif);font-weight:400;font-size:clamp(3rem,8vw,6rem);line-height:1;margin:0 0 18px;letter-spacing:-.03em}.intro p{margin:0 auto;color:var(--t-mid);line-height:1.8;font-size:14px;max-width:560px}
 .mock-card{width:min(100%,560px);margin:0 auto;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.035));border:1px solid var(--border);border-radius:14px;box-shadow:0 30px 90px rgba(0,0,0,.5),0 0 0 1px rgba(57,255,20,.04);overflow:hidden;position:relative}
-.mc-topbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:14px 16px 0}.mc-wordmark{font-family:var(--serif);font-size:16px;letter-spacing:-.02em}
+.mc-topbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:14px 16px 0}.mc-center{display:flex;align-items:center;gap:12px;justify-self:center}.mc-wordmark{font-family:var(--serif);font-size:16px;letter-spacing:-.02em}
 .mc-view-toggle{display:flex;align-items:center;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;overflow:hidden}.mc-view-tab{font-family:var(--mono);font-size:8px;letter-spacing:.1em;padding:5px 13px;color:var(--t-muted);text-transform:uppercase;border:0;background:transparent;cursor:pointer}.mc-view-tab.active{background:rgba(255,255,255,.1);color:var(--text)}
 .mc-live-badge{display:inline-flex;align-items:center;gap:5px;justify-self:end;background:var(--neon);border-radius:3px;padding:2px 7px;font-size:9px;font-weight:700;letter-spacing:.1em;color:#000}.mc-live-badge-dot{width:5px;height:5px;border-radius:50%;background:#000}
 .pane{padding:16px}.search-box{display:flex;gap:8px;margin-bottom:12px}.search-box input{width:100%;border:1px solid rgba(244,241,232,.14);background:#070707;color:var(--text);border-radius:6px;padding:12px 13px;font:12px var(--mono);outline:none}.search-box input:focus{border-color:rgba(57,255,20,.55);box-shadow:0 0 0 2px rgba(57,255,20,.08)}
@@ -32,7 +32,7 @@ h1{font-family:var(--serif);font-weight:400;font-size:clamp(3rem,8vw,6rem);line-
 .state{display:grid;place-items:center;text-align:center;min-height:280px;border:1px dashed rgba(244,241,232,.12);border-radius:8px;color:var(--t-muted);font-size:12px;line-height:1.7;padding:20px}.player-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.player-title{font-family:var(--serif);font-size:25px;line-height:1.1}.player-url{font-size:10px;color:var(--t-muted);margin-top:4px}
 .frame-wrap{background:#050505;border:1px solid rgba(57,255,20,.18);border-radius:10px;overflow:hidden;min-height:300px}.frame-wrap iframe{display:block;width:100%;height:420px;border:0;background:#050505}.open-link{display:inline-flex;margin-top:12px;color:var(--neon);text-decoration:none;font-size:11px;text-transform:uppercase;letter-spacing:.08em}.open-link[hidden]{display:none}
 .mc-accent{height:3px;background:linear-gradient(90deg,transparent,var(--neon),transparent);opacity:.65}.hidden{display:none}.bad-url{color:#ff6680}.footer-note{margin-top:20px;text-align:center;color:var(--t-muted);font-size:10px}
-@media (max-width:640px){.nav{gap:12px;padding:14px 16px}.nav-link{display:none}.nav-brand{font-size:20px}.shell{padding-top:82px}.mc-topbar{grid-template-columns:1fr;gap:10px}.mc-view-toggle{justify-self:start}.mc-live-badge{display:none}.station-name{font-size:19px}.frame-wrap iframe{height:360px}}
+@media (max-width:640px){.nav{gap:12px;padding:14px 16px}.nav-link{display:none}.nav-brand{font-size:20px}.shell{padding-top:82px}.mc-topbar{grid-template-columns:1fr;gap:10px}.mc-topbar>div:first-child{display:none}.mc-center{justify-self:center}.mc-live-badge{display:none}.station-name{font-size:19px}.frame-wrap iframe{height:360px}}
 </style>
 </head>
 <body>
@@ -50,10 +50,13 @@ h1{font-family:var(--serif);font-weight:400;font-size:clamp(3rem,8vw,6rem);line-
     </section>
     <section class="mock-card" aria-label="Station player">
       <div class="mc-topbar">
-        <span class="mc-wordmark">Paperweight</span>
-        <div class="mc-view-toggle" role="tablist" aria-label="Player views">
-          <button class="mc-view-tab" id="tab-play" type="button" role="tab" aria-controls="pane-play">Play</button>
-          <button class="mc-view-tab active" id="tab-search" type="button" role="tab" aria-controls="pane-search">Search</button>
+        <div></div>
+        <div class="mc-center">
+          <span class="mc-wordmark">Paperweight</span>
+          <div class="mc-view-toggle" role="tablist" aria-label="Player views">
+            <button class="mc-view-tab" id="tab-play" type="button" role="tab" aria-controls="pane-play">Play</button>
+            <button class="mc-view-tab active" id="tab-search" type="button" role="tab" aria-controls="pane-search">Search</button>
+          </div>
         </div>
         <div style="justify-self:end"><div class="mc-live-badge"><div class="mc-live-badge-dot"></div>LIVE</div></div>
       </div>
