@@ -24,6 +24,7 @@ const { resolvesToBlockedAddress } = require('../runtime/net-guard');
 const { isValidExternalHttpUrl } = require('../runtime/base-url');
 const { IMAGE_MIMES, IMAGE_EXTS, sniffImageFile } = require('../runtime/images');
 const { getBoolSetting, setSetting } = require('../db/settings');
+const { toSqliteDatetime } = require('../runtime/datetime');
 
 router.use(requireDashboard);
 
@@ -215,6 +216,7 @@ router.get('/media', (req, res) => {
     SELECT id, title, filename, category, visibility, duration,
            artist, album, genre, producer, credits, artwork_url, tags,
            offline_allowed, indexed_at
+           artist, album, producer, credits, artwork_url, tags, indexed_at, release_at
     FROM media
     WHERE is_active = 1
     ORDER BY indexed_at DESC
@@ -227,6 +229,11 @@ router.get('/media', (req, res) => {
 // Body: any subset of { visibility, title, artist, album, genre, producer, credits, artwork_url, offline_allowed }
 router.patch('/media/:id', (req, res) => {
   const { visibility, title, artist, album, genre, producer, credits, artwork_url, offline_allowed } = req.body;
+// Body: any subset of { visibility, title, artist, album, producer, credits, artwork_url, release_at }
+// release_at: ISO datetime string to schedule an automatic flip to 'public',
+// or null to cancel a pending schedule.
+router.patch('/media/:id', (req, res) => {
+  const { visibility, title, artist, album, producer, credits, artwork_url, release_at } = req.body;
   const setClauses = [];
   const params     = [];
 
@@ -248,6 +255,30 @@ router.patch('/media/:id', (req, res) => {
   }
 
   for (const [field, val] of Object.entries({ title, artist, album, genre, producer, credits, artwork_url })) {
+  let releaseAtHandled = false;
+  if (release_at !== undefined) {
+    releaseAtHandled = true;
+    if (release_at === null || release_at === '') {
+      setClauses.push('release_at = NULL');
+    } else {
+      const normalized = toSqliteDatetime(release_at);
+      if (!normalized) {
+        return res.status(400).json({ error: 'release_at must be a valid datetime' });
+      }
+      if (normalized <= toSqliteDatetime(new Date())) {
+        return res.status(400).json({ error: 'release_at must be in the future' });
+      }
+      setClauses.push('release_at = ?');
+      params.push(normalized);
+    }
+  }
+
+  // Going public right now supersedes any pending scheduled release.
+  if (visibility === 'public' && !releaseAtHandled) {
+    setClauses.push('release_at = NULL');
+  }
+
+  for (const [field, val] of Object.entries({ title, artist, album, producer, credits, artwork_url })) {
     if (val !== undefined) {
       setClauses.push(`${field} = ?`);
       params.push(val === '' ? null : val);

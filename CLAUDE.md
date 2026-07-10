@@ -26,17 +26,19 @@ node -e "const db = require('better-sqlite3')('data/paperweight.db'); console.lo
 
 ## Architecture
 
-Paperweight is a single-process Express server with three boot-time subsystems:
+Paperweight is a single-process Express server with four boot-time subsystems:
 
 - Broadcast engine (`src/broadcast/`): spawns FFmpeg, reads a concat manifest, writes HLS output to `hls_output/stream/`, and writes now-playing state to `hls_output/state.json`.
 - Vault scanner (`src/scanner/`): watches `vault/` with chokidar, probes files with ffprobe, and upserts media rows.
+- Release scheduler (`src/release/scheduler.js`): a 30s `setInterval` poll that flips scheduled `media.visibility` to `public` once `release_at` passes and fires the deferred notify for creator posts scheduled via `published_at`. Unrelated to `src/broadcast/scheduler.js` (weekly dayparting for the live broadcast, checked by `npm run check:scheduler`) — different subsystem, same name coincidence.
 - HTTP server (`src/index.js` -> `src/api/router.js`): all API routes live under `/api`; the single-file frontend is `client/creator.html`. Three public non-API routes are mounted directly in `src/index.js`: `/feed.xml` + `/feed/enclosure/:id` (creator-enabled RSS feed, `src/api/feed.js`) and `/embed` (frameable mini player, `client/embed.html` + `client/js/embed.js`).
 
 Supporting modules:
 
 - `src/email/`: pure-Node SMTP client (no new deps) configured by `SMTP_*` env vars; email features degrade gracefully when unconfigured (`isEmailConfigured()`).
-- `src/notify/`: best-effort outbound notifications — Discord-compatible webhook on go-live/new post, optional supporter email on post publish. Never blocks the triggering request.
+- `src/notify/`: best-effort outbound notifications — Discord-compatible webhook on go-live/new post/media release, optional supporter email on post publish. Never blocks the triggering request.
 - `src/runtime/net-guard.js`: SSRF guard for owner-configured URLs (station health ping, notify webhook).
+- `src/runtime/datetime.js`: normalizes creator-submitted ISO datetime strings to SQLite's own `datetime('now')` format so scheduled-release comparisons stay plain SQL.
 - `scripts/backup.js` (`npm run backup`): hot SQLite backup with pruning; `GET /api/dashboard/backup` streams one through the browser.
 
 Plain Express and `better-sqlite3` are used directly. There is no ORM.
@@ -52,6 +54,8 @@ Current migration sequence:
 `001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments -> `010` webhook idempotency -> `011` payment idempotency -> `012` dashboard 2FA -> `013` creator profile -> `014` launch acceptance -> `015` download leads -> `016` highlight -> `017` share links -> `018` smart playlists -> `019` creator posts -> `020` download lead opt-in -> `021` pending checkouts -> `022` download events -> `023` password resets -> `024` app settings -> `025` genre + offline saves -> `026` listener profiles.
 
 The source of truth for migrations is the inline SQL in `src/db/migrations/index.js`; the standalone `.sql` files are documentation copies. Small creator-configurable flags (notify webhook URL, feed enablement, `station_searchable`) live in the `app_settings` key/value table via `src/db/settings.js`.
+
+Release scheduling columns (added via guarded `ALTER TABLE` in `src/db/index.js`, not a numbered migration — plain column additions follow that existing pattern): `media.release_at` (nullable; when set and due, the release scheduler flips `visibility` to `public` and clears it), `creator_posts.notify_supporters` (persists the email-supporters choice so a scheduled post can still honor it later), `creator_posts.release_notified_at` (marks when notify fired, so a scheduled post is announced exactly once).
 
 Never add recurring destructive SQL to a migration file. Do not use `DROP TABLE media` or table rebuilds in automatically applied SQL migrations.
 

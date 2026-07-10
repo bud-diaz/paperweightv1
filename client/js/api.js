@@ -562,7 +562,9 @@ export const dashboard = {
     /**
      * PATCH /api/dashboard/media/{id}
      * @param {number} id
-     * @param {object} body  e.g. { visibility } or metadata fields
+     * @param {object} body  e.g. { visibility } or metadata fields; release_at
+     *   (ISO datetime string, or null to cancel) schedules an automatic flip
+     *   to 'public' at that time.
      * @returns {{ res: Response, data: object }}
      */
     update(id, body) {
@@ -898,7 +900,9 @@ export const dashboard = {
 
     /**
      * POST /api/dashboard/posts
-     * @param {{ title?, body, visibility }} body
+     * @param {{ title?, body, visibility, published_at?, notify_supporters? }} body
+     *   published_at: ISO datetime string to schedule a future publish;
+     *   omit to publish immediately (default).
      * @returns {{ res: Response, data: object }}
      */
     create(body) {
@@ -908,7 +912,8 @@ export const dashboard = {
     /**
      * PUT /api/dashboard/posts/{id}
      * @param {number} id
-     * @param {object} body
+     * @param {object} body  may include published_at (ISO string, or null to
+     *   publish immediately) to reschedule
      * @returns {{ res: Response, data: object }}
      */
     update(id, body) {
