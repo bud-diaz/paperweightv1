@@ -205,6 +205,7 @@
   .pw-wordmark { max-width: 100px; }
   .pw-station-search { width: 100px; }
   .pw-station-results { width: min(230px, 72vw); }
+  #real-video-toggle-wrap .toggle-label { display: none; }
 }
 
 /* ── Art zone ── */

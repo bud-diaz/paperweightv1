@@ -180,6 +180,7 @@ tools.init();
 // ── Event handler wiring ───────────────────────────────────────────────────
 
 auth.initAuthHandlers();
+ascii.initRealVideoToggleHandlers();
 library.initListenerQueueHandlers();
 libraryModal.initLibraryModalHandlers();
 payment.initPaymentHandlers();

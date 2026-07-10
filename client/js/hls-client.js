@@ -18,6 +18,7 @@ import * as api from './api.js';
 // These are owned here; do not also import them from state.js.
 
 let hls             = null;
+let usingNativeHls  = false;
 let hlsRetryTimer   = null;
 let hlsRetryAttempt = 0;
 let pingInterval    = null;
@@ -114,6 +115,7 @@ export function scheduleHlsRetry() {
 export function setupHls(mediaEl) {
   if (window.Hls && Hls.isSupported()) {
     resetHlsRetry();
+    usingNativeHls = false;
     hls = new Hls({ lowLatencyMode: false });
     hls.loadSource(activeHlsUrl());
     hls.attachMedia(mediaEl);
@@ -122,6 +124,7 @@ export function setupHls(mediaEl) {
       if (d.fatal) scheduleHlsRetry();
     });
   } else if (mediaEl.canPlayType('application/vnd.apple.mpegurl')) {
+    usingNativeHls = true;
     mediaEl.src = activeHlsUrl();
   }
 }
@@ -150,9 +153,9 @@ export async function fetchStreamStatus() {
     // Handle audio ↔ video switch
     const wasVideo = currentIsVideo;
     currentIsVideo = !!data.isVideo;
-    if (wasVideo !== currentIsVideo && hls && state.playing) {
+    if (wasVideo !== currentIsVideo && (hls || usingNativeHls) && state.playing) {
       clearHlsRetry();
-      hls.destroy(); hls = null;
+      if (hls) { hls.destroy(); hls = null; }
       const oldEl = wasVideo ? el('video-el') : el('audio-el');
       const newEl = currentIsVideo ? el('video-el') : el('audio-el');
       oldEl.pause();
