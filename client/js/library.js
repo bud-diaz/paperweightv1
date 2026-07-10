@@ -337,7 +337,7 @@ export async function loadQueue() {
     html += `<div class="q-stack" data-personal-count="${listenerQueue.length}">`;
     html += `<div class="q-section-row"><div class="q-section">PERSONAL QUEUE</div><span class="q-count">${listenerQueue.length}/5</span></div>`;
     if (personal.length > 0) {
-      html += personal.map((t, i) => queueSlot(t, i)).join('');
+      html += personal.map((t, i) => queueSlot(t, i, true)).join('');
       for (let i = personal.length; i < 3; i++) html += emptyQueueSlot(i, 'Add from library');
     } else {
       html += `<div class="q-empty">Add tracks from the library to build your personal queue.</div>`;
@@ -361,7 +361,9 @@ export async function loadQueue() {
 
 // ── Listener queue ────────────────────────────────────────────────────────────
 
-function queueSlot(track, index) {
+// removable renders a per-track ✕ (personal queue only — station slots are
+// the creator's, not the listener's to remove).
+function queueSlot(track, index, removable = false) {
   const title = track?.title || 'Untitled';
   const artist = track?.artist || track?.creator || '';
   const duration = track?.duration ? fmt(track.duration) : '';
@@ -372,6 +374,7 @@ function queueSlot(track, index) {
       ${artist ? `<span class="q-artist">${esc(artist)}</span>` : ''}
     </span>
     ${duration ? `<span class="q-time">${duration}</span>` : ''}
+    ${removable ? `<button class="q-remove-btn" data-queue-index="${index}" title="Remove from your queue">✕</button>` : ''}
   </div>`;
 }
 
@@ -398,6 +401,19 @@ export function getListenerQueue() {
 // ── Event wiring (called from main.js in Phase 8) ─────────────────────────────
 
 export function initListenerQueueHandlers() {
+  // Per-track remove in the personal queue. Delegated because the drawer
+  // re-renders its rows on every loadQueue().
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.q-remove-btn');
+    if (!btn) return;
+    e.stopPropagation();
+    const index = parseInt(btn.dataset.queueIndex, 10);
+    if (Number.isNaN(index) || index < 0 || index >= listenerQueue.length) return;
+    const [removed] = listenerQueue.splice(index, 1);
+    updateListenerQueuePill();
+    showToast(`Removed ${removed?.title || 'track'} (${listenerQueue.length}/5)`);
+  });
+
   document.addEventListener('click', e => {
     const btn = e.target.closest('.lib-queue-btn');
     if (!btn) return;
