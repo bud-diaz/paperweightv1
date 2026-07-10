@@ -134,6 +134,26 @@ function runMigrations(database) {
       column: 'last_totp_counter',
       sql:    'ALTER TABLE dashboard_2fa ADD COLUMN last_totp_counter INTEGER',
     },
+    {
+      // Release scheduler: when set (future), media flips to 'public' at this time.
+      table:  'media',
+      column: 'release_at',
+      sql:    'ALTER TABLE media ADD COLUMN release_at TEXT',
+    },
+    {
+      // Persists the "email supporters" choice so a scheduled post can still
+      // honor it when the release scheduler fires notify later.
+      table:  'creator_posts',
+      column: 'notify_supporters',
+      sql:    'ALTER TABLE creator_posts ADD COLUMN notify_supporters INTEGER NOT NULL DEFAULT 0',
+    },
+    {
+      // Marks when notify actually fired for a post, so the release scheduler
+      // announces a scheduled post exactly once.
+      table:  'creator_posts',
+      column: 'release_notified_at',
+      sql:    'ALTER TABLE creator_posts ADD COLUMN release_notified_at TEXT',
+    },
   ];
 
   for (const guard of alterGuards) {

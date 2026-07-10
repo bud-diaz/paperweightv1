@@ -7,6 +7,17 @@ import { el, esc } from '../utils.js';
 
 export function init() {}
 
+// The server stores published_at in SQLite's own UTC 'YYYY-MM-DD HH:MM:SS' format.
+function parseUtcDatetime(sqliteUtc) {
+  return new Date(sqliteUtc.replace(' ', 'T') + 'Z');
+}
+
+function toLocalDatetimeValue(sqliteUtc) {
+  const d = parseUtcDatetime(sqliteUtc);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function renderPostPreview(target, title, body, visibility) {
   if (!target) return;
   target.hidden = false;
@@ -30,13 +41,14 @@ export async function loadDashPosts() {
 
     list.innerHTML = '';
     for (const p of posts) {
+      const isScheduled = parseUtcDatetime(p.published_at).getTime() > Date.now();
       const date = new Date(p.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
       const row = document.createElement('div');
       row.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-radius:7px;margin-bottom:1px;">
           <div>
             <div style="font-family:'DM Serif Display',serif;font-size:15px;color:rgba(255,255,255,.78);">${esc(p.title || '(untitled)')}</div>
-            <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);margin-top:2px;">${esc(date)} · ${esc(p.visibility.replace('_', ' '))}</div>
+            <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);margin-top:2px;">${isScheduled ? `⏱ scheduled for ${esc(parseUtcDatetime(p.published_at).toLocaleString())}` : esc(date)} · ${esc(p.visibility.replace('_', ' '))}</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
             <button class="mgmt-btn" data-edit-post="${p.id}">EDIT</button>
@@ -50,6 +62,7 @@ export async function loadDashPosts() {
               <option value="public"${p.visibility === 'public' ? ' selected' : ''}>Public</option>
               <option value="supporters_only"${p.visibility === 'supporters_only' ? ' selected' : ''}>Supporters Only</option>
             </select>
+            <input type="datetime-local" class="dash-input dash-input-sm" id="pe-publish-at-${p.id}" value="${toLocalDatetimeValue(p.published_at)}" title="Publish at"/>
           </div>
           <div class="dash-form-row" style="margin-bottom:6px;">
             <textarea class="dash-input" id="pe-body-${p.id}" rows="3" style="width:100%;resize:vertical;">${esc(p.body)}</textarea>
@@ -77,10 +90,12 @@ export async function loadDashPosts() {
       row.querySelector(`#pe-save-${p.id}`).addEventListener('click', async () => {
         const saveBtn = row.querySelector(`#pe-save-${p.id}`);
         const msgEl   = row.querySelector(`#pe-msg-${p.id}`);
+        const publishAtInput = row.querySelector(`#pe-publish-at-${p.id}`).value;
         const body = {
-          title:      row.querySelector(`#pe-title-${p.id}`).value.trim() || null,
-          body:       row.querySelector(`#pe-body-${p.id}`).value.trim(),
-          visibility: row.querySelector(`#pe-vis-${p.id}`).value,
+          title:        row.querySelector(`#pe-title-${p.id}`).value.trim() || null,
+          body:         row.querySelector(`#pe-body-${p.id}`).value.trim(),
+          visibility:   row.querySelector(`#pe-vis-${p.id}`).value,
+          published_at: publishAtInput ? new Date(publishAtInput).toISOString() : null,
         };
         saveBtn.disabled = true; saveBtn.textContent = '…';
         try {
@@ -130,16 +145,19 @@ export function initPostHandlers() {
       if (msgEl) { msgEl.textContent = 'Body is required'; msgEl.style.color = '#ff6b6b'; }
       return;
     }
+    const publishAtInput = el('post-new-publish-at')?.value;
     const payload = {
       title:      el('post-new-title').value.trim() || null,
       body,
       visibility: el('post-new-visibility').value,
+      published_at: publishAtInput ? new Date(publishAtInput).toISOString() : undefined,
       notify_supporters: !!el('post-new-notify')?.checked,
     };
     const { res, data } = await api.dashboard.posts.create(payload);
     if (res.ok) {
       el('post-new-title').value = '';
       el('post-new-body').value  = '';
+      if (el('post-new-publish-at')) el('post-new-publish-at').value = '';
       if (el('post-new-notify')) el('post-new-notify').checked = false;
       const preview = el('post-new-preview');
       if (preview) {

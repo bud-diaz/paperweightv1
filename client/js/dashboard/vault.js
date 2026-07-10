@@ -10,6 +10,18 @@ import { isDesktopPlatform } from './index.js';
 let vaultStatsBound   = false;
 let _activeVaultPanel = null;
 
+// ── release_at datetime helpers ────────────────────────────────────────────────
+// The server stores release_at in SQLite's own UTC 'YYYY-MM-DD HH:MM:SS' format.
+function parseUtcDatetime(sqliteUtc) {
+  return new Date(sqliteUtc.replace(' ', 'T') + 'Z');
+}
+
+function toLocalDatetimeValue(sqliteUtc) {
+  const d = parseUtcDatetime(sqliteUtc);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // ── Injected callbacks ─────────────────────────────────────────────────────────
 let _loadDashVaultStats = () => {};
 let _loadLibrary        = () => {};
@@ -132,10 +144,12 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
         <option value="supporters_only"${item.visibility==='supporters_only'?' selected':''}>SUPPORTERS</option>
         <option value="vault"${item.visibility==='vault'?' selected':''}>VAULT</option>
       </select>
+      <input type="datetime-local" class="dash-input dash-input-sm" id="release-${item.id}" value="${item.release_at ? toLocalDatetimeValue(item.release_at) : ''}" title="Auto-flip to PUBLIC at this time"/>
       <button class="mgmt-btn" id="save-${item.id}">SAVE</button>
       <button class="mgmt-btn" id="edit-tog-${item.id}">✎ EDIT</button>
       <button class="mgmt-btn${isHighlighted ? ' active' : ''}" id="hl-tog-${item.id}" data-highlighted="${isHighlighted ? '1' : '0'}">${isHighlighted ? '★ HIGHLIGHTED' : '☆ HIGHLIGHT'}</button>
       ${isDesktopPlatform() ? `<button class="mgmt-btn" id="tok-tog-${panelId}" style="letter-spacing:.03em;">⬡ TOKEN</button>` : ''}
+      ${item.release_at ? `<div class="mgmt-meta" style="width:100%;margin-top:2px;">⏱ scheduled public at ${esc(parseUtcDatetime(item.release_at).toLocaleString())}</div>` : ''}
     </div>
     ${isDesktopPlatform() ? `
     <div class="dash-tok-panel" id="${tokPanelId}" hidden>
@@ -197,11 +211,23 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
   const saveBtn = wrap.querySelector(`#save-${item.id}`);
   saveBtn.addEventListener('click', async () => {
     const vis = wrap.querySelector(`#vis-${item.id}`).value;
+    const releaseInput = wrap.querySelector(`#release-${item.id}`).value;
+    const body = { visibility: vis };
+    if (releaseInput) {
+      body.release_at = new Date(releaseInput).toISOString();
+    } else if (item.release_at) {
+      body.release_at = null; // field was cleared — cancel the pending schedule
+    }
     saveBtn.disabled = true;
-    await api.dashboard.media.update(item.id, { visibility: vis });
+    const { res, data } = await api.dashboard.media.update(item.id, body);
     saveBtn.disabled = false;
-    saveBtn.textContent = '✓';
-    setTimeout(() => { saveBtn.textContent = 'SAVE'; }, 1500);
+    if (res.ok) {
+      item.release_at = body.release_at ?? item.release_at;
+      saveBtn.textContent = '✓';
+    } else {
+      saveBtn.textContent = data.error || 'ERROR';
+    }
+    setTimeout(() => { saveBtn.textContent = 'SAVE'; loadDashLibrary(); }, 1500);
   });
 
   // Toggle edit panel
