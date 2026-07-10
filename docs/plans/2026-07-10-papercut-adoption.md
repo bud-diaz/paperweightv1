@@ -1,21 +1,23 @@
 # Papercut Feature Adoption Plan
 
-**Goal:** Adopt the user-facing functions of Papercut (the `bud-diaz/cut` Expo/Express prototype) into Paperweight — per-track buy flow surfaced everywhere, listener "Your Collection" and purchase history, in-station Discover (trending + new releases), genre/tag browsing, and a creator earnings dashboard — while preserving Paperweight's identity: single-process Express + better-sqlite3, no ORM, no new runtime dependencies, single-file frontend, real payments through the existing Stripe/PayPal checkout, and graceful degradation when payments are unconfigured.
+**Goal:** Adopt the user-facing functions of Papercut (the `bud-diaz/cut` Expo/Express prototype) into Paperweight — a "Welcome to Paperweight" onboarding page where listeners start an account with only a display name (optional email for the creator's marketing list), per-track buy flow surfaced everywhere, listener "Your Collection" and purchase history, in-station Discover (trending + new releases), genre/tag browsing, and a creator earnings dashboard — while preserving Paperweight's identity: single-process Express + better-sqlite3, no ORM, no new runtime dependencies, single-file frontend, real payments through the existing Stripe/PayPal checkout, and graceful degradation when payments are unconfigured.
 
-**Architecture:** No new services, packages, or clients. Every Papercut feature maps onto an existing Paperweight subsystem: purchases → `vault_unlocks` + existing unlock checkout (`src/api/vault.js`, `src/api/payment.js`); earnings → aggregation over `vault_unlocks`, `tips`, and `subscriptions`; discover trending → `listen_events` (same query shape as the dashboard-gated `/api/analytics/top`, restricted to public media); genre → media metadata captured by the vault scanner; library/collection UI → `client/creator.html`. Access decisions go through `src/auth/access.js` — no duplicated tier checks.
+**Architecture:** No new services, packages, or clients. Every Papercut feature maps onto an existing Paperweight subsystem: onboarding → the existing `pw_token` issuance path (`issueToken()` in `src/api/listener.js`) with a new lightweight `listener_profiles` table; purchases → `vault_unlocks` + existing unlock checkout (`src/api/vault.js`, `src/api/payment.js`); earnings → aggregation over `vault_unlocks`, `tips`, and `subscriptions`; discover trending → `listen_events` (same query shape as the dashboard-gated `/api/analytics/top`, restricted to public media); genre → media metadata captured by the vault scanner; library/collection/welcome UI → `client/creator.html`. Access decisions go through `src/auth/access.js` — no duplicated tier checks.
 
-**Tech Stack:** Express routes under `src/api/`, better-sqlite3 with the existing migration pattern (next migration: `025`), vanilla JS in `client/creator.html`, Node test runner (`npm test`).
+**Tech Stack:** Express routes under `src/api/`, better-sqlite3 with the existing migration pattern (next migrations: `025`, `026`), vanilla JS in `client/creator.html`, Node test runner (`npm test`).
 
 **Scope decisions (confirmed 2026-07-10):**
 - Server + web UI only. Papercut's Expo mobile app is **not** ported; Paperweight's bearer-token support already leaves the door open for a future mobile client.
 - Papercut's processor-less one-tap purchase is **not** replicated. "Buy" always goes through the existing vault unlock checkout with its payment idempotency.
 - Discover is **in-station** (this station's own trending/new releases), not a change to the paperweighthq directory.
+- Onboarding follows Papercut's opening page: display name is the only required field, with a collapsible optional email field (explicit marketing consent) that feeds the creator's email list.
 
 **Explicit Non-Goals:**
 - No Postgres, Drizzle, Zod, OpenAPI/Orval codegen, or pnpm workspace structure from Papercut.
-- No multi-creator user model ("top creators" has no meaning in a single-creator station and is dropped).
+- No multi-creator user model ("top creators" has no meaning in a single-creator station and is dropped; Papercut's "I make music too" creator toggle is dropped — the creator is the station owner via the dashboard).
 - No Replit object storage / presigned-URL uploads — the vault + existing dashboard upload path stays the source of truth for media.
 - No client-writable play counter (Papercut's `POST /tracks/:id/play`). Trending derives from server-recorded `listen_events`; clients never increment counts directly.
+- No rebuild of `listener_accounts` (its `email`/`password_hash` stay `NOT NULL`; auto-applied migrations must not rebuild tables per repo policy). Display-name-only identities live in a new table instead.
 - No changes to the broadcast engine, RSS feed, embed player, or station directory registration in this plan.
 
 ---
@@ -28,20 +30,24 @@ Papercut is a ~700-line prototype backend (`artifacts/api-server`) plus an Expo 
 
 | # | Papercut function | Where |
 |---|---|---|
-| 1 | Tracks with per-unit price (cents), genre, cover art, play count | `lib/db/src/schema/tracks.ts`, `routes/tracks.ts` |
-| 2 | Browse: title search + genre chip filter | `routes/tracks.ts` (`?search`, `?genre`), `app/(tabs)/browse.tsx` |
-| 3 | Discover feed: trending (by plays), new releases, top creators | `routes/discover.ts`, `app/(tabs)/index.tsx` |
-| 4 | One-tap purchase with duplicate guard, price-paid recorded | `routes/purchases.ts` |
-| 5 | "Your Collection": purchased tracks as a library | `GET /users/:id/library`, `app/(tabs)/library.tsx` |
-| 6 | Purchase history per user | `GET /users/:id/purchases` |
-| 7 | Creator earnings: per-track units sold + revenue, totals | `GET /users/:id/earnings`, `app/(tabs)/profile.tsx` |
-| 8 | Presigned-URL upload flow (cover + audio) | `routes/storage.ts`, `app/track/new.tsx` |
-| 9 | Persistent global mini player with queue, next/prev, full-screen | `store/usePlayerStore.ts`, `components/GlobalPlayer.tsx` |
+| 1 | "Welcome to Papercut" opening page: display-name-only account creation gates entry | `app/index.tsx`, `POST /users`, `store/useAuthStore.ts` |
+| 2 | Tracks with per-unit price (cents), genre, cover art, play count | `lib/db/src/schema/tracks.ts`, `routes/tracks.ts` |
+| 3 | Browse: title search + genre chip filter | `routes/tracks.ts` (`?search`, `?genre`), `app/(tabs)/browse.tsx` |
+| 4 | Discover feed: trending (by plays), new releases, top creators | `routes/discover.ts`, `app/(tabs)/index.tsx` |
+| 5 | One-tap purchase with duplicate guard, price-paid recorded | `routes/purchases.ts` |
+| 6 | "Your Collection": purchased tracks as a library | `GET /users/:id/library`, `app/(tabs)/library.tsx` |
+| 7 | Purchase history per user | `GET /users/:id/purchases` |
+| 8 | Creator earnings: per-track units sold + revenue, totals | `GET /users/:id/earnings`, `app/(tabs)/profile.tsx` |
+| 9 | Presigned-URL upload flow (cover + audio) | `routes/storage.ts`, `app/track/new.tsx` |
+| 10 | Persistent global mini player with queue, next/prev, full-screen | `store/usePlayerStore.ts`, `components/GlobalPlayer.tsx` |
 
 ### What Paperweight already has (overlap map)
 
 | Papercut function | Paperweight today | Gap |
 |---|---|---|
+| Display-name-only entry | `POST /api/listener/register` requires email + password (both `NOT NULL` in `listener_accounts`); anonymous listening is otherwise unauthenticated | No frictionless named identity; no welcome page |
+| Optional email → creator marketing list | `download_leads` (+ opt-in, migration 020) captures emails only on the download page; subscriber/listener CSV exports exist | No opt-in email capture at listener entry; no unified consented "audience" export |
+| Creator profile/database | `creator_profile` table (migration 013) already exists | Nothing to create — the missing piece is the *audience email list*, covered below |
 | Per-track price + purchase | `vault_prices`, `vault_unlocks` (stores `amount_paid`, `created_at`), Stripe/PayPal checkout with idempotency | Exists but only surfaced inside the vault unlock-options UI — no Papercut-style price badge / buy button on tracks in the browsing views |
 | Purchase dedupe | Unlock checks in `src/api/vault.js` | None |
 | "Your Collection" | Access policy can answer "is this unlocked?" per item (`/api/vault/unlock-options/:id`) | No single listener-facing view/endpoint listing everything their account owns |
@@ -83,51 +89,98 @@ Add `?search=` (title/artist LIKE) and `?genre=` params to `GET /api/library` (a
 **Task 2.3 — Price + owned state in library payloads.**
 Where library items are returned to listeners, include (a) the track's price/unlockability summary from `vault_prices`, and (b) an `owned`/`unlocked` boolean computed through the existing access policy for the current `req.tier`/listener. This is what lets the frontend show Papercut-style price badges and "in your collection" checkmarks without N+1 requests.
 
-### Phase 3 — Listener collection + purchase history
+### Phase 3 — Welcome onboarding + audience email list
 
-**Task 3.1 — `GET /api/listener/collection`.**
+Papercut's opening page, in Paperweight's skin: listeners start an account with just a display name; email is optional, collapsible, and consent-gated — and consented emails become the creator's marketing list.
+
+**Task 3.1 — Migration `026`: `listener_profiles` table.**
+`listener_accounts` cannot hold display-name-only identities (email/password are `NOT NULL`, and auto-applied migrations must not rebuild tables), so lightweight identities get their own table:
+
+```sql
+CREATE TABLE IF NOT EXISTS listener_profiles (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  display_name     TEXT    NOT NULL,
+  email            TEXT,
+  marketing_opt_in INTEGER NOT NULL DEFAULT 0,
+  account_id       INTEGER REFERENCES listener_accounts(id),
+  token_id         INTEGER REFERENCES tokens(id),
+  created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+  last_seen_at     TEXT
+);
+```
+
+`token_id` links the profile to the `pw_token` issued at entry so `attachTier` / `/api/listener/me` can resolve the display name; `account_id` is filled if/when the listener upgrades to a full email+password account. `email` is stored **only** when provided, and `marketing_opt_in` only when the consent box is explicitly ticked.
+
+**Task 3.2 — `POST /api/listener/start`.**
+Body: `{ displayName, email?, marketingOptIn? }`. Display name required (trimmed, length-capped); email validated when present. Creates the profile row, issues a free-tier token through the existing `issueToken()` path, sets the `pw_token` cookie (and returns `{ token, tier, displayName }` for bearer clients) — exactly mirroring `register`'s response shape. Rate-limited with the existing `authLimiter`. Extend `GET /api/listener/me` to return the display name, and extend the existing data-export and self-service-deletion flows to cover profile rows (consent data must be deletable).
+
+**Task 3.3 — Supporter upgrade path.**
+Becoming a supporter (subscription or vault unlock) requires a full `listener_accounts` row (`vault_unlocks.listener_id` FK). When a display-name-only listener hits a checkout, prompt them to complete their account (email + password), prefilled with the profile email if they gave one; on completion, create the `listener_accounts` row, set `listener_profiles.account_id`, and keep the same `pw_token`. Existing register/login flows are untouched for listeners who already have accounts.
+
+**Task 3.4 — Welcome page in `client/creator.html`.**
+First-visit overlay (no `pw_token` cookie present), styled with Paperweight's existing design language — not Papercut's:
+- "Welcome to {stationName}" heading + station tagline (from `creator_profile` / settings).
+- Display name input; **Enter** button enabled once non-empty (Papercut's exact gesture).
+- Collapsible "Add your email (optional)" section with an explicit consent checkbox, worded plainly (e.g. "Send me updates and releases from this station") — collapsed by default; supports the "for when/if they become a supporter" prefill in Task 3.3.
+- "Already have an account? Log in" link into the existing login flow.
+- A "Just listen" skip link, so the public radio stream stays frictionless (recommended for Paperweight's identity; trivially removable if the creator wants a hard gate like Papercut's).
+- Never shown on `/embed`, `/feed.xml`, the landing pages, or the dashboard.
+
+**Task 3.5 — Audience email list for the creator.**
+The creator "database" already exists (`creator_profile`, migration 013); what's new is the **audience list**. Add a dashboard endpoint + panel ("Audience") and CSV export that merges consented emails, deduplicated by email address, from:
+- `listener_profiles` where `marketing_opt_in = 1`,
+- `download_leads` opt-ins (existing),
+- optionally active subscribers (`listener_accounts` joined to `subscriptions`) — included only if the creator's export choice says so, since subscribing is not marketing consent.
+Follows the existing CSV export patterns (subscribers/listeners/download-leads exports in the dashboard). Only opted-in emails ever appear in the marketing export.
+
+### Phase 4 — Listener collection + purchase history
+
+**Task 4.1 — `GET /api/listener/collection`.**
 For the authenticated listener (cookie or bearer): every media item their account can access beyond public — track unlocks, project unlocks, all-access, and assigned-token tier grants — resolved through `src/auth/access.js`. This is Papercut's "Your Collection".
 
-**Task 3.2 — `GET /api/listener/purchases`.**
+**Task 4.2 — `GET /api/listener/purchases`.**
 Their `vault_unlocks` rows (active and expired) with `unlock_type`, resolved target title, `amount_paid`, `payment_type`, `created_at`, `expires_at`. Include in the existing `GET /api/listener/export` data-export payload.
 
-### Phase 4 — Creator earnings dashboard
+### Phase 5 — Creator earnings dashboard
 
-**Task 4.1 — `GET /api/dashboard/earnings` (requireDashboard).**
+**Task 5.1 — `GET /api/dashboard/earnings` (requireDashboard).**
 Papercut's earnings shape, extended to Paperweight's revenue sources:
 - Per-track/per-project: units sold + gross cents from `vault_unlocks` grouped by `unlock_type`,`target_id`, joined to `media`/`vault_projects` for titles.
 - Tips total (and recent tips) from `tips`.
 - Active subscription count from `subscriptions` (revenue only if amount data exists — otherwise count only; don't invent numbers).
 - Grand totals: `totalUnitsSold`, `totalRevenueCents` per source and combined.
 
-**Task 4.2 — Earnings panel in the dashboard UI.**
+**Task 5.2 — Earnings panel in the dashboard UI.**
 New section in `client/creator.html`'s dashboard: totals row + per-track table (title, units, revenue), mirroring Papercut's profile earnings card. Renders "no payment provider configured" gracefully when Stripe/PayPal are absent.
 
-### Phase 5 — Listener frontend (client/creator.html)
+### Phase 6 — Listener frontend (client/creator.html)
 
 All within the single-file frontend — no new local JS files.
 
-**Task 5.1 — Discover section.** "Trending" and "New releases" rows on the player/home view, fed by `/api/library/discover`. Reuse existing artwork endpoints for cover art. Keep the existing highlight feature as the hand-curated slot above it.
+**Task 6.1 — Discover section.** "Trending" and "New releases" rows on the player/home view, fed by `/api/library/discover`. Reuse existing artwork endpoints for cover art. Keep the existing highlight feature as the hand-curated slot above it.
 
-**Task 5.2 — Browse upgrades.** Search input + genre chips over the library view, using Task 2.2 params.
+**Task 6.2 — Browse upgrades.** Search input + genre chips over the library view, using Task 2.2 params.
 
-**Task 5.3 — Buy flow surfacing.** Price badge on every priced track in library/discover lists; "Buy"/"Unlock" button opens the existing unlock checkout (`/api/vault/unlock` flow); owned items show a collection checkmark instead. Zero new payment paths.
+**Task 6.3 — Buy flow surfacing.** Price badge on every priced track in library/discover lists; "Buy"/"Unlock" button opens the existing unlock checkout (`/api/vault/unlock` flow); owned items show a collection checkmark instead. Zero new payment paths. Display-name-only listeners are routed through the Task 3.3 account-completion step first.
 
-**Task 5.4 — "Your Collection" view.** Listener-facing tab/section listing `/api/listener/collection`, with purchase history from `/api/listener/purchases` (Papercut's Library tab + purchases, merged).
+**Task 6.4 — "Your Collection" view.** Listener-facing tab/section listing `/api/listener/collection`, with purchase history from `/api/listener/purchases` (Papercut's Library tab + purchases, merged). Greets the listener by display name.
 
-**Task 5.5 — Player queue polish.** Ensure playing a track from a browse/discover/collection list sets that list as the queue with working next/prev (Papercut's `usePlayerStore` semantics), and that the mini player persists across views. Extend the existing player only — no rewrite.
+**Task 6.5 — Player queue polish.** Ensure playing a track from a browse/discover/collection list sets that list as the queue with working next/prev (Papercut's `usePlayerStore` semantics), and that the mini player persists across views. Extend the existing player only — no rewrite.
 
-### Phase 6 — Tests and release gate
+### Phase 7 — Tests and release gate
 
-**Task 6.1 — HTTP tests** for: discover (public-only leakage check — vault items must never appear), library search/genre filters, collection/purchases auth boundaries (listener A cannot read listener B; anonymous gets 401), earnings requires dashboard auth.
+**Task 7.1 — HTTP tests** for: discover (public-only leakage check — vault items must never appear), library search/genre filters, onboarding (`/api/listener/start` validation, token issuance, email optionality, consent flag), audience export (emails without `marketing_opt_in = 1` never appear), collection/purchases auth boundaries (listener A cannot read listener B; anonymous gets 401), earnings requires dashboard auth.
 
-**Task 6.2 — Checks.** `npm run check:migrations` for the genre change; full `npm run release:check` green before merge.
+**Task 7.2 — Checks.** `npm run check:migrations` for migrations 025/026; full `npm run release:check` green before merge.
 
 ---
 
 ## Sequencing and risk
 
-- Phases 1–2 are independent of 3–4; 5 depends on all of 2–4. Suggested order: 1 → 2 → 3 → 4 → 5 → 6, but 3 and 4 can be built in parallel with 2.
-- Riskiest surface: Task 2.3 (owned-state in list payloads) — must go through `access.js` and be computed per-request without noticeable latency on large vaults; add an index only if measured.
-- Leak risk: discover/trending must filter visibility *in SQL*, not post-hoc, and tests must cover it (Task 6.1).
-- Everything degrades: no payments configured → prices hidden or shown as locked without checkout; no genres tagged → chips collapse to search-only.
+- Phase 1 → 2 in order; Phase 3 (onboarding) is independent of 1–2 and can be built in parallel; Phases 4–5 depend only on existing tables; Phase 6 depends on 2–5; Phase 7 last.
+- Riskiest surfaces:
+  - Task 2.3 (owned-state in list payloads) — must go through `access.js` and be computed per-request without noticeable latency on large vaults; add an index only if measured.
+  - Task 3.3 (guest → account upgrade) — must keep the same `pw_token` across the upgrade and never orphan `vault_unlocks`; checkout paths must refuse to record unlocks against a profile with no `listener_accounts` row.
+- Leak risk: discover/trending must filter visibility *in SQL*, not post-hoc, and tests must cover it (Task 7.1).
+- Consent risk: the marketing export must be strictly opt-in-only; storing an email at onboarding without the consent box ticked must set `marketing_opt_in = 0`, and profile deletion/data export must include it.
+- Everything degrades: no payments configured → prices hidden or shown as locked without checkout; no genres tagged → chips collapse to search-only; SMTP unconfigured → email list still collects, only sending is unavailable (matching `isEmailConfigured()` behavior).
