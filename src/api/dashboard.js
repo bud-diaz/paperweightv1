@@ -1297,9 +1297,21 @@ router.post('/media/external', requireDesktop, asyncHandler(async (req, res) => 
   if (!title || !platform || !externalUrl) {
     return res.status(400).json({ error: 'title, platform, and externalUrl are required' });
   }
+  const db = getDb();
+
+  const existing = db.prepare(`
+    SELECT id, title, is_active FROM media WHERE source_platform = ? AND external_url = ?
+  `).get(platform, externalUrl);
+
+  if (existing) {
+    if (!existing.is_active) {
+      db.prepare(`UPDATE media SET is_active = 1 WHERE id = ?`).run(existing.id);
+    }
+    return res.json({ id: existing.id, title: existing.title, duplicate: true });
+  }
+
   const safeId   = crypto.randomBytes(8).toString('hex');
   const filepath = `external://${platform}/${safeId}`;
-  const db = getDb();
   const row = db.prepare(`
     INSERT INTO media (filepath, filename, category, title, artist, duration, visibility, source_platform, external_url, is_active)
     VALUES (?, ?, 'music', ?, ?, ?, 'public', ?, ?, 1)
