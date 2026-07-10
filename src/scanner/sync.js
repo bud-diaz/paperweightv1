@@ -4,10 +4,10 @@ const { getDb, log } = require('../db');
 
 const upsertStmt = `
   INSERT INTO media (
-    filepath, filename, category, title, artist, album,
+    filepath, filename, category, title, artist, album, genre,
     duration, bpm, tags, file_size, mime_type, updated_at
   ) VALUES (
-    :filepath, :filename, :category, :title, :artist, :album,
+    :filepath, :filename, :category, :title, :artist, :album, :genre,
     :duration, :bpm, :tags, :file_size, :mime_type, datetime('now')
   )
   ON CONFLICT(filepath) DO UPDATE SET
@@ -16,6 +16,7 @@ const upsertStmt = `
     title      = excluded.title,
     artist     = excluded.artist,
     album      = excluded.album,
+    genre      = excluded.genre,
     duration   = excluded.duration,
     bpm        = excluded.bpm,
     tags       = excluded.tags,
@@ -53,6 +54,7 @@ function upsert(filepath, category, probeData) {
     title: probeData.title || null,
     artist: probeData.artist || null,
     album: probeData.album || null,
+    genre: probeData.genre || null,
     duration: probeData.duration || null,
     bpm: probeData.bpm || null,
     tags: null,

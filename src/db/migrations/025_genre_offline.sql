@@ -1,0 +1,8 @@
+-- Migration 025: Track genre + offline save permission
+-- Adds media.genre (captured from ffprobe tags, editable in the dashboard,
+-- drives public library genre browsing) and media.offline_allowed (creator
+-- opt-in per track: listeners with access may save the file locally for
+-- browser-based offline playback).
+-- Both columns are added by guarded programmatic ALTERs in the migration
+-- runner (src/db/index.js) so they can be gated on column existence.
+-- SQLite has no IF NOT EXISTS for ALTER TABLE.

@@ -72,6 +72,12 @@ function canDownloadMedia(req, media, projectId = null) {
     return canAccessMedia(req, media, projectId);
   }
 
+  // Creator opt-in per track: anyone who can access it may fetch the full file
+  // (used for browser-side offline saves), regardless of subscriber tier.
+  if (media.offline_allowed === 1) {
+    return canAccessMedia(req, media, projectId);
+  }
+
   if (!isSubscriberTier(req.tier)) {
     return { allowed: false, error: 'Subscriber access required' };
   }
@@ -84,6 +90,7 @@ module.exports = {
   isSubscriberTier,
   isHigherTier,
   hasScopedVaultAccess,
+  allAccessTierIncludesVault,
   canAccessMedia,
   canDownloadMedia,
 };

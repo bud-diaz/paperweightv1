@@ -175,6 +175,16 @@ All within the single-file frontend — no new local JS files.
 
 ---
 
+## Addendum (2026-07-10, second pass)
+
+Two requirements added after the initial plan; both are station-side (this repo). The system.pape/directory side will be wired in a separate session.
+
+**A. Repeat-listener identity across visits (and later, across stations).**
+The `pw_token` issued at `POST /api/listener/start` is the durable identity: it persists in the httpOnly cookie (and as a bearer token for other clients), so a returning listener is recognized without re-entering anything. `listener_profiles.last_seen_at` is refreshed on authenticated `GET /api/listener/me` calls, giving the station a repeat-listener signal. The station-side contract for the future system.pape wiring is intentionally minimal: profiles are keyed by token, `GET /api/listener/me` returns `{ displayName, tier, ... }` for any valid token, and the existing telemetry reporter can later include aggregate repeat-listener counts. Cross-station account sync (the "saved stations" cloud phase in `src/api/listener.js`) stays untouched here.
+
+**B. Permission-gated local saves for offline browser playback.**
+New `media.offline_allowed` flag (guarded ALTER, default 0). When the creator enables it on a track, listeners who can *access* the track (per `access.js`) may fetch the full file through the existing signed-URL download path and store it in browser storage (IndexedDB/Cache API on the frontend) for on-demand playback. Policy change is one carve-out in `canDownloadMedia`: `offline_allowed = 1` → download permitted at access level rather than subscriber level. Saving requires a token (welcome-page entry or account) because the signed URL context is token-bound — fully anonymous visitors can stream but not save, which also nudges onboarding. The dashboard media editor gets the toggle; the client stores files keyed by media id + a version stamp.
+
 ## Sequencing and risk
 
 - Phase 1 → 2 in order; Phase 3 (onboarding) is independent of 1–2 and can be built in parallel; Phases 4–5 depend only on existing tables; Phase 6 depends on 2–5; Phase 7 last.

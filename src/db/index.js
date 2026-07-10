@@ -134,6 +134,19 @@ function runMigrations(database) {
       column: 'last_totp_counter',
       sql:    'ALTER TABLE dashboard_2fa ADD COLUMN last_totp_counter INTEGER',
     },
+    {
+      // 025 — genre from ffprobe tags; drives public library genre browsing.
+      table:  'media',
+      column: 'genre',
+      sql:    'ALTER TABLE media ADD COLUMN genre TEXT',
+    },
+    {
+      // 025 — creator opt-in: listeners with access may save this file locally
+      // for offline browser playback.
+      table:  'media',
+      column: 'offline_allowed',
+      sql:    'ALTER TABLE media ADD COLUMN offline_allowed INTEGER NOT NULL DEFAULT 0',
+    },
   ];
 
   for (const guard of alterGuards) {

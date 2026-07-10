@@ -213,7 +213,8 @@ router.post('/upload', (req, res) => {
 router.get('/media', (req, res) => {
   const items = getDb().prepare(`
     SELECT id, title, filename, category, visibility, duration,
-           artist, album, producer, credits, artwork_url, tags, indexed_at
+           artist, album, genre, producer, credits, artwork_url, tags,
+           offline_allowed, indexed_at
     FROM media
     WHERE is_active = 1
     ORDER BY indexed_at DESC
@@ -223,9 +224,9 @@ router.get('/media', (req, res) => {
 });
 
 // PATCH /api/dashboard/media/:id
-// Body: any subset of { visibility, title, artist, album, producer, credits, artwork_url }
+// Body: any subset of { visibility, title, artist, album, genre, producer, credits, artwork_url, offline_allowed }
 router.patch('/media/:id', (req, res) => {
-  const { visibility, title, artist, album, producer, credits, artwork_url } = req.body;
+  const { visibility, title, artist, album, genre, producer, credits, artwork_url, offline_allowed } = req.body;
   const setClauses = [];
   const params     = [];
 
@@ -237,11 +238,16 @@ router.patch('/media/:id', (req, res) => {
     params.push(visibility);
   }
 
+  if (offline_allowed !== undefined) {
+    setClauses.push('offline_allowed = ?');
+    params.push(offline_allowed === true || offline_allowed === 1 || offline_allowed === '1' ? 1 : 0);
+  }
+
   if (artwork_url !== undefined && artwork_url !== '' && artwork_url !== null && !isValidExternalHttpUrl(artwork_url)) {
     return res.status(400).json({ error: 'artwork_url must be an http or https URL' });
   }
 
-  for (const [field, val] of Object.entries({ title, artist, album, producer, credits, artwork_url })) {
+  for (const [field, val] of Object.entries({ title, artist, album, genre, producer, credits, artwork_url })) {
     if (val !== undefined) {
       setClauses.push(`${field} = ?`);
       params.push(val === '' ? null : val);
@@ -462,6 +468,121 @@ router.get('/export/listeners.csv', (req, res) => {
     ORDER BY created_at DESC
   `).all();
   sendCsv(res, 'listeners.csv', ['email', 'created_at'], rows);
+});
+
+// Consented marketing contacts, deduplicated by email: welcome-page profiles
+// with marketing_opt_in and download leads with updates_opt_in. Strictly
+// opt-in — an email stored without its consent flag never appears here.
+function collectAudience() {
+  const db = getDb();
+  const byEmail = new Map();
+
+  const profiles = db.prepare(`
+    SELECT email, display_name, created_at FROM listener_profiles
+    WHERE marketing_opt_in = 1 AND email IS NOT NULL
+    ORDER BY created_at ASC
+  `).all();
+  for (const p of profiles) {
+    const key = p.email.toLowerCase();
+    if (!byEmail.has(key)) {
+      byEmail.set(key, { email: p.email, name: p.display_name, source: 'listener_profile', created_at: p.created_at });
+    }
+  }
+
+  const leads = db.prepare(`
+    SELECT email, platform, created_at FROM download_leads
+    WHERE updates_opt_in = 1
+    ORDER BY created_at ASC
+  `).all();
+  for (const l of leads) {
+    const key = l.email.toLowerCase();
+    if (!byEmail.has(key)) {
+      byEmail.set(key, { email: l.email, name: null, source: 'download_lead', created_at: l.created_at });
+    }
+  }
+
+  return [...byEmail.values()];
+}
+
+// GET /api/dashboard/audience — the creator's marketing email list (JSON).
+router.get('/audience', (req, res) => {
+  const contacts = collectAudience();
+  res.json({
+    total: contacts.length,
+    bySource: contacts.reduce((acc, c) => {
+      acc[c.source] = (acc[c.source] || 0) + 1;
+      return acc;
+    }, {}),
+    contacts,
+  });
+});
+
+// GET /api/dashboard/export/audience.csv — the same list as a CSV download.
+router.get('/export/audience.csv', (req, res) => {
+  sendCsv(res, 'audience.csv', ['email', 'name', 'source', 'created_at'], collectAudience());
+});
+
+// ─── Earnings ────────────────────────────────────────────────────────────────
+
+// GET /api/dashboard/earnings
+// Revenue summary across every source: per-track/per-project vault unlocks
+// (units sold + gross), tips, and active subscription counts. Amounts are
+// integer cents; no amounts are invented — subscriptions report counts only
+// because per-period amounts live at the provider.
+router.get('/earnings', (req, res) => {
+  const db = getDb();
+
+  const unlockRows = db.prepare(`
+    SELECT vu.unlock_type, vu.target_id,
+           COUNT(*) AS units, COALESCE(SUM(vu.amount_paid), 0) AS gross_cents,
+           m.title AS media_title, m.filename AS media_filename,
+           vp.name AS project_name
+    FROM vault_unlocks vu
+    LEFT JOIN media m ON vu.unlock_type = 'track' AND m.id = vu.target_id
+    LEFT JOIN vault_projects vp ON vu.unlock_type = 'project' AND vp.id = vu.target_id
+    GROUP BY vu.unlock_type, vu.target_id
+    ORDER BY gross_cents DESC
+  `).all();
+
+  const unlocks = unlockRows.map(r => ({
+    unlockType: r.unlock_type,
+    targetId: r.target_id,
+    title: r.unlock_type === 'all_access'
+      ? 'All-Access Vault'
+      : (r.media_title || r.media_filename || r.project_name || `#${r.target_id}`),
+    unitsSold: r.units,
+    revenueCents: r.gross_cents,
+  }));
+
+  const tipStats = db.prepare(
+    'SELECT COUNT(*) AS count, COALESCE(SUM(amount_cents), 0) AS gross_cents FROM tips'
+  ).get();
+  const recentTips = db.prepare(
+    'SELECT amount_cents, created_at FROM tips ORDER BY created_at DESC LIMIT 10'
+  ).all();
+
+  const subStats = db.prepare(`
+    SELECT tier, COUNT(*) AS count FROM subscriptions
+    WHERE status = 'active' AND datetime(current_period_end) > datetime('now')
+    GROUP BY tier
+  `).all();
+
+  const unlockRevenueCents = unlocks.reduce((sum, u) => sum + u.revenueCents, 0);
+  const unlockUnits = unlocks.reduce((sum, u) => sum + u.unitsSold, 0);
+
+  res.json({
+    totals: {
+      revenueCents: unlockRevenueCents + tipStats.gross_cents,
+      unlockRevenueCents,
+      tipRevenueCents: tipStats.gross_cents,
+      unitsSold: unlockUnits,
+      tipCount: tipStats.count,
+      activeSubscriptions: subStats.reduce((sum, s) => sum + s.count, 0),
+    },
+    unlocks,
+    tips: { count: tipStats.count, grossCents: tipStats.gross_cents, recent: recentTips },
+    subscriptions: subStats.map(s => ({ tier: s.tier, count: s.count })),
+  });
 });
 
 // ─── Database backup ─────────────────────────────────────────────────────────

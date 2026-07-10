@@ -45,6 +45,7 @@ function extractMetadata(raw) {
     title: tags.title || tags.TITLE || null,
     artist: tags.artist || tags.ARTIST || null,
     album: tags.album || tags.ALBUM || null,
+    genre: tags.genre || tags.GENRE || null,
     bpm: parseFloat(tags.BPM || tags.bpm || tags.TBPM || tags.tbpm) || null,
     mime_type: guessMimeType(format.format_name),
     file_size: parseInt(format.size, 10) || null,

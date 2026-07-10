@@ -4,7 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { getDb } = require('../db');
-const { isSubscriberTier, canAccessMedia, canDownloadMedia } = require('../auth/access');
+const { isSubscriberTier, canAccessMedia, canDownloadMedia, allAccessTierIncludesVault, hasScopedVaultAccess } = require('../auth/access');
 const { effectiveTierForTokenRow } = require('../auth/middleware');
 const config = require('../config');
 const { ffmpegPath, installHint } = require('../runtime/ffmpeg');
@@ -126,7 +126,7 @@ function parseTags(tags) {
   }
 }
 
-function buildMediaQuery({ category, search, tier }) {
+function buildMediaQuery({ category, search, genre, tier }) {
   const conditions = ['m.is_active = 1'];
   const params = {};
 
@@ -142,6 +142,11 @@ function buildMediaQuery({ category, search, tier }) {
     params.category = category;
   }
 
+  if (genre) {
+    conditions.push('m.genre = :genre COLLATE NOCASE');
+    params.genre = genre;
+  }
+
   if (search) {
     conditions.push('(m.title LIKE :search OR m.artist LIKE :search OR m.filename LIKE :search)');
     params.search = `%${search}%`;
@@ -150,7 +155,61 @@ function buildMediaQuery({ category, search, tier }) {
   return { conditions, params };
 }
 
-function formatItem(row, tier) {
+// Per-request pricing + unlock state, computed in one pass so list endpoints
+// can annotate every item without per-item access queries.
+function buildOwnershipContext(req) {
+  const db = getDb();
+  const listenerId = req.tokenRow?.listener_id || null;
+
+  const ctx = {
+    tier: req.tier,
+    tokenRow: req.tokenRow || null,
+    subscriberVault: isSubscriberTier(req.tier) && allAccessTierIncludesVault(),
+    allAccess: false,
+    trackIds: new Set(),
+    projectIds: new Set(),
+    prices: new Map(
+      db.prepare(
+        'SELECT content_id, suggested_price, minimum_price, allow_free, payment_type, recurring_interval, currency FROM vault_prices'
+      ).all().map(r => [r.content_id, r])
+    ),
+    trackToProject: new Map(
+      db.prepare('SELECT project_id, content_id FROM vault_project_items').all()
+        .map(pi => [pi.content_id, pi.project_id])
+    ),
+  };
+
+  if (listenerId) {
+    const unlocks = db.prepare(`
+      SELECT unlock_type, target_id FROM vault_unlocks
+      WHERE listener_id = ? AND active = 1
+        AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
+    `).all(listenerId);
+    for (const u of unlocks) {
+      if (u.unlock_type === 'all_access') ctx.allAccess = true;
+      else if (u.unlock_type === 'track') ctx.trackIds.add(Number(u.target_id));
+      else if (u.unlock_type === 'project') ctx.projectIds.add(Number(u.target_id));
+    }
+  }
+
+  return ctx;
+}
+
+function isUnlockedInContext(row, ctx) {
+  if (row.visibility === 'public') return true;
+  if (row.visibility === 'supporters_only') {
+    return isSubscriberTier(ctx.tier)
+      || hasScopedVaultAccess({ tokenRow: ctx.tokenRow }, row.id, ctx.trackToProject.get(row.id) ?? null);
+  }
+  // vault
+  if (ctx.subscriberVault || ctx.allAccess) return true;
+  if (ctx.trackIds.has(Number(row.id))) return true;
+  const projectId = ctx.trackToProject.get(row.id) ?? null;
+  if (projectId !== null && ctx.projectIds.has(Number(projectId))) return true;
+  return hasScopedVaultAccess({ tokenRow: ctx.tokenRow }, row.id, projectId);
+}
+
+function formatItem(row, tier, ctx = null) {
   const isVideo = !!(row.mime_type && row.mime_type.startsWith('video/'));
   const isVault = row.visibility === 'vault';
   const base = {
@@ -158,6 +217,7 @@ function formatItem(row, tier) {
     title: row.title || row.filename,
     artist:     row.artist     || null,
     album:      row.album      || null,
+    genre:      row.genre      || null,
     producer:   row.producer   || null,
     credits:    row.credits    || null,
     artwork_url: row.artwork_url || null,
@@ -169,12 +229,28 @@ function formatItem(row, tier) {
     mimeType: row.mime_type || null,
     isVideo,
     isVault,
+    offlineAllowed: row.offline_allowed === 1,
     previewUrl: `/api/library/${row.id}/preview`,
     indexedAt: row.indexed_at,
   };
 
-  if (isSubscriberTier(tier)) {
+  if (isSubscriberTier(tier) || row.offline_allowed === 1) {
     base.downloadUrl = `/api/library/${row.id}/download`;
+  }
+
+  if (ctx) {
+    base.unlocked = isUnlockedInContext(row, ctx);
+    const price = ctx.prices.get(row.id);
+    if (isVault && price) {
+      base.price = {
+        suggested: price.suggested_price,
+        minimum: price.minimum_price,
+        allowFree: price.allow_free === 1,
+        paymentType: price.payment_type,
+        recurringInterval: price.recurring_interval || null,
+        currency: price.currency,
+      };
+    }
   }
 
   return base;
@@ -338,18 +414,17 @@ router.get('/structure', (req, res) => {
   ).all(params);
 
   const projects = db.prepare('SELECT id, name, description FROM vault_projects ORDER BY created_at ASC').all();
-  const projectItems = db.prepare('SELECT project_id, content_id FROM vault_project_items').all();
-
-  const trackToProject = new Map(projectItems.map(pi => [pi.content_id, pi.project_id]));
+  const ctx = buildOwnershipContext(req);
+  const trackToProject = ctx.trackToProject;
   const projectMap = new Map(projects.map(p => [p.id, { ...p, tracks: [] }]));
   const standalone = [];
 
   for (const track of allTracks) {
     const projId = trackToProject.get(track.id);
     if (projId && projectMap.has(projId)) {
-      projectMap.get(projId).tracks.push(formatItem(track, req.tier));
+      projectMap.get(projId).tracks.push(formatItem(track, req.tier, ctx));
     } else {
-      standalone.push(formatItem(track, req.tier));
+      standalone.push(formatItem(track, req.tier, ctx));
     }
   }
 
@@ -364,12 +439,12 @@ router.get('/structure', (req, res) => {
 });
 
 router.get('/', (req, res) => {
-  const { category, search, page = '1', limit = '20' } = req.query;
+  const { category, search, genre, page = '1', limit = '20' } = req.query;
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
   const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
   const offset = (pageNum - 1) * limitNum;
 
-  const { conditions, params } = buildMediaQuery({ category, search, tier: req.tier });
+  const { conditions, params } = buildMediaQuery({ category, search, genre, tier: req.tier });
   const where = 'WHERE ' + conditions.join(' AND ');
 
   const db = getDb();
@@ -378,12 +453,59 @@ router.get('/', (req, res) => {
     `SELECT * FROM media m ${where} ORDER BY m.indexed_at DESC LIMIT :limit OFFSET :offset`
   ).all({ ...params, limit: limitNum, offset });
 
+  const ctx = buildOwnershipContext(req);
   res.json({
-    items: items.map(r => formatItem(r, req.tier)),
+    items: items.map(r => formatItem(r, req.tier, ctx)),
     total,
     page: pageNum,
     limit: limitNum,
     pages: Math.ceil(total / limitNum),
+  });
+});
+
+// GET /api/library/genres — distinct genres across items visible to this tier,
+// for the browse chips. Vault items are discoverable, so their genres show too.
+router.get('/genres', (req, res) => {
+  const { conditions, params } = buildMediaQuery({ tier: req.tier });
+  const where = 'WHERE ' + conditions.join(' AND ') + ' AND m.genre IS NOT NULL';
+  const rows = getDb().prepare(
+    `SELECT m.genre AS genre, COUNT(*) AS count FROM media m ${where}
+     GROUP BY m.genre COLLATE NOCASE ORDER BY count DESC, genre ASC`
+  ).all(params);
+  res.json({ genres: rows });
+});
+
+// GET /api/library/discover?period=7d
+// Public in-station discover feed: trending (by listened seconds over the
+// window) and newest releases. Restricted to public items in SQL — vault and
+// supporters-only content must never leak through an unauthenticated feed.
+router.get('/discover', (req, res) => {
+  const days = Math.min(90, Math.max(1, parseInt(req.query.period, 10) || 7));
+  const db = getDb();
+
+  const trendingRows = db.prepare(`
+    SELECT m.*, COUNT(le.id) AS play_count, SUM(le.seconds) AS total_seconds
+    FROM listen_events le
+    JOIN media m ON m.id = le.media_id
+    WHERE le.started_at >= datetime('now', :offset)
+      AND m.is_active = 1 AND m.visibility = 'public'
+    GROUP BY le.media_id
+    ORDER BY total_seconds DESC
+    LIMIT 10
+  `).all({ offset: `-${days} days` });
+
+  const newRows = db.prepare(`
+    SELECT m.* FROM media m
+    WHERE m.is_active = 1 AND m.visibility = 'public'
+    ORDER BY m.indexed_at DESC
+    LIMIT 10
+  `).all();
+
+  const ctx = buildOwnershipContext(req);
+  res.json({
+    periodDays: days,
+    trending: trendingRows.map(r => ({ ...formatItem(r, req.tier, ctx), plays: r.play_count })),
+    newReleases: newRows.map(r => formatItem(r, req.tier, ctx)),
   });
 });
 
@@ -399,7 +521,7 @@ router.get('/:id', (req, res) => {
     return res.status(403).json({ error: access.error, unlockOptions: normalizeUnlockOptions(access.unlockOptions) });
   }
 
-  res.json(formatItem(row, req.tier));
+  res.json(formatItem(row, req.tier, buildOwnershipContext(req)));
 });
 
 router.get('/:id/preview', previewLimiter, asyncHandler(async (req, res) => {
@@ -577,3 +699,5 @@ module.exports.clearArtworkCache = clearArtworkCache;
 module.exports.ARTWORK_DIR = ARTWORK_DIR;
 module.exports.formatItem = formatItem;
 module.exports.signDownloadUrl = signDownloadUrl;
+module.exports.buildOwnershipContext = buildOwnershipContext;
+module.exports.isUnlockedInContext = isUnlockedInContext;
