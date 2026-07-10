@@ -414,6 +414,8 @@
 .q-title { font-family: 'DM Serif Display', serif; font-size: 17px; line-height: 1.05; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .q-artist { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .q-time  { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--t4); flex-shrink: 0; }
+.q-remove-btn { background: none; border: none; color: var(--t4); font-size: 11px; line-height: 1; cursor: pointer; padding: 4px 6px; border-radius: var(--radius-xs); flex-shrink: 0; transition: color var(--dur-fast) var(--ease-out-macos), background var(--dur-fast) var(--ease-out-macos); }
+.q-remove-btn:hover { color: var(--t1); background: var(--raised); }
 .q-empty { margin: 1px 8px; padding: 10px; border: 1px dashed var(--border); border-radius: var(--radius-sm); font-family: 'Space Mono', monospace; font-size: 11px; line-height: 1.35; color: var(--t4); letter-spacing: .04em; opacity: .72; }
 .q-divider { border: none; border-top: 1px solid var(--border); margin: 7px 8px 4px; }
 
