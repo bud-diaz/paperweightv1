@@ -40,6 +40,13 @@ function extractMetadata(raw) {
     s.codec_name !== 'bmp'
   );
 
+  let mimeType = guessMimeType(format.format_name);
+  // ffprobe's mp4/mov demuxer reports format_name as the same alias list
+  // ("mov,mp4,m4a,3gp,3g2,mj2") for every file in that container family, so
+  // guessMimeType can't distinguish an mp4 video from an m4a audio file by
+  // name alone. Trust the actual decoded streams instead.
+  if (hasVideo && mimeType.startsWith('audio/')) mimeType = 'video/mp4';
+
   return {
     duration: parseFloat(format.duration) || null,
     title: tags.title || tags.TITLE || null,
@@ -47,7 +54,7 @@ function extractMetadata(raw) {
     album: tags.album || tags.ALBUM || null,
     genre: tags.genre || tags.GENRE || null,
     bpm: parseFloat(tags.BPM || tags.bpm || tags.TBPM || tags.tbpm) || null,
-    mime_type: guessMimeType(format.format_name),
+    mime_type: mimeType,
     file_size: parseInt(format.size, 10) || null,
     hasVideo,
   };
