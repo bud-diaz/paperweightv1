@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getDb, log } = require('../db');
+const { probe } = require('./probe');
 
 const upsertStmt = `
   INSERT INTO media (
@@ -92,4 +93,32 @@ function reconcileInactive() {
   if (missing.length > 0) log('info', 'scanner', `Reconciliation complete: ${missing.length} file(s) marked inactive`);
 }
 
-module.exports = { needsProbe, upsert, markInactive, reconcileInactive };
+// One-time repair for files scanned before the mp4/m4a mime-type fix: ffprobe
+// reports the same format_name for the whole mov/mp4/m4a container family, so
+// any row tagged audio/mp4 may actually be a video file that never got
+// re-probed (needsProbe skips unchanged files). Re-probe those specifically
+// and promote them to video/mp4 when they truly carry a video stream.
+async function repairVideoMimeTypes() {
+  const db = getDb();
+  const rows = db.prepare(
+    "SELECT filepath FROM media WHERE is_active = 1 AND mime_type = 'audio/mp4'"
+  ).all();
+
+  let fixed = 0;
+  for (const { filepath } of rows) {
+    try {
+      const probeData = await probe(filepath);
+      if (probeData.hasVideo && probeData.mime_type !== 'audio/mp4') {
+        db.prepare(
+          "UPDATE media SET mime_type = ?, updated_at = datetime('now') WHERE filepath = ?"
+        ).run(probeData.mime_type, filepath);
+        fixed++;
+      }
+    } catch (err) {
+      log('error', 'scanner', `Failed to re-probe ${path.basename(filepath)}: ${err.message}`);
+    }
+  }
+  if (fixed > 0) log('info', 'scanner', `Repaired mime_type for ${fixed} misclassified video file(s)`);
+}
+
+module.exports = { needsProbe, upsert, markInactive, reconcileInactive, repairVideoMimeTypes };

@@ -1,7 +1,7 @@
 const config = require('../config');
 const { log } = require('../db');
 const { startWatcher, stopWatcher } = require('./watcher');
-const { reconcileInactive } = require('./sync');
+const { reconcileInactive, repairVideoMimeTypes } = require('./sync');
 
 const FolderVaultAdapter = require('./adapters/folder');
 const MetadataVaultAdapter = require('./adapters/metadata');
@@ -22,6 +22,7 @@ function startScanner() {
 
   const adapter = loadAdapter(mode, vaultPath);
   reconcileInactive();
+  repairVideoMimeTypes().catch(err => log('error', 'scanner', `Video mime-type repair failed: ${err.message}`));
   startWatcher(vaultPath, adapter);
 }
 
