@@ -215,8 +215,7 @@ router.get('/media', (req, res) => {
   const items = getDb().prepare(`
     SELECT id, title, filename, category, visibility, duration,
            artist, album, genre, producer, credits, artwork_url, tags,
-           offline_allowed, indexed_at
-           artist, album, producer, credits, artwork_url, tags, indexed_at, release_at
+           offline_allowed, indexed_at, release_at
     FROM media
     WHERE is_active = 1
     ORDER BY indexed_at DESC
@@ -226,14 +225,22 @@ router.get('/media', (req, res) => {
 });
 
 // PATCH /api/dashboard/media/:id
-// Body: any subset of { visibility, title, artist, album, genre, producer, credits, artwork_url, offline_allowed }
-router.patch('/media/:id', (req, res) => {
-  const { visibility, title, artist, album, genre, producer, credits, artwork_url, offline_allowed } = req.body;
-// Body: any subset of { visibility, title, artist, album, producer, credits, artwork_url, release_at }
+// Body: any subset of { visibility, title, artist, album, genre, producer, credits, artwork_url, offline_allowed, release_at }
 // release_at: ISO datetime string to schedule an automatic flip to 'public',
 // or null to cancel a pending schedule.
 router.patch('/media/:id', (req, res) => {
-  const { visibility, title, artist, album, producer, credits, artwork_url, release_at } = req.body;
+  const {
+    visibility,
+    title,
+    artist,
+    album,
+    genre,
+    producer,
+    credits,
+    artwork_url,
+    offline_allowed,
+    release_at,
+  } = req.body;
   const setClauses = [];
   const params     = [];
 
@@ -254,7 +261,6 @@ router.patch('/media/:id', (req, res) => {
     return res.status(400).json({ error: 'artwork_url must be an http or https URL' });
   }
 
-  for (const [field, val] of Object.entries({ title, artist, album, genre, producer, credits, artwork_url })) {
   let releaseAtHandled = false;
   if (release_at !== undefined) {
     releaseAtHandled = true;
@@ -278,7 +284,7 @@ router.patch('/media/:id', (req, res) => {
     setClauses.push('release_at = NULL');
   }
 
-  for (const [field, val] of Object.entries({ title, artist, album, producer, credits, artwork_url })) {
+  for (const [field, val] of Object.entries({ title, artist, album, genre, producer, credits, artwork_url })) {
     if (val !== undefined) {
       setClauses.push(`${field} = ?`);
       params.push(val === '' ? null : val);
