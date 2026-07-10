@@ -317,7 +317,7 @@ export async function initBrowseControls() {
   } catch {}
 }
 
-// ── Queue drawer (scheduled next + recently played) ───────────────────────────
+// Queue drawer (personal + station)
 // Relocated here in Phase 8: this rendering logic existed in the original inline
 // script (loadQueue) but was not captured by any Phase 5/6/7 module. It belongs
 // in library.js because it backs the #queue-drawer content shown by
@@ -326,35 +326,32 @@ export async function initBrowseControls() {
 
 export async function loadQueue() {
   try {
-    const [block, status] = await Promise.all([
-      api.library.scheduleCurrent(),
-      api.stream.status(),
-    ]);
-    const list   = el('queue-list');
-    const recent = Array.isArray(status.recentlyPlayed) ? status.recentlyPlayed : [];
+    const status = await api.stream.status();
+    const list = el('queue-list');
+    const personal = listenerQueue.slice(0, 3);
+    const stationLimit = listenerQueue.length > 0 ? 3 : 5;
+    const station = (Array.isArray(status.stationQueue) ? status.stationQueue : []).slice(0, stationLimit);
     let html = '';
 
-    // ── Scheduled next ──
-    html += `<div class="q-section">SCHEDULED NEXT</div>`;
-    if (block) {
-      html += `<div class="q-row">
-        <span class="q-title">${esc(block.label || 'Broadcast')}</span>
-        <span class="q-time">${block.start_time || ''}${block.end_time ? ' – ' + block.end_time : ''}</span>
-      </div>`;
+    // Personal queue slots
+    html += `<div class="q-stack" data-personal-count="${listenerQueue.length}">`;
+    html += `<div class="q-section-row"><div class="q-section">PERSONAL QUEUE</div><span class="q-count">${listenerQueue.length}/5</span></div>`;
+    if (personal.length > 0) {
+      html += personal.map((t, i) => queueSlot(t, i)).join('');
+      for (let i = personal.length; i < 3; i++) html += emptyQueueSlot(i, 'Add from library');
     } else {
-      html += `<div class="q-row"><span class="q-title" style="opacity:.3;font-size:13px;">No schedule active</span></div>`;
+      html += `<div class="q-empty">Add tracks from the library to build your personal queue.</div>`;
     }
 
-    // ── Recently played ──
-    if (recent.length > 0) {
-      html += `<hr class="q-divider"><div class="q-section">RECENTLY PLAYED</div>`;
-      for (const t of recent) {
-        html += `<div class="q-row">
-          <span class="q-title">${esc(t.title)}</span>
-          ${t.artist ? `<span class="q-time">${esc(t.artist)}</span>` : ''}
-        </div>`;
-      }
+    // Station queue slots
+    html += `<hr class="q-divider">`;
+    html += `<div class="q-section-row"><div class="q-section">STATION QUEUE</div><span class="q-count">${station.length}/${stationLimit}</span></div>`;
+    if (station.length > 0) {
+      html += station.map((t, i) => queueSlot(t, i)).join('');
+    } else {
+      html += `<div class="q-empty">No station tracks queued yet.</div>`;
     }
+    html += `</div>`;
 
     list.innerHTML = html;
   } catch {
@@ -364,12 +361,34 @@ export async function loadQueue() {
 
 // ── Listener queue ────────────────────────────────────────────────────────────
 
+function queueSlot(track, index) {
+  const title = track?.title || 'Untitled';
+  const artist = track?.artist || track?.creator || '';
+  const duration = track?.duration ? fmt(track.duration) : '';
+  return `<div class="q-row q-slot">
+    <span class="q-index">${String(index + 1).padStart(2, '0')}</span>
+    <span class="q-track">
+      <span class="q-title">${esc(title)}</span>
+      ${artist ? `<span class="q-artist">${esc(artist)}</span>` : ''}
+    </span>
+    ${duration ? `<span class="q-time">${duration}</span>` : ''}
+  </div>`;
+}
+
+function emptyQueueSlot(index, label) {
+  return `<div class="q-row q-slot q-slot-empty">
+    <span class="q-index">${String(index + 1).padStart(2, '0')}</span>
+    <span class="q-track"><span class="q-title">${esc(label)}</span></span>
+  </div>`;
+}
+
 export function updateListenerQueuePill() {
   const pill = el('listener-queue-pill');
   if (!pill) return;
   const count = listenerQueue.length;
   el('lq-count').textContent = count;
   pill.classList.toggle('visible', count > 0);
+  if (state.showQueue) loadQueue();
 }
 
 export function getListenerQueue() {

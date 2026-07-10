@@ -559,6 +559,10 @@ router.get('/:id/preview', previewLimiter, asyncHandler(async (req, res) => {
 }));
 
 router.get('/:id/download', (req, res) => {
+  if (!req.tokenRow) {
+    return res.status(401).json({ error: 'Listener identity required to save this file' });
+  }
+
   const row = getDb().prepare(
     'SELECT * FROM media WHERE id = ? AND is_active = 1'
   ).get(req.params.id);

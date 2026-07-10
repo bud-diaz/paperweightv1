@@ -304,12 +304,12 @@ export function render() {
 
   // drawers
   setDrawer('lib-drawer',   state.showLib);
-  setDrawer('queue-drawer', state.showQueue && !state.track);
+  setDrawer('queue-drawer', state.showQueue);
   const shareOpen = state.showShare && !state.showLib && !state.showQueue;
   const sharePanel = state.sharePanel === 'account' ? 'account' : 'share';
   setDrawer('share-drawer', shareOpen);
   el('lib-drawer').classList.toggle('open', state.showLib);
-  el('queue-drawer').classList.toggle('open', state.showQueue && !state.track);
+  el('queue-drawer').classList.toggle('open', state.showQueue);
   el('share-drawer').classList.toggle('open', shareOpen);
   el('share-drawer').dataset.panel = sharePanel;
 

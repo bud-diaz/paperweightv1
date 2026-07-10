@@ -23,6 +23,7 @@
  *   _render          — player.js (handleTippedParam / vault gate login hint)
  *   _setAuthTab      — auth.js
  *   _toggleAuthSection — auth.js
+ *   _showAccountCompletion — auth.js
  */
 
 import { state, authState } from './state.js';
@@ -40,23 +41,26 @@ let _getStationName    = () => '';
 let _render            = () => {};
 let _setAuthTab        = () => {};
 let _toggleAuthSection = () => {};
+let _showAccountCompletion = () => {};
 
 /**
  * Register cross-module callbacks.
  * Called from main.js in Phase 8 before any UI interaction occurs.
  *
- * @param {{ getStationName, render, setAuthTab, toggleAuthSection }} cbs
+ * @param {{ getStationName, render, setAuthTab, toggleAuthSection, showAccountCompletion }} cbs
  */
 export function init({
   getStationName,
   render,
   setAuthTab,
   toggleAuthSection,
+  showAccountCompletion,
 } = {}) {
   if (getStationName)    _getStationName    = getStationName;
   if (render)            _render            = render;
   if (setAuthTab)        _setAuthTab        = setAuthTab;
   if (toggleAuthSection) _toggleAuthSection = toggleAuthSection;
+  if (showAccountCompletion) _showAccountCompletion = showAccountCompletion;
 }
 
 // ── Tip config ────────────────────────────────────────────────────────────────
@@ -311,18 +315,24 @@ function _showVaultGate(t, opts) {
   });
   container.appendChild(subDiv);
 
-  if (!authState.loggedIn) {
+  if (!authState.hasAccount) {
     const loginHint = document.createElement('div');
     loginHint.className = 'vg-login-hint';
-    loginHint.innerHTML = 'Already have an account? <button>Log in</button>';
+    loginHint.innerHTML = authState.loggedIn
+      ? 'Complete your account to buy this track. <button>Create account</button>'
+      : 'Already have an account? <button>Log in</button>';
     loginHint.querySelector('button').addEventListener('click', () => {
-      _closeVaultGate();
-      _setAuthTab('login');
-      state.showShare = true;
-      state.sharePanel = 'account';
-      _render();
-      _toggleAuthSection(true);
-      setTimeout(() => el('auth-email').focus(), 120);
+      if (authState.loggedIn) {
+        openAccountCompletion();
+      } else {
+        _closeVaultGate();
+        _setAuthTab('login');
+        state.showShare = true;
+        state.sharePanel = 'account';
+        _render();
+        _toggleAuthSection(true);
+        setTimeout(() => el('auth-email').focus(), 120);
+      }
     });
     container.appendChild(loginHint);
   }
@@ -336,8 +346,20 @@ export async function startVaultUnlock(unlockType, targetId, amount, paymentType
   if (recurringInterval) body.recurring_interval  = recurringInterval;
   try {
     const data = await api.payment.vaultUnlock(body);
+    if (data.action === 'signup') {
+      openAccountCompletion();
+      return;
+    }
     if (data.checkoutUrl) window.location.href = data.checkoutUrl;
   } catch {}
+}
+
+function openAccountCompletion() {
+  _closeVaultGate();
+  state.showShare = true;
+  state.sharePanel = 'account';
+  _render();
+  _showAccountCompletion();
 }
 
 function _closeVaultGate() {

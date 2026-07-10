@@ -103,12 +103,14 @@ export function renderAuthSection() {
     const hasAccount = !!authState.hasAccount;
     const isProfile  = !hasAccount && !!authState.displayName;
     const activeSub  = authState.subscriptionStatus === 'active';
+    el('auth-complete-account-btn').hidden = !isProfile;
     el('auth-export-btn').hidden     = !(hasAccount || isProfile);
     el('auth-delete-btn').hidden     = !(hasAccount || isProfile);
     el('auth-cancel-sub-btn').hidden = !(hasAccount && activeSub);
     el('auth-portal-btn').hidden     = !(hasAccount && activeSub && authState.provider === 'stripe');
   } else {
     status.textContent = '';
+    el('auth-complete-account-btn').hidden = true;
   }
 }
 
@@ -118,6 +120,23 @@ export function setAuthTab(tab) {
     b.classList.toggle('active', b.dataset.authTab === tab));
   el('auth-submit-btn').textContent = tab === 'login' ? 'LOG IN' : 'CREATE ACCOUNT';
   el('auth-msg').textContent = '';
+}
+
+export function showAccountCompletion() {
+  toggleAuthSection(true);
+  el('auth-logged-out').hidden = false;
+  el('auth-logged-in').hidden = true;
+  document.querySelectorAll('.auth-tab').forEach(b => { b.disabled = false; });
+  ['auth-email', 'auth-password'].forEach(id => { el(id).disabled = false; });
+  el('auth-submit-btn').disabled = false;
+  setAuthTab('register');
+
+  const emailInput = el('auth-email');
+  const passwordInput = el('auth-password');
+  if (!emailInput.value && authState.email) emailInput.value = authState.email;
+  el('auth-msg').className = 'auth-msg';
+  el('auth-msg').textContent = 'Create an account to keep purchases and unlocks.';
+  setTimeout(() => (emailInput.value ? passwordInput : emailInput).focus(), 120);
 }
 
 export async function submitAuth() {
@@ -409,6 +428,7 @@ export function initAuthHandlers() {
   el('auth-email').addEventListener('keydown',    e => { if (e.key === 'Enter') el('auth-password').focus(); });
   el('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth(); });
   el('auth-logout-btn').addEventListener('click', logoutListener);
+  el('auth-complete-account-btn').addEventListener('click', showAccountCompletion);
   el('auth-set-pw').addEventListener('click', () => {
     el('auth-setpw-form').hidden = false;
     el('auth-new-password').focus();

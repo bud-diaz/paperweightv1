@@ -248,6 +248,7 @@ router.get('/me', (req, res) => {
       return res.status(401).json({ error: 'Authentication required' });
     }
     return res.json({
+      email: profile.email,
       displayName: profile.display_name,
       tier: req.tier,
       hasAccount: false,

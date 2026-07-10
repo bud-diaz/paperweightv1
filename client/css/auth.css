@@ -55,8 +55,8 @@
 .auth-tier-badge.subscriber, .auth-tier-badge.pro, .auth-tier-badge.all_access { border-color: var(--border-strong); color: var(--t1); }
 .auth-logout-btn { font-family: 'Space Mono', monospace; font-size: 10px; padding: 5px 11px; background: none; border: 1px solid var(--border); border-radius: var(--radius-xs); color: var(--t3); cursor: pointer; flex-shrink: 0; transition: border-color var(--dur-fast) var(--ease-out-macos), color var(--dur-fast) var(--ease-out-macos); }
 .auth-logout-btn:hover { border-color: var(--border-strong); color: var(--t2); }
-#auth-set-pw { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); background: none; border: none; border-bottom: 1px solid var(--border); padding: 0 0 1px; cursor: pointer; margin-bottom: 8px; transition: color .15s; }
-#auth-set-pw:hover { color: var(--t2); }
+#auth-set-pw, #auth-complete-account-btn { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); background: none; border: none; border-bottom: 1px solid var(--border); padding: 0 0 1px; cursor: pointer; margin: 0 0 8px; transition: color .15s; }
+#auth-set-pw:hover, #auth-complete-account-btn:hover { color: var(--t2); }
 #auth-setpw-form { display: flex; flex-direction: column; gap: 7px; padding-bottom: 4px; }
 .vg-login-hint { text-align: center; margin-top: 14px; font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4); }
 .vg-login-hint button { background: none; border: none; color: var(--t2); font-family: 'Space Mono', monospace; font-size: 10px; cursor: pointer; text-decoration: underline; }

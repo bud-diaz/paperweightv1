@@ -14,6 +14,7 @@ const config = require('../src/config');
 const { parseEnvValue, parseTrustProxy } = require('../src/config');
 const { resolveAvailableUploadPath, sanitizeUploadName } = require('../src/api/dashboard');
 const { ARTWORK_DIR } = require('../src/api/library');
+const broadcast = require('../src/broadcast');
 
 async function withServer(fn) {
   const app = createApp();
@@ -33,6 +34,10 @@ async function request(baseUrl, pathname, options = {}) {
   let body = null;
   try { body = text ? JSON.parse(text) : null; } catch {}
   return { res, body, text };
+}
+
+function clearStationQueue() {
+  for (let i = 0; i < 5; i++) broadcast.removeFromStationQueue(0);
 }
 
 test('health and local player assets are served', async () => {
@@ -327,6 +332,26 @@ test('HLS serves only the stream directory, not runtime work files', async () =>
   });
 });
 
+test('stream status exposes listener-safe station queue slots', async () => {
+  const db = freshDb();
+  clearStationQueue();
+  const first = seedMedia(db, { title: 'Station One' });
+  const second = seedMedia(db, { title: 'Station Two' });
+  broadcast.addToStationQueue(first.id);
+  broadcast.addToStationQueue(second.id);
+
+  try {
+    await withServer(async baseUrl => {
+      const status = await request(baseUrl, '/api/stream/status');
+      assert.equal(status.res.status, 200);
+      assert.deepEqual(status.body.stationQueue.map(t => t.title), ['Station One', 'Station Two']);
+      assert.equal(status.body.stationQueue[0].filepath, undefined);
+    });
+  } finally {
+    clearStationQueue();
+  }
+});
+
 test('vault unlock options are camelCase for the player UI', async () => {
   const db = freshDb();
   const media = seedMedia(db, { visibility: 'vault' });
@@ -500,7 +525,7 @@ test('library visibility and gated downloads are enforced', async () => {
     assert.ok(!freeIds.includes(supporterMedia.id));
 
     const denied = await request(baseUrl, `/api/library/${publicMedia.id}/download`);
-    assert.equal(denied.res.status, 403);
+    assert.equal(denied.res.status, 401);
 
     const allowed = await request(baseUrl, `/api/library/${publicMedia.id}/download`, {
       headers: { Authorization: `Bearer ${token.token}` },

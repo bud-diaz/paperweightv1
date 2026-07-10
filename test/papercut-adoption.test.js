@@ -134,7 +134,7 @@ test('me answers for a profile token and refreshes last_seen_at', async () => {
   const db = freshDb();
   resetAuthLimiter();
   await withServer(async baseUrl => {
-    const start = await post(baseUrl, '/api/listener/start', { displayName: 'Repeat' });
+    const start = await post(baseUrl, '/api/listener/start', { displayName: 'Repeat', email: 'Repeat@Example.com' });
     const token = start.body.token;
 
     db.prepare("UPDATE listener_profiles SET last_seen_at = '2020-01-01 00:00:00'").run();
@@ -142,6 +142,7 @@ test('me answers for a profile token and refreshes last_seen_at', async () => {
     const me = await request(baseUrl, '/api/listener/me', { headers: bearer(token) });
     assert.equal(me.res.status, 200);
     assert.equal(me.body.displayName, 'Repeat');
+    assert.equal(me.body.email, 'repeat@example.com');
     assert.equal(me.body.hasAccount, false);
     assert.equal(me.body.tier, 'free');
 
@@ -377,6 +378,10 @@ test('offline-allowed tracks are downloadable at access level, others stay subsc
   const freeToken = seedToken(db, { tier: 'free' });
 
   await withServer(async baseUrl => {
+    // Anonymous visitors can stream, but cannot request a signed save URL.
+    const anon = await request(baseUrl, `/api/library/${savable.id}/download`);
+    assert.equal(anon.res.status, 401);
+
     // Free listener cannot download a normal public track…
     const denied = await request(baseUrl, `/api/library/${gated.id}/download`, { headers: bearer(freeToken.token) });
     assert.equal(denied.res.status, 403);

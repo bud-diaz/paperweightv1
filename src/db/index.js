@@ -146,6 +146,8 @@ function runMigrations(database) {
       table:  'media',
       column: 'offline_allowed',
       sql:    'ALTER TABLE media ADD COLUMN offline_allowed INTEGER NOT NULL DEFAULT 0',
+    },
+    {
       // Release scheduler: when set (future), media flips to 'public' at this time.
       table:  'media',
       column: 'release_at',

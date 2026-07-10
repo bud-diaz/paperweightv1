@@ -22,6 +22,45 @@ let stationQueue = [];
 
 function getStationQueue() { return [...stationQueue]; }
 
+function publicTrack(track) {
+  if (!track) return null;
+  return {
+    id: track.id,
+    title: track.title || track.filename || (track.filepath ? path.basename(track.filepath) : 'Untitled'),
+    artist: track.artist || null,
+    category: track.category || null,
+    duration: track.duration || null,
+    isVideo: isVideoTrack(track),
+  };
+}
+
+function getPublicStationQueue(limit = 5) {
+  const slots = [];
+  const batch = state.isRunning && Array.isArray(state.currentBatch) ? state.currentBatch : [];
+
+  for (let i = state.nowPlayingIndex + 1; i < batch.length && slots.length < limit; i++) {
+    const track = publicTrack(batch[i]);
+    if (track) slots.push(track);
+  }
+
+  if (slots.length < limit && stationQueue.length > 0) {
+    try {
+      const lookup = getDb().prepare(`
+        SELECT id, filepath, filename, title, artist, category, duration, mime_type
+        FROM media
+        WHERE id = ? AND is_active = 1
+      `);
+      for (const mediaId of stationQueue) {
+        if (slots.length >= limit) break;
+        const track = publicTrack(lookup.get(mediaId));
+        if (track) slots.push(track);
+      }
+    } catch {}
+  }
+
+  return slots;
+}
+
 function addToStationQueue(mediaId) {
   if (stationQueue.length >= 5) return false;
   stationQueue.push(mediaId);
@@ -63,6 +102,7 @@ function writeStateFile(overrides = {}) {
     mode: state.mode,
     isVideo: hasVideo,
     recentlyPlayed: state.recentlyPlayed,
+    stationQueue: getPublicStationQueue(5),
     nowPlaying: track ? {
       id: track.id,
       title: track.title || path.basename(track.filepath),
@@ -506,9 +546,12 @@ function setMode(mode) {
 
 function getState() {
   try {
-    return JSON.parse(fs.readFileSync(STATE_PATH, 'utf8'));
+    return {
+      ...JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')),
+      stationQueue: getPublicStationQueue(5),
+    };
   } catch {
-    return { isLive: false, mode: state.mode, nowPlaying: null };
+    return { isLive: false, mode: state.mode, nowPlaying: null, stationQueue: getPublicStationQueue(5) };
   }
 }
 

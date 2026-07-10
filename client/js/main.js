@@ -120,6 +120,7 @@ payment.init({
   render:            player.render,
   setAuthTab:        auth.setAuthTab,
   toggleAuthSection: auth.toggleAuthSection,
+  showAccountCompletion: auth.showAccountCompletion,
 });
 
 dashIndex.init({

@@ -44,7 +44,7 @@ async function _del(url) {
 export const stream = {
   /**
    * GET /api/stream/status
-   * @returns {{ nowPlaying, listenerCount, mode, recentlyPlayed, liveActive, isVideo, station }}
+   * @returns {{ nowPlaying, listenerCount, mode, recentlyPlayed, stationQueue, liveActive, isVideo, station }}
    */
   status() {
     return _json('/api/stream/status');
