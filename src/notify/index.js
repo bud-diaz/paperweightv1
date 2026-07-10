@@ -121,4 +121,10 @@ function postPublished(post, { emailSupporters = false } = {}) {
   });
 }
 
-module.exports = { liveStarted, postPublished, postWebhook, supporterEmails };
+// Called when a scheduled track's release time arrives and it flips to public.
+function mediaReleased(media) {
+  const title = media.title || media.filename || 'New track';
+  fireWebhook(`📀 ${stationName()} released: ${title} — ${stationUrl()}`, 'media-release');
+}
+
+module.exports = { liveStarted, postPublished, mediaReleased, postWebhook, supporterEmails };

@@ -6,6 +6,7 @@ const fs = require('fs');
 const config = require('./config');
 const { initDb, closeDb, log } = require('./db');
 const { startScanner, stopScanner } = require('./scanner');
+const releaseScheduler = require('./release/scheduler');
 const broadcast = require('./broadcast');
 const live = require('./broadcast/live');
 const apiRouter = require('./api/router');
@@ -326,6 +327,7 @@ async function start() {
     try { log('error', 'server', ffmpegStatus.message); } catch {}
   }
   startScanner();
+  releaseScheduler.start();
   broadcast.start('shuffle');
 
   const app = createApp();
@@ -400,6 +402,7 @@ function shutdown() {
   live.stopLive();
   broadcast.stop();
   stopScanner();
+  releaseScheduler.stop();
 
   if (server) {
     server.close(() => {
