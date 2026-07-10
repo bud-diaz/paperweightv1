@@ -31,6 +31,8 @@ import * as library      from './library.js';
 import * as postsModule  from './posts.js';
 import * as libraryModal from './library-modal.js';
 import * as payment      from './payment.js';
+import * as welcome      from './welcome.js';
+import * as collection   from './collection.js';
 
 import * as dashIndex   from './dashboard/index.js';
 import * as station     from './dashboard/station.js';
@@ -50,6 +52,7 @@ import * as twofa       from './dashboard/twofa.js';
 import * as sections    from './dashboard/sections.js';
 import * as search      from './dashboard/search.js';
 import * as tools       from './dashboard/tools.js';
+import * as earnings    from './dashboard/earnings.js';
 
 // ── Cross-module callback wiring ─────────────────────────────────────────────
 
@@ -62,6 +65,7 @@ auth.init({
   loadLibrary: () => {
     library.loadLibrary();
     postsModule.loadPosts();
+    collection.loadCollection();
   },
 });
 
@@ -71,6 +75,28 @@ library.init({
   openModal:         payment.openModal,
   setModalTab:       payment.setModalTab,
   openLibraryModal:  libraryModal.openLibraryModal,
+  checkVaultGate:    payment.checkVaultGate,
+});
+
+collection.init({
+  selectVOD:      player.selectVOD,
+  normalizeTrack: library.normalizeTrack,
+});
+
+welcome.init({
+  onEntered: async () => {
+    await auth.loadAuthState();
+    library.loadLibrary();
+    collection.loadCollection();
+  },
+  openLogin: () => {
+    auth.setAuthTab('login');
+    state.showShare = true;
+    state.sharePanel = 'account';
+    player.render();
+    auth.toggleAuthSection(true);
+    setTimeout(() => el('auth-email').focus(), 120);
+  },
 });
 
 hlsClient.init({
@@ -180,6 +206,7 @@ tools.init();
 // ── Event handler wiring ───────────────────────────────────────────────────
 
 auth.initAuthHandlers();
+earnings.initEarningsHandlers();
 ascii.initRealVideoToggleHandlers();
 library.initListenerQueueHandlers();
 libraryModal.initLibraryModalHandlers();
@@ -517,10 +544,15 @@ async function init() {
   // Listener auth state — loads before library so gated content is correct first render
   await auth.loadAuthState();
 
+  // First-visit welcome page (display-name-only entry, Papercut-style).
+  // After loadAuthState so returning listeners are never re-prompted.
+  welcome.maybeShowWelcome(window._stationName || '');
+
   // Library and queue
   library.loadLibrary();
   library.loadQueue();
   postsModule.loadPosts();
+  collection.loadCollection();
 
   // Tip presets for modal
   payment.loadTipConfig();

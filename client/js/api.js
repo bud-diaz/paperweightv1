@@ -104,6 +104,47 @@ export const library = {
   scheduleCurrent() {
     return _json('/api/schedule/current');
   },
+
+  /**
+   * GET /api/library/discover — public trending + new releases.
+   * @param {number} [periodDays]
+   * @returns {{ periodDays, trending: Array, newReleases: Array }}
+   */
+  discover(periodDays) {
+    return _json(`/api/library/discover${periodDays ? `?period=${periodDays}` : ''}`);
+  },
+
+  /**
+   * GET /api/library/genres — distinct genres for the browse chips.
+   * @returns {{ genres: Array<{ genre: string, count: number }> }}
+   */
+  genres() {
+    return _json('/api/library/genres');
+  },
+
+  /**
+   * GET /api/library?search=&genre= — filtered library list.
+   * @param {{ search?: string, genre?: string, limit?: number }} params
+   * @returns {{ items: Array, total: number }}
+   */
+  list(params = {}) {
+    const qs = new URLSearchParams();
+    if (params.search) qs.set('search', params.search);
+    if (params.genre)  qs.set('genre', params.genre);
+    qs.set('limit', String(params.limit || 100));
+    return _json(`/api/library?${qs}`);
+  },
+
+  /**
+   * GET /api/library/{id}/download — signed download URL for saving locally.
+   * @param {number} id
+   * @returns {{ res: Response, data: { signedUrl?: string, error?: string } }}
+   */
+  async downloadUrl(id) {
+    const res = await _fetch(`/api/library/${id}/download`);
+    const data = await res.json().catch(() => ({}));
+    return { res, data };
+  },
 };
 
 // ── api.auth ──────────────────────────────────────────────────────────────────────
@@ -119,11 +160,47 @@ export const auth = {
 
   /**
    * GET /api/listener/me — current listener account details.
+   * Also answers for welcome-page profiles (hasAccount: false).
    * Throws/rejects when no listener account exists (creator-issued tokens).
-   * @returns {{ email: string, hasPassword: boolean }}
+   * @returns {{ email?: string, displayName?: string, hasAccount: boolean, hasPassword: boolean }}
    */
   listenerMe() {
     return _json('/api/listener/me');
+  },
+
+  /**
+   * POST /api/listener/start — welcome-page entry: display name only.
+   * @param {string} displayName
+   * @param {string} [email]
+   * @param {boolean} [marketingOptIn]
+   * @returns {{ res: Response, data: { ok?: boolean, displayName?: string, error?: string } }}
+   */
+  start(displayName, email, marketingOptIn) {
+    return _send('/api/listener/start', { displayName, email: email || undefined, marketingOptIn: !!marketingOptIn });
+  },
+
+  /**
+   * DELETE /api/listener/profile — remove a welcome-page profile (no account).
+   * @returns {{ res: Response, data: { ok?: boolean, error?: string } }}
+   */
+  deleteProfile() {
+    return _del('/api/listener/profile');
+  },
+
+  /**
+   * GET /api/listener/collection — vault items this listener has unlocked.
+   * @returns {{ items: Array, total: number }}
+   */
+  collection() {
+    return _json('/api/listener/collection');
+  },
+
+  /**
+   * GET /api/listener/purchases — this account's unlock/purchase history.
+   * @returns {{ purchases: Array }}
+   */
+  purchases() {
+    return _json('/api/listener/purchases');
   },
 
   /**
@@ -453,6 +530,22 @@ export const dashboard = {
     setSearchable(enabled) {
       return _send('/api/dashboard/station/searchable', { enabled }, 'PUT');
     },
+  },
+
+  /**
+   * GET /api/dashboard/earnings — revenue summary across unlocks, tips, subs.
+   * @returns {{ totals: object, unlocks: Array, tips: object, subscriptions: Array }}
+   */
+  earnings() {
+    return _json('/api/dashboard/earnings');
+  },
+
+  /**
+   * GET /api/dashboard/audience — consented marketing contacts.
+   * @returns {{ total: number, bySource: object, contacts: Array }}
+   */
+  audience() {
+    return _json('/api/dashboard/audience');
   },
 
   // ── Media ──────────────────────────────────────────────────────────────────────

@@ -164,7 +164,16 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
           <div class="dash-edit-label">PRODUCER</div>
           <input class="dash-input dash-input-sm" id="edit-producer-${item.id}" value="${esc(item.producer||'')}" placeholder="Produced by…"/>
         </div>
+        <div>
+          <div class="dash-edit-label">GENRE</div>
+          <input class="dash-input dash-input-sm" id="edit-genre-${item.id}" value="${esc(item.genre||'')}" placeholder="e.g. Ambient"/>
+        </div>
       </div>
+      <label class="toggle-sw" style="margin:6px 0;" title="Let listeners with access save this file for offline playback in their browser">
+        <input type="checkbox" id="edit-offline-${item.id}"${item.offline_allowed ? ' checked' : ''}>
+        <span class="toggle-track"></span>
+        <span class="toggle-label">ALLOW LOCAL SAVES</span>
+      </label>
       <div>
         <div class="dash-edit-label">ART URL <span style="font-size:11px;opacity:.5;">or upload below</span></div>
         <input class="dash-input dash-input-sm" id="edit-art-${item.id}" value="${esc(item.artwork_url||'')}" placeholder="https://… (optional)"/>
@@ -218,9 +227,11 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
       title:       wrap.querySelector(`#edit-title-${item.id}`).value.trim()   || null,
       artist:      wrap.querySelector(`#edit-artist-${item.id}`).value.trim()  || null,
       album:       wrap.querySelector(`#edit-album-${item.id}`).value.trim()   || null,
+      genre:       wrap.querySelector(`#edit-genre-${item.id}`).value.trim()   || null,
       producer:    wrap.querySelector(`#edit-producer-${item.id}`).value.trim()|| null,
       credits:     wrap.querySelector(`#edit-credits-${item.id}`).value.trim() || null,
       artwork_url: wrap.querySelector(`#edit-art-${item.id}`).value.trim()     || null,
+      offline_allowed: wrap.querySelector(`#edit-offline-${item.id}`).checked,
     };
     saveBtn.disabled = true; saveBtn.textContent = '…';
     try {

@@ -27,19 +27,21 @@ let _startGatedPreview = () => {};
 let _openModal        = () => {};
 let _setModalTab      = () => {};
 let _openLibraryModal = () => {};
+let _checkVaultGate   = async () => false;
 
 /**
  * Register cross-module callbacks.
  * Called from main.js in Phase 8.
  *
- * @param {{ selectVOD, startGatedPreview, openModal, setModalTab, openLibraryModal }} cbs
+ * @param {{ selectVOD, startGatedPreview, openModal, setModalTab, openLibraryModal, checkVaultGate }} cbs
  */
-export function init({ selectVOD, startGatedPreview, openModal, setModalTab, openLibraryModal } = {}) {
+export function init({ selectVOD, startGatedPreview, openModal, setModalTab, openLibraryModal, checkVaultGate } = {}) {
   if (selectVOD)         _selectVOD         = selectVOD;
   if (startGatedPreview) _startGatedPreview  = startGatedPreview;
   if (openModal)         _openModal          = openModal;
   if (setModalTab)       _setModalTab        = setModalTab;
   if (openLibraryModal)  _openLibraryModal   = openLibraryModal;
+  if (checkVaultGate)    _checkVaultGate     = checkVaultGate;
 }
 
 // ── Track normalization ───────────────────────────────────────────────────────
@@ -56,9 +58,15 @@ export function normalizeTrack(item) {
     color:      trackColor(item.id),
     creator:    item.artist || '',
     visibility: item.visibility || 'public',
+    genre:      item.genre || null,
     isLive:     false,
     artworkUrl: item.artwork_url || null,
     waveform:   generateWaveform(item.id),
+    // Papercut-style commerce/save state (from formatItem's ownership context)
+    unlocked:       item.unlocked,
+    price:          item.price || null,
+    offlineAllowed: !!item.offlineAllowed,
+    mimeType:       item.mimeType || null,
   };
 }
 
@@ -82,7 +90,13 @@ export function buildLibRow(t, onClick) {
   row.className = 'lib-row';
   const isActive = state.track && state.track.id === t.id;
   if (isActive) { row.classList.add('active'); row.style.borderLeftColor = t.color; }
-  const isGated = t.visibility === 'supporters_only' || t.visibility === 'vault';
+  // Owned state from the server's ownership context: an unlocked vault track
+  // shows as owned rather than gated (Papercut's "in your collection" mark).
+  const isOwned = t.visibility === 'vault' && t.unlocked === true;
+  const isGated = !isOwned && (t.visibility === 'supporters_only' || t.visibility === 'vault');
+  const priceLabel = t.price
+    ? (t.price.allowFree ? 'FREE' : `$${((t.price.minimum || t.price.suggested) / 100).toFixed(2)}`)
+    : '$';
   const thumbContent = t.artworkUrl
     ? `<img src="/api/library/${t.id}/artwork" loading="lazy" onerror="this.style.display='none'"/>`
     : `<span>${t.type === 'video' ? '▶' : '♪'}</span>`;
@@ -90,18 +104,21 @@ export function buildLibRow(t, onClick) {
     <div class="lib-thumb" style="background:linear-gradient(135deg,${t.color}44,${t.color}11);border:1px solid ${t.color}33;">${thumbContent}<button class="lib-queue-btn" data-id="${t.id}" data-title="${esc(t.title)}" data-artist="${esc(t.creator)}" title="Add to queue">+</button></div>
     <div class="lib-info">
       <div class="lib-title${isActive ? ' active' : ''}">
-        ${esc(t.title)}${isGated ? '<span class="lib-lock">⬡</span>' : ''}
+        ${esc(t.title)}${isGated ? '<span class="lib-lock">⬡</span>' : ''}${isOwned ? '<span class="lib-owned" title="In your collection">✓</span>' : ''}
       </div>
-      <div class="lib-meta">${t.date}${t.date && t.duration ? ' · ' : ''}${t.duration ? fmt(t.duration) : ''}</div>
+      <div class="lib-meta">${t.date}${t.date && t.duration ? ' · ' : ''}${t.duration ? fmt(t.duration) : ''}${t.genre ? ' · ' + esc(t.genre) : ''}</div>
     </div>
     <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
       <span class="type-badge" style="background:${t.color};font-size:11px;padding:2px 6px;">${t.type === 'video' ? '● VIDEO' : '◉ AUDIO'}</span>
-      ${isGated ? '<button class="lib-dollar-btn" title="Support to unlock">$</button>' : ''}
+      ${isGated ? `<button class="lib-dollar-btn" title="Unlock this track">${t.visibility === 'vault' && t.price ? esc(priceLabel) : '$'}</button>` : ''}
     </div>
   `;
   if (isGated) {
-    row.querySelector('.lib-dollar-btn').addEventListener('click', e => {
+    row.querySelector('.lib-dollar-btn').addEventListener('click', async e => {
       e.stopPropagation();
+      // Vault tracks open the unlock gate (per-track buy); supporters-only
+      // content routes to the subscribe modal as before.
+      if (t.visibility === 'vault' && await _checkVaultGate(t)) return;
       _openModal(); _setModalTab('subscribe');
     });
   }
@@ -215,6 +232,89 @@ export function buildLibrary() {
   if (!list.children.length) {
     list.innerHTML = '<div style="padding:10px 14px;font-family:\'Space Mono\',monospace;font-size:11px;color:rgba(255,255,255,.25);letter-spacing:.06em;">NO UPLOADS YET</div>';
   }
+}
+
+// ── Browse (search + genre chips) + discover rows for the library modal ──────
+
+let browseInitialized = false;
+let activeGenre = '';
+let searchDebounce = null;
+let discoverAvailable = false;
+
+export async function loadDiscover() {
+  try {
+    const d = await api.library.discover();
+    const trend = el('library-trending');
+    const fresh = el('library-new-releases');
+    trend.innerHTML = '';
+    fresh.innerHTML = '';
+    for (const item of (d.trending || []))    trend.appendChild(buildLibRow(normalizeTrack(item)));
+    for (const item of (d.newReleases || [])) fresh.appendChild(buildLibRow(normalizeTrack(item)));
+    discoverAvailable = !!((d.trending || []).length || (d.newReleases || []).length);
+    el('library-discover').hidden = !discoverAvailable || hasActiveBrowseFilter();
+  } catch {
+    discoverAvailable = false;
+    el('library-discover').hidden = true;
+  }
+}
+
+function hasActiveBrowseFilter() {
+  return !!(el('library-search')?.value.trim() || activeGenre);
+}
+
+async function renderBrowseResults() {
+  const search = el('library-search').value.trim();
+
+  // No filters: restore the full catalog tree + discover rows.
+  if (!search && !activeGenre) {
+    el('library-discover').hidden = !discoverAvailable;
+    buildFullLibraryList('library-modal-list');
+    return;
+  }
+
+  el('library-discover').hidden = true;
+  try {
+    const data = await api.library.list({ search: search || undefined, genre: activeGenre || undefined });
+    const list = el('library-modal-list');
+    list.innerHTML = '';
+    if (!(data.items || []).length) {
+      list.innerHTML = '<div style="padding:10px 14px;font-family:\'Space Mono\',monospace;font-size:11px;color:rgba(255,255,255,.25);letter-spacing:.06em;">NO MATCHES</div>';
+      return;
+    }
+    for (const item of data.items) list.appendChild(buildLibRow(normalizeTrack(item)));
+  } catch {}
+}
+
+export async function initBrowseControls() {
+  if (browseInitialized) return;
+  browseInitialized = true;
+
+  el('library-search').addEventListener('input', () => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(renderBrowseResults, 250);
+  });
+
+  try {
+    const d = await api.library.genres();
+    const chips = el('library-genre-chips');
+    const genres = d.genres || [];
+    if (!genres.length) { chips.hidden = true; return; }
+
+    chips.innerHTML = '';
+    function makeChip(label, value) {
+      const btn = document.createElement('button');
+      btn.className = 'genre-chip' + (activeGenre === value ? ' active' : '');
+      btn.textContent = label;
+      btn.addEventListener('click', () => {
+        activeGenre = value;
+        chips.querySelectorAll('.genre-chip').forEach(c => c.classList.toggle('active', c === btn));
+        renderBrowseResults();
+      });
+      chips.appendChild(btn);
+    }
+    makeChip('ALL', '');
+    for (const g of genres) makeChip(g.genre.toUpperCase(), g.genre);
+  } catch {}
 }
 
 // ── Queue drawer (scheduled next + recently played) ───────────────────────────

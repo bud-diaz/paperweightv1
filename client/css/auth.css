@@ -62,3 +62,78 @@
 .vg-login-hint button { background: none; border: none; color: var(--t2); font-family: 'Space Mono', monospace; font-size: 10px; cursor: pointer; text-decoration: underline; }
 .vg-login-hint button:hover { color: var(--t1); }
 
+
+/* ── Welcome overlay (first-visit onboarding) ── */
+#welcome-overlay {
+  position: fixed; inset: 0; z-index: 9998;
+  background: rgba(5,5,7,.9);
+  backdrop-filter: blur(var(--vibrancy-blur-sm)) saturate(var(--vibrancy-sat));
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+#welcome-card {
+  width: 100%; max-width: 360px;
+  background: var(--card); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card); padding: 28px 26px 20px;
+  box-shadow: var(--shadow-4), var(--shadow-edge-top);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.welcome-kicker { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .22em; color: var(--t3); }
+.welcome-station { font-size: 26px; font-weight: 700; letter-spacing: -.01em; color: var(--t1); line-height: 1.15; }
+.welcome-sub { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t2); line-height: 1.5; margin-bottom: 10px; }
+.welcome-label { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .14em; color: var(--t3); }
+#welcome-email-toggle {
+  background: none; border: none; text-align: left; padding: 6px 0 0; cursor: pointer;
+  font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em; color: var(--t3);
+}
+#welcome-email-toggle:hover { color: var(--t2); }
+#welcome-email-chev { display: inline-block; transition: transform var(--dur-fast) var(--ease-out-macos); }
+.welcome-optional { color: var(--t4); }
+#welcome-email-body { display: flex; flex-direction: column; gap: 8px; padding: 4px 0 2px; }
+.welcome-consent {
+  display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
+  font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t2); line-height: 1.45;
+}
+.welcome-consent input { margin-top: 1px; }
+#welcome-enter { margin-top: 8px; }
+.welcome-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; }
+.welcome-foot button {
+  background: none; border: none; padding: 4px 0; cursor: pointer;
+  font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: .08em; color: var(--t3);
+}
+.welcome-foot button:hover { color: var(--t1); }
+
+/* ── Your Collection (account panel) ── */
+#collection-section { padding: 0 20px 8px; }
+.collection-empty, .earnings-empty { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); padding: 6px 0; }
+.collection-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.collection-row:last-child { border-bottom: none; }
+.collection-row-info { flex: 1; min-width: 0; }
+.collection-row-title { font-size: 12px; color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.collection-row-meta { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--t3); }
+.collection-row-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.collection-sub-label { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: .16em; color: var(--t3); padding: 10px 0 4px; }
+.collection-purchase-row { display: flex; gap: 8px; align-items: baseline; font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t2); padding: 3px 0; }
+.cp-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-amount { color: var(--t1); }
+.cp-date { color: var(--t3); }
+
+/* ── Library modal: browse bar, genre chips, discover, owned mark ── */
+#library-browse-bar { display: flex; flex-direction: column; gap: 8px; padding: 0 0 10px; }
+#library-genre-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.genre-chip {
+  font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: .1em;
+  padding: 4px 10px; background: var(--inset); border: 1px solid var(--border);
+  border-radius: 999px; color: var(--t3); cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out-macos), color var(--dur-fast) var(--ease-out-macos);
+}
+.genre-chip:hover { border-color: var(--border-strong); color: var(--t2); }
+.genre-chip.active { border-color: var(--border-strong); color: var(--t1); background: var(--raised); }
+.lib-owned { margin-left: 6px; font-size: 10px; color: #39ff14; }
+
+/* ── Dashboard earnings ── */
+.earnings-row { display: flex; align-items: baseline; gap: 10px; font-family: 'Space Mono', monospace; font-size: 11px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+.earnings-row:last-child { border-bottom: none; }
+.earnings-title { flex: 1; min-width: 0; color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.earnings-kind { font-size: 9px; letter-spacing: .1em; color: var(--t3); text-transform: uppercase; }
+.earnings-units { color: var(--t2); }
+.earnings-amount { color: var(--t1); }

@@ -7,10 +7,12 @@
  */
 
 import { el } from './utils.js';
-import { buildFullLibraryList } from './library.js';
+import { buildFullLibraryList, initBrowseControls, loadDiscover } from './library.js';
 
 export function openLibraryModal() {
   buildFullLibraryList('library-modal-list');
+  initBrowseControls();
+  loadDiscover();
   el('library-modal-backdrop').classList.add('open');
 }
 
