@@ -41,26 +41,29 @@ export async function loadAuthState() {
     try {
       // A listener account can exist at any tier (including free), and its
       // owner must always be able to log out, export, or delete it.
+      // Welcome-page profiles (display name only) also answer here with
+      // hasAccount: false.
       const acc = await api.auth.listenerMe();
       Object.assign(authState, {
         loggedIn: true,
         email: acc.email || '',
+        displayName: acc.displayName || '',
         tier: me.tier,
         hasPassword: !!acc.hasPassword,
-        hasAccount: true,
+        hasAccount: acc.hasAccount !== false,
         subscriptionStatus: acc.subscriptionStatus || null,
         provider: acc.provider || null,
       });
     } catch {
       if (me.tier === 'free') {
-        Object.assign(authState, { loggedIn: false, email: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null });
+        Object.assign(authState, { loggedIn: false, email: '', displayName: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null });
       } else {
         // Creator-issued token: valid non-free tier but no listener account
-        Object.assign(authState, { loggedIn: true, email: '', tier: me.tier, hasPassword: true, hasAccount: false, subscriptionStatus: null, provider: null });
+        Object.assign(authState, { loggedIn: true, email: '', displayName: '', tier: me.tier, hasPassword: true, hasAccount: false, subscriptionStatus: null, provider: null });
       }
     }
   } catch {
-    Object.assign(authState, { loggedIn: false, email: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null });
+    Object.assign(authState, { loggedIn: false, email: '', displayName: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null });
   }
   renderAuthSection();
 }
@@ -87,7 +90,7 @@ export function renderAuthSection() {
   const status = el('auth-toggle-status');
   if (loggedIn) {
     status.textContent = authState.tier.replace('_', ' ').toUpperCase();
-    el('auth-email-display').textContent = authState.email || '—';
+    el('auth-email-display').textContent = authState.email || authState.displayName || '—';
     const badge = el('auth-tier-badge');
     badge.textContent = authState.tier.replace('_', ' ').toUpperCase();
     badge.className   = `auth-tier-badge ${authState.tier}`;
@@ -95,12 +98,13 @@ export function renderAuthSection() {
     el('auth-set-pw').hidden = !needsPw;
     if (!needsPw) el('auth-setpw-form').hidden = true;
 
-    // Account management — only meaningful for real listener accounts (not
-    // creator-issued tokens, which have no account behind them).
+    // Account management. Welcome-page profiles (displayName, no account) can
+    // also export and delete their data; billing actions need a real account.
     const hasAccount = !!authState.hasAccount;
+    const isProfile  = !hasAccount && !!authState.displayName;
     const activeSub  = authState.subscriptionStatus === 'active';
-    el('auth-export-btn').hidden     = !hasAccount;
-    el('auth-delete-btn').hidden     = !hasAccount;
+    el('auth-export-btn').hidden     = !(hasAccount || isProfile);
+    el('auth-delete-btn').hidden     = !(hasAccount || isProfile);
     el('auth-cancel-sub-btn').hidden = !(hasAccount && activeSub);
     el('auth-portal-btn').hidden     = !(hasAccount && activeSub && authState.provider === 'stripe');
   } else {
@@ -343,6 +347,28 @@ async function handleBillingPortal() {
 async function handleDeleteAccount() {
   const msg = el('auth-manage-msg');
   msg.className = 'auth-msg';
+
+  // Welcome-page profile without a full account: no password to confirm.
+  if (!authState.hasAccount && authState.displayName) {
+    if (!confirm('Delete your listener profile? This removes your display name and any saved email. This cannot be undone.')) return;
+    try {
+      const { res, data } = await api.auth.deleteProfile();
+      if (!res.ok) {
+        msg.className = 'auth-msg error';
+        msg.textContent = data.error || 'Deletion failed.';
+        return;
+      }
+      msg.className = 'auth-msg success';
+      msg.textContent = 'Profile deleted.';
+      Object.assign(authState, { loggedIn: false, email: '', displayName: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null });
+      setTimeout(() => { renderAuthSection(); _loadLibrary(); }, 1200);
+    } catch {
+      msg.className = 'auth-msg error';
+      msg.textContent = 'Network error — please try again.';
+    }
+    return;
+  }
+
   if (!confirm('Permanently delete your account? Unlocked content and subscriptions will be lost. This cannot be undone.')) return;
 
   const body = {};

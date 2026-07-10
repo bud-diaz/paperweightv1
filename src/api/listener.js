@@ -26,10 +26,36 @@ function generateToken() {
 function issueToken(db, listenerId, tier) {
   const token = generateToken();
   const tokenHash = hashToken(token);
-  db.prepare(
+  const info = db.prepare(
     "INSERT INTO tokens (token, token_hash, label, tier, listener_id) VALUES (?, ?, ?, ?, ?)"
   ).run(tokenHash, tokenHash, null, tier, listenerId);
-  return { token, tier };
+  return { token, tier, tokenId: info.lastInsertRowid };
+}
+
+// Lightweight identity from the welcome page (migration 026). Resolved by the
+// full account when one exists, else by the token issued at /start.
+function getProfileForRequest(db, tokenRow) {
+  if (!tokenRow) return null;
+  if (tokenRow.listener_id) {
+    const byAccount = db.prepare(
+      'SELECT * FROM listener_profiles WHERE account_id = ? ORDER BY created_at DESC LIMIT 1'
+    ).get(tokenRow.listener_id);
+    if (byAccount) return byAccount;
+  }
+  return db.prepare('SELECT * FROM listener_profiles WHERE token_id = ?').get(tokenRow.id) || null;
+}
+
+// Links an unclaimed welcome-page profile to a full account (on register/login
+// with the profile's pw_token still present) so display name, marketing consent,
+// and the original entry token carry over.
+function linkProfileToAccount(db, tokenRow, accountId) {
+  if (!tokenRow || tokenRow.listener_id) return;
+  const profile = db.prepare(
+    'SELECT id FROM listener_profiles WHERE token_id = ? AND account_id IS NULL'
+  ).get(tokenRow.id);
+  if (!profile) return;
+  db.prepare('UPDATE listener_profiles SET account_id = ? WHERE id = ?').run(accountId, profile.id);
+  db.prepare('UPDATE tokens SET listener_id = ? WHERE id = ?').run(accountId, tokenRow.id);
 }
 
 // Returns the listener's active subscription, if any.
@@ -59,6 +85,62 @@ function resetLinkUrl(req, token) {
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
+// POST /api/listener/start
+// Body: { displayName, email?, marketingOptIn? }
+// Welcome-page entry: only a display name is required. Creates a lightweight
+// listener profile and issues a free-tier pw_token so the listener is
+// recognized on return visits. Email is optional and is only ever used for
+// the creator's marketing list when marketingOptIn is explicitly true.
+router.post('/start', authLimiter, (req, res) => {
+  const { displayName, email, marketingOptIn } = req.body || {};
+
+  const name = typeof displayName === 'string' ? displayName.trim().replace(/[\x00-\x1F\x7F]/g, '') : '';
+  if (!name || name.length > 50) {
+    return res.status(400).json({ error: 'Display name is required (50 characters max)' });
+  }
+
+  let cleanEmail = null;
+  if (email !== undefined && email !== null && email !== '') {
+    if (typeof email !== 'string' || !email.includes('@') || email.length > 254) {
+      return res.status(400).json({ error: 'Email must be a valid address' });
+    }
+    cleanEmail = email.toLowerCase().trim();
+  }
+
+  const db = getDb();
+
+  // A returning listener with a live token keeps their identity — refresh the
+  // profile instead of minting a duplicate.
+  const existing = getProfileForRequest(db, req.tokenRow);
+  if (existing) {
+    db.prepare(`
+      UPDATE listener_profiles SET
+        display_name     = ?,
+        email            = COALESCE(?, email),
+        marketing_opt_in = CASE WHEN ? IS NOT NULL THEN ? ELSE marketing_opt_in END,
+        last_seen_at     = datetime('now')
+      WHERE id = ?
+    `).run(
+      name,
+      cleanEmail,
+      marketingOptIn === undefined ? null : 1,
+      marketingOptIn === true ? 1 : 0,
+      existing.id
+    );
+    return res.json({ ok: true, displayName: name, tier: req.tier, returning: true });
+  }
+
+  const issued = issueToken(db, null, 'free');
+  db.prepare(`
+    INSERT INTO listener_profiles (display_name, email, marketing_opt_in, token_id, last_seen_at)
+    VALUES (?, ?, ?, ?, datetime('now'))
+  `).run(name, cleanEmail, marketingOptIn === true ? 1 : 0, issued.tokenId);
+
+  res.cookie('pw_token', issued.token, listenerCookieOpts(req));
+  log('info', 'listener', 'Listener profile created from welcome page');
+  res.status(201).json({ ok: true, token: issued.token, tier: issued.tier, displayName: name });
+});
+
 // POST /api/listener/register
 // Body: { email, password }
 // Sets pw_token cookie (web) and returns { token, tier } (mobile).
@@ -87,6 +169,9 @@ router.post('/register', authLimiter, asyncHandler(async (req, res) => {
     ).run(email.toLowerCase().trim(), passwordHash);
 
     const listenerId = info.lastInsertRowid;
+    // Carry over a welcome-page profile (display name, marketing consent)
+    // when the listener upgrades to a full account on the same device.
+    linkProfileToAccount(db, req.tokenRow, listenerId);
     const issued = issueToken(db, listenerId, 'free');
 
     res.cookie('pw_token', issued.token, listenerCookieOpts(req));
@@ -122,6 +207,7 @@ router.post('/login', authLimiter, asyncHandler(async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    linkProfileToAccount(db, req.tokenRow, account.id);
     const issued = issueToken(db, account.id, 'free');
 
     // Sync tier from active subscription if one exists
@@ -144,12 +230,35 @@ router.post('/logout', (req, res) => {
 
 // GET /api/listener/me
 // Returns account info + current tier + subscription state + hasPassword flag.
+// Also answers for welcome-page profiles that have no full account yet, and
+// refreshes last_seen_at so repeat listeners are visible to the creator.
 router.get('/me', (req, res) => {
-  if (!req.tokenRow || !req.tokenRow.listener_id) {
+  if (!req.tokenRow) {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
   const db = getDb();
+  const profile = getProfileForRequest(db, req.tokenRow);
+  if (profile) {
+    db.prepare("UPDATE listener_profiles SET last_seen_at = datetime('now') WHERE id = ?").run(profile.id);
+  }
+
+  if (!req.tokenRow.listener_id) {
+    if (!profile) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    return res.json({
+      displayName: profile.display_name,
+      tier: req.tier,
+      hasAccount: false,
+      hasPassword: false,
+      marketingOptIn: profile.marketing_opt_in === 1,
+      subscriptionStatus: null,
+      currentPeriodEnd: null,
+      provider: null,
+    });
+  }
+
   const account = db.prepare(
     'SELECT id, email, password_hash, created_at FROM listener_accounts WHERE id = ? AND is_active = 1'
   ).get(req.tokenRow.listener_id);
@@ -162,10 +271,13 @@ router.get('/me', (req, res) => {
 
   res.json({
     email: account.email,
+    displayName: profile ? profile.display_name : null,
     tier: req.tier,
+    hasAccount: true,
     // Accounts auto-created by Stripe have a random hex password_hash.
     // Bcrypt hashes always start with $2. This lets the UI prompt them to set a real password.
     hasPassword: account.password_hash.startsWith('$2'),
+    marketingOptIn: profile ? profile.marketing_opt_in === 1 : false,
     subscriptionStatus: sub ? sub.status : null,
     currentPeriodEnd: sub ? sub.current_period_end : null,
     provider: sub ? sub.provider : null,
@@ -255,12 +367,33 @@ router.post('/reset-password', authLimiter, asyncHandler(async (req, res) => {
 
 // GET /api/listener/export
 // Returns everything stored about the authenticated listener as downloadable JSON.
+// Welcome-page profiles without a full account export their profile row alone.
 router.get('/export', (req, res) => {
-  if (!req.tokenRow || !req.tokenRow.listener_id) {
+  if (!req.tokenRow) {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
   const db = getDb();
+  const profile = getProfileForRequest(db, req.tokenRow);
+  const profileExport = profile ? {
+    displayName: profile.display_name,
+    email: profile.email,
+    marketingOptIn: profile.marketing_opt_in === 1,
+    createdAt: profile.created_at,
+    lastSeenAt: profile.last_seen_at,
+  } : null;
+
+  if (!req.tokenRow.listener_id) {
+    if (!profile) return res.status(401).json({ error: 'Authentication required' });
+    res.setHeader('Content-Disposition', 'attachment; filename="paperweight-account-export.json"');
+    return res.json({
+      exportedAt: new Date().toISOString(),
+      station: config.station.name,
+      profile: profileExport,
+      tier: req.tier,
+    });
+  }
+
   const account = db.prepare(
     'SELECT id, email, created_at FROM listener_accounts WHERE id = ? AND is_active = 1'
   ).get(req.tokenRow.listener_id);
@@ -285,12 +418,39 @@ router.get('/export', (req, res) => {
     exportedAt: new Date().toISOString(),
     station: config.station.name,
     account: { email: account.email, createdAt: account.created_at },
+    profile: profileExport,
     tier: req.tier,
     subscriptions,
     vaultUnlocks,
     tokenAssignments,
     savedStations,
   });
+});
+
+// DELETE /api/listener/profile
+// Self-service deletion for welcome-page profiles that never became a full
+// account: removes the profile row and its entry token. Full accounts use
+// DELETE /api/listener/account instead.
+router.delete('/profile', authLimiter, (req, res) => {
+  if (!req.tokenRow) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  if (req.tokenRow.listener_id) {
+    return res.status(400).json({ error: 'Use account deletion for full accounts' });
+  }
+
+  const db = getDb();
+  const profile = db.prepare('SELECT * FROM listener_profiles WHERE token_id = ?').get(req.tokenRow.id);
+  if (!profile) return res.status(404).json({ error: 'Profile not found' });
+
+  db.transaction(() => {
+    db.prepare('DELETE FROM listener_profiles WHERE id = ?').run(profile.id);
+    db.prepare('DELETE FROM tokens WHERE id = ?').run(req.tokenRow.id);
+  })();
+
+  clearListenerCookie(res, req);
+  log('info', 'listener', `Listener profile #${profile.id} deleted at owner request`);
+  res.json({ ok: true });
 });
 
 // DELETE /api/listener/account
@@ -336,6 +496,8 @@ router.delete('/account', authLimiter, asyncHandler(async (req, res) => {
   }
 
   db.transaction(() => {
+    // Profiles hold PII (display name, marketing email) — remove them outright.
+    db.prepare('DELETE FROM listener_profiles WHERE account_id = ?').run(account.id);
     db.prepare('DELETE FROM tokens WHERE listener_id = ?').run(account.id);
     db.prepare('DELETE FROM token_assignments WHERE listener_id = ?').run(account.id);
     db.prepare('DELETE FROM listener_saved_stations WHERE listener_id = ?').run(account.id);
@@ -377,6 +539,72 @@ router.patch('/password', authLimiter, asyncHandler(async (req, res) => {
     res.status(500).json({ error: 'Failed to update password' });
   }
 }));
+
+// ─── Collection & purchases ──────────────────────────────────────────────────
+
+// GET /api/listener/collection
+// "Your Collection": every vault item this listener has unlocked — track
+// unlocks, project unlocks, all-access, scoped tokens — resolved through the
+// same ownership rules the library uses.
+router.get('/collection', (req, res) => {
+  if (!req.tokenRow) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const { buildOwnershipContext, isUnlockedInContext, formatItem } = require('./library');
+  const db = getDb();
+  const ctx = buildOwnershipContext(req);
+
+  const vaultRows = db.prepare(
+    "SELECT * FROM media WHERE is_active = 1 AND visibility = 'vault' ORDER BY indexed_at DESC"
+  ).all();
+
+  const items = vaultRows
+    .filter(row => isUnlockedInContext(row, ctx))
+    .map(row => formatItem(row, req.tier, ctx));
+
+  res.json({ items, total: items.length });
+});
+
+// GET /api/listener/purchases
+// Purchase history: this account's vault unlocks with what was paid and when.
+// Only full accounts can have purchases (checkout requires one).
+router.get('/purchases', (req, res) => {
+  if (!req.tokenRow) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  if (!req.tokenRow.listener_id) {
+    return res.json({ purchases: [] });
+  }
+
+  const rows = getDb().prepare(`
+    SELECT vu.id, vu.unlock_type, vu.target_id, vu.amount_paid, vu.payment_type,
+           vu.active, vu.expires_at, vu.created_at,
+           m.title AS media_title, m.filename AS media_filename,
+           vp.name AS project_name
+    FROM vault_unlocks vu
+    LEFT JOIN media m ON vu.unlock_type = 'track' AND m.id = vu.target_id
+    LEFT JOIN vault_projects vp ON vu.unlock_type = 'project' AND vp.id = vu.target_id
+    WHERE vu.listener_id = ?
+    ORDER BY vu.created_at DESC
+  `).all(req.tokenRow.listener_id);
+
+  res.json({
+    purchases: rows.map(r => ({
+      id: r.id,
+      unlockType: r.unlock_type,
+      targetId: r.target_id,
+      title: r.unlock_type === 'all_access'
+        ? 'All-Access Vault'
+        : (r.media_title || r.media_filename || r.project_name || null),
+      amountPaidCents: r.amount_paid,
+      paymentType: r.payment_type,
+      active: r.active === 1,
+      expiresAt: r.expires_at,
+      createdAt: r.created_at,
+    })),
+  });
+});
 
 // ─── Saved stations ───────────────────────────────────────────────────────────
 // CLOUD PHASE (gated by PAPERWEIGHT_CLOUD): the multi-station directory. A single

@@ -126,6 +126,16 @@
       <button id="library-modal-close">×</button>
     </div>
     <div id="library-modal-body">
+      <div id="library-browse-bar">
+        <input id="library-search" class="auth-input" type="search" placeholder="Search tracks…" autocomplete="off"/>
+        <div id="library-genre-chips"></div>
+      </div>
+      <div id="library-discover" hidden>
+        <div class="lib-sep">TRENDING</div>
+        <div id="library-trending"></div>
+        <div class="lib-sep">NEW RELEASES</div>
+        <div id="library-new-releases"></div>
+      </div>
       <div id="library-modal-list"></div>
     </div>
   </div>
@@ -393,6 +403,12 @@
                 </div>
                 <div class="auth-msg" id="auth-manage-msg"></div>
               </div>
+            </div>
+            <!-- Your Collection (unlocked content + purchase history) -->
+            <div id="collection-section" hidden>
+              <div class="drawer-label" style="margin-top:14px;">YOUR COLLECTION</div>
+              <div id="collection-list"></div>
+              <div id="collection-purchases" hidden></div>
             </div>
             </div><!-- /auth-body -->
             </div>
@@ -1099,6 +1115,25 @@
           <div class="dash-section">
             <div class="dash-section-label">PAYMENTS</div>
             <div id="dash-payment-status"></div>
+          </div>
+
+          <div class="dash-divider"></div>
+
+          <!-- Earnings -->
+          <div class="dash-section">
+            <details id="earnings-details">
+              <summary>
+                <div class="dash-section-label">EARNINGS</div>
+              </summary>
+              <div class="stat-grid" id="dash-earnings-totals"></div>
+              <div class="dash-edit-label analytics-section-label">PER TRACK / COLLECTION</div>
+              <div id="dash-earnings-list"></div>
+              <div class="dash-edit-label analytics-section-label">AUDIENCE (MARKETING OPT-INS)</div>
+              <div id="dash-audience-summary"></div>
+              <div style="display:flex;gap:6px;padding:6px 0;">
+                <a class="mgmt-btn" href="/api/dashboard/export/audience.csv" download style="text-decoration:none;">AUDIENCE CSV</a>
+              </div>
+            </details>
           </div>
 
           <div class="dash-divider"></div>
