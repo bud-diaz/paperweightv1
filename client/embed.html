@@ -24,6 +24,12 @@
     gap: 14px;
     padding: 12px 16px;
     border: 1px solid rgba(255,255,255,.15);
+    position: relative;
+    overflow: hidden;
+  }
+  .embed-card.video-mode {
+    align-items: flex-end;
+    padding: 12px;
   }
   .embed-play {
     width: 44px;
@@ -36,9 +42,14 @@
     font-size: 16px;
     cursor: pointer;
     line-height: 1;
+    position: relative;
+    z-index: 3;
   }
   .embed-play:hover { background: rgba(255,255,255,.1); }
-  .embed-meta { flex: 1; min-width: 0; }
+  .embed-meta { flex: 1; min-width: 0; position: relative; z-index: 3; }
+  .embed-card.video-mode .embed-meta {
+    text-shadow: 0 1px 8px rgba(0,0,0,.9);
+  }
   .embed-station {
     font-size: 13px;
     letter-spacing: .12em;
@@ -68,10 +79,28 @@
     vertical-align: middle;
   }
   .embed-live.on { display: inline-block; }
+  #embed-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+    background: #050505;
+  }
+  .embed-card.video-mode::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: linear-gradient(to top, rgba(0,0,0,.78), rgba(0,0,0,.15));
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
-  <div class="embed-card">
+  <div class="embed-card" id="embed-card">
+    <video id="embed-video" preload="none" playsinline hidden></video>
     <button class="embed-play" id="embed-play" aria-label="Play">&#9654;</button>
     <div class="embed-meta">
       <div class="embed-station"><a id="embed-station-link" href="/" target="_blank" rel="noopener">Paperweight</a><span class="embed-live" id="embed-live">LIVE</span></div>
@@ -79,7 +108,6 @@
     </div>
   </div>
   <audio id="embed-audio" preload="none"></audio>
-  <video id="embed-video" preload="none" playsinline hidden></video>
   <script src="/vendor/hls.min.js"></script>
   <script src="/js/embed.js"></script>
 </body>

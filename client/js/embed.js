@@ -11,6 +11,7 @@
 
   var audio = document.getElementById('embed-audio');
   var video = document.getElementById('embed-video');
+  var card = document.getElementById('embed-card');
   var playBtn = document.getElementById('embed-play');
   var nowEl = document.getElementById('embed-now');
   var liveEl = document.getElementById('embed-live');
@@ -40,6 +41,11 @@
     } catch (e) {}
   }
 
+  function applyMediaSurface() {
+    if (card) card.classList.toggle('video-mode', isVideo);
+    if (video) video.hidden = !isVideo;
+  }
+
   function attach(url) {
     var media = currentMedia();
     if (attachedUrl === url && attachedMedia === media) return;
@@ -47,6 +53,7 @@
     attachedMedia = media;
     if (hls) { hls.destroy(); hls = null; }
     resetMedia(media === audio ? video : audio);
+    applyMediaSurface();
     if (window.Hls && window.Hls.isSupported()) {
       hls = new window.Hls({ liveSyncDurationCount: 3 });
       hls.loadSource(url);
@@ -82,6 +89,7 @@
         var wasVideo = isVideo;
         liveActive = !!s.liveActive;
         isVideo = !liveActive && !!s.isVideo;
+        applyMediaSurface();
         liveEl.classList.toggle('on', liveActive);
         var np = s.nowPlaying || {};
         nowEl.textContent = liveActive

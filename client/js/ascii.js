@@ -48,8 +48,8 @@ export function init({ isVideoMode, getStationName } = {}) {
 // ── Real-video preference ─────────────────────────────────────────────────────
 
 export function getRealVideoPref() {
-  try { return localStorage.getItem(REAL_VIDEO_PREF_KEY) === '1'; }
-  catch { return false; }
+  try { return localStorage.getItem(REAL_VIDEO_PREF_KEY) !== '0'; }
+  catch { return true; }
 }
 
 export function setRealVideoPref(pref) {
@@ -77,6 +77,8 @@ export function initRealVideoToggleHandlers() {
 
 export function asciiStart(mode) {
   if (mode === 'video' && getRealVideoPref()) {
+    const vidEl = el('video-el');
+    if (vidEl) vidEl.hidden = false;
     if (asciiMode !== null) asciiStop();
     return;
   }
