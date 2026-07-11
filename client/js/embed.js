@@ -10,6 +10,7 @@
   var HLS_LIVE_URL = '/hls/live/index.m3u8';
 
   var audio = document.getElementById('embed-audio');
+  var video = document.getElementById('embed-video');
   var playBtn = document.getElementById('embed-play');
   var nowEl = document.getElementById('embed-now');
   var liveEl = document.getElementById('embed-live');
@@ -18,22 +19,40 @@
   var hls = null;
   var playing = false;
   var liveActive = false;
+  var isVideo = false;
   var attachedUrl = null;
+  var attachedMedia = null;
 
   function currentUrl() {
     return liveActive ? HLS_LIVE_URL : HLS_URL;
   }
 
+  function currentMedia() {
+    return isVideo ? video : audio;
+  }
+
+  function resetMedia(media) {
+    if (!media) return;
+    try { media.pause(); } catch (e) {}
+    try {
+      media.removeAttribute('src');
+      media.load();
+    } catch (e) {}
+  }
+
   function attach(url) {
-    if (attachedUrl === url) return;
+    var media = currentMedia();
+    if (attachedUrl === url && attachedMedia === media) return;
     attachedUrl = url;
+    attachedMedia = media;
     if (hls) { hls.destroy(); hls = null; }
+    resetMedia(media === audio ? video : audio);
     if (window.Hls && window.Hls.isSupported()) {
       hls = new window.Hls({ liveSyncDurationCount: 3 });
       hls.loadSource(url);
-      hls.attachMedia(audio);
+      hls.attachMedia(media);
     } else {
-      audio.src = url; // Safari native HLS
+      media.src = url; // Safari native HLS
     }
   }
 
@@ -45,12 +64,12 @@
 
   playBtn.addEventListener('click', function () {
     if (playing) {
-      audio.pause();
+      currentMedia().pause();
       setPlaying(false);
       return;
     }
     attach(currentUrl());
-    audio.play().then(function () { setPlaying(true); }).catch(function () {
+    currentMedia().play().then(function () { setPlaying(true); }).catch(function () {
       nowEl.textContent = 'Stream unavailable';
     });
   });
@@ -60,15 +79,17 @@
       .then(function (r) { return r.json(); })
       .then(function (s) {
         var wasLive = liveActive;
+        var wasVideo = isVideo;
         liveActive = !!s.liveActive;
+        isVideo = !liveActive && !!s.isVideo;
         liveEl.classList.toggle('on', liveActive);
         var np = s.nowPlaying || {};
         nowEl.textContent = liveActive
           ? 'Live broadcast'
           : [np.artist, np.title].filter(Boolean).join(' — ') || 'Off air';
-        if (playing && wasLive !== liveActive) {
+        if (playing && (wasLive !== liveActive || wasVideo !== isVideo)) {
           attach(currentUrl());
-          audio.play().catch(function () {});
+          currentMedia().play().catch(function () {});
         }
       })
       .catch(function () {});

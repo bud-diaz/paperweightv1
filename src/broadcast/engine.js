@@ -16,6 +16,8 @@ const FFMPEG_BACKOFF_MAX_MS = 60000;
 const FFMPEG_KILL_ESCALATE_MS = 5000;
 const STDERR_BUFFER_MAX = 64 * 1024;
 const STDERR_BUFFER_KEEP = 32 * 1024;
+const HLS_BASE_FLAGS = 'delete_segments+append_list';
+const HLS_DISCONTINUITY_FLAG = 'discont_start';
 
 // ─── Station queue (in-memory, max 5 track IDs) ──────────────────────────────
 let stationQueue = [];
@@ -85,6 +87,7 @@ let state = {
   segmentCounter: 0,         // global HLS segment counter, never resets
   nowPlayingTimer: null,
   recentlyPlayed: [],        // last 10 finished tracks, newest first
+  outputKind: null,          // 'audio' | 'video' after the previous batch wrote
 };
 
 // ─── State file ──────────────────────────────────────────────────────────────
@@ -258,9 +261,12 @@ function resolveBatch() {
 
 // ─── FFmpeg ──────────────────────────────────────────────────────────────────
 
-function buildFFmpegArgs(concatPath, hasVideo = false) {
+function buildFFmpegArgs(concatPath, hasVideo = false, { markDiscontinuity = false } = {}) {
   const startNumber = nextSegmentNumber();
   state.segmentCounter = startNumber;
+  const hlsFlags = markDiscontinuity
+    ? `${HLS_BASE_FLAGS}+${HLS_DISCONTINUITY_FLAG}`
+    : HLS_BASE_FLAGS;
 
   const videoArgs = hasVideo
     ? [
@@ -292,7 +298,7 @@ function buildFFmpegArgs(concatPath, hasVideo = false) {
     '-f', 'hls',
     '-hls_time', '6',
     '-hls_list_size', '10',
-    '-hls_flags', 'delete_segments+append_list',
+    '-hls_flags', hlsFlags,
     '-start_number', String(startNumber),
     '-hls_segment_filename', path.join(HLS_STREAM_DIR, 'seg_%05d.ts').replace(/\\/g, '/'),
     path.join(HLS_STREAM_DIR, 'index.m3u8').replace(/\\/g, '/'),
@@ -307,8 +313,10 @@ function runFFmpeg(batch) {
     }
 
     const hasVideo = batch.some(t => isVideoTrack(t));
+    const outputKind = hasVideo ? 'video' : 'audio';
+    const markDiscontinuity = !!state.outputKind && state.outputKind !== outputKind;
     const concatPath = writeConcatManifest(batch);
-    const args = buildFFmpegArgs(concatPath, hasVideo);
+    const args = buildFFmpegArgs(concatPath, hasVideo, { markDiscontinuity });
     invalidateSegmentCache();
 
     const proc = spawn(ffmpegPath, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
@@ -367,6 +375,7 @@ function runFFmpeg(batch) {
       state.segmentCounter = nextSegmentNumber();
 
       if (code === 0 || proc.paperweightIntentionalExit) {
+        state.outputKind = outputKind;
         settle(resolve, { code, signal });
         return;
       }
@@ -402,6 +411,7 @@ function cleanHlsStreamDir() {
     }
     fs.renameSync(freshDir, HLS_STREAM_DIR);
     state.segmentCounter = 0;
+    state.outputKind = null;
     invalidateSegmentCache();
     if (fs.existsSync(gcDir)) {
       fs.rm(gcDir, { recursive: true, force: true }, err => {
@@ -559,4 +569,15 @@ function isRunning() {
   return state.isRunning;
 }
 
-module.exports = { start, stop, setMode, getState, isRunning, cleanHlsStreamDir, getStationQueue, addToStationQueue, removeFromStationQueue };
+module.exports = {
+  start,
+  stop,
+  setMode,
+  getState,
+  isRunning,
+  cleanHlsStreamDir,
+  getStationQueue,
+  addToStationQueue,
+  removeFromStationQueue,
+  _private: { buildFFmpegArgs, HLS_BASE_FLAGS, HLS_DISCONTINUITY_FLAG },
+};

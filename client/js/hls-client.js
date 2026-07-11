@@ -75,6 +75,21 @@ export function activeHlsUrl() {
   return currentLiveActive ? HLS_LIVE_URL : HLS_URL;
 }
 
+function destroyHls() {
+  if (!hls) return;
+  try { hls.destroy(); } catch {}
+  hls = null;
+}
+
+function resetMediaEl(mediaEl) {
+  if (!mediaEl) return;
+  try { mediaEl.pause(); } catch {}
+  try {
+    mediaEl.removeAttribute('src');
+    mediaEl.load();
+  } catch {}
+}
+
 // ── HLS retry ─────────────────────────────────────────────────────────────────────
 
 export function clearHlsRetry() {
@@ -99,22 +114,22 @@ export function scheduleHlsRetry() {
     const mediaEl = activeMediaEl();
     const url = activeHlsUrl();
     if (hls) {
-      try { hls.stopLoad(); } catch {}
-      hls.loadSource(url);
-      hls.startLoad();
+      destroyHls();
+      setupHls(mediaEl, { keepRetryState: true });
     } else if (mediaEl) {
       mediaEl.src = url;
       mediaEl.load();
-      if (state.playing) mediaEl.play().catch(() => {});
     }
+    if (state.playing && mediaEl) mediaEl.play().catch(() => {});
   }, delay);
 }
 
 // ── HLS.js setup ──────────────────────────────────────────────────────────────────
 
-export function setupHls(mediaEl) {
+export function setupHls(mediaEl, { keepRetryState = false } = {}) {
+  if (!mediaEl) return;
   if (window.Hls && Hls.isSupported()) {
-    resetHlsRetry();
+    if (!keepRetryState) resetHlsRetry();
     usingNativeHls = false;
     hls = new Hls({ lowLatencyMode: false });
     hls.loadSource(activeHlsUrl());
@@ -155,10 +170,10 @@ export async function fetchStreamStatus() {
     currentIsVideo = !!data.isVideo;
     if (wasVideo !== currentIsVideo && (hls || usingNativeHls) && state.playing) {
       clearHlsRetry();
-      if (hls) { hls.destroy(); hls = null; }
+      destroyHls();
       const oldEl = wasVideo ? el('video-el') : el('audio-el');
       const newEl = currentIsVideo ? el('video-el') : el('audio-el');
-      oldEl.pause();
+      resetMediaEl(oldEl);
       oldEl.hidden = true;
       setupHls(newEl);
       if (currentIsVideo) newEl.hidden = false;
