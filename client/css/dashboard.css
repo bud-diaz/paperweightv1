@@ -16,9 +16,11 @@
 .dash-card.dragging { opacity: .45; }
 .dash-card-head {
   display: flex; align-items: center; gap: 10px;
-  padding: 14px 20px 0;
+  padding: 14px 20px;
   cursor: grab; user-select: none;
+  transition: background-color var(--dur-fast) var(--ease-out-macos);
 }
+.dash-card-head:hover { background-color: rgba(255,255,255,.03); }
 .dash-card-head:active { cursor: grabbing; }
 .dash-drag-handle {
   font-size: 13px; color: var(--t4); line-height: 1;
@@ -31,11 +33,15 @@
 .dash-card-collapse-btn {
   background: none; border: none; color: var(--t3); cursor: pointer;
   font-size: 10px; padding: 4px 6px; line-height: 1; flex-shrink: 0;
+  transform: rotate(-90deg);
   transition: transform .2s var(--ease-out-macos), color var(--dur-fast) var(--ease-out-macos);
 }
 .dash-card-collapse-btn:hover { color: var(--t1); }
-.dash-card.collapsed .dash-card-collapse-btn { transform: rotate(-90deg); }
-.dash-card.collapsed .dash-card-body { display: none; }
+.dash-card.open .dash-card-collapse-btn { transform: rotate(0deg); }
+.dash-card-body {
+  height: 0; overflow: hidden;
+  transition: height .28s var(--ease-out-macos);
+}
 .dash-card > .dash-card-body > .dash-section { padding: 6px 20px 20px; }
 .dash-card > .dash-card-body > .dash-section > .dash-section-label:first-child { display: none; }
 .dash-section-label {
