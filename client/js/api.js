@@ -633,7 +633,7 @@ export const dashboard = {
     /**
      * POST /api/dashboard/broadcast/queue
      * @param {number} mediaId
-     * @returns {{ res: Response, data: { count: number, error?: string } }}
+     * @returns {{ res: Response, data: { queueLength: number, error?: string } }}
      */
     enqueue(mediaId) {
       return _send('/api/dashboard/broadcast/queue', { mediaId });

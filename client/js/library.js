@@ -417,7 +417,7 @@ export function initListenerQueueHandlers() {
   document.addEventListener('click', e => {
     const btn = e.target.closest('.lib-queue-btn');
     if (!btn) return;
-    if (document.body.classList.contains('dash-active')) return;
+    if (el('player-card')?.classList.contains('dash-active')) return;
     e.stopPropagation();
     if (!authState.loggedIn || authState.tier === 'free') {
       _openModal(); _setModalTab('subscribe');
