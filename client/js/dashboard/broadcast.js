@@ -57,11 +57,11 @@ export function initBroadcastHandlers() {
   document.addEventListener('click', e => {
     const btn = e.target.closest('.lib-queue-btn');
     if (!btn) return;
-    if (!document.body.classList.contains('dash-active')) return;
+    if (!el('player-card')?.classList.contains('dash-active')) return;
     e.stopPropagation();
     api.dashboard.broadcast.enqueue(parseInt(btn.dataset.id)).then(({ data }) => {
       if (data.error) { showToast(data.error); return; }
-      showToast(`Queued for broadcast (${data.count}/5)`);
+      showToast(`Queued for broadcast (${data.queueLength}/5)`);
       loadDashBroadcastQueue();
     }).catch(() => showToast('Queue error'));
   });
