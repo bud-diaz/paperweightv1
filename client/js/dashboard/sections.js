@@ -52,15 +52,18 @@ function buildCard(section, index) {
   titleEl.className = 'dash-card-title';
   titleEl.textContent = title;
 
-  const collapseBtn = document.createElement('button');
-  collapseBtn.type = 'button';
-  collapseBtn.className = 'dash-card-collapse-btn';
-  collapseBtn.setAttribute('aria-label', `Expand ${title} section`);
-  collapseBtn.textContent = '▾';
+  const chevron = document.createElement('span');
+  chevron.className = 'dash-card-chevron';
+  chevron.setAttribute('aria-hidden', 'true');
+  chevron.textContent = '▾';
 
-  head.appendChild(handle);
+  head.setAttribute('role', 'button');
+  head.setAttribute('tabindex', '0');
+  head.setAttribute('aria-label', `Expand ${title} section`);
+
+  head.appendChild(chevron);
   head.appendChild(titleEl);
-  head.appendChild(collapseBtn);
+  head.appendChild(handle);
 
   const body = document.createElement('div');
   body.className = 'dash-card-body';
@@ -98,7 +101,7 @@ function setCardOpen(card, isOpen, { animate = true } = {}) {
   const body = card.querySelector('.dash-card-body');
   const title = card.querySelector('.dash-card-title').textContent;
   card.classList.toggle('open', isOpen);
-  card.querySelector('.dash-card-collapse-btn')
+  card.querySelector('.dash-card-head')
     .setAttribute('aria-label', `${isOpen ? 'Collapse' : 'Expand'} ${title} section`);
 
   if (!animate) {
@@ -129,26 +132,37 @@ function applyStoredOpen(container, openOrder) {
 }
 
 function wireToggleButtons(container, openOrder) {
-  container.querySelectorAll(':scope > .dash-card').forEach(card => {
-    card.querySelector('.dash-card-collapse-btn').addEventListener('click', () => {
-      const key = card.dataset.sectionKey;
-      const isOpen = card.classList.contains('open');
+  function toggle(card) {
+    const key = card.dataset.sectionKey;
+    const isOpen = card.classList.contains('open');
 
-      if (isOpen) {
-        setCardOpen(card, false);
-        const idx = openOrder.indexOf(key);
-        if (idx !== -1) openOrder.splice(idx, 1);
-      } else {
-        while (openOrder.length >= MAX_OPEN) {
-          const oldestKey = openOrder.shift();
-          const oldestCard = container.querySelector(`:scope > .dash-card[data-section-key="${oldestKey}"]`);
-          if (oldestCard) setCardOpen(oldestCard, false);
-        }
-        setCardOpen(card, true);
-        openOrder.push(key);
+    if (isOpen) {
+      setCardOpen(card, false);
+      const idx = openOrder.indexOf(key);
+      if (idx !== -1) openOrder.splice(idx, 1);
+    } else {
+      while (openOrder.length >= MAX_OPEN) {
+        const oldestKey = openOrder.shift();
+        const oldestCard = container.querySelector(`:scope > .dash-card[data-section-key="${oldestKey}"]`);
+        if (oldestCard) setCardOpen(oldestCard, false);
       }
+      setCardOpen(card, true);
+      openOrder.push(key);
+    }
 
-      saveOpen(openOrder);
+    saveOpen(openOrder);
+  }
+
+  container.querySelectorAll(':scope > .dash-card').forEach(card => {
+    const head = card.querySelector('.dash-card-head');
+    head.addEventListener('click', e => {
+      if (e.target.closest('.dash-drag-handle')) return;
+      toggle(card);
+    });
+    head.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      toggle(card);
     });
   });
 }
@@ -208,10 +222,10 @@ function wireDragReorder(container) {
   }
 
   container.querySelectorAll(':scope > .dash-card').forEach(card => {
-    const head = card.querySelector('.dash-card-head');
-    head.addEventListener('pointerdown', e => {
-      if (e.target.closest('.dash-card-collapse-btn')) return;
+    const handle = card.querySelector('.dash-drag-handle');
+    handle.addEventListener('pointerdown', e => {
       e.preventDefault();
+      e.stopPropagation();
       dragCard = card;
       card.classList.add('dragging');
       document.addEventListener('pointermove', onPointerMove);
