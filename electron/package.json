@@ -4,12 +4,14 @@
   "private": true,
   "description": "Paperweight desktop app (Windows, macOS & Linux)",
   "main": "main.js",
+  "homepage": "https://github.com/bud-diaz/paperweightv1",
   "scripts": {
     "start": "electron main.js",
     "electron:rebuild": "node scripts/rebuild-native.js",
     "stage:runtime": "node ../scripts/build-desktop-runtime.js",
     "check:artifact": "node ../scripts/check-desktop-artifact.js",
     "dist": "npm run electron:rebuild && npm run stage:runtime && electron-builder --mac --win && npm run check:artifact",
+    "dist:win": "npm run electron:rebuild && npm run stage:runtime && electron-builder --win && npm run check:artifact",
     "dist:linux": "npm run electron:rebuild && npm run stage:runtime && electron-builder --linux && npm run check:artifact"
   },
   "devDependencies": {

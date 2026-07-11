@@ -89,9 +89,24 @@ function checkStage() {
 function resourceDirsFromDist() {
   const dist = path.join(ELECTRON_DIR, 'dist');
   const resources = [];
-  walk(dist, (full, entry) => {
-    if (entry.isDirectory() && entry.name === 'resources') resources.push(full);
-  });
+  function find(dir) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const full = path.join(dir, entry.name);
+      // Only the top-level Electron resources directory matters here (mac
+      // .app/Contents/Resources, win/linux *-unpacked/resources). Packages
+      // inside node_modules (e.g. stripe) ship their own unrelated
+      // "resources" folders, so never descend into node_modules to look.
+      if (/^resources$/i.test(entry.name)) {
+        resources.push(full);
+        continue;
+      }
+      if (entry.name === 'node_modules') continue;
+      find(full);
+    }
+  }
+  find(dist);
   return resources;
 }
 
