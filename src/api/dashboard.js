@@ -463,7 +463,7 @@ router.get('/download-leads', (req, res) => {
 function csvEscape(value) {
   if (value === null || value === undefined) return '';
   let s = String(value);
-  if (/^[=+\-@\t]/.test(s)) s = `'${s}`;
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
@@ -786,6 +786,12 @@ router.put('/station/url', requireDesktop, (req, res) => {
   if (!url || typeof url !== 'string' || !url.trim()) {
     return res.status(400).json({ error: 'url is required' });
   }
+  // The URL constructor silently strips CR/LF, so a value carrying a newline
+  // would pass validation and then inject extra lines when written to .env.
+  // Reject those (and '#') up front, before parsing.
+  if (/[\r\n#]/.test(url)) {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
 
   let parsed;
   try { parsed = new NodeURL(url); } catch {
@@ -795,6 +801,9 @@ router.put('/station/url', requireDesktop, (req, res) => {
     return res.status(400).json({ error: 'URL must be http(s)' });
   }
 
+  // Persist the normalized href, never the raw input.
+  const cleanUrl = parsed.href;
+
   const db = getDb();
   const row = db.prepare('SELECT id FROM station_registry WHERE id = 1').get();
   if (!row) {
@@ -803,14 +812,14 @@ router.put('/station/url', requireDesktop, (req, res) => {
 
   db.prepare(
     "UPDATE station_registry SET url = ?, updated_at = datetime('now') WHERE id = 1"
-  ).run(url);
+  ).run(cleanUrl);
 
   // Persist to .env so the value survives a restart
-  updateEnvKey('STATION_PUBLIC_URL', url);
-  config.station.publicUrl = url;
+  updateEnvKey('STATION_PUBLIC_URL', cleanUrl);
+  config.station.publicUrl = cleanUrl;
 
-  log('info', 'dashboard', `Station URL updated to: ${url}`);
-  res.json({ ok: true, url });
+  log('info', 'dashboard', `Station URL updated to: ${cleanUrl}`);
+  res.json({ ok: true, url: cleanUrl });
 });
 
 // GET /api/dashboard/station/health
@@ -890,15 +899,23 @@ async function pingUrl(baseUrl) {
   });
 }
 
-// Update or append a single KEY=value line in the .env file
+// Update or append a single KEY=value line in the .env file.
+// Rejects values carrying CR/LF/# so a caller can never inject additional .env
+// lines. The replacement uses a function (not a string) so special replacement
+// patterns in `value` ($&, $', $`, $n) can't corrupt the file.
 function updateEnvKey(key, value) {
+  const val = String(value ?? '');
+  if (/[\r\n#]/.test(val)) {
+    throw new Error(`Refusing to write ${key}: value contains a newline or '#'`);
+  }
   const envPath = path.join(config.paths.root, '.env');
   if (!fs.existsSync(envPath)) return;
   let content = fs.readFileSync(envPath, 'utf8');
   const re = new RegExp(`^${key}=.*$`, 'm');
+  const line = `${key}=${val}`;
   content = re.test(content)
-    ? content.replace(re, `${key}=${value}`)
-    : content.trimEnd() + `\n${key}=${value}\n`;
+    ? content.replace(re, () => line)
+    : content.trimEnd() + `\n${line}\n`;
   fs.writeFileSync(envPath, content, 'utf8');
 }
 
@@ -925,6 +942,7 @@ router.put('/settings', (req, res) => {
 
   if (body.notifyWebhookUrl !== undefined) {
     const url = String(body.notifyWebhookUrl || '').trim();
+    let cleanUrl = null;
     if (url) {
       let parsed;
       try { parsed = new NodeURL(url); } catch {
@@ -933,8 +951,9 @@ router.put('/settings', (req, res) => {
       if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
         return res.status(400).json({ error: 'notifyWebhookUrl must be http(s)' });
       }
+      cleanUrl = parsed.href;
     }
-    setSetting('notify_webhook_url', url || null);
+    setSetting('notify_webhook_url', cleanUrl);
   }
   if (body.notifyLiveEnabled !== undefined) {
     setSetting('notify_live_enabled', body.notifyLiveEnabled ? '1' : '0');
@@ -1326,3 +1345,5 @@ router.post('/media/external', requireDesktop, asyncHandler(async (req, res) => 
 module.exports = router;
 module.exports.sanitizeUploadName = sanitizeUploadName;
 module.exports.resolveAvailableUploadPath = resolveAvailableUploadPath;
+module.exports.csvEscape = csvEscape;
+module.exports.updateEnvKey = updateEnvKey;

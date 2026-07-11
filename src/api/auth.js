@@ -22,12 +22,18 @@ function safeEqual(a, b) {
 // These are server-side only — the challenge token itself proves the first factor passed.
 const pendingChallenges = new Map();
 const CHALLENGE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_PENDING_CHALLENGES = 100;
 
 function createChallenge() {
   // Prune stale challenges
   const now = Date.now();
   for (const [t, c] of pendingChallenges) {
     if (now > c.expiresAt) pendingChallenges.delete(t);
+  }
+  // Hard cap so a burst of logins can't grow the map without bound. Map
+  // preserves insertion order, so this drops the oldest entries first.
+  while (pendingChallenges.size >= MAX_PENDING_CHALLENGES) {
+    pendingChallenges.delete(pendingChallenges.keys().next().value);
   }
   const token = crypto.randomBytes(24).toString('hex');
   pendingChallenges.set(token, { expiresAt: now + CHALLENGE_TTL_MS });
@@ -125,7 +131,11 @@ router.post('/dashboard/verify-2fa', authLimiter, (req, res) => {
     try { codes = JSON.parse(row.recovery_codes); } catch {}
     const upper = codeStr.toUpperCase();
     const dashed = upper.length === 12 ? `${upper.slice(0, 4)}-${upper.slice(4, 8)}-${upper.slice(8, 12)}` : upper;
-    const idx = codes.findIndex(h => h === hashCode(upper) || h === hashCode(dashed));
+    // Compare stored hashes in constant time. safeEqual re-hashes both sides,
+    // so lengths always match and timingSafeEqual never sees an early-return.
+    const upperHash = hashCode(upper);
+    const dashedHash = hashCode(dashed);
+    const idx = codes.findIndex(h => safeEqual(h, upperHash) || safeEqual(h, dashedHash));
     if (idx !== -1) {
       codes.splice(idx, 1);
       getDb()

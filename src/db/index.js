@@ -166,6 +166,9 @@ function runMigrations(database) {
       table:  'creator_posts',
       column: 'release_notified_at',
       sql:    'ALTER TABLE creator_posts ADD COLUMN release_notified_at TEXT',
+      // Backfill existing posts as already-notified so an upgrade doesn't make
+      // the release scheduler re-announce every historical post on next boot.
+      backfill: "UPDATE creator_posts SET release_notified_at = published_at WHERE release_notified_at IS NULL AND published_at IS NOT NULL",
     },
   ];
 
@@ -175,6 +178,7 @@ function runMigrations(database) {
     if (cols.length === 0) continue;
     if (!cols.some(c => c.name === guard.column)) {
       database.exec(guard.sql);
+      if (guard.backfill) database.exec(guard.backfill);
     }
   }
 
