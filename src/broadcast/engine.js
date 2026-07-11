@@ -305,6 +305,10 @@ function buildFFmpegArgs(concatPath, hasVideo = false, { markDiscontinuity = fal
   ];
 }
 
+function shouldResetHlsWindow(previousKind, nextKind) {
+  return !!previousKind && previousKind !== nextKind;
+}
+
 function runFFmpeg(batch) {
   return new Promise((resolve, reject) => {
     // The track playing at the end of the previous batch is now finished
@@ -314,7 +318,11 @@ function runFFmpeg(batch) {
 
     const hasVideo = batch.some(t => isVideoTrack(t));
     const outputKind = hasVideo ? 'video' : 'audio';
-    const markDiscontinuity = !!state.outputKind && state.outputKind !== outputKind;
+    const markDiscontinuity = shouldResetHlsWindow(state.outputKind, outputKind);
+    if (markDiscontinuity) {
+      log('info', 'broadcast', `Stream kind changed (${state.outputKind} -> ${outputKind}); resetting HLS window`);
+      cleanHlsStreamDir();
+    }
     const concatPath = writeConcatManifest(batch);
     const args = buildFFmpegArgs(concatPath, hasVideo, { markDiscontinuity });
     invalidateSegmentCache();
@@ -579,5 +587,5 @@ module.exports = {
   getStationQueue,
   addToStationQueue,
   removeFromStationQueue,
-  _private: { buildFFmpegArgs, HLS_BASE_FLAGS, HLS_DISCONTINUITY_FLAG },
+  _private: { buildFFmpegArgs, shouldResetHlsWindow, HLS_BASE_FLAGS, HLS_DISCONTINUITY_FLAG },
 };

@@ -20,3 +20,11 @@ test('broadcast HLS batches include discontinuity markers for stream type change
   assert.ok(flags.includes('append_list'));
   assert.ok(flags.includes('discont_start'));
 });
+
+test('broadcast resets the HLS window when media kind changes', () => {
+  assert.equal(broadcast._private.shouldResetHlsWindow(null, 'audio'), false);
+  assert.equal(broadcast._private.shouldResetHlsWindow('audio', 'audio'), false);
+  assert.equal(broadcast._private.shouldResetHlsWindow('video', 'video'), false);
+  assert.equal(broadcast._private.shouldResetHlsWindow('audio', 'video'), true);
+  assert.equal(broadcast._private.shouldResetHlsWindow('video', 'audio'), true);
+});
