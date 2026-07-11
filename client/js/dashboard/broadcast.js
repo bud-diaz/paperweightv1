@@ -7,6 +7,25 @@ import { el, esc, showToast } from '../utils.js';
 
 export function init() {}
 
+// ── Queue button state ───────────────────────────────────────────────────────
+// mediaIds currently in the station broadcast queue, in queue order (needed
+// to resolve a mediaId back to the array index the removal endpoint takes).
+let queuedIds = [];
+
+function applyQueueButtonState(btn) {
+  const queued = queuedIds.includes(parseInt(btn.dataset.id, 10));
+  btn.textContent = queued ? '−' : '+';
+  btn.title = queued ? 'Remove from broadcast queue' : 'Queue for broadcast';
+  btn.classList.toggle('queued', queued);
+}
+
+// Re-applies +/− state to every queue button currently in the DOM. Call this
+// after (re)rendering any library list in STUDIO, since freshly built rows
+// default to the unqueued "+" state.
+export function refreshQueueButtons() {
+  document.querySelectorAll('.lib-queue-btn[data-id]').forEach(applyQueueButtonState);
+}
+
 export async function loadDashBroadcast() {
   try {
     const data = await api.stream.status();
@@ -32,6 +51,9 @@ export async function loadDashBroadcast() {
 export async function loadDashBroadcastQueue() {
   try {
     const { queue: q } = await api.dashboard.broadcast.getQueue();
+    queuedIds = (q || []).map(item => item.id);
+    refreshQueueButtons();
+
     const list = el('sq-list');
     if (!list) return;
     if (!q || !q.length) {
@@ -40,7 +62,7 @@ export async function loadDashBroadcastQueue() {
     }
     list.innerHTML = q.map((item, i) => `
       <div class="sq-item">
-        <span class="sq-title">${esc(item.title || 'Track ' + item.mediaId)}</span>
+        <span class="sq-title">${esc(item.title || 'Track ' + item.id)}</span>
         <button class="sq-remove mgmt-btn danger" data-sq-idx="${i}" title="Remove">×</button>
       </div>`).join('');
     list.querySelectorAll('[data-sq-idx]').forEach(btn => {
@@ -59,7 +81,16 @@ export function initBroadcastHandlers() {
     if (!btn) return;
     if (!el('player-card')?.classList.contains('dash-active')) return;
     e.stopPropagation();
-    api.dashboard.broadcast.enqueue(parseInt(btn.dataset.id)).then(({ data }) => {
+    const mediaId = parseInt(btn.dataset.id, 10);
+    const queueIdx = queuedIds.indexOf(mediaId);
+    if (queueIdx !== -1) {
+      api.dashboard.broadcast.removeFromQueue(queueIdx).then(() => {
+        showToast('Removed from broadcast queue');
+        loadDashBroadcastQueue();
+      }).catch(() => showToast('Queue error'));
+      return;
+    }
+    api.dashboard.broadcast.enqueue(mediaId).then(({ data }) => {
       if (data.error) { showToast(data.error); return; }
       showToast(`Queued for broadcast (${data.queueLength}/5)`);
       loadDashBroadcastQueue();

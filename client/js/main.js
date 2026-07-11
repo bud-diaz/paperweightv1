@@ -152,10 +152,11 @@ dashIndex.init({
 });
 
 vault.init({
-  loadDashVaultStats: vault.loadDashVaultStats,
-  loadLibrary:        library.loadLibrary,
-  makeTypeahead:      dashIndex.makeTypeahead,
-  getDashAccounts:    () => dashIndex.DASH_ACCOUNTS,
+  loadDashVaultStats:  vault.loadDashVaultStats,
+  loadLibrary:         library.loadLibrary,
+  makeTypeahead:       dashIndex.makeTypeahead,
+  getDashAccounts:     () => dashIndex.DASH_ACCOUNTS,
+  refreshQueueButtons: broadcast.refreshQueueButtons,
 });
 
 projects.init({
