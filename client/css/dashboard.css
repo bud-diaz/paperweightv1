@@ -27,9 +27,11 @@
   flex-shrink: 0; touch-action: none;
 }
 .dash-card-title {
-  flex: 1; font-family: 'Space Mono', monospace; font-size: 10px;
-  letter-spacing: .14em; color: var(--t4); text-transform: uppercase;
+  flex: 1; font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700;
+  letter-spacing: .14em; color: var(--t1); text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(240,240,244,.35);
 }
+.dash-card:not(.open) .dash-card-title { text-align: center; }
 .dash-card-collapse-btn {
   background: none; border: none; color: var(--t3); cursor: pointer;
   font-size: 10px; padding: 4px 6px; line-height: 1; flex-shrink: 0;

@@ -10,6 +10,7 @@ import { el } from '../utils.js';
 const STORAGE_ORDER = 'pw_dash_section_order';
 const STORAGE_OPEN  = 'pw_dash_section_open';
 const MAX_OPEN = 3;
+const DEFAULT_OPEN = ['vault'];
 
 function readJSON(key, fallback) {
   try {
@@ -160,10 +161,12 @@ function resetLayout(container, defaultOrder, openOrder) {
   defaultOrder.forEach(key => {
     const card = byKey.get(key);
     if (card) {
-      setCardOpen(card, false, { animate: false });
+      setCardOpen(card, DEFAULT_OPEN.includes(key), { animate: false });
       container.appendChild(card);
     }
   });
+  openOrder.push(...DEFAULT_OPEN);
+  saveOpen(openOrder);
 }
 
 function buildToolbar(container, defaultOrder, openOrder) {
@@ -234,7 +237,7 @@ export function init() {
   content.querySelectorAll(':scope > .dash-divider').forEach(d => d.remove());
 
   const defaultOrder = cards.map(c => c.dataset.sectionKey);
-  const openOrder = readJSON(STORAGE_OPEN, []).slice(0, MAX_OPEN);
+  const openOrder = readJSON(STORAGE_OPEN, DEFAULT_OPEN).slice(0, MAX_OPEN);
   container.parentNode.insertBefore(buildToolbar(container, defaultOrder, openOrder), container);
 
   applyStoredOrder(container);
