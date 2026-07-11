@@ -16,6 +16,7 @@ const { getFFmpegStatus } = require('./runtime/ffmpeg');
 const telemetry = require('./telemetry/reporter');
 
 const isPackaged = typeof process.pkg !== 'undefined';
+const isBundledRuntime = isPackaged || process.env.PAPERWEIGHT_DESKTOP_RUNTIME === 'true';
 
 let server;
 let isShuttingDown = false;
@@ -56,8 +57,9 @@ function xmlEscape(value) {
   }[ch]));
 }
 
-// When packaged (pkg/node20), asset globs in package.json are not bundled.
-// All client files and hls.js are embedded in src/client-bundle.js instead.
+// When bundled for pkg or the hardened Electron runtime, client files and
+// vendored browser libraries are embedded in src/client-bundle.js instead of
+// being served from a raw client/ directory.
 function bundledStaticMiddleware() {
   const bundle = require('./client-bundle');
   return (req, res, next) => {
@@ -155,7 +157,7 @@ function createApp() {
   app.use('/hls/live',   express.static(path.join(config.paths.hlsOutput, 'live')));
 
   app.get('/vendor/hls.min.js', (req, res) => {
-    if (isPackaged) {
+    if (isBundledRuntime) {
       if (sendBundledAsset(res, '/vendor/hls.min.js', 'text/javascript')) return;
     }
     const asset = hlsAssetPath();
@@ -167,7 +169,7 @@ function createApp() {
   });
 
   app.get('/vendor/matter.min.js', (req, res) => {
-    if (isPackaged) {
+    if (isBundledRuntime) {
       if (sendBundledAsset(res, '/vendor/matter.min.js', 'text/javascript')) return;
     }
     const asset = matterAssetPath();
@@ -189,7 +191,7 @@ function createApp() {
   // User-side overrides (files placed next to the exe) take precedence.
   app.use(express.static(path.join(config.paths.root, 'client')));
   // In packaged builds asset globs don't work with node20; serve from the JS bundle.
-  if (isPackaged) {
+  if (isBundledRuntime) {
     app.use(bundledStaticMiddleware());
   } else {
     app.use(express.static(path.join(config.paths.app, 'client')));
@@ -205,7 +207,7 @@ function createApp() {
   app.get('/embed', relaxCspForEmbed, (req, res) => {
     const override = path.join(config.paths.root, 'client', 'embed.html');
     if (fs.existsSync(override)) return res.sendFile(override);
-    if (isPackaged) {
+    if (isBundledRuntime) {
       const entry = require('./client-bundle')['/embed.html'];
       if (entry) {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -224,7 +226,7 @@ function createApp() {
   // inside the virtual snapshot.
   function serveLanding(bundleKey, diskFile) {
     return (req, res) => {
-      if (isPackaged) {
+      if (isBundledRuntime) {
         const entry = require('./client-bundle')[bundleKey];
         if (entry) {
           res.setHeader('Content-Type', entry.mime);
@@ -274,7 +276,7 @@ function createApp() {
   function sendCreatorHtml(res) {
     const override = path.join(config.paths.root, 'client', 'creator.html');
     if (fs.existsSync(override)) return res.sendFile(override);
-    if (isPackaged) {
+    if (isBundledRuntime) {
       const entry = require('./client-bundle')['/creator.html'];
       if (entry) {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');

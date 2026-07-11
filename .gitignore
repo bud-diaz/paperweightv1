@@ -29,6 +29,9 @@ logs/
 
 # Build output
 dist/
+electron/dist/
+electron/stage/
+electron/.stage-work/
 
 # Electron native-module rebuild staging area (electron/scripts/rebuild-native.js) —
 # an isolated, regeneratable copy of better-sqlite3 built for Electron's ABI.

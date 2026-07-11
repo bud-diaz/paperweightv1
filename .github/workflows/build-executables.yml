@@ -148,6 +148,9 @@ jobs:
         run: ${{ matrix.dist-command }}
         working-directory: electron
 
+      - name: Inspect Electron runtime artifact
+        run: npm run check:desktop-artifact
+
       - name: Upload Electron installer
         uses: actions/upload-artifact@v4
         with:

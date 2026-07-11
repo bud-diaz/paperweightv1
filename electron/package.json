@@ -7,8 +7,10 @@
   "scripts": {
     "start": "electron main.js",
     "electron:rebuild": "node scripts/rebuild-native.js",
-    "dist": "npm run electron:rebuild && electron-builder --mac --win",
-    "dist:linux": "npm run electron:rebuild && electron-builder --linux"
+    "stage:runtime": "node ../scripts/build-desktop-runtime.js",
+    "check:artifact": "node ../scripts/check-desktop-artifact.js",
+    "dist": "npm run electron:rebuild && npm run stage:runtime && electron-builder --mac --win && npm run check:artifact",
+    "dist:linux": "npm run electron:rebuild && npm run stage:runtime && electron-builder --linux && npm run check:artifact"
   },
   "devDependencies": {
     "electron": "^31.0.0",
@@ -21,17 +23,18 @@
     "directories": {
       "output": "dist"
     },
+    "asar": true,
     "files": [
       "**/*",
       "!dist/**",
-      "!native/**"
+      "!native/**",
+      "!stage/**",
+      "!.stage-work/**"
     ],
     "extraResources": [
-      { "from": "../src", "to": "src" },
-      { "from": "../client", "to": "client" },
-      { "from": "../node_modules", "to": "node_modules", "filter": ["!better-sqlite3/**"] },
-      { "from": "../package.json", "to": "package.json" },
-      { "from": "native/node_modules/better-sqlite3", "to": "node_modules/better-sqlite3" }
+      { "from": "stage/src", "to": "src" },
+      { "from": "stage/node_modules", "to": "node_modules" },
+      { "from": "stage/package.json", "to": "package.json" }
     ],
     "mac": {
       "target": ["dmg", "zip"],

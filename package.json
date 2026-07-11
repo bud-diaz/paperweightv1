@@ -14,6 +14,8 @@
     "backup": "node scripts/backup.js",
     "smoke": "node scripts/smoke.js",
     "smoke:exe": "node scripts/smoke-exe.js",
+    "build:desktop-runtime": "node scripts/build-desktop-runtime.js",
+    "check:desktop-artifact": "node scripts/check-desktop-artifact.js",
     "test": "node --test test/broadcast-engine.test.js test/scheduler.test.js test/access.test.js test/payment.test.js test/http.test.js test/auth.test.js test/reserved-slugs.test.js test/platform.test.js test/provision.test.js test/device-lock.test.js test/security.test.js test/email.test.js test/features.test.js test/papercut-adoption.test.js test/release-scheduler.test.js",
     "check:clean": "node scripts/check-release-clean.js",
     "release:check": "node scripts/check-release-clean.js && npm test && node scripts/preflight.js && node scripts/check-migrations.js && node scripts/check-scheduler.js && node scripts/check-analytics.js && node scripts/check-package-assets.js && npm audit --omit=dev",
@@ -35,7 +37,8 @@
   },
   "devDependencies": {
     "@yao-pkg/pkg": "^5.12.0",
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "terser": "^5.49.0"
   },
   "engines": {
     "node": ">=20.0.0"

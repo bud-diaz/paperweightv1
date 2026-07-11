@@ -9,6 +9,9 @@ const http = require('http');
 // ever required — config.js reads process.env at module-load time.
 process.env.PAPERWEIGHT_ELECTRON = 'true';
 process.env.PAPERWEIGHT_DATA_ROOT = app.getPath('userData');
+if (app.isPackaged) {
+  process.env.PAPERWEIGHT_DESKTOP_RUNTIME = 'true';
+}
 
 const dataRoot = process.env.PAPERWEIGHT_DATA_ROOT;
 const envPath = path.join(dataRoot, '.env');

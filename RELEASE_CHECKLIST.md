@@ -126,9 +126,10 @@ Windows, macOS, and desktop Linux users install the Electron desktop app, not
 the pkg convenience executable. Build it on each matching OS:
 
 ```bash
+npm ci
 cd electron
 npm ci
-npm run dist         # Windows / macOS: rebuilds better-sqlite3 for Electron's ABI, then runs electron-builder
+npm run dist         # Windows / macOS: rebuilds better-sqlite3, stages the hardened runtime, builds, then inspects artifacts
 npm run dist:linux   # Linux: same, targeting AppImage + deb
 ```
 
@@ -136,10 +137,18 @@ This produces an NSIS installer (`electron/dist/*.exe`) on Windows, a DMG +
 ZIP (`electron/dist/*.dmg`, `*.zip`) on macOS, and an AppImage + Debian package
 (`electron/dist/*.AppImage`, `*.deb`) on Linux.
 
-The app is **not code-signed or notarized**. Expect Windows SmartScreen and
-macOS Gatekeeper warnings on first run — see TROUBLESHOOTING.md for the
-"Run anyway" / "Open Anyway" workaround. Treat signing/notarization as a
-follow-up, not a gate for this checklist.
+Desktop builds package a staged runtime from `electron/stage/`, not raw `../src`
+or `../client`. The staging step minifies first-party JavaScript, embeds client
+assets into `src/client-bundle.js`, copies runtime dependencies, and overlays
+the Electron-ABI `better-sqlite3` binding. `npm run dist` and `npm run
+dist:linux` both finish with `npm run check:artifact`, which fails if raw client
+folders, source maps, dev build tools, or the wrong SQLite binding are present.
+
+The app should be code-signed before public distribution. Unsigned internal
+builds may still trigger Windows SmartScreen and macOS Gatekeeper — see
+TROUBLESHOOTING.md for the "Run anyway" / "Open Anyway" workaround — but public
+release artifacts should be signed/notarized and published with SHA-256
+checksums.
 
 Manual QA before publishing:
 
