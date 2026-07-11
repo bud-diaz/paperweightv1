@@ -1,13 +1,16 @@
 /**
  * dashboard/sections.js — wraps each top-level Studio dashboard section in a
- * collapsible, drag-to-reorder card. Order and collapsed state persist in
- * localStorage per browser.
+ * tap-to-reveal, drag-to-reorder card. At most MAX_OPEN cards can be open at
+ * once (opening another auto-closes the least-recently-opened one). Order
+ * and open state persist in localStorage per browser.
  */
 
 import { el } from '../utils.js';
 
-const STORAGE_ORDER     = 'pw_dash_section_order';
-const STORAGE_COLLAPSED = 'pw_dash_section_collapsed';
+const STORAGE_ORDER = 'pw_dash_section_order';
+const STORAGE_OPEN  = 'pw_dash_section_open';
+const MAX_OPEN = 3;
+const DEFAULT_OPEN = ['vault'];
 
 function readJSON(key, fallback) {
   try {
@@ -52,7 +55,7 @@ function buildCard(section, index) {
   const collapseBtn = document.createElement('button');
   collapseBtn.type = 'button';
   collapseBtn.className = 'dash-card-collapse-btn';
-  collapseBtn.setAttribute('aria-label', `Collapse ${title} section`);
+  collapseBtn.setAttribute('aria-label', `Expand ${title} section`);
   collapseBtn.textContent = '▾';
 
   head.appendChild(handle);
@@ -73,9 +76,8 @@ function saveOrder(container) {
   localStorage.setItem(STORAGE_ORDER, JSON.stringify(order));
 }
 
-function saveCollapsed(container) {
-  const collapsed = [...container.querySelectorAll(':scope > .dash-card.collapsed')].map(c => c.dataset.sectionKey);
-  localStorage.setItem(STORAGE_COLLAPSED, JSON.stringify(collapsed));
+function saveOpen(openOrder) {
+  localStorage.setItem(STORAGE_OPEN, JSON.stringify(openOrder));
 }
 
 function applyStoredOrder(container) {
@@ -88,37 +90,86 @@ function applyStoredOrder(container) {
   });
 }
 
-function applyStoredCollapsed(container) {
-  const collapsed = readJSON(STORAGE_COLLAPSED, []);
-  collapsed.forEach(key => {
+// Drives the open/close height animation. Cards default to `height: 0` in
+// CSS; opening measures the natural content height and animates to it, then
+// releases to `height: auto` once settled so nested content (e.g. the
+// schedule/analytics sub-accordions) can keep growing without being clipped.
+function setCardOpen(card, isOpen, { animate = true } = {}) {
+  const body = card.querySelector('.dash-card-body');
+  const title = card.querySelector('.dash-card-title').textContent;
+  card.classList.toggle('open', isOpen);
+  card.querySelector('.dash-card-collapse-btn')
+    .setAttribute('aria-label', `${isOpen ? 'Collapse' : 'Expand'} ${title} section`);
+
+  if (!animate) {
+    body.style.height = isOpen ? 'auto' : '0px';
+    return;
+  }
+
+  if (isOpen) {
+    const target = body.scrollHeight;
+    body.style.height = '0px';
+    requestAnimationFrame(() => { body.style.height = `${target}px`; });
+    body.addEventListener('transitionend', function onEnd(e) {
+      if (e.propertyName !== 'height') return;
+      body.removeEventListener('transitionend', onEnd);
+      if (card.classList.contains('open')) body.style.height = 'auto';
+    });
+  } else {
+    body.style.height = `${body.scrollHeight}px`;
+    requestAnimationFrame(() => { body.style.height = '0px'; });
+  }
+}
+
+function applyStoredOpen(container, openOrder) {
+  openOrder.forEach(key => {
     const card = container.querySelector(`:scope > .dash-card[data-section-key="${key}"]`);
-    if (card) card.classList.add('collapsed');
+    if (card) setCardOpen(card, true, { animate: false });
   });
 }
 
-function wireCollapseButtons(container) {
+function wireToggleButtons(container, openOrder) {
   container.querySelectorAll(':scope > .dash-card').forEach(card => {
     card.querySelector('.dash-card-collapse-btn').addEventListener('click', () => {
-      card.classList.toggle('collapsed');
-      saveCollapsed(container);
+      const key = card.dataset.sectionKey;
+      const isOpen = card.classList.contains('open');
+
+      if (isOpen) {
+        setCardOpen(card, false);
+        const idx = openOrder.indexOf(key);
+        if (idx !== -1) openOrder.splice(idx, 1);
+      } else {
+        while (openOrder.length >= MAX_OPEN) {
+          const oldestKey = openOrder.shift();
+          const oldestCard = container.querySelector(`:scope > .dash-card[data-section-key="${oldestKey}"]`);
+          if (oldestCard) setCardOpen(oldestCard, false);
+        }
+        setCardOpen(card, true);
+        openOrder.push(key);
+      }
+
+      saveOpen(openOrder);
     });
   });
 }
 
-function resetLayout(container, defaultOrder) {
+function resetLayout(container, defaultOrder, openOrder) {
   localStorage.removeItem(STORAGE_ORDER);
-  localStorage.removeItem(STORAGE_COLLAPSED);
+  localStorage.removeItem(STORAGE_OPEN);
+  openOrder.length = 0;
   const byKey = new Map([...container.querySelectorAll(':scope > .dash-card')].map(c => [c.dataset.sectionKey, c]));
   defaultOrder.forEach(key => {
     const card = byKey.get(key);
     if (card) {
-      card.classList.remove('collapsed');
+      setCardOpen(card, DEFAULT_OPEN.includes(key), { animate: false });
       container.appendChild(card);
     }
   });
+  openOrder.push(...DEFAULT_OPEN);
+  saveOpen(openOrder);
 }
 
-function buildToolbar(container, defaultOrder) {
+function buildToolbar(container, defaultOrder, openOrder) {
   const bar = document.createElement('div');
   bar.className = 'dash-sections-toolbar';
 
@@ -126,7 +177,7 @@ function buildToolbar(container, defaultOrder) {
   btn.type = 'button';
   btn.className = 'dash-sections-reset-btn';
   btn.textContent = 'RESET LAYOUT';
-  btn.addEventListener('click', () => resetLayout(container, defaultOrder));
+  btn.addEventListener('click', () => resetLayout(container, defaultOrder, openOrder));
 
   bar.appendChild(btn);
   return bar;
@@ -186,10 +237,11 @@ export function init() {
   content.querySelectorAll(':scope > .dash-divider').forEach(d => d.remove());
 
   const defaultOrder = cards.map(c => c.dataset.sectionKey);
-  container.parentNode.insertBefore(buildToolbar(container, defaultOrder), container);
+  const openOrder = readJSON(STORAGE_OPEN, DEFAULT_OPEN).slice(0, MAX_OPEN);
+  container.parentNode.insertBefore(buildToolbar(container, defaultOrder, openOrder), container);
 
   applyStoredOrder(container);
-  applyStoredCollapsed(container);
-  wireCollapseButtons(container);
+  applyStoredOpen(container, openOrder);
+  wireToggleButtons(container, openOrder);
   wireDragReorder(container);
 }
