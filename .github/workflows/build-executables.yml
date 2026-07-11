@@ -112,7 +112,7 @@ jobs:
         include:
           - label: Windows
             os: windows-latest
-            dist-command: npm run dist
+            dist-command: npm run dist:win
             artifact-glob: electron/dist/*.exe
           - label: macOS
             os: macos-latest
