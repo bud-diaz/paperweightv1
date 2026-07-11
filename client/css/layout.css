@@ -247,7 +247,7 @@
 #ab-hint { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t4); letter-spacing: .1em; }
 
 #art-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-#video-el { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; border-radius: 14px; }
+#video-el, #preview-video-el { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; border-radius: 14px; }
 
 .pulse-ring {
   position: absolute; top: 50%; left: 50%;
@@ -887,6 +887,7 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
 
 #panel-player #art-svg,
 #panel-player #video-el,
+#panel-player #preview-video-el,
 #panel-player #asci-wrap {
   bottom: auto;
   height: 134px;
@@ -1186,6 +1187,7 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
 
   #panel-player #art-svg,
   #panel-player #video-el,
+  #panel-player #preview-video-el,
   #panel-player #asci-wrap {
     height: 116px;
   }
