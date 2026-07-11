@@ -1,0 +1,32 @@
+{
+  "appId": "com.paperweight.desktop",
+  "productName": "Paperweight",
+  "directories": {
+    "output": "dist"
+  },
+  "asar": true,
+  "files": [
+    "**/*",
+    "!dist/**",
+    "!native/**",
+    "!native-x64/**",
+    "!native-arm64/**",
+    "!stage/**",
+    "!.stage-work/**"
+  ],
+  "extraResources": [
+    { "from": "stage/src", "to": "src" },
+    { "from": "stage/node_modules", "to": "node_modules" },
+    { "from": "stage/package.json", "to": "package.json" },
+    { "from": "native-${arch}/node_modules/better-sqlite3", "to": "node_modules/better-sqlite3" }
+  ],
+  "mac": {
+    "target": [
+      { "target": "dmg", "arch": ["universal"] },
+      { "target": "zip", "arch": ["universal"] }
+    ],
+    "icon": "build/icon.icns",
+    "category": "public.app-category.music",
+    "x64ArchFiles": "**/*.node"
+  }
+}
