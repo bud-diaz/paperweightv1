@@ -23,16 +23,18 @@ function toLocalDatetimeValue(sqliteUtc) {
 }
 
 // ── Injected callbacks ─────────────────────────────────────────────────────────
-let _loadDashVaultStats = () => {};
-let _loadLibrary        = () => {};
-let _makeTypeahead      = () => {};
-let _getDashAccounts    = () => [];
+let _loadDashVaultStats  = () => {};
+let _loadLibrary         = () => {};
+let _makeTypeahead       = () => {};
+let _getDashAccounts     = () => [];
+let _refreshQueueButtons = () => {};
 
 export function init(callbacks = {}) {
-  if (callbacks.loadDashVaultStats) _loadDashVaultStats = callbacks.loadDashVaultStats;
-  if (callbacks.loadLibrary)        _loadLibrary        = callbacks.loadLibrary;
-  if (callbacks.makeTypeahead)      _makeTypeahead      = callbacks.makeTypeahead;
-  if (callbacks.getDashAccounts)    _getDashAccounts    = callbacks.getDashAccounts;
+  if (callbacks.loadDashVaultStats)  _loadDashVaultStats  = callbacks.loadDashVaultStats;
+  if (callbacks.loadLibrary)         _loadLibrary         = callbacks.loadLibrary;
+  if (callbacks.makeTypeahead)       _makeTypeahead       = callbacks.makeTypeahead;
+  if (callbacks.getDashAccounts)     _getDashAccounts     = callbacks.getDashAccounts;
+  if (callbacks.refreshQueueButtons) _refreshQueueButtons = callbacks.refreshQueueButtons;
 }
 
 // ── Vault stats ────────────────────────────────────────────────────────────────
@@ -95,6 +97,7 @@ export async function loadDashLockedTracks() {
       return;
     }
     for (const item of locked) list.appendChild(buildDashLibItem(item, 'track', item.id, false, highlight));
+    _refreshQueueButtons();
   } catch {}
 }
 
@@ -459,6 +462,7 @@ export async function loadDashLibrary() {
     if (!items.length) {
       list.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.25);font-family:\'Space Mono\',monospace;padding:8px 14px;">No media yet.</div>';
     }
+    _refreshQueueButtons();
   } catch {}
 }
 

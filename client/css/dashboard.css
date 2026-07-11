@@ -133,6 +133,10 @@ details[open] > summary .ds-chev { transform: rotate(180deg); }
   width: 26px; height: 26px; padding: 0; align-items: center; justify-content: center;
   font-size: 15px; line-height: 1;
 }
+.mgmt-actions .lib-queue-btn.queued {
+  background: rgba(255,50,50,.08); border-color: rgba(255,60,60,.22); color: rgba(255,100,100,.75);
+}
+.mgmt-actions .lib-queue-btn.queued:hover { background: rgba(255,50,50,.16); color: #ff6666; }
 
 /* ── Dashboard auth gate ── */
 #dash-auth-gate {
