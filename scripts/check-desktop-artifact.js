@@ -89,24 +89,30 @@ function checkStage() {
 function resourceDirsFromDist() {
   const dist = path.join(ELECTRON_DIR, 'dist');
   const resources = [];
-  function find(dir) {
-    if (!fs.existsSync(dir)) return;
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const full = path.join(dir, entry.name);
-      // Only the top-level Electron resources directory matters here (mac
-      // .app/Contents/Resources, win/linux *-unpacked/resources). Packages
-      // inside node_modules (e.g. stripe) ship their own unrelated
-      // "resources" folders, so never descend into node_modules to look.
-      if (/^resources$/i.test(entry.name)) {
-        resources.push(full);
-        continue;
+  if (!fs.existsSync(dist)) return resources;
+
+  // Only the app's own Electron resources directory matters here:
+  //   - win/linux unpacked builds: <platformDir>/resources
+  //   - mac app bundles: <platformDir>/<Name>.app/Contents/Resources
+  // A generic recursive search for any directory literally named
+  // "resources" also picks up unrelated bundles that happen to share the
+  // name (npm packages under node_modules, Electron's own macOS framework
+  // bundles under Contents/Frameworks/*.framework/Versions/A/Resources),
+  // so this only ever looks at those two known, fixed-depth locations.
+  for (const entry of fs.readdirSync(dist, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const platformDir = path.join(dist, entry.name);
+
+    const unpackedResources = path.join(platformDir, 'resources');
+    if (fs.existsSync(unpackedResources)) resources.push(unpackedResources);
+
+    for (const sub of fs.readdirSync(platformDir, { withFileTypes: true })) {
+      if (sub.isDirectory() && sub.name.endsWith('.app')) {
+        const appResources = path.join(platformDir, sub.name, 'Contents', 'Resources');
+        if (fs.existsSync(appResources)) resources.push(appResources);
       }
-      if (entry.name === 'node_modules') continue;
-      find(full);
     }
   }
-  find(dist);
   return resources;
 }
 
