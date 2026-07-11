@@ -12,10 +12,13 @@ The telemetry payload includes:
 {
   "stationKey": "station-or-install-key",
   "slug": "station-slug",
+  "name": "Station display name",
   "publicUrl": "https://station.example.com",
   "searchable": true
 }
 ```
+
+`name` comes from `STATION_NAME` and is used as the display name in public search results; consumers fall back to `slug` when it is absent.
 
 `searchable` is read per report by the desktop app. When a creator turns searchability off, the next scheduled report, normally within about 5 minutes, sends `searchable:false` so system.pape can remove the station from the public directory.
 

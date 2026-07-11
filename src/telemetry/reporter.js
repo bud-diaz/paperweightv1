@@ -119,6 +119,7 @@ async function buildPayload() {
   return {
     stationKey: getStationKey(),
     slug: config.station?.slug || null,
+    name: config.station?.name || null,
     publicUrl,
     // Read per report, never cache: turning this off must de-index on the next cycle.
     searchable: getBoolSetting('station_searchable', false),
