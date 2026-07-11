@@ -80,7 +80,7 @@ import {
 
 // ── Module-local state (player owns these exclusively) ────────────────────────────
 
-let previewAudio   = null;
+let previewMedia   = null;  // Audio() for audio tracks, or #preview-video-el for video tracks
 let previewTimer   = null;
 let previewTickInt = null;
 
@@ -330,7 +330,7 @@ export function render() {
 // ── Play / pause ──────────────────────────────────────────────────────────────────
 
 export function togglePlay() {
-  if (previewAudio) { stopPreview(); goLive(); return; }
+  if (previewMedia) { stopPreview(); goLive(); return; }
   const media = activeMediaEl();
   if (media.paused) {
     if (!getHls() && !media.src) {
@@ -360,7 +360,15 @@ export function togglePlay() {
 // ── Preview ───────────────────────────────────────────────────────────────────────
 
 export function stopPreview() {
-  if (previewAudio) { previewAudio.pause(); previewAudio = null; }
+  if (previewMedia) {
+    previewMedia.pause();
+    if (previewMedia === el('preview-video-el')) {
+      previewMedia.hidden = true;
+      previewMedia.removeAttribute('src');
+      previewMedia.load();
+    }
+    previewMedia = null;
+  }
   clearTimeout(previewTimer);    previewTimer   = null;
   clearInterval(previewTickInt); previewTickInt = null;
 }
@@ -369,8 +377,17 @@ function playPreview(t) {
   stopPreview();
   Object.assign(state, { track: { ...t, isPreview: true }, progress: 0, elapsed: 0, isPreview: true, showLib: false });
   render();
-  previewAudio = new Audio(`/api/library/${t.id}/preview`);
-  previewAudio.play().catch(() => {});
+  const src = `/api/library/${t.id}/preview`;
+  if (t.type === 'video') {
+    const vidEl = el('preview-video-el');
+    vidEl.hidden = false;
+    vidEl.src = src;
+    vidEl.play().catch(() => {});
+    previewMedia = vidEl;
+  } else {
+    previewMedia = new Audio(src);
+    previewMedia.play().catch(() => {});
+  }
   let ticks = 0;
   previewTickInt = setInterval(() => {
     ticks += 0.25;
