@@ -18,6 +18,7 @@ const { computeTOTP } = require('../src/auth/totp');
 const { createApp } = require('../src/index');
 const config = require('../src/config');
 const { ARTWORK_DIR } = require('../src/api/library');
+const { csvEscape, updateEnvKey } = require('../src/api/dashboard');
 const { publicBaseUrl } = require('../src/runtime/base-url');
 
 const DASH_HEADER = { 'X-Dashboard-Token': 'test-dashboard-token', 'Content-Type': 'application/json' };
@@ -220,6 +221,42 @@ test('spoofed artwork image uploads are rejected and temp files are removed', as
     const leftovers = fs.readdirSync(ARTWORK_DIR).filter(name => name.includes('_tmp_'));
     assert.deepEqual(leftovers, []);
   });
+});
+
+test('station URL update rejects newline-injected values before writing .env', async () => {
+  const db = freshDb();
+  // Seed a registered station with a known-good URL.
+  db.prepare(
+    "INSERT INTO station_registry (id, slug, url) VALUES (1, 'teststation', 'https://good.example/')"
+  ).run();
+
+  await withServer(async baseUrl => {
+    const injected = await json(baseUrl, '/api/dashboard/station/url', {
+      method: 'PUT',
+      headers: DASH_HEADER,
+      body: JSON.stringify({ url: 'https://evil.example/\nSMTP_HOST=attacker.example' }),
+    });
+    assert.equal(injected.res.status, 400);
+
+    // The registered URL is left untouched — nothing was persisted.
+    const row = db.prepare('SELECT url FROM station_registry WHERE id = 1').get();
+    assert.equal(row.url, 'https://good.example/');
+  });
+});
+
+test('updateEnvKey refuses values carrying a newline or hash', () => {
+  assert.throws(() => updateEnvKey('STATION_PUBLIC_URL', 'https://x/\nSMTP_HOST=evil'), /newline/);
+  assert.throws(() => updateEnvKey('STATION_PUBLIC_URL', 'https://x/\rFOO=bar'), /newline/);
+  assert.throws(() => updateEnvKey('STATION_PUBLIC_URL', 'value # comment'), /newline/);
+});
+
+test('csvEscape neutralizes leading formula and carriage-return characters', () => {
+  // A leading =, +, -, @, tab, or CR is prefixed with an apostrophe so a
+  // spreadsheet cannot execute it as a formula.
+  assert.equal(csvEscape('=cmd'), "'=cmd");
+  const cr = csvEscape('\r=HYPERLINK(0)');
+  assert.ok(cr.includes("'"), 'CR-prefixed value should be apostrophe-guarded');
+  assert.ok(!cr.startsWith('\r'), 'CR-prefixed value should not start with a bare CR');
 });
 
 test('listener token logout paths clear cookies with matching attributes', async () => {

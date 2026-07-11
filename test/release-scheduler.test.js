@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 
 const { freshDb, seedMedia, futureIso, pastIso } = require('./helpers');
 const { createApp } = require('../src/index');
+const { runMigrations } = require('../src/db');
 const releaseScheduler = require('../src/release/scheduler');
 
 async function withServer(fn) {
@@ -114,6 +115,33 @@ test('creating a post with no published_at publishes immediately (unchanged beha
     assert.equal(created.res.status, 201);
     assert.ok(created.body.release_notified_at);
   });
+});
+
+test('upgrade backfills release_notified_at so existing posts are not re-announced', () => {
+  const db = freshDb();
+  // Simulate an install that predates the release_notified_at column: drop it,
+  // then seed a post that was published long before the column existed.
+  db.exec('ALTER TABLE creator_posts DROP COLUMN release_notified_at');
+  db.prepare(`
+    INSERT INTO creator_posts (title, body, visibility, published_at)
+    VALUES ('Old published post', 'body text', 'public', datetime('now', '-10 days'))
+  `).run();
+
+  // Re-running migrations re-adds the column and backfills existing rows.
+  runMigrations(db);
+
+  const row = db.prepare(
+    'SELECT published_at, release_notified_at FROM creator_posts ORDER BY id DESC LIMIT 1'
+  ).get();
+  assert.ok(row.release_notified_at, 'existing post should be marked already-notified');
+  assert.equal(row.release_notified_at, row.published_at);
+
+  // The scheduler must treat it as already announced — a tick leaves it untouched.
+  releaseScheduler.tick();
+  const after = db.prepare(
+    'SELECT release_notified_at FROM creator_posts ORDER BY id DESC LIMIT 1'
+  ).get();
+  assert.equal(after.release_notified_at, row.release_notified_at);
 });
 
 test('release scheduler tick announces a due scheduled post exactly once', () => {
