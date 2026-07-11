@@ -635,7 +635,7 @@ router.get('/:id/artwork', (req, res) => {
     '-f', 'image2pipe',
     '-vcodec', 'mjpeg',
     '-',
-  ], { stdio: ['ignore', 'pipe', 'ignore'] });
+  ], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
 
   proc.stdout.on('data', chunk => chunks.push(chunk));
 
