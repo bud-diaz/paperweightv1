@@ -191,13 +191,30 @@ test('download event requires a known platform', async () => {
 
 test('telemetry reporter creates a stable anonymous install key', () => {
   freshDb();
-  const { _private } = require('../src/telemetry/reporter');
-  const first = _private.getStationKey();
-  const second = _private.getStationKey();
+  const originalSlug = config.station.slug;
+  const originalStationKey = process.env.STATION_KEY;
+  const reporterPath = require.resolve('../src/telemetry/reporter');
+  const originalReporter = require.cache[reporterPath];
 
-  assert.match(first, /^pwinst_[a-f0-9]{32}$/);
-  assert.equal(second, first);
-  assert.ok(fs.existsSync(_private.INSTALL_ID_FILE));
+  try {
+    config.station.slug = '';
+    delete process.env.STATION_KEY;
+    delete require.cache[reporterPath];
+
+    const { _private } = require('../src/telemetry/reporter');
+    const first = _private.getStationKey();
+    const second = _private.getStationKey();
+
+    assert.match(first, /^pwinst_[a-f0-9]{32}$/);
+    assert.equal(second, first);
+    assert.ok(fs.existsSync(_private.INSTALL_ID_FILE));
+  } finally {
+    config.station.slug = originalSlug;
+    if (originalStationKey === undefined) delete process.env.STATION_KEY;
+    else process.env.STATION_KEY = originalStationKey;
+    delete require.cache[reporterPath];
+    if (originalReporter) require.cache[reporterPath] = originalReporter;
+  }
 });
 
 test('telemetry reporter includes directory searchability per payload', async () => {

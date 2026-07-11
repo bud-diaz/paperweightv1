@@ -280,7 +280,9 @@ function log(level, component, message) {
     console.log(`${prefix} [${component}] ${message}`);
   } catch (err) {
     console.log(`[${level}] [${component}] ${message}`);
-    console.error(`[db] Failed to write system_log row: ${err.message}`);
+    if (!/no such table:\s*system_log/i.test(err.message)) {
+      console.error(`[db] Failed to write system_log row: ${err.message}`);
+    }
   }
 }
 

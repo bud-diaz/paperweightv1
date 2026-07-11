@@ -787,8 +787,12 @@ router.put('/station/url', requireDesktop, (req, res) => {
     return res.status(400).json({ error: 'url is required' });
   }
 
-  try { new NodeURL(url); } catch {
+  let parsed;
+  try { parsed = new NodeURL(url); } catch {
     return res.status(400).json({ error: 'Invalid URL' });
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return res.status(400).json({ error: 'URL must be http(s)' });
   }
 
   const db = getDb();
