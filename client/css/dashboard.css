@@ -133,6 +133,14 @@ details[open] > summary .ds-chev { transform: rotate(180deg); }
 .mgmt-btn.active { background: rgba(57,255,20,.08); border-color: rgba(57,255,20,.3); color: #39ff14; }
 .mgmt-btn.active:hover { background: rgba(57,255,20,.16); color: #39ff14; }
 
+/* Reclaim .lib-queue-btn from the player drawer's absolute thumbnail-overlay
+   styling (layout.css) — here it's a normal inline button in .mgmt-actions. */
+.mgmt-actions .lib-queue-btn {
+  position: static; display: flex; inset: auto;
+  width: 26px; height: 26px; padding: 0; align-items: center; justify-content: center;
+  font-size: 15px; line-height: 1;
+}
+
 /* ── Dashboard auth gate ── */
 #dash-auth-gate {
   display: flex; flex-direction: column; align-items: center; justify-content: center;

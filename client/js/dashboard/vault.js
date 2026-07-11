@@ -126,7 +126,7 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
 
   wrap.innerHTML = `
     <div class="mgmt-row">
-      <div class="mgmt-thumb" style="background:linear-gradient(135deg,${c}44,${c}11);border:1px solid ${c}33;position:relative;overflow:hidden;">${item.artwork_url?`<img src="/api/library/${item.id}/artwork" loading="lazy" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;"/>`:(item.category==='videos'?'▶':'♪')}<button class="lib-queue-btn" data-id="${item.id}" data-title="${esc(item.title||'')}" data-artist="${esc(item.artist||'')}" title="Queue for broadcast">+</button></div>
+      <div class="mgmt-thumb" style="background:linear-gradient(135deg,${c}44,${c}11);border:1px solid ${c}33;position:relative;overflow:hidden;">${item.artwork_url?`<img src="/api/library/${item.id}/artwork" loading="lazy" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;"/>`:(item.category==='videos'?'▶':'♪')}</div>
       <div class="mgmt-info">
         <div class="mgmt-title">${esc(item.title||item.filename)}</div>
         <div style="display:flex;align-items:center;gap:6px;">
@@ -135,6 +135,7 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
         </div>
       </div>
       <div class="mgmt-actions">
+        <button class="mgmt-btn lib-queue-btn" data-id="${item.id}" data-title="${esc(item.title||'')}" data-artist="${esc(item.artist||'')}" title="Queue for broadcast">+</button>
         <button class="mgmt-btn" id="more-tog-${item.id}" title="Settings">⋯</button>
       </div>
     </div>
