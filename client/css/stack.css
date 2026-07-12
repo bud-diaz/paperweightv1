@@ -250,6 +250,12 @@
   min-width: 54px;
 }
 
+.stack-btn-stash.saved {
+  color: #39ff14;
+  border-color: rgba(57, 255, 20, .4);
+  cursor: default;
+}
+
 .stack-btn-remove {
   color: var(--t4);
 }
