@@ -5,10 +5,18 @@
  * pipeline: FFmpeg listens for a single inbound RTMP connection and the
  * dashboard only ever polls /api/dashboard/broadcast/external/status to learn
  * whether it's idle, waiting for an encoder ("pending"), or on air.
+ *
+ * Desktop-only: the RTMP listener binds to the local machine/LAN, which only
+ * makes sense for a station run from the desktop app. The matching server
+ * routes are behind requireDesktop and 403 on the hosted web platform, so
+ * this module mirrors that gate client-side (same isDesktopPlatform() import
+ * used by dashboard/vault.js and dashboard/schedule.js) to avoid firing
+ * doomed requests and to keep the toggle from ever appearing on web.
  */
 
 import * as api from '../api.js';
 import { el, fmt } from '../utils.js';
+import { isDesktopPlatform } from './index.js';
 
 const POLL_MS = 2000;
 
@@ -110,6 +118,7 @@ function syncState(data) {
 }
 
 export function loadDashExternal() {
+  if (!isDesktopPlatform()) return;
   api.dashboard.broadcastExternal.status().then(data => {
     renderRtmpFields(data.rtmp);
     lastState = data.state;
@@ -135,6 +144,7 @@ export function teardownOnAir() {
 }
 
 async function startGoLiveExternal() {
+  if (!isDesktopPlatform()) return;
   const msgEl = el('live-external-msg');
   msgEl.textContent = '';
   el('btn-go-live-external').disabled = true;

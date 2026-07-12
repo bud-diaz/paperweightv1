@@ -1150,6 +1150,11 @@ router.post('/live/stop', (req, res) => {
 });
 
 // ─── External encoder (RTMP) broadcast ────────────────────────────────────────
+// Desktop-only: the RTMP listener binds to the local machine/LAN, which only
+// makes sense for a station run from the desktop app. On the hosted web
+// platform there's no local encoder to receive from, so requireDesktop keeps
+// these routes (and the port they'd open) off entirely rather than exposing
+// a listener that could never be reached from a legitimate OBS setup.
 
 function externalBroadcastState() {
   const liveState = live.getLiveState();
@@ -1158,7 +1163,7 @@ function externalBroadcastState() {
 }
 
 // GET /api/dashboard/broadcast/external/status
-router.get('/broadcast/external/status', (req, res) => {
+router.get('/broadcast/external/status', requireDesktop, (req, res) => {
   const liveState = live.getLiveState();
   res.json({
     state: externalBroadcastState(),
@@ -1168,7 +1173,7 @@ router.get('/broadcast/external/status', (req, res) => {
 });
 
 // POST /api/dashboard/broadcast/external/start
-router.post('/broadcast/external/start', asyncHandler(async (req, res) => {
+router.post('/broadcast/external/start', requireDesktop, asyncHandler(async (req, res) => {
   const liveState = live.getLiveState();
   if (liveState.isLive || liveState.rtmpPending) {
     return res.status(409).json({ error: 'A broadcast is already live or pending' });
@@ -1182,13 +1187,13 @@ router.post('/broadcast/external/start', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/dashboard/broadcast/external/stop
-router.post('/broadcast/external/stop', (req, res) => {
+router.post('/broadcast/external/stop', requireDesktop, (req, res) => {
   live.stopLive();
   res.json({ ok: true });
 });
 
 // POST /api/dashboard/broadcast/external/regenerate-key
-router.post('/broadcast/external/regenerate-key', (req, res) => {
+router.post('/broadcast/external/regenerate-key', requireDesktop, (req, res) => {
   try {
     const streamKey = live.regenerateStreamKey();
     res.json({ ok: true, streamKey });
