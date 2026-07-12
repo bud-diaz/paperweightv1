@@ -498,7 +498,9 @@ async function handleOnDemandError({ nextUp = false } = {}) {
     const quota = await api.library.streamQuota();
     if (quota.limit && quota.remaining === 0) {
       const mins = quota.resetSec ? Math.ceil(quota.resetSec / 60) : 60;
-      if (!nextUp && failedTrack && !isPaidTier()) {
+      // Only convert the failed press into the next-up slot while the hourly
+      // bonus is unspent — otherwise the deferred play would 429 too.
+      if (!nextUp && failedTrack && !isPaidTier() && quota.nextUpAvailable !== false) {
         setNextUp(failedTrack);
         showToast(`${quota.limit} ON-DEMAND PLAYS USED. NEXT-UP ARMED.`);
       } else {

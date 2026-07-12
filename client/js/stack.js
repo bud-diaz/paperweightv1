@@ -15,7 +15,12 @@ import { normalizeTrack } from './library.js';
 let initialized = false;
 let openKey = 'stack';
 let quota = null;
+let savedSet = new Set();
 const openProjects = new Set();
+// Folders default open the first time they appear, but a listener's close
+// must survive re-renders — seenProjects marks which keys already got their
+// default so refresh() doesn't force them open again.
+const seenProjects = new Set();
 
 let _selectVOD = () => {};
 let _openModal = () => {};
@@ -140,7 +145,17 @@ function quotaExhausted() {
   return !isPaidTier() && quota?.limit && quota.remaining === 0;
 }
 
+function quotaResetMins() {
+  return Math.max(1, Math.ceil((quota?.resetSec || 3600) / 60));
+}
+
 function armNextUp(t) {
+  // The hourly next-up bonus is single-use; once spent, arming another pick
+  // would just 429 when it fires, so tell the listener when plays return.
+  if (quota && quota.nextUpAvailable === false) {
+    showToast(`Hourly on-demand plays used — resets in ${quotaResetMins()} min`);
+    return;
+  }
   _setNextUp(t);
   showToast('Next-up armed. This pick will play after the current broadcast track ends.');
 }
@@ -205,11 +220,23 @@ function makeTrackRow(raw) {
   if (canStash(t)) {
     const stash = document.createElement('button');
     stash.type = 'button';
-    stash.className = 'stack-btn stack-btn-stash';
-    stash.textContent = 'STASH';
+    const saved = savedSet.has(t.id);
+    stash.className = 'stack-btn stack-btn-stash' + (saved ? ' saved' : '');
+    stash.textContent = saved ? '✓ STASHED' : 'STASH';
+    stash.title = saved ? 'In your offline stash' : 'Save to your offline stash';
     stash.addEventListener('click', async e => {
       e.stopPropagation();
-      if (await offline.saveTrack(t)) refreshStash();
+      if (savedSet.has(t.id)) return;
+      stash.disabled = true;
+      const ok = await offline.saveTrack(t);
+      stash.disabled = false;
+      if (ok) {
+        savedSet.add(t.id);
+        stash.classList.add('saved');
+        stash.textContent = '✓ STASHED';
+        stash.title = 'In your offline stash';
+        refreshStash();
+      }
     });
     actions.appendChild(stash);
   }
@@ -220,7 +247,10 @@ function makeTrackRow(raw) {
 function makeFolder(project) {
   const key = String(project.id || project.name);
   const tracks = project.tracks || [];
-  if (!openProjects.has(key)) openProjects.add(key);
+  if (!seenProjects.has(key)) {
+    seenProjects.add(key);
+    openProjects.add(key);
+  }
 
   const folder = document.createElement('div');
   folder.className = 'stack-folder';
@@ -249,7 +279,9 @@ function renderQuotaBanner(host) {
   banner.className = 'stack-quota';
   banner.textContent = quota.remaining > 0
     ? `${quota.remaining} ON-DEMAND PLAYS LEFT THIS HOUR`
-    : 'NEXT PICK ARMS AFTER THE CURRENT BROADCAST TRACK';
+    : (quota.nextUpAvailable === false
+        ? `HOURLY PLAYS USED — RESETS IN ${quotaResetMins()} MIN`
+        : 'NEXT PICK ARMS AFTER THE CURRENT BROADCAST TRACK');
   host.appendChild(banner);
 }
 
@@ -334,7 +366,9 @@ async function refreshStash() {
     row.querySelector('.stack-btn-remove').addEventListener('click', async e => {
       e.stopPropagation();
       await offline.removeSaved(item.id);
+      savedSet.delete(item.id);
       refreshStash();
+      renderStack();
     });
     card.appendChild(row);
   }
@@ -352,6 +386,7 @@ async function loadQuota() {
 export async function refresh() {
   if (!initialized) return;
   await loadQuota();
+  savedSet = await offline.savedIds();
   renderStack();
   await refreshStash();
   applyAccordion();
