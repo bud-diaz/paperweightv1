@@ -12,14 +12,24 @@ let liveMediaStream = null;
 let liveTimerInt    = null;
 let liveStartedAt   = 0;
 
-export function init() {}
+// Injected by dashboard/live-external.js via main.js (callback-injection
+// pattern, avoids a circular import between the two sibling live-source
+// modules) so the shared END BROADCAST button can tear down an external
+// encoder's poll/timer even though this module owns that button's handler.
+let _teardownExternalOnAir = () => {};
+
+export function init(callbacks = {}) {
+  if (callbacks.teardownExternalOnAir) _teardownExternalOnAir = callbacks.teardownExternalOnAir;
+}
 
 export function loadDashLive() {
   // Sync UI to current server live state on dashboard open
   api.dashboard.live.status().then(data => {
-    if (data.isLive) {
+    if (data.isLive && data.source === 'mic') {
       el('live-idle').hidden  = true;
       el('live-onair').hidden = false;
+      el('live-onair').dataset.source = 'mic';
+      el('live-source-toggle').hidden = true;
     }
   }).catch(() => {});
 }
@@ -90,6 +100,8 @@ export async function startGoLive() {
   liveStartedAt = Date.now();
   el('live-idle').hidden  = true;
   el('live-onair').hidden = false;
+  el('live-onair').dataset.source = 'mic';
+  el('live-source-toggle').hidden = true;
   el('live-timer').textContent = '0:00';
   liveTimerInt = setInterval(() => {
     el('live-timer').textContent = fmt(Math.floor((Date.now() - liveStartedAt) / 1000));
@@ -118,12 +130,23 @@ export async function stopGoLive() {
   if (liveAudioCtx)    { await liveAudioCtx.close().catch(() => {}); liveAudioCtx = null; }
   if (liveMediaStream) { liveMediaStream.getTracks().forEach(t => t.stop()); liveMediaStream = null; }
 
+  const wasExternal = el('live-onair').dataset.source === 'external';
+  if (wasExternal) _teardownExternalOnAir();
+
   try { await api.dashboard.live.stop(); } catch {}
 
-  el('live-onair').hidden  = true;
-  el('live-idle').hidden   = false;
+  el('live-onair').hidden = true;
+  el('live-source-toggle').hidden = false;
+  if (wasExternal) {
+    el('live-external').hidden = false;
+    el('live-external-idle').hidden = false;
+    el('live-external-pending').hidden = true;
+  } else {
+    el('live-idle').hidden = false;
+  }
   el('live-idle-msg').textContent = '';
   el('btn-go-live').disabled = false;
+  el('btn-go-live-external').disabled = false;
 }
 
 export function initLiveHandlers() {

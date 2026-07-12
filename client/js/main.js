@@ -44,6 +44,7 @@ import * as shareLinks  from './dashboard/share.js';
 import * as allAccess   from './dashboard/allaccess.js';
 import * as broadcast   from './dashboard/broadcast.js';
 import * as live        from './dashboard/live.js';
+import * as liveExternal from './dashboard/live-external.js';
 import * as schedule    from './dashboard/schedule.js';
 import * as smartPlaylists from './dashboard/smartplaylists.js';
 import * as dashPosts   from './dashboard/posts.js';
@@ -142,6 +143,7 @@ dashIndex.init({
   loadDashVaultStats:   vault.loadDashVaultStats,
   loadDashBroadcast:    broadcast.loadDashBroadcast,
   loadDashLive:         live.loadDashLive,
+  loadDashLiveExternal: liveExternal.loadDashExternal,
   loadRadioHostStatus:  search.loadRadioHostStatus,
   loadDashSchedule:     schedule.loadDashSchedule,
   loadDashProjects:     projects.loadDashProjects,
@@ -206,12 +208,17 @@ search.init({
   loadDashVaultStats: vault.loadDashVaultStats,
 });
 
-// station.js, bio.js, broadcast.js, live.js, schedule.js, twofa.js have no-op
-// init() (no callbacks needed) — called for consistency/forward-compatibility.
+live.init({
+  teardownExternalOnAir: liveExternal.teardownOnAir,
+});
+
+// station.js, bio.js, broadcast.js, live-external.js, schedule.js, twofa.js
+// have no-op init() (no callbacks needed) — called for consistency/
+// forward-compatibility.
 station.init();
 bio.init();
 broadcast.init();
-live.init();
+liveExternal.init();
 schedule.init();
 smartPlaylists.init();
 dashPosts.init();
@@ -239,6 +246,7 @@ shareLinks.initShareLinkHandlers();
 allAccess.initAllAccessHandlers();
 broadcast.initBroadcastHandlers();
 live.initLiveHandlers();
+liveExternal.initLiveExternalHandlers();
 schedule.initScheduleHandlers();
 smartPlaylists.initSmartPlaylistHandlers();
 dashPosts.initPostHandlers();

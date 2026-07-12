@@ -1107,7 +1107,7 @@ router.get('/live/status', (req, res) => {
 // POST /api/dashboard/live/start
 router.post('/live/start', (req, res) => {
   try {
-    live.startLive();
+    live.startLiveMic();
     require('../notify').liveStarted();
     res.json({ ok: true });
   } catch (err) {
@@ -1147,6 +1147,54 @@ router.post('/live/chunk',
 router.post('/live/stop', (req, res) => {
   live.stopLive();
   res.json({ ok: true });
+});
+
+// ─── External encoder (RTMP) broadcast ────────────────────────────────────────
+
+function externalBroadcastState() {
+  const liveState = live.getLiveState();
+  if (liveState.source !== 'rtmp') return 'idle';
+  return liveState.isLive ? 'live' : 'pending';
+}
+
+// GET /api/dashboard/broadcast/external/status
+router.get('/broadcast/external/status', (req, res) => {
+  const liveState = live.getLiveState();
+  res.json({
+    state: externalBroadcastState(),
+    startedAt: liveState.startedAt,
+    rtmp: live.getRtmpConnectionInfo(),
+  });
+});
+
+// POST /api/dashboard/broadcast/external/start
+router.post('/broadcast/external/start', asyncHandler(async (req, res) => {
+  const liveState = live.getLiveState();
+  if (liveState.isLive || liveState.rtmpPending) {
+    return res.status(409).json({ error: 'A broadcast is already live or pending' });
+  }
+  try {
+    await live.startLiveRtmp({});
+    res.json({ state: externalBroadcastState(), rtmp: live.getRtmpConnectionInfo() });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}));
+
+// POST /api/dashboard/broadcast/external/stop
+router.post('/broadcast/external/stop', (req, res) => {
+  live.stopLive();
+  res.json({ ok: true });
+});
+
+// POST /api/dashboard/broadcast/external/regenerate-key
+router.post('/broadcast/external/regenerate-key', (req, res) => {
+  try {
+    const streamKey = live.regenerateStreamKey();
+    res.json({ ok: true, streamKey });
+  } catch (err) {
+    res.status(409).json({ error: err.message });
+  }
 });
 
 // GET /api/dashboard/creator-type

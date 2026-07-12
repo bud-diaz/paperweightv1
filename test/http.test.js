@@ -1107,3 +1107,26 @@ test('access-token CRUD, radio-host toggle, and station URL update are desktop-o
     assert.equal(del.res.status, 200);
   });
 });
+
+test('external broadcast status/regenerate-key routes work while idle', async () => {
+  freshDb();
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN } };
+
+  await withServer(async baseUrl => {
+    const status = await request(baseUrl, '/api/dashboard/broadcast/external/status', auth);
+    assert.equal(status.res.status, 200);
+    assert.equal(status.body.state, 'idle');
+    assert.ok(status.body.rtmp.streamKey);
+    assert.match(status.body.rtmp.url, /^rtmp:\/\//);
+
+    const regen = await request(baseUrl, '/api/dashboard/broadcast/external/regenerate-key', {
+      method: 'POST',
+      headers: auth.headers,
+    });
+    assert.equal(regen.res.status, 200);
+    assert.notEqual(regen.body.streamKey, status.body.rtmp.streamKey);
+
+    const noAuth = await request(baseUrl, '/api/dashboard/broadcast/external/status');
+    assert.equal(noAuth.res.status, 401);
+  });
+});

@@ -920,6 +920,10 @@
               <span>GO LIVE / RADIO HOST</span>
             </div>
             <div id="broadcast-advanced">
+              <div class="live-source-toggle" id="live-source-toggle">
+                <button class="live-source-btn active" id="btn-source-mic" data-source="mic">MIC</button>
+                <button class="live-source-btn" id="btn-source-external" data-source="external">EXTERNAL ENCODER (OBS)</button>
+              </div>
               <div id="live-idle">
                 <div class="live-idle-copy">
                   Go live from your mic. Listeners switch to your feed in real time.
@@ -927,11 +931,39 @@
                 <button id="btn-go-live">● GO LIVE</button>
                 <div id="live-idle-msg"></div>
               </div>
+              <div id="live-external" hidden>
+                <div id="live-external-idle">
+                  <div class="live-idle-copy">
+                    Connect OBS (or another RTMP-capable encoder) directly to your station. Listeners switch to your feed in real time.
+                  </div>
+                  <button id="btn-go-live-external">● GO LIVE</button>
+                  <div id="live-external-msg"></div>
+                </div>
+                <div id="live-external-pending" hidden>
+                  <div class="live-idle-copy">Paste these into OBS → Settings → Stream → Custom:</div>
+                  <div class="station-url-row">
+                    <span class="ext-field-label">Server</span>
+                    <span id="ext-rtmp-url"></span>
+                    <button class="mgmt-btn" id="btn-copy-rtmp-url">COPY</button>
+                  </div>
+                  <div class="station-url-row">
+                    <span class="ext-field-label">Key</span>
+                    <span id="ext-rtmp-key"></span>
+                    <button class="mgmt-btn" id="btn-copy-rtmp-key">COPY</button>
+                  </div>
+                  <div id="live-external-status" class="live-idle-copy">Waiting for OBS to connect…</div>
+                  <div class="broadcast-actions">
+                    <button class="mgmt-btn" id="btn-regen-rtmp-key">REGENERATE KEY</button>
+                    <button class="mgmt-btn danger" id="btn-cancel-external">CANCEL</button>
+                  </div>
+                  <div class="ext-key-warning">This key personalizes your setup but isn't a strong secret — anyone who can reach this port while it's open can push audio. Keep the ingest port on your local machine or LAN.</div>
+                </div>
+              </div>
               <div id="live-onair" hidden>
                 <div class="broadcast-row live-broadcast-row">
                   <div class="broadcast-info">
                     <div class="broadcast-np" id="live-timer">0:00</div>
-                    <div class="broadcast-mode-badge onair-badge">● ON AIR</div>
+                    <div class="broadcast-mode-badge onair-badge" id="live-onair-badge">● ON AIR</div>
                   </div>
                   <div class="broadcast-actions">
                     <button class="mgmt-btn danger" id="btn-end-live">END BROADCAST</button>
