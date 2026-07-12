@@ -14,7 +14,10 @@ function hashIp(req) {
 }
 
 function quotaKey(req) {
-  if (req.tokenRow?.id) return `listener:${req.tokenRow.id}`;
+  // Prefer the listener account id so the budget is shared across a
+  // listener's devices/tokens; fall back to the token id for creator-issued
+  // tokens that have no account.
+  if (req.tokenRow?.id) return `listener:${req.tokenRow.listener_id || req.tokenRow.id}`;
   return `ip:${hashIp(req)}`;
 }
 
@@ -65,6 +68,10 @@ function snapshot(req, nowMs = Date.now()) {
     limit,
     remaining,
     resetSec: remaining > 0 ? 0 : resetSecFor(bucket, nowMs),
+    // Whether the one deferred "next up after the current broadcast track"
+    // play is still unspent this hour — the client uses it to stop offering
+    // the slot instead of arming a pick that would 429 when it fires.
+    nextUpAvailable: !bucket.nextUpTs,
   };
 }
 

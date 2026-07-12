@@ -551,6 +551,9 @@ router.get('/:id/stream', streamLimiter, (req, res) => {
     return res.status(404).json({ error: 'File not found on disk' });
   }
 
+  // sendFile only derives Content-Type when none is set, so prefer the probed
+  // mime_type — extension-less or misnamed files stay playable in the browser.
+  if (row.mime_type) res.type(row.mime_type);
   res.sendFile(filepath);
 });
 

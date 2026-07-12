@@ -444,6 +444,7 @@ test('library stream endpoint enforces access and on-demand quota', async () => 
       const anonQuota = await request(baseUrl, '/api/library/stream-quota');
       assert.equal(anonQuota.body.limit, 3);
       assert.equal(anonQuota.body.remaining, 3);
+      assert.equal(anonQuota.body.nextUpAvailable, true);
 
       const freeQuota = await request(baseUrl, '/api/library/stream-quota', {
         headers: { Authorization: `Bearer ${freeToken.token}` },
@@ -451,9 +452,12 @@ test('library stream endpoint enforces access and on-demand quota', async () => 
       assert.equal(freeQuota.body.limit, 5);
       assert.equal(freeQuota.body.remaining, 5);
 
+      db.prepare("UPDATE media SET mime_type = 'audio/flac' WHERE id = ?").run(publicTracks[0].id);
       const publicStream = await request(baseUrl, `/api/library/${publicTracks[0].id}/stream`);
       assert.equal(publicStream.res.status, 200);
       assert.equal(publicStream.text, 'fake-audio-bytes-public-0');
+      // The probed mime_type wins over the (misleading) .mp3 extension.
+      assert.match(publicStream.res.headers.get('content-type'), /audio\/flac/);
 
       const range = await request(baseUrl, `/api/library/${publicTracks[0].id}/stream`, {
         headers: { Range: 'bytes=0-3' },
@@ -488,6 +492,11 @@ test('library stream endpoint enforces access and on-demand quota', async () => 
 
       const nextUpBonus = await request(baseUrl, `/api/library/${publicTracks[3].id}/stream?nextUp=1`);
       assert.equal(nextUpBonus.res.status, 200);
+
+      // The spent bonus is reflected in the quota status so the client can
+      // stop offering the next-up slot.
+      const spentQuota = await request(baseUrl, '/api/library/stream-quota');
+      assert.equal(spentQuota.body.nextUpAvailable, false);
 
       const secondNextUp = await request(baseUrl, `/api/library/${publicTracks[4].id}/stream?nextUp=1`);
       assert.equal(secondNextUp.res.status, 429);
