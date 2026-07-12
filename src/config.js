@@ -250,6 +250,13 @@ const config = {
     soundcloudClientId: process.env.SOUNDCLOUD_CLIENT_ID || '',
   },
 
+  // External encoder (OBS, etc.) RTMP ingest for the Studio broadcast section.
+  // Local/LAN-only by design — never exposed through the Cloudflare tunnel.
+  broadcast: {
+    rtmpHost: process.env.RTMP_INGEST_HOST || '127.0.0.1',
+    rtmpPort: parseInt(process.env.RTMP_INGEST_PORT || '1935', 10),
+  },
+
   vault: {
     path: path.resolve(dataRoot, process.env.VAULT_PATH || './vault'),
     mode: process.env.VAULT_MODE || 'hybrid',

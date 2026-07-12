@@ -1187,6 +1187,46 @@ export const dashboard = {
     },
   },
 
+  // ── External encoder (RTMP) broadcast ──────────────────────────────────────────
+
+  broadcastExternal: {
+    /**
+     * GET /api/dashboard/broadcast/external/status
+     * @returns {{ state: 'idle'|'pending'|'live', startedAt, rtmp: { url, streamKey, host, port } }}
+     */
+    status() {
+      return _json('/api/dashboard/broadcast/external/status');
+    },
+
+    /**
+     * POST /api/dashboard/broadcast/external/start
+     * @returns {{ res: Response, data: object }}
+     */
+    async start() {
+      const res = await _fetch('/api/dashboard/broadcast/external/start', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      return { res, data };
+    },
+
+    /**
+     * POST /api/dashboard/broadcast/external/stop
+     * @returns {Promise<void>}
+     */
+    async stop() {
+      await _fetch('/api/dashboard/broadcast/external/stop', { method: 'POST' });
+    },
+
+    /**
+     * POST /api/dashboard/broadcast/external/regenerate-key
+     * @returns {{ res: Response, data: { streamKey?: string, error?: string } }}
+     */
+    async regenerateKey() {
+      const res = await _fetch('/api/dashboard/broadcast/external/regenerate-key', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      return { res, data };
+    },
+  },
+
   // ── Creator profile (dashboard) ────────────────────────────────────────────────
 
   creator: {

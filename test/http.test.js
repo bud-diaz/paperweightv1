@@ -1107,3 +1107,63 @@ test('access-token CRUD, radio-host toggle, and station URL update are desktop-o
     assert.equal(del.res.status, 200);
   });
 });
+
+test('external broadcast status/regenerate-key routes work while idle', async () => {
+  freshDb();
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN } };
+
+  await withServer(async baseUrl => {
+    const status = await request(baseUrl, '/api/dashboard/broadcast/external/status', auth);
+    assert.equal(status.res.status, 200);
+    assert.equal(status.body.state, 'idle');
+    assert.ok(status.body.rtmp.streamKey);
+    assert.match(status.body.rtmp.url, /^rtmp:\/\//);
+
+    const regen = await request(baseUrl, '/api/dashboard/broadcast/external/regenerate-key', {
+      method: 'POST',
+      headers: auth.headers,
+    });
+    assert.equal(regen.res.status, 200);
+    assert.notEqual(regen.body.streamKey, status.body.rtmp.streamKey);
+
+    const noAuth = await request(baseUrl, '/api/dashboard/broadcast/external/status');
+    assert.equal(noAuth.res.status, 401);
+  });
+});
+
+test('external broadcast routes are desktop-only', async () => {
+  freshDb();
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN } };
+
+  await withServer(async baseUrl => {
+    // Desktop (default in this harness): the routes work normally.
+    const desktopStatus = await request(baseUrl, '/api/dashboard/broadcast/external/status', auth);
+    assert.equal(desktopStatus.res.status, 200);
+
+    config.platform = 'web';
+    try {
+      const status = await request(baseUrl, '/api/dashboard/broadcast/external/status', auth);
+      assert.equal(status.res.status, 403);
+
+      const start = await request(baseUrl, '/api/dashboard/broadcast/external/start', {
+        method: 'POST',
+        headers: auth.headers,
+      });
+      assert.equal(start.res.status, 403);
+
+      const stop = await request(baseUrl, '/api/dashboard/broadcast/external/stop', {
+        method: 'POST',
+        headers: auth.headers,
+      });
+      assert.equal(stop.res.status, 403);
+
+      const regen = await request(baseUrl, '/api/dashboard/broadcast/external/regenerate-key', {
+        method: 'POST',
+        headers: auth.headers,
+      });
+      assert.equal(regen.res.status, 403);
+    } finally {
+      config.platform = 'desktop';
+    }
+  });
+});

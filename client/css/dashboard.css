@@ -206,7 +206,7 @@ input[type="number"].dash-input-sm::-webkit-outer-spin-button { -webkit-appearan
 .broadcast-np { font-family: 'DM Serif Display', serif; font-size: 16px; color: rgba(255,255,255,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
 .broadcast-mode-badge { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(255,255,255,.35); letter-spacing: .1em; }
 .broadcast-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
-#btn-go-live {
+#btn-go-live, #btn-go-live-external {
   font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .06em;
   padding: 6px 12px; border-radius: 5px;
   border: 1px solid rgba(57,255,20,.3); color: rgba(57,255,20,.8);
@@ -646,12 +646,31 @@ textarea.dash-input { resize: vertical; min-height: 46px; line-height: 1.4; }
 #dash-analytics { margin-top: 10px; }
 .analytics-section-label { margin: 12px 0 4px; letter-spacing: .12em; }
 .analytics-top-heading { margin: 10px 0 4px; }
-#live-idle, #live-onair { padding: 0 0 8px; }
+#live-idle, #live-onair, #live-external { padding: 0 0 8px; }
 .live-idle-copy {
   font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t3);
   margin-bottom: 10px; line-height: 1.7;
 }
-#live-idle-msg { margin-top: 8px; font-size: 11px; font-family: 'Space Mono', monospace; color: var(--t3); }
+#live-idle-msg, #live-external-msg { margin-top: 8px; font-size: 11px; font-family: 'Space Mono', monospace; color: var(--t3); }
+.live-source-toggle { display: flex; gap: 6px; margin-bottom: 10px; }
+.live-source-btn {
+  font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .04em;
+  padding: 5px 10px; border-radius: 5px; border: 1px solid var(--border);
+  color: var(--t3); background: none; cursor: pointer;
+}
+.live-source-btn.active { color: rgba(255,255,255,.85); border-color: var(--border-strong); background: rgba(255,255,255,.04); }
+.ext-field-label {
+  font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t4);
+  width: 46px; flex-shrink: 0;
+}
+#ext-rtmp-url, #ext-rtmp-key {
+  font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t2);
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ext-key-warning {
+  font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(255,255,255,.3);
+  line-height: 1.6; margin-top: 8px;
+}
 .live-broadcast-row { margin: 0; }
 .onair-badge {
   color: #ff5555; border: 1px solid rgba(255,60,60,.2); border-radius: 4px;
