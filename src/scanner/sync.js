@@ -3,13 +3,15 @@ const path = require('path');
 const { getDb, log } = require('../db');
 const { probe } = require('./probe');
 
+// Scanner-discovered files are private by default: creators can publish them
+// intentionally from the dashboard, while pre-stamped rows keep their choice.
 const upsertStmt = `
   INSERT INTO media (
     filepath, filename, category, title, artist, album, genre,
-    duration, bpm, tags, file_size, mime_type, updated_at
+    duration, bpm, tags, file_size, mime_type, visibility, updated_at
   ) VALUES (
     :filepath, :filename, :category, :title, :artist, :album, :genre,
-    :duration, :bpm, :tags, :file_size, :mime_type, datetime('now')
+    :duration, :bpm, :tags, :file_size, :mime_type, 'vault', datetime('now')
   )
   ON CONFLICT(filepath) DO UPDATE SET
     filename   = excluded.filename,

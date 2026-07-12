@@ -51,6 +51,35 @@ function seedAccount(db, email, password) {
   return info.lastInsertRowid;
 }
 
+test('scanner imports new media as vault but preserves pre-stamped visibility', () => {
+  const db = freshDb();
+  const config = require('../src/config');
+  const { upsert } = require('../src/scanner/sync');
+  fs.mkdirSync(config.vault.path, { recursive: true });
+
+  const freshPath = path.join(config.vault.path, `scanner-fresh-${Date.now()}.mp3`);
+  const stampedPath = path.join(config.vault.path, `scanner-stamped-${Date.now()}.mp3`);
+  fs.writeFileSync(freshPath, 'fresh');
+  fs.writeFileSync(stampedPath, 'stamped');
+
+  try {
+    upsert(freshPath, 'music', { title: 'Fresh Scan', duration: 12, file_size: 5, mime_type: 'audio/mpeg' });
+    assert.equal(db.prepare('SELECT visibility FROM media WHERE filepath = ?').get(path.resolve(freshPath)).visibility, 'vault');
+
+    db.prepare(
+      "INSERT INTO media (filepath, filename, category, title, visibility) VALUES (?, ?, 'music', 'Stamped', 'public')"
+    ).run(path.resolve(stampedPath), path.basename(stampedPath));
+    upsert(stampedPath, 'music', { title: 'Updated Stamp', duration: 18, file_size: 7, mime_type: 'audio/mpeg' });
+
+    const stamped = db.prepare('SELECT title, visibility FROM media WHERE filepath = ?').get(path.resolve(stampedPath));
+    assert.equal(stamped.title, 'Updated Stamp');
+    assert.equal(stamped.visibility, 'public');
+  } finally {
+    try { fs.unlinkSync(freshPath); } catch {}
+    try { fs.unlinkSync(stampedPath); } catch {}
+  }
+});
+
 async function loginToken(baseUrl, email, password) {
   const { body } = await request(baseUrl, '/api/listener/login', {
     method: 'POST', headers: JSON_HDR, body: JSON.stringify({ email, password }),
