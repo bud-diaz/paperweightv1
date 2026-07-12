@@ -69,6 +69,10 @@ auth.init({
     postsModule.loadPosts();
     collection.loadCollection();
   },
+  refreshQuota: async () => {
+    await player.loadQuota();
+    player.render();
+  },
 });
 
 library.init({
@@ -574,6 +578,9 @@ async function init() {
 
   // Listener auth state — loads before library so gated content is correct first render
   await auth.loadAuthState();
+
+  // On-demand play quota — needs tier known first, so the badge is correct on first paint
+  await player.loadQuota();
 
   // First-visit welcome page (display-name-only entry, Papercut-style).
   // After loadAuthState so returning listeners are never re-prompted.
