@@ -130,12 +130,8 @@ function buildMediaQuery({ category, search, genre, tier }) {
   const conditions = ['m.is_active = 1'];
   const params = {};
 
-  // Vault items are discoverable for everyone so the UI can show locked items.
-  if (isSubscriberTier(tier)) {
-    conditions.push("m.visibility IN ('public', 'supporters_only', 'vault')");
-  } else {
-    conditions.push("m.visibility IN ('public', 'vault')");
-  }
+  // Gated rows are visible in browse views; access routes still enforce locks.
+  conditions.push("m.visibility IN ('public', 'supporters_only', 'vault')");
 
   if (category) {
     conditions.push('m.category = :category');

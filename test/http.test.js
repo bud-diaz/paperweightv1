@@ -537,9 +537,19 @@ test('library visibility and gated downloads are enforced', async () => {
   await withServer(async baseUrl => {
     const freeStructure = await request(baseUrl, '/api/library/structure');
     assert.equal(freeStructure.res.status, 200);
-    const freeIds = freeStructure.body.standalone.map(item => item.id);
+    const freeItems = freeStructure.body.standalone;
+    const freeIds = freeItems.map(item => item.id);
     assert.ok(freeIds.includes(publicMedia.id));
-    assert.ok(!freeIds.includes(supporterMedia.id));
+    const lockedSupporter = freeItems.find(item => item.id === supporterMedia.id);
+    assert.ok(lockedSupporter);
+    assert.equal(lockedSupporter.unlocked, false);
+
+    const subscriberStructure = await request(baseUrl, '/api/library/structure', {
+      headers: { Authorization: `Bearer ${token.token}` },
+    });
+    const unlockedSupporter = subscriberStructure.body.standalone.find(item => item.id === supporterMedia.id);
+    assert.ok(unlockedSupporter);
+    assert.equal(unlockedSupporter.unlocked, true);
 
     const denied = await request(baseUrl, `/api/library/${publicMedia.id}/download`);
     assert.equal(denied.res.status, 401);
