@@ -226,6 +226,7 @@ function formatItem(row, tier, ctx = null) {
     mimeType: row.mime_type || null,
     isVideo,
     isVault,
+    isExternal: String(row.filepath || '').startsWith('external://'),
     offlineAllowed: row.offline_allowed === 1,
     previewUrl: `/api/library/${row.id}/preview`,
     indexedAt: row.indexed_at,

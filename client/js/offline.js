@@ -61,6 +61,13 @@ export async function getSaved(id) {
   } catch { return null; }
 }
 
+export async function listSaved() {
+  try {
+    const db = await openDb();
+    return await tx(db, 'readonly', store => store.getAll());
+  } catch { return []; }
+}
+
 /**
  * Fetch the full file through the signed-URL flow and store it locally.
  * @param {{ id, title, mimeType }} t

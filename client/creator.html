@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="/css/layout.css"/>
   <link rel="stylesheet" href="/css/auth.css"/>
   <link rel="stylesheet" href="/css/dashboard.css"/>
+  <link rel="stylesheet" href="/css/stack.css"/>
 </head>
 <body>
 
@@ -165,6 +166,7 @@
         <div id="pw-station-results" class="pw-station-results" hidden></div>
       </div>
       <div id="view-toggle">
+        <button class="view-tab" data-view="stack">STACK</button>
         <button class="view-tab active" data-view="player">PLAY</button>
         <button class="view-tab" data-view="dashboard">STUDIO</button>
       </div>
@@ -212,6 +214,11 @@
           </div>
           <button class="bio-enter-btn" id="bio-enter-btn">ENTER STATION →</button>
         </div>
+      </div>
+
+      <!-- PANEL: Stack -->
+      <div id="panel-stack">
+        <div id="stack-sections"></div>
       </div>
 
       <!-- PANEL: Player -->
@@ -313,7 +320,7 @@
 
           <!-- Controls -->
           <div id="controls">
-            <button class="drawer-btn" id="lib-btn" title="Library">≡<span class="sq-lbl">LIB</span></button>
+            <button class="drawer-btn" id="lib-btn" title="Posts">≡<span class="sq-lbl">POSTS</span></button>
             <div id="controls-center">
               <button class="skip-btn hidden" id="skip-prev" title="Previous">⏮</button>
               <button id="play-btn" title="Play/Pause">
@@ -334,11 +341,9 @@
         <div class="drawer" id="lib-drawer">
           <div class="drawer-inner">
             <div class="drawer-head">
-              <div class="drawer-label">LIBRARY</div>
+              <div class="drawer-label">POSTS</div>
               <button class="drawer-close" id="lib-drawer-close" title="Close">✕</button>
             </div>
-            <div class="drawer-scroll" id="lib-list"></div>
-            <div class="drawer-label" style="margin-top:18px;">POSTS</div>
             <div class="drawer-scroll" id="posts-list"></div>
           </div>
         </div>

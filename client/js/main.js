@@ -28,6 +28,7 @@ import * as player    from './player.js';
 import * as ascii     from './ascii.js';
 import * as auth      from './auth.js';
 import * as library      from './library.js';
+import * as stack        from './stack.js';
 import * as postsModule  from './posts.js';
 import * as libraryModal from './library-modal.js';
 import * as payment      from './payment.js';
@@ -76,6 +77,8 @@ library.init({
   setModalTab:       payment.setModalTab,
   openLibraryModal:  libraryModal.openLibraryModal,
   checkVaultGate:    payment.checkVaultGate,
+  setNextUp:         player.setNextUp,
+  onLibraryLoaded:   stack.refresh,
 });
 
 collection.init({
@@ -104,6 +107,7 @@ hlsClient.init({
   onAsciiStart:        ascii.asciiStart,
   onAsciiStop:         ascii.asciiStop,
   onAsciiLoadArtwork:  ascii.asciiLoadArtwork,
+  onNowPlayingChange:  player.handleNowPlayingChange,
 });
 
 player.registerCallbacks({
@@ -111,8 +115,18 @@ player.registerCallbacks({
   openModal:      payment.openModal,
   setModalTab:    payment.setModalTab,
   checkVaultGate: payment.checkVaultGate,
-  buildLibrary:   library.buildLibrary,
+  buildLibrary:   stack.refresh,
   loadQueue:      library.loadQueue,
+  takeNextQueueTrack: library.takeNextQueueTrack,
+});
+
+stack.init({
+  selectVOD:      player.selectVOD,
+  openModal:      payment.openModal,
+  setModalTab:    payment.setModalTab,
+  checkVaultGate: payment.checkVaultGate,
+  addToQueue:     library.addToQueue,
+  setNextUp:      player.setNextUp,
 });
 
 payment.init({
@@ -274,20 +288,26 @@ el('art-flip').addEventListener('click', () => {
 // ─── View toggle (PLAY / STUDIO) ────────────────────────────────────────────
 document.querySelectorAll('.view-tab').forEach(btn => {
   btn.addEventListener('click', () => {
-    const toDash = btn.dataset.view === 'dashboard';
+    const view = btn.dataset.view;
     document.querySelectorAll('.view-tab').forEach(b => b.classList.toggle('active', b === btn));
 
-    if (toDash) {
-      // STUDIO: always skip bio page this session
+    el('player-card').classList.remove('stack-active', 'dash-active');
+
+    if (view === 'dashboard') {
       window._bioSessionPassed = true;
       el('player-card').classList.remove('bio-landing');
       el('player-card').classList.add('dash-active');
       el('topbar-right').style.opacity      = '0';
       el('topbar-right').style.pointerEvents = 'none';
       dashIndex.initDashboard();
+    } else if (view === 'stack') {
+      window._bioSessionPassed = true;
+      el('player-card').classList.remove('bio-landing');
+      el('player-card').classList.add('stack-active');
+      el('topbar-right').style.opacity      = '1';
+      el('topbar-right').style.pointerEvents = '';
+      stack.initStackView();
     } else {
-      // PLAY: only show bio if it hasn't been bypassed this session
-      el('player-card').classList.remove('dash-active');
       el('topbar-right').style.opacity      = '1';
       el('topbar-right').style.pointerEvents = '';
     }
@@ -301,6 +321,7 @@ function enterDashboard() {
 
   document.querySelectorAll('.view-tab').forEach(b =>
     b.classList.toggle('active', b.dataset.view === 'dashboard'));
+  el('player-card').classList.remove('stack-active');
   el('player-card').classList.add('dash-active');
   el('topbar-right').style.opacity      = '0';
   el('topbar-right').style.pointerEvents = 'none';
