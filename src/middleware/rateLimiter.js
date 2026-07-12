@@ -47,4 +47,9 @@ const previewLimiter = make({
   max: 30,
 });
 
-module.exports = { authLimiter, tokenRedeemLimiter, paymentLimiter, leadLimiter, generalLimiter, previewLimiter };
+const streamLimiter = make({
+  windowMs: 15 * 60 * 1000,
+  max: 240,
+});
+
+module.exports = { authLimiter, tokenRedeemLimiter, paymentLimiter, leadLimiter, generalLimiter, previewLimiter, streamLimiter };

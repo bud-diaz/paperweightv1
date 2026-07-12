@@ -9,7 +9,8 @@ const { effectiveTierForTokenRow } = require('../auth/middleware');
 const config = require('../config');
 const { ffmpegPath, installHint } = require('../runtime/ffmpeg');
 const { normalizeUnlockOptions } = require('./vault');
-const { previewLimiter } = require('../middleware/rateLimiter');
+const { previewLimiter, streamLimiter } = require('../middleware/rateLimiter');
+const { checkAndRecordPlay, quotaStatus } = require('../middleware/playQuota');
 const { safeVaultPath } = require('./safeVaultPath');
 const asyncHandler = require('../middleware/asyncHandler');
 const { isValidExternalHttpUrl } = require('../runtime/base-url');
@@ -503,6 +504,53 @@ router.get('/discover', (req, res) => {
     trending: trendingRows.map(r => ({ ...formatItem(r, req.tier, ctx), plays: r.play_count })),
     newReleases: newRows.map(r => formatItem(r, req.tier, ctx)),
   });
+});
+
+router.get('/stream-quota', (req, res) => {
+  res.json(quotaStatus(req));
+});
+
+router.get('/:id/stream', streamLimiter, (req, res) => {
+  const row = getDb().prepare(
+    'SELECT * FROM media WHERE id = ? AND is_active = 1'
+  ).get(req.params.id);
+
+  if (!row || String(row.filepath || '').startsWith('external://')) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
+  const projectId = getProjectId(row.id);
+  const access = canAccessMedia(req, row, projectId);
+  if (!access.allowed) {
+    return res.status(403).json({ error: access.error, unlockOptions: normalizeUnlockOptions(access.unlockOptions) });
+  }
+
+  const ctx = buildOwnershipContext(req);
+  const quotaExempt = isSubscriberTier(req.tier)
+    || (row.visibility === 'vault' && isUnlockedInContext(row, ctx));
+
+  if (!quotaExempt) {
+    const quota = checkAndRecordPlay(req, row.id, { nextUp: req.query.nextUp === '1' });
+    if (!quota.allowed) {
+      return res.status(429).json({
+        error: 'On-demand play limit reached',
+        limit: quota.limit,
+        remaining: 0,
+        resetSec: quota.resetSec,
+      });
+    }
+  }
+
+  const filepath = safeVaultPath(row.filepath);
+  if (!filepath) {
+    return res.status(403).json({ error: 'File path is outside the vault' });
+  }
+
+  if (!fs.existsSync(filepath)) {
+    return res.status(404).json({ error: 'File not found on disk' });
+  }
+
+  res.sendFile(filepath);
 });
 
 router.get('/:id', (req, res) => {

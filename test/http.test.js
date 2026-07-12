@@ -15,6 +15,7 @@ const { parseEnvValue, parseTrustProxy } = require('../src/config');
 const { resolveAvailableUploadPath, sanitizeUploadName } = require('../src/api/dashboard');
 const { ARTWORK_DIR } = require('../src/api/library');
 const broadcast = require('../src/broadcast');
+const playQuota = require('../src/middleware/playQuota');
 
 async function withServer(fn) {
   const app = createApp();
@@ -402,6 +403,101 @@ test('supporter previews stay public short previews while vault previews stay bl
     assert.notEqual(supporterPreview.res.status, 403);
     assert.notEqual(supporterPreview.res.status, 404);
   });
+});
+
+test('library stream endpoint enforces access and on-demand quota', async () => {
+  playQuota._reset();
+  const db = freshDb();
+  fs.mkdirSync(config.vault.path, { recursive: true });
+
+  const files = [];
+  function mediaFile(name, body = `fake-audio-bytes-${name}`) {
+    const filepath = path.join(config.vault.path, `stream-${Date.now()}-${name}.mp3`);
+    fs.writeFileSync(filepath, body);
+    files.push(filepath);
+    return filepath;
+  }
+
+  const publicTracks = Array.from({ length: 5 }, (_, i) =>
+    seedMedia(db, { visibility: 'public', title: `Public ${i + 1}`, filepath: mediaFile(`public-${i}`) })
+  );
+  const supporter = seedMedia(db, {
+    visibility: 'supporters_only',
+    title: 'Supporter Stream',
+    filepath: mediaFile('supporter'),
+  });
+  const vault = seedMedia(db, {
+    visibility: 'vault',
+    title: 'Vault Stream',
+    filepath: mediaFile('vault'),
+  });
+  db.prepare(`
+    INSERT INTO vault_prices (content_id, suggested_price, minimum_price, allow_free, payment_type, recurring_interval, currency)
+    VALUES (?, 700, 300, 1, 'one_time', NULL, 'usd')
+  `).run(vault.id);
+
+  const subscriberToken = seedToken(db, { tier: 'subscriber' });
+  const freeToken = seedToken(db, { tier: 'free' });
+
+  try {
+    await withServer(async baseUrl => {
+      const anonQuota = await request(baseUrl, '/api/library/stream-quota');
+      assert.equal(anonQuota.body.limit, 3);
+      assert.equal(anonQuota.body.remaining, 3);
+
+      const freeQuota = await request(baseUrl, '/api/library/stream-quota', {
+        headers: { Authorization: `Bearer ${freeToken.token}` },
+      });
+      assert.equal(freeQuota.body.limit, 5);
+      assert.equal(freeQuota.body.remaining, 5);
+
+      const publicStream = await request(baseUrl, `/api/library/${publicTracks[0].id}/stream`);
+      assert.equal(publicStream.res.status, 200);
+      assert.equal(publicStream.text, 'fake-audio-bytes-public-0');
+
+      const range = await request(baseUrl, `/api/library/${publicTracks[0].id}/stream`, {
+        headers: { Range: 'bytes=0-3' },
+      });
+      assert.equal(range.res.status, 206);
+      assert.match(range.res.headers.get('content-range'), /^bytes 0-3\//);
+      assert.equal(range.text, 'fake');
+
+      const lockedSupporter = await request(baseUrl, `/api/library/${supporter.id}/stream`);
+      assert.equal(lockedSupporter.res.status, 403);
+
+      const lockedVault = await request(baseUrl, `/api/library/${vault.id}/stream`);
+      assert.equal(lockedVault.res.status, 403);
+      assert.equal(lockedVault.body.unlockOptions.track.minimumPrice, 300);
+
+      const subscriberStream = await request(baseUrl, `/api/library/${supporter.id}/stream`, {
+        headers: { Authorization: `Bearer ${subscriberToken.token}` },
+      });
+      assert.equal(subscriberStream.res.status, 200);
+
+      assert.equal((await request(baseUrl, `/api/library/${publicTracks[1].id}/stream`)).res.status, 200);
+      assert.equal((await request(baseUrl, `/api/library/${publicTracks[2].id}/stream`)).res.status, 200);
+
+      const sameTrackRetry = await request(baseUrl, `/api/library/${publicTracks[0].id}/stream`);
+      assert.equal(sameTrackRetry.res.status, 200);
+
+      const overLimit = await request(baseUrl, `/api/library/${publicTracks[3].id}/stream`);
+      assert.equal(overLimit.res.status, 429);
+      assert.equal(overLimit.body.limit, 3);
+      assert.equal(overLimit.body.remaining, 0);
+      assert.ok(overLimit.body.resetSec > 0);
+
+      const nextUpBonus = await request(baseUrl, `/api/library/${publicTracks[3].id}/stream?nextUp=1`);
+      assert.equal(nextUpBonus.res.status, 200);
+
+      const secondNextUp = await request(baseUrl, `/api/library/${publicTracks[4].id}/stream?nextUp=1`);
+      assert.equal(secondNextUp.res.status, 429);
+    });
+  } finally {
+    for (const filepath of files) {
+      try { fs.unlinkSync(filepath); } catch {}
+    }
+    playQuota._reset();
+  }
 });
 
 test('dashboard auth rejects missing and wrong tokens, accepts the configured token', async () => {
