@@ -21,16 +21,18 @@ let authOpen = false;
 
 // ── Injected callbacks ────────────────────────────────────────────────────────
 
-let _loadLibrary = () => {};
+let _loadLibrary  = () => {};
+let _refreshQuota = () => {};
 
 /**
- * Register the loadLibrary callback from library.js.
+ * Register the loadLibrary/refreshQuota callbacks from library.js/player.js.
  * Called from main.js in Phase 8.
  *
- * @param {{ loadLibrary: () => void }} cbs
+ * @param {{ loadLibrary: () => void, refreshQuota: () => void }} cbs
  */
-export function init({ loadLibrary } = {}) {
-  if (loadLibrary) _loadLibrary = loadLibrary;
+export function init({ loadLibrary, refreshQuota } = {}) {
+  if (loadLibrary)  _loadLibrary  = loadLibrary;
+  if (refreshQuota) _refreshQuota = refreshQuota;
 }
 
 // ── Auth state ────────────────────────────────────────────────────────────────
@@ -174,6 +176,7 @@ export async function submitAuth() {
       await new Promise(r => setTimeout(r, 900));
       await loadAuthState();
       _loadLibrary();
+      _refreshQuota();
       return;
     }
   } catch {
@@ -189,6 +192,7 @@ export async function logoutListener() {
   Object.assign(authState, { loggedIn: false, email: '', tier: 'free', hasPassword: false });
   renderAuthSection();
   _loadLibrary();
+  _refreshQuota();
 }
 
 export async function handleSetPassword() {
@@ -380,7 +384,7 @@ async function handleDeleteAccount() {
       msg.className = 'auth-msg success';
       msg.textContent = 'Profile deleted.';
       Object.assign(authState, { loggedIn: false, email: '', displayName: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null });
-      setTimeout(() => { renderAuthSection(); _loadLibrary(); }, 1200);
+      setTimeout(() => { renderAuthSection(); _loadLibrary(); _refreshQuota(); }, 1200);
     } catch {
       msg.className = 'auth-msg error';
       msg.textContent = 'Network error — please try again.';
@@ -411,7 +415,7 @@ async function handleDeleteAccount() {
     msg.className = 'auth-msg success';
     msg.textContent = (data.warnings || []).join(' ') || 'Account deleted.';
     Object.assign(authState, { loggedIn: false, email: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null });
-    setTimeout(() => { renderAuthSection(); _loadLibrary(); }, 1200);
+    setTimeout(() => { renderAuthSection(); _loadLibrary(); _refreshQuota(); }, 1200);
   } catch {
     msg.className = 'auth-msg error';
     msg.textContent = 'Network error — please try again.';

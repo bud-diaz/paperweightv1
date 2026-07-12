@@ -20,6 +20,7 @@
  *   #track-creator             (textContent)
  *   #track-station             (textContent)
  *   #on-air-badge              (display)
+ *   #quota-badge               (display, textContent)
  *   #pr1                       (display)
  *   #pr2                       (display)
  *   #play-icon                 (display)
@@ -86,6 +87,7 @@ let previewTickInt = null;
 let onDemandMedia  = null;  // Audio() for audio tracks, or #preview-video-el for video tracks
 let revertTimer    = null;
 let nextUpTrack    = null;
+let quota          = null;  // on-demand play quota status for free/anon listeners
 
 let artFlipped      = false;
 let artBackCache    = {};
@@ -145,6 +147,12 @@ function duration() { return state.track ? (state.track.duration || 0) : 0; }
 
 function isPaidTier() {
   return authState.loggedIn && authState.tier !== 'free';
+}
+
+export async function loadQuota() {
+  if (isPaidTier()) { quota = null; return; }
+  try { quota = await api.library.streamQuota(); }
+  catch { quota = null; }
 }
 
 function isPlayableTrack(t) {
@@ -281,6 +289,16 @@ export function render() {
 
   // on-air badge
   el('on-air-badge').style.display = !state.track ? 'flex' : 'none';
+
+  // on-demand quota badge (free tier, live view only)
+  const quotaBadge = el('quota-badge');
+  const showQuota = !state.track && !isPaidTier() && quota?.limit;
+  quotaBadge.style.display = showQuota ? 'flex' : 'none';
+  if (showQuota) {
+    quotaBadge.textContent = quota.remaining > 0
+      ? `${quota.remaining} ON-DEMAND PLAY${quota.remaining === 1 ? '' : 'S'} LEFT`
+      : `0 LEFT — RESETS IN ${Math.max(1, Math.ceil((quota.resetSec || 3600) / 60))}M`;
+  }
 
   // pulse rings
   el('pr1').style.display = state.playing ? 'block' : 'none';
@@ -495,7 +513,7 @@ function updateOnDemandProgress() {
 async function handleOnDemandError({ nextUp = false } = {}) {
   const failedTrack = state.track ? { ...state.track } : null;
   try {
-    const quota = await api.library.streamQuota();
+    quota = await api.library.streamQuota();
     if (quota.limit && quota.remaining === 0) {
       const mins = quota.resetSec ? Math.ceil(quota.resetSec / 60) : 60;
       // Only convert the failed press into the next-up slot while the hourly
@@ -575,6 +593,7 @@ export async function playOnDemand(t, { nextUp = false } = {}) {
     await onDemandMedia.play();
     state.playing = true;
     render();
+    loadQuota().then(render);
   } catch {
     state.playing = false;
     render();
@@ -603,6 +622,7 @@ export function goLive(opts = {}) {
     if (audioEl) audioEl.hidden = true;
   }
   render();
+  loadQuota().then(render);
   if (!resume) return;
 
   const media = activeMediaEl();
