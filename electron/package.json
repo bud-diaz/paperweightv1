@@ -7,13 +7,14 @@
   "homepage": "https://github.com/bud-diaz/paperweightv1",
   "scripts": {
     "start": "electron main.js",
+    "icons": "node scripts/generate-icons.js",
     "electron:rebuild": "node scripts/rebuild-native.js",
     "stage:runtime": "node ../scripts/build-desktop-runtime.js",
     "check:artifact": "node ../scripts/check-desktop-artifact.js",
-    "dist": "npm run electron:rebuild && npm run stage:runtime && electron-builder --mac --win && npm run check:artifact",
-    "dist:win": "npm run electron:rebuild && npm run stage:runtime && electron-builder --win && npm run check:artifact",
-    "dist:linux": "npm run electron:rebuild && npm run stage:runtime && electron-builder --linux && npm run check:artifact",
-    "dist:mac-universal": "npm run electron:rebuild && npm run electron:rebuild -- --arch arm64 && npm run electron:rebuild -- --arch x64 && npm run stage:runtime && electron-builder --config electron-builder.universal.json --mac && npm run check:artifact"
+    "dist": "npm run icons && npm run electron:rebuild && npm run stage:runtime && electron-builder --mac --win && npm run check:artifact",
+    "dist:win": "npm run icons && npm run electron:rebuild && npm run stage:runtime && electron-builder --win && npm run check:artifact",
+    "dist:linux": "npm run icons && npm run electron:rebuild && npm run stage:runtime && electron-builder --linux && npm run check:artifact",
+    "dist:mac-universal": "npm run icons && npm run electron:rebuild && npm run electron:rebuild -- --arch arm64 && npm run electron:rebuild -- --arch x64 && npm run stage:runtime && electron-builder --config electron-builder.universal.json --mac && npm run check:artifact"
   },
   "devDependencies": {
     "electron": "^31.0.0",
@@ -50,7 +51,7 @@
     },
     "linux": {
       "target": ["AppImage", "deb"],
-      "icon": "build/icon.png",
+      "icon": "build/icons",
       "category": "Audio",
       "synopsis": "Self-hosted, creator-first streaming and distribution",
       "maintainer": "Paperweight Systems LLC <rollingwoodsmedia@gmail.com>"

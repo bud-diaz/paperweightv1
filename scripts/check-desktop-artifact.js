@@ -26,6 +26,49 @@ function exists(rel) {
   return fs.existsSync(path.join(STAGE, rel));
 }
 
+function readPngInfo(file) {
+  const buf = fs.readFileSync(file);
+  const pngSig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (buf.length < 33 || buf.slice(0, 8).compare(pngSig) !== 0) {
+    throw new Error('not a PNG');
+  }
+  return {
+    width: buf.readUInt32BE(16),
+    height: buf.readUInt32BE(20),
+    colorType: buf[25],
+  };
+}
+
+function checkPng(rel, size, label) {
+  const full = path.join(ELECTRON_DIR, rel);
+  if (!fs.existsSync(full)) {
+    fail(`${label} missing: electron/${rel}`);
+    return;
+  }
+
+  try {
+    const info = readPngInfo(full);
+    if (info.width === size && info.height === size) {
+      pass(`${label}: ${size}x${size}`);
+    } else {
+      fail(`${label} should be ${size}x${size}, found ${info.width}x${info.height}`);
+    }
+  } catch (err) {
+    fail(`${label} invalid PNG: ${err.message}`);
+  }
+}
+
+function checkContainerIcon(rel, magic, label) {
+  const full = path.join(ELECTRON_DIR, rel);
+  if (!fs.existsSync(full)) {
+    fail(`${label} missing: electron/${rel}`);
+    return;
+  }
+  const head = fs.readFileSync(full).slice(0, magic.length);
+  if (head.compare(Buffer.from(magic, 'binary')) === 0) pass(`${label} exists`);
+  else fail(`${label} has unexpected file header`);
+}
+
 function walk(dir, visit) {
   if (!fs.existsSync(dir)) return;
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -57,6 +100,26 @@ function checkNoSourceMaps(dir, label) {
   });
   if (offenders.length) fail(`${label} contains source map references: ${offenders.slice(0, 5).join(', ')}`);
   else pass(`${label} has no source maps`);
+}
+
+function checkIconAssets() {
+  const electronPkg = JSON.parse(fs.readFileSync(path.join(ELECTRON_DIR, 'package.json'), 'utf8'));
+  if (electronPkg.build?.linux?.icon === 'build/icons') {
+    pass('Linux Electron icon config uses build/icons icon set');
+  } else {
+    fail('Linux Electron icon config should use build/icons so hicolor icon sizes resolve');
+  }
+
+  checkPng(path.join('build', 'icon.png'), 512, 'desktop app PNG icon');
+  checkPng(path.join('build', 'tray-icon.png'), 32, 'tray PNG icon');
+  checkPng(path.join('build', 'tray-icon@2x.png'), 64, 'tray @2x PNG icon');
+
+  for (const size of [16, 24, 32, 48, 64, 128, 256, 512]) {
+    checkPng(path.join('build', 'icons', `${size}x${size}.png`), size, `Linux hicolor icon ${size}`);
+  }
+
+  checkContainerIcon(path.join('build', 'icon.ico'), '\x00\x00\x01\x00', 'Windows ICO icon');
+  checkContainerIcon(path.join('build', 'icon.icns'), 'icns', 'macOS ICNS icon');
 }
 
 function checkStage() {
@@ -151,6 +214,7 @@ function checkBuiltResources() {
   }
 }
 
+checkIconAssets();
 checkStage();
 checkBuiltResources();
 
