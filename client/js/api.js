@@ -145,6 +145,24 @@ export const library = {
     const data = await res.json().catch(() => ({}));
     return { res, data };
   },
+
+  /**
+   * GET /api/library/stream-quota — current on-demand play allowance.
+   * @returns {{ limit: number|null, remaining: number|null, resetSec: number }}
+   */
+  streamQuota() {
+    return _json('/api/library/stream-quota');
+  },
+
+  /**
+   * URL for full on-demand streaming.
+   * @param {number} id
+   * @param {{ nextUp?: boolean }} opts
+   * @returns {string}
+   */
+  streamUrl(id, opts = {}) {
+    return `/api/library/${encodeURIComponent(id)}/stream${opts.nextUp ? '?nextUp=1' : ''}`;
+  },
 };
 
 // ── api.auth ──────────────────────────────────────────────────────────────────────

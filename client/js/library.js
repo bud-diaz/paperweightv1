@@ -28,6 +28,8 @@ let _openModal        = () => {};
 let _setModalTab      = () => {};
 let _openLibraryModal = () => {};
 let _checkVaultGate   = async () => false;
+let _setNextUp        = () => {};
+let _onLibraryLoaded  = () => {};
 
 /**
  * Register cross-module callbacks.
@@ -35,13 +37,15 @@ let _checkVaultGate   = async () => false;
  *
  * @param {{ selectVOD, startGatedPreview, openModal, setModalTab, openLibraryModal, checkVaultGate }} cbs
  */
-export function init({ selectVOD, startGatedPreview, openModal, setModalTab, openLibraryModal, checkVaultGate } = {}) {
+export function init({ selectVOD, startGatedPreview, openModal, setModalTab, openLibraryModal, checkVaultGate, setNextUp, onLibraryLoaded } = {}) {
   if (selectVOD)         _selectVOD         = selectVOD;
   if (startGatedPreview) _startGatedPreview  = startGatedPreview;
   if (openModal)         _openModal          = openModal;
   if (setModalTab)       _setModalTab        = setModalTab;
   if (openLibraryModal)  _openLibraryModal   = openLibraryModal;
   if (checkVaultGate)    _checkVaultGate     = checkVaultGate;
+  if (setNextUp)         _setNextUp          = setNextUp;
+  if (onLibraryLoaded)   _onLibraryLoaded    = onLibraryLoaded;
 }
 
 // ── Track normalization ───────────────────────────────────────────────────────
@@ -67,6 +71,7 @@ export function normalizeTrack(item) {
     price:          item.price || null,
     offlineAllowed: !!item.offlineAllowed,
     mimeType:       item.mimeType || null,
+    isExternal:     !!item.isExternal,
   };
 }
 
@@ -80,6 +85,7 @@ export async function loadLibrary() {
     for (const proj of (data.projects  || [])) proj.tracks.forEach(t => LIBRARY.push(normalizeTrack(t)));
     for (const t    of (data.standalone || []))  LIBRARY.push(normalizeTrack(t));
     buildLibrary();
+    _onLibraryLoaded();
   } catch {}
 }
 
@@ -92,8 +98,9 @@ export function buildLibRow(t, onClick) {
   if (isActive) { row.classList.add('active'); row.style.borderLeftColor = t.color; }
   // Owned state from the server's ownership context: an unlocked vault track
   // shows as owned rather than gated (Papercut's "in your collection" mark).
-  const isOwned = t.visibility === 'vault' && t.unlocked === true;
-  const isGated = !isOwned && (t.visibility === 'supporters_only' || t.visibility === 'vault');
+  const isUnlocked = t.unlocked === true;
+  const isOwned = t.visibility === 'vault' && isUnlocked;
+  const isGated = !isUnlocked && (t.visibility === 'supporters_only' || t.visibility === 'vault');
   const priceLabel = t.price
     ? (t.price.allowFree ? 'FREE' : `$${((t.price.minimum || t.price.suggested) / 100).toFixed(2)}`)
     : '$';
@@ -101,7 +108,7 @@ export function buildLibRow(t, onClick) {
     ? `<img src="/api/library/${t.id}/artwork" loading="lazy" onerror="this.style.display='none'"/>`
     : `<span>${t.type === 'video' ? '▶' : '♪'}</span>`;
   row.innerHTML = `
-    <div class="lib-thumb" style="background:linear-gradient(135deg,${t.color}44,${t.color}11);border:1px solid ${t.color}33;">${thumbContent}<button class="lib-queue-btn" data-id="${t.id}" data-title="${esc(t.title)}" data-artist="${esc(t.creator)}" title="Add to queue">+</button></div>
+    <div class="lib-thumb" style="background:linear-gradient(135deg,${t.color}44,${t.color}11);border:1px solid ${t.color}33;">${thumbContent}<button class="lib-queue-btn" data-id="${t.id}" data-title="${esc(t.title)}" data-artist="${esc(t.creator)}" data-type="${esc(t.type)}" data-duration="${t.duration || 0}" data-visibility="${esc(t.visibility)}" data-unlocked="${t.unlocked === true ? '1' : '0'}" title="Add to queue">+</button></div>
     <div class="lib-info">
       <div class="lib-title${isActive ? ' active' : ''}">
         ${esc(t.title)}${isGated ? '<span class="lib-lock">⬡</span>' : ''}${isOwned ? '<span class="lib-owned" title="In your collection">✓</span>' : ''}
@@ -211,6 +218,7 @@ function buildCuratedProjectRow(proj, label) {
 // ── Curated drawer (3 rows: latest project, most played, creator highlight) ──
 export function buildLibrary() {
   const list = el('lib-list');
+  if (!list) return;
   const { curated } = LIBRARY_STRUCTURE;
 
   list.innerHTML = '';
@@ -398,6 +406,53 @@ export function getListenerQueue() {
   return listenerQueue;
 }
 
+function isPaidTier() {
+  return authState.loggedIn && authState.tier !== 'free';
+}
+
+function canQueueTrack(t) {
+  if (!t || t.isExternal) return false;
+  if (t.visibility === 'public') return true;
+  if (t.visibility === 'supporters_only') return t.unlocked === true || isPaidTier();
+  if (t.visibility === 'vault') return t.unlocked === true;
+  return true;
+}
+
+export function addToQueue(track) {
+  const t = track?.id ? track : null;
+  if (!t) return false;
+
+  if (!canQueueTrack(t)) {
+    if (t.visibility === 'vault') _checkVaultGate(t);
+    else if (t.visibility === 'supporters_only') { _openModal(); _setModalTab('subscribe'); }
+    else showToast('This track is not available for queueing');
+    return false;
+  }
+
+  if (!isPaidTier()) {
+    _setNextUp(t);
+    showToast('Next-up armed. This pick will play after the current broadcast track ends.');
+    return true;
+  }
+
+  if (listenerQueue.length >= 5) {
+    showToast('Queue full (5/5)');
+    return false;
+  }
+
+  listenerQueue.push({ ...t });
+  updateListenerQueuePill();
+  showToast(`Added to queue (${listenerQueue.length}/5)`);
+  return true;
+}
+
+export function takeNextQueueTrack() {
+  if (!listenerQueue.length) return null;
+  const next = listenerQueue.shift();
+  updateListenerQueuePill();
+  return next;
+}
+
 // ── Event wiring (called from main.js in Phase 8) ─────────────────────────────
 
 export function initListenerQueueHandlers() {
@@ -419,14 +474,18 @@ export function initListenerQueueHandlers() {
     if (!btn) return;
     if (el('player-card')?.classList.contains('dash-active')) return;
     e.stopPropagation();
-    if (!authState.loggedIn || authState.tier === 'free') {
-      _openModal(); _setModalTab('subscribe');
-      return;
-    }
-    if (listenerQueue.length >= 5) { showToast('Queue full (5/5)'); return; }
-    listenerQueue.push({ id: parseInt(btn.dataset.id), title: btn.dataset.title, artist: btn.dataset.artist });
-    updateListenerQueuePill();
-    showToast(`Added to queue (${listenerQueue.length}/5)`);
+    const id = parseInt(btn.dataset.id, 10);
+    const existing = LIBRARY.find(t => Number(t.id) === id);
+    addToQueue(existing || {
+      id,
+      title: btn.dataset.title,
+      creator: btn.dataset.artist,
+      artist: btn.dataset.artist,
+      type: btn.dataset.type || 'audio',
+      duration: parseFloat(btn.dataset.duration || '0') || 0,
+      visibility: btn.dataset.visibility || 'public',
+      unlocked: btn.dataset.unlocked === '1',
+    });
   });
 
   el('listener-queue-pill').addEventListener('click', () => {

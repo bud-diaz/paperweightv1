@@ -71,7 +71,7 @@
 import {
   state, PREVIEW_SECS, LIBRARY, authState,
 } from './state.js';
-import { el, fmt, esc, generateWaveform, setDrawer } from './utils.js';
+import { el, fmt, esc, generateWaveform, setDrawer, showToast } from './utils.js';
 import * as api from './api.js';
 import {
   setupHls, activeMediaEl, getHls, isVideoMode, getStationName,
@@ -83,6 +83,9 @@ import {
 let previewMedia   = null;  // Audio() for audio tracks, or #preview-video-el for video tracks
 let previewTimer   = null;
 let previewTickInt = null;
+let onDemandMedia  = null;  // Audio() for audio tracks, or #preview-video-el for video tracks
+let revertTimer    = null;
+let nextUpTrack    = null;
 
 let artFlipped      = false;
 let artBackCache    = {};
@@ -97,6 +100,7 @@ let _setModalTab      = (tab) => {};
 let _checkVaultGate   = async () => {};
 let _buildLibrary     = () => {};
 let _loadQueue        = () => {};
+let _takeNextQueueTrack = () => null;
 
 /**
  * Register cross-module callbacks to avoid circular imports.
@@ -109,6 +113,7 @@ export function registerCallbacks({
   checkVaultGate,
   buildLibrary,
   loadQueue,
+  takeNextQueueTrack,
 } = {}) {
   if (asciiInitAudio)  _asciiInitAudio  = asciiInitAudio;
   if (openModal)       _openModal       = openModal;
@@ -116,6 +121,7 @@ export function registerCallbacks({
   if (checkVaultGate)  _checkVaultGate  = checkVaultGate;
   if (buildLibrary)    _buildLibrary    = buildLibrary;
   if (loadQueue)       _loadQueue       = loadQueue;
+  if (takeNextQueueTrack) _takeNextQueueTrack = takeNextQueueTrack;
 }
 
 // ── Computed helpers ──────────────────────────────────────────────────────────────
@@ -136,6 +142,19 @@ export function activeTrack() {
 }
 
 function duration() { return state.track ? (state.track.duration || 0) : 0; }
+
+function isPaidTier() {
+  return authState.loggedIn && authState.tier !== 'free';
+}
+
+function isPlayableTrack(t) {
+  if (!t) return false;
+  if (t.isExternal) return false;
+  if (t.visibility === 'public') return true;
+  if (t.visibility === 'supporters_only') return t.unlocked === true || isPaidTier();
+  if (t.visibility === 'vault') return t.unlocked === true;
+  return true;
+}
 
 // ── Art card ──────────────────────────────────────────────────────────────────────
 
@@ -331,6 +350,22 @@ export function render() {
 
 export function togglePlay() {
   if (previewMedia) { stopPreview(); goLive(); return; }
+  if (onDemandMedia) {
+    if (onDemandMedia.paused) {
+      onDemandMedia.play().then(() => {
+        state.playing = true;
+        render();
+      }).catch(() => {
+        state.playing = false;
+        render();
+      });
+    } else {
+      onDemandMedia.pause();
+      state.playing = false;
+      render();
+    }
+    return;
+  }
   const media = activeMediaEl();
   if (media.paused) {
     if (!getHls() && !media.src) {
@@ -373,6 +408,30 @@ export function stopPreview() {
   clearInterval(previewTickInt); previewTickInt = null;
 }
 
+function clearRevertTimer() {
+  clearTimeout(revertTimer);
+  revertTimer = null;
+}
+
+function stopOnDemand() {
+  clearRevertTimer();
+  if (!onDemandMedia) return;
+
+  onDemandMedia.pause();
+  onDemandMedia.ontimeupdate = null;
+  onDemandMedia.onloadedmetadata = null;
+  onDemandMedia.onended = null;
+  onDemandMedia.onerror = null;
+  if (onDemandMedia === el('preview-video-el')) {
+    onDemandMedia.hidden = true;
+    onDemandMedia.removeAttribute('src');
+    onDemandMedia.load();
+  } else {
+    onDemandMedia.removeAttribute('src');
+  }
+  onDemandMedia = null;
+}
+
 function playPreview(t) {
   stopPreview();
   Object.assign(state, { track: { ...t, isPreview: true }, progress: 0, elapsed: 0, isPreview: true, showLib: false });
@@ -412,36 +471,174 @@ export async function startGatedPreview(t) {
 
 // ── VOD selection ─────────────────────────────────────────────────────────────────
 
-export async function selectVOD(t) {
-  if (t.visibility === 'supporters_only' || t.visibility === 'vault') {
-    await startGatedPreview(t);
-    return;
-  }
-  Object.assign(state, { track: t, progress: 0, elapsed: 0, isPreview: false, showLib: false });
-  _buildLibrary();
+export function setNextUp(t) {
+  nextUpTrack = t ? { ...t } : null;
+}
+
+export function handleNowPlayingChange() {
+  if (!nextUpTrack || state.track || previewMedia || onDemandMedia) return;
+  const track = nextUpTrack;
+  nextUpTrack = null;
+  playOnDemand(track, { nextUp: true });
+}
+
+function updateOnDemandProgress() {
+  if (!onDemandMedia || !state.track) return;
+  const mediaDuration = Number.isFinite(onDemandMedia.duration) ? onDemandMedia.duration : 0;
+  if (!state.track.duration && mediaDuration > 0) state.track.duration = mediaDuration;
+  const d = duration() || mediaDuration;
+  state.elapsed = onDemandMedia.currentTime || 0;
+  state.progress = d > 0 ? Math.min(state.elapsed / d, 1) : 0;
   render();
 }
 
-export function goLive() {
-  stopPreview();
-  Object.assign(state, { track: null, progress: 0, elapsed: 0, isPreview: false });
+async function handleOnDemandError({ nextUp = false } = {}) {
+  const failedTrack = state.track ? { ...state.track } : null;
+  try {
+    const quota = await api.library.streamQuota();
+    if (quota.limit && quota.remaining === 0) {
+      const mins = quota.resetSec ? Math.ceil(quota.resetSec / 60) : 60;
+      if (!nextUp && failedTrack && !isPaidTier()) {
+        setNextUp(failedTrack);
+        showToast(`${quota.limit} ON-DEMAND PLAYS USED. NEXT-UP ARMED.`);
+      } else {
+        showToast(`${quota.limit} ON-DEMAND PLAYS USED THIS HOUR. RESET IN ${mins} ${mins === 1 ? 'MIN' : 'MINS'}`);
+      }
+    } else {
+      showToast('Playback unavailable');
+    }
+  } catch {
+    showToast('Playback unavailable');
+  }
+  goLive({ resume: true });
+}
+
+function playNextAfterOnDemand() {
+  stopOnDemand();
+  if (isPaidTier()) {
+    const next = _takeNextQueueTrack();
+    if (next) {
+      playOnDemand(next);
+      return;
+    }
+  }
+  revertTimer = setTimeout(() => goLive({ resume: true }), 30_000);
+  Object.assign(state, { playing: false, progress: 1, elapsed: duration() });
   render();
+}
+
+export async function playOnDemand(t, { nextUp = false } = {}) {
+  if (!t?.id) return;
+  stopPreview();
+  stopOnDemand();
+  clearRevertTimer();
+
+  const liveEl = activeMediaEl();
+  if (liveEl) {
+    try { liveEl.pause(); } catch {}
+  }
+  stopPingInterval();
+
+  if (t.type !== 'video') {
+    const liveVideo = el('video-el');
+    if (liveVideo) liveVideo.hidden = true;
+  }
+
+  Object.assign(state, {
+    track: { ...t, isPreview: false },
+    progress: 0,
+    elapsed: 0,
+    isPreview: false,
+    playing: false,
+    showLib: false,
+  });
+  render();
+
+  const src = api.library.streamUrl(t.id, { nextUp });
+  if (t.type === 'video') {
+    const vidEl = el('preview-video-el');
+    vidEl.hidden = false;
+    vidEl.src = src;
+    onDemandMedia = vidEl;
+  } else {
+    onDemandMedia = new Audio(src);
+  }
+
+  onDemandMedia.onloadedmetadata = updateOnDemandProgress;
+  onDemandMedia.ontimeupdate = updateOnDemandProgress;
+  onDemandMedia.onended = playNextAfterOnDemand;
+  onDemandMedia.onerror = () => handleOnDemandError({ nextUp });
+
+  try {
+    await onDemandMedia.play();
+    state.playing = true;
+    render();
+  } catch {
+    state.playing = false;
+    render();
+  }
+}
+
+export async function selectVOD(t) {
+  if (!t) return;
+  if (!isPlayableTrack(t)) {
+    await startGatedPreview(t);
+    return;
+  }
+  await playOnDemand(t);
+  _buildLibrary();
+}
+
+export function goLive(opts = {}) {
+  const resume = opts?.resume === true;
+  stopPreview();
+  stopOnDemand();
+  Object.assign(state, { track: null, progress: 0, elapsed: 0, isPreview: false, playing: false });
+  if (isVideoMode()) {
+    const videoEl = el('video-el');
+    const audioEl = el('audio-el');
+    if (videoEl) videoEl.hidden = false;
+    if (audioEl) audioEl.hidden = true;
+  }
+  render();
+  if (!resume) return;
+
+  const media = activeMediaEl();
+  if (!getHls() && !media.src) setupHls(media);
+  media.play().then(() => {
+    state.playing = true;
+    _asciiInitAudio();
+    render();
+    startPingInterval();
+  }).catch(() => {
+    state.playing = false;
+    render();
+  });
 }
 
 // ── Skip / seek ───────────────────────────────────────────────────────────────────
 
 export function skipTrack(dir) {
   if (!state.track) return;
-  const idx = LIBRARY.findIndex(t => t.id === state.track?.id);
+  if (dir > 0 && isPaidTier()) {
+    const next = _takeNextQueueTrack();
+    if (next) {
+      selectVOD(next);
+      return;
+    }
+  }
+  const playable = LIBRARY.filter(isPlayableTrack);
+  const idx = playable.findIndex(t => t.id === state.track?.id);
   if (idx < 0) return;
-  selectVOD(LIBRARY[(idx + dir + LIBRARY.length) % LIBRARY.length]);
+  selectVOD(playable[(idx + dir + playable.length) % playable.length]);
 }
 
 export function seekWaveform(e) {
-  if (!state.track || !duration()) return;
+  if (!state.track || state.isPreview || !duration()) return;
   const rect     = el('waveform').getBoundingClientRect();
   state.progress = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
   state.elapsed  = Math.floor(state.progress * duration());
+  if (onDemandMedia) onDemandMedia.currentTime = state.elapsed;
   renderWaveform();
   el('time-elapsed').textContent = fmt(state.elapsed);
   el('time-remain').textContent  = `-${fmt(duration() - state.elapsed)}`;

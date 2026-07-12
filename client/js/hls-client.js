@@ -33,6 +33,7 @@ let _render           = () => {};
 let _asciiStart       = () => {};
 let _asciiStop        = () => {};
 let _asciiLoadArtwork = () => {};
+let _onNowPlayingChange = () => {};
 
 /**
  * Register callbacks to break the circular dependency with player.js.
@@ -41,11 +42,12 @@ let _asciiLoadArtwork = () => {};
  *
  * @param {{ onRender, onAsciiStart, onAsciiStop, onAsciiLoadArtwork }} callbacks
  */
-export function init({ onRender, onAsciiStart, onAsciiStop, onAsciiLoadArtwork } = {}) {
+export function init({ onRender, onAsciiStart, onAsciiStop, onAsciiLoadArtwork, onNowPlayingChange } = {}) {
   if (onRender)           _render           = onRender;
   if (onAsciiStart)       _asciiStart       = onAsciiStart;
   if (onAsciiStop)        _asciiStop        = onAsciiStop;
   if (onAsciiLoadArtwork) _asciiLoadArtwork = onAsciiLoadArtwork;
+  if (onNowPlayingChange) _onNowPlayingChange = onNowPlayingChange;
 }
 
 // ── Getters for state player.js needs to read ─────────────────────────────────────
@@ -193,9 +195,14 @@ export async function fetchStreamStatus() {
       }
     }
 
+    const previousNowPlayingId = state.nowPlaying?.id ?? null;
     if (data.station) stationName = data.station;
     state.nowPlaying    = data.nowPlaying || null;
     state.listenerCount = data.listenerCount || 0;
+    const nextNowPlayingId = state.nowPlaying?.id ?? null;
+    if (previousNowPlayingId && nextNowPlayingId && previousNowPlayingId !== nextNowPlayingId) {
+      _onNowPlayingChange(state.nowPlaying, previousNowPlayingId);
+    }
 
     // Delegate to ASCII renderer via injected callbacks
     if (state.playing && data.nowPlaying) {
