@@ -296,6 +296,10 @@ el('art-flip').addEventListener('click', () => {
   const flipped = el('art-flip').classList.toggle('flipped');
   if (flipped) player.renderArtBack();
 });
+el('fullscreen-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  player.toggleFullscreen();
+});
 
 // ─── View toggle (PLAY / STUDIO) ────────────────────────────────────────────
 document.querySelectorAll('.view-tab').forEach(btn => {

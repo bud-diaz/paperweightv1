@@ -21,6 +21,7 @@
  *   #track-station             (textContent)
  *   #on-air-badge              (display)
  *   #quota-badge               (display, textContent)
+ *   #fullscreen-btn            (display)
  *   #pr1                       (display)
  *   #pr2                       (display)
  *   #play-icon                 (display)
@@ -64,6 +65,7 @@
  *   #account-area    click → open share + scroll to auth-toggle
  *   #waveform        click → seekWaveform
  *   #art-flip        click → flip art card / renderArtBack
+ *   #fullscreen-btn  click → toggleFullscreen
  *   .view-tab (all)  click → switch PLAY/STUDIO view
  *   #pw-wordmark-text mousedown/touchstart/up/leave → long-press enterDashboard,
  *                     short press → station-directory search field (main.js)
@@ -279,6 +281,9 @@ export function render() {
   const rvWrap = el('real-video-toggle-wrap');
   if (rvWrap) rvWrap.hidden = state.isPreview || t.type !== 'video';
 
+  // fullscreen button — only when a video surface is actually on screen
+  el('fullscreen-btn').style.display = t.type === 'video' ? 'flex' : 'none';
+
   // back-live btn
   el('back-live-btn').style.display = state.track ? 'inline-block' : 'none';
 
@@ -363,6 +368,45 @@ export function render() {
 
   setColor(t.color);
 }
+
+// ── Fullscreen ──────────────────────────────────────────────────────────────────────
+
+function fsElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+export function toggleFullscreen() {
+  const box = el('art-box');
+  if (fsElement()) {
+    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+    return;
+  }
+  if (box.requestFullscreen) { box.requestFullscreen(); return; }
+  if (box.webkitRequestFullscreen) { box.webkitRequestFullscreen(); return; }
+  // iPhone Safari has no element-level Fullscreen API; fall back to native
+  // video fullscreen, whose orientation follows physical device rotation
+  // on its own — no orientation-lock call needed on that path.
+  const activeVideo = !el('preview-video-el').hidden ? el('preview-video-el') : el('video-el');
+  activeVideo?.webkitEnterFullscreen?.();
+}
+
+function syncFullscreenUI() {
+  const active = fsElement() === el('art-box');
+  el('art-box').classList.toggle('is-fullscreen', active);
+  el('fullscreen-enter-icon').style.display = active ? 'none' : 'block';
+  el('fullscreen-exit-icon').style.display  = active ? 'block' : 'none';
+
+  // Mobile Chrome/Android only allows orientation lock while an element is
+  // fullscreen; desktop and iOS Safari reject it, so failures are swallowed.
+  if (active) {
+    screen.orientation?.lock?.('landscape').catch(() => {});
+  } else {
+    screen.orientation?.unlock?.();
+  }
+}
+
+document.addEventListener('fullscreenchange', syncFullscreenUI);
+document.addEventListener('webkitfullscreenchange', syncFullscreenUI);
 
 // ── Play / pause ──────────────────────────────────────────────────────────────────
 
