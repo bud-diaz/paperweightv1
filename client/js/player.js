@@ -384,7 +384,8 @@ export function toggleFullscreen() {
   if (box.requestFullscreen) { box.requestFullscreen(); return; }
   if (box.webkitRequestFullscreen) { box.webkitRequestFullscreen(); return; }
   // iPhone Safari has no element-level Fullscreen API; fall back to native
-  // video fullscreen on whichever <video> is currently visible.
+  // video fullscreen, whose orientation follows physical device rotation
+  // on its own — no orientation-lock call needed on that path.
   const activeVideo = !el('preview-video-el').hidden ? el('preview-video-el') : el('video-el');
   activeVideo?.webkitEnterFullscreen?.();
 }
@@ -394,6 +395,14 @@ function syncFullscreenUI() {
   el('art-box').classList.toggle('is-fullscreen', active);
   el('fullscreen-enter-icon').style.display = active ? 'none' : 'block';
   el('fullscreen-exit-icon').style.display  = active ? 'block' : 'none';
+
+  // Mobile Chrome/Android only allows orientation lock while an element is
+  // fullscreen; desktop and iOS Safari reject it, so failures are swallowed.
+  if (active) {
+    screen.orientation?.lock?.('landscape').catch(() => {});
+  } else {
+    screen.orientation?.unlock?.();
+  }
 }
 
 document.addEventListener('fullscreenchange', syncFullscreenUI);
