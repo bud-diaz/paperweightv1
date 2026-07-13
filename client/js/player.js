@@ -295,9 +295,9 @@ export function render() {
   // on-air badge
   el('on-air-badge').style.display = !state.track ? 'flex' : 'none';
 
-  // on-demand quota badge (free tier, live view only)
+  // on-demand quota badge (free tier only — hidden for paid tiers and the creator via CSS)
   const quotaBadge = el('quota-badge');
-  const showQuota = !state.track && !isPaidTier() && quota?.limit;
+  const showQuota = !isPaidTier() && quota?.limit;
   quotaBadge.style.display = showQuota ? 'flex' : 'none';
   if (showQuota) {
     quotaBadge.textContent = quota.remaining > 0
