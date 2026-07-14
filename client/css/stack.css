@@ -256,6 +256,10 @@
   white-space: nowrap;
 }
 
+.stack-row-playable .stack-row-title {
+  text-shadow: 0 0 8px var(--track-glow-color-soft, #39ff1459);
+}
+
 .stack-row-meta {
   margin-top: 2px;
   font-family: 'Space Mono', monospace;

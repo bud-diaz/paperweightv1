@@ -190,6 +190,7 @@ function makeTrackRow(raw) {
   const row = document.createElement('div');
   row.className = [
     'stack-row',
+    playable ? 'stack-row-playable' : '',
     lockedSupporter || t.isExternal ? 'stack-row-locked' : '',
     lockedVault ? 'stack-row-redacted' : '',
   ].filter(Boolean).join(' ');
@@ -346,7 +347,7 @@ async function refreshStash() {
   for (const item of saved) {
     const track = fallbackTrack(item);
     const row = document.createElement('div');
-    row.className = 'stack-row stack-stash-row';
+    row.className = 'stack-row stack-row-playable stack-stash-row';
     row.innerHTML = `
       <div class="stack-row-main">
         <div class="stack-row-title">${esc(track.title)}</div>
