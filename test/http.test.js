@@ -370,6 +370,51 @@ test('stream status exposes listener-safe station queue slots', async () => {
   }
 });
 
+test('dashboard broadcast queue accepts only public local tracks', async () => {
+  const db = freshDb();
+  clearStationQueue();
+  const publicTrack = seedMedia(db, { title: 'Public Queue', filepath: '/vault/public-queue.mp3' });
+  const supporter = seedMedia(db, { title: 'Supporter Queue', visibility: 'supporters_only', filepath: '/vault/supporter-queue.mp3' });
+  const vault = seedMedia(db, { title: 'Vault Queue', visibility: 'vault', filepath: '/vault/vault-queue.mp3' });
+  const external = seedMedia(db, { title: 'External Queue', filepath: 'external://youtube/queue' });
+  const headers = { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN, 'Content-Type': 'application/json' };
+
+  try {
+    await withServer(async baseUrl => {
+      const ok = await request(baseUrl, '/api/dashboard/broadcast/queue', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ mediaId: publicTrack.id }),
+      });
+      assert.equal(ok.res.status, 200);
+
+      for (const mediaId of [supporter.id, vault.id, external.id]) {
+        const denied = await request(baseUrl, '/api/dashboard/broadcast/queue', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ mediaId }),
+        });
+        assert.equal(denied.res.status, 400);
+        assert.match(denied.body.error, /public local/i);
+      }
+
+      broadcast.addToStationQueue(vault.id);
+      broadcast.addToStationQueue(external.id);
+
+      const dashboardQueue = await request(baseUrl, '/api/dashboard/broadcast/queue', {
+        headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+      });
+      assert.equal(dashboardQueue.res.status, 200);
+      assert.deepEqual(dashboardQueue.body.queue.map(item => item.title), ['Public Queue']);
+
+      const status = await request(baseUrl, '/api/stream/status');
+      assert.deepEqual(status.body.stationQueue.map(item => item.title), ['Public Queue']);
+    });
+  } finally {
+    clearStationQueue();
+  }
+});
+
 test('vault unlock options are camelCase for the player UI', async () => {
   const db = freshDb();
   const media = seedMedia(db, { visibility: 'vault' });

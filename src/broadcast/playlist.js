@@ -1,13 +1,24 @@
 const { getDb } = require('../db');
 
 const BATCH_SIZE = 50;
+const BROADCAST_LOCAL_FILE_SQL = "m.filepath IS NOT NULL AND m.filepath NOT LIKE 'external://%'";
+
+function isBroadcastPlayableTrack(track) {
+  return !!track
+    && track.is_active !== 0
+    && track.visibility === 'public'
+    && typeof track.filepath === 'string'
+    && track.filepath.length > 0
+    && !track.filepath.startsWith('external://');
+}
 
 // Weighted shuffle: tracks not played recently are pulled first.
 // Falls back to RANDOM() as a tiebreaker so the order stays fresh.
 function buildShuffleBatch({ category = null, tagsFilter = [], count = BATCH_SIZE } = {}) {
   const useTagFilter = Array.isArray(tagsFilter) && tagsFilter.length > 0;
   const rows = getDb().prepare(`
-    SELECT m.id, m.filepath, m.duration, m.title, m.artist, m.category, m.mime_type, m.tags
+    SELECT m.id, m.filepath, m.duration, m.title, m.artist, m.category,
+           m.mime_type, m.tags, m.visibility, m.is_active
     FROM media m
     LEFT JOIN (
       SELECT media_id, MAX(started_at) AS last_played
@@ -16,6 +27,7 @@ function buildShuffleBatch({ category = null, tagsFilter = [], count = BATCH_SIZ
     ) le ON m.id = le.media_id
     WHERE m.is_active = 1
       AND m.visibility = 'public'
+      AND ${BROADCAST_LOCAL_FILE_SQL}
       AND (:category IS NULL OR m.category = :category)
     ORDER BY COALESCE(le.last_played, '1970-01-01') ASC, RANDOM()
     ${useTagFilter ? '' : 'LIMIT :count'}
@@ -41,12 +53,14 @@ function matchesTags(row, tagsFilter) {
 // Sequential: ordered by playlist_items.position for a specific schedule block.
 function buildSequentialBatch({ blockId, count = BATCH_SIZE } = {}) {
   return getDb().prepare(`
-    SELECT m.id, m.filepath, m.duration, m.title, m.artist, m.category, m.mime_type
+    SELECT m.id, m.filepath, m.duration, m.title, m.artist, m.category,
+           m.mime_type, m.visibility, m.is_active
     FROM playlist_items pi
     JOIN media m ON m.id = pi.media_id
     WHERE pi.block_id = ?
       AND m.is_active = 1
       AND m.visibility = 'public'
+      AND ${BROADCAST_LOCAL_FILE_SQL}
     ORDER BY pi.position
     LIMIT ?
   `).all(blockId, count);
@@ -60,7 +74,8 @@ function buildSmartPlaylistBatch({ category = null, tagsFilter = [], mode = 'shu
     ? 'ORDER BY m.indexed_at ASC, m.id ASC'
     : "ORDER BY COALESCE(le.last_played, '1970-01-01') ASC, RANDOM()";
   const candidates = getDb().prepare(`
-    SELECT m.id, m.filepath, m.duration, m.title, m.artist, m.category, m.mime_type, m.tags
+    SELECT m.id, m.filepath, m.duration, m.title, m.artist, m.category,
+           m.mime_type, m.tags, m.visibility, m.is_active
     FROM media m
     LEFT JOIN (
       SELECT media_id, MAX(started_at) AS last_played
@@ -69,6 +84,7 @@ function buildSmartPlaylistBatch({ category = null, tagsFilter = [], mode = 'shu
     ) le ON m.id = le.media_id
     WHERE m.is_active = 1
       AND m.visibility = 'public'
+      AND ${BROADCAST_LOCAL_FILE_SQL}
       AND (:category IS NULL OR m.category = :category)
     ${orderBy}
   `).all({ category: category || null });
@@ -95,4 +111,12 @@ function homogenizeBatch(tracks) {
   return tracks.filter(t => isVideoTrack(t) === isVideoBatch);
 }
 
-module.exports = { buildShuffleBatch, buildSequentialBatch, buildSmartPlaylistBatch, homogenizeBatch, isVideoTrack, BATCH_SIZE };
+module.exports = {
+  buildShuffleBatch,
+  buildSequentialBatch,
+  buildSmartPlaylistBatch,
+  homogenizeBatch,
+  isVideoTrack,
+  isBroadcastPlayableTrack,
+  BATCH_SIZE,
+};

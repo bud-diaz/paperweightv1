@@ -3,7 +3,14 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config');
 const { log, getDb } = require('../db');
-const { buildShuffleBatch, buildSequentialBatch, buildSmartPlaylistBatch, homogenizeBatch, isVideoTrack } = require('./playlist');
+const {
+  buildShuffleBatch,
+  buildSequentialBatch,
+  buildSmartPlaylistBatch,
+  homogenizeBatch,
+  isVideoTrack,
+  isBroadcastPlayableTrack,
+} = require('./playlist');
 const { resolveCurrentBlock } = require('./scheduler');
 const { writeConcatManifest } = require('./concat');
 const { ffmpegPath, installHint } = require('../runtime/ffmpeg');
@@ -25,7 +32,7 @@ let stationQueue = [];
 function getStationQueue() { return [...stationQueue]; }
 
 function publicTrack(track) {
-  if (!track) return null;
+  if (!isBroadcastPlayableTrack(track)) return null;
   return {
     id: track.id,
     title: track.title || track.filename || (track.filepath ? path.basename(track.filepath) : 'Untitled'),
@@ -48,7 +55,8 @@ function getPublicStationQueue(limit = 5) {
   if (slots.length < limit && stationQueue.length > 0) {
     try {
       const lookup = getDb().prepare(`
-        SELECT id, filepath, filename, title, artist, category, duration, mime_type
+        SELECT id, filepath, filename, title, artist, category, duration,
+               mime_type, visibility, is_active
         FROM media
         WHERE id = ? AND is_active = 1
       `);
@@ -213,7 +221,7 @@ function resolveBatch() {
     const trackId = stationQueue.shift();
     try {
       const track = getDb().prepare('SELECT * FROM media WHERE id = ? AND is_active = 1').get(trackId);
-      if (track) {
+      if (isBroadcastPlayableTrack(track)) {
         const tracks = homogenizeBatch([track]);
         if (tracks.length > 0) return { tracks, source: `queue:${trackId}` };
       }

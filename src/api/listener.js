@@ -10,6 +10,7 @@ const config = require('../config');
 const { isEmailConfigured, sendMail } = require('../email');
 const { publicBaseUrl } = require('../runtime/base-url');
 const { listenerCookieOpts, clearListenerCookie } = require('../auth/cookies');
+const { isHigherTier } = require('../auth/access');
 
 const BCRYPT_ROUNDS = 10;
 
@@ -60,9 +61,19 @@ function linkProfileToAccount(db, tokenRow, accountId) {
 
 // Returns the listener's active subscription, if any.
 function getActiveSubscription(db, listenerId) {
-  return db.prepare(
-    "SELECT * FROM subscriptions WHERE listener_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
-  ).get(listenerId) || null;
+  const rows = db.prepare(
+    "SELECT * FROM subscriptions WHERE listener_id = ? AND status = 'active' ORDER BY created_at DESC"
+  ).all(listenerId);
+  let best = null;
+  const nowMs = Date.now();
+  for (const row of rows) {
+    const expiresAt = new Date(row.current_period_end).getTime();
+    if (!Number.isFinite(expiresAt) || expiresAt <= nowMs) continue;
+    if (!best || isHigherTier(row.tier, best.tier)) {
+      best = row;
+    }
+  }
+  return best;
 }
 
 const RESET_TTL_MINUTES = 60;
@@ -207,12 +218,10 @@ router.post('/login', authLimiter, asyncHandler(async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    linkProfileToAccount(db, req.tokenRow, account.id);
-    const issued = issueToken(db, account.id, 'free');
-
-    // Sync tier from active subscription if one exists
     const sub = getActiveSubscription(db, account.id);
-    const tier = sub ? sub.tier : issued.tier;
+    const tier = sub ? sub.tier : 'free';
+    linkProfileToAccount(db, req.tokenRow, account.id);
+    const issued = issueToken(db, account.id, tier);
 
     res.cookie('pw_token', issued.token, listenerCookieOpts(req));
     res.json({ token: issued.token, tier });

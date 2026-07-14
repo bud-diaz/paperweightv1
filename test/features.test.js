@@ -9,7 +9,7 @@ const os = require('os');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
-const { freshDb, seedMedia, seedListener } = require('./helpers');
+const { freshDb, seedMedia, seedListener, futureIso } = require('./helpers');
 const { createApp } = require('../src/index');
 const { authLimiter } = require('../src/middleware/rateLimiter');
 
@@ -78,6 +78,25 @@ test('scanner imports new media as vault but preserves pre-stamped visibility', 
     try { fs.unlinkSync(freshPath); } catch {}
     try { fs.unlinkSync(stampedPath); } catch {}
   }
+});
+
+test('scanner reconciliation preserves external imports while marking missing local files inactive', () => {
+  const db = freshDb();
+  const config = require('../src/config');
+  const { reconcileInactive } = require('../src/scanner/sync');
+  const missingLocal = seedMedia(db, {
+    title: 'Missing Local',
+    filepath: path.join(config.vault.path, 'missing-local.mp3'),
+  });
+  const external = seedMedia(db, {
+    title: 'External Import',
+    filepath: 'external://youtube/reconcile',
+  });
+
+  reconcileInactive();
+
+  assert.equal(db.prepare('SELECT is_active FROM media WHERE id = ?').get(missingLocal.id).is_active, 0);
+  assert.equal(db.prepare('SELECT is_active FROM media WHERE id = ?').get(external.id).is_active, 1);
 });
 
 async function loginToken(baseUrl, email, password) {
@@ -238,6 +257,49 @@ test('subscription cancel and portal require auth and an active subscription', a
   });
 });
 
+test('listener login mints a token at the active subscription tier', async () => {
+  const db = freshDb();
+  resetAuthLimiter();
+  const config = require('../src/config');
+  fs.mkdirSync(config.vault.path, { recursive: true });
+  const filePath = path.join(config.vault.path, `paid-login-${Date.now()}.mp3`);
+  fs.writeFileSync(filePath, 'subscriber-only-bytes');
+
+  const listenerId = seedAccount(db, 'paid@example.com', 'password123');
+  const supporter = seedMedia(db, {
+    title: 'Supporter Login Stream',
+    visibility: 'supporters_only',
+    filepath: filePath,
+  });
+  db.prepare(
+    "INSERT INTO subscriptions (listener_id, tier, provider, provider_subscription_id, status, current_period_end) VALUES (?, 'subscriber', 'stripe', ?, 'active', ?)"
+  ).run(listenerId, 'sub_paid_login', futureIso());
+
+  try {
+    await withServer(async baseUrl => {
+      const login = await request(baseUrl, '/api/listener/login', {
+        method: 'POST',
+        headers: JSON_HDR,
+        body: JSON.stringify({ email: 'paid@example.com', password: 'password123' }),
+      });
+      assert.equal(login.res.status, 200);
+      assert.equal(login.body.tier, 'subscriber');
+      assert.equal(db.prepare('SELECT tier FROM tokens WHERE listener_id = ? ORDER BY id DESC LIMIT 1').get(listenerId).tier, 'subscriber');
+
+      const auth = { Authorization: `Bearer ${login.body.token}` };
+      const me = await request(baseUrl, '/api/listener/me', { headers: auth });
+      assert.equal(me.res.status, 200);
+      assert.equal(me.body.tier, 'subscriber');
+
+      const stream = await request(baseUrl, `/api/library/${supporter.id}/stream`, { headers: auth });
+      assert.equal(stream.res.status, 200);
+      assert.equal(stream.text, 'subscriber-only-bytes');
+    });
+  } finally {
+    try { fs.unlinkSync(filePath); } catch {}
+  }
+});
+
 // ─── CSV exports + backup ─────────────────────────────────────────────────────
 
 test('CSV exports are dashboard-gated and escape spreadsheet formulas', async () => {
@@ -299,7 +361,7 @@ test('dashboard settings round-trip and validate the webhook URL', async () => {
     const initial = await request(baseUrl, '/api/dashboard/settings', { headers: DASH });
     assert.equal(initial.res.status, 200);
     assert.deepEqual(initial.body, {
-      notifyWebhookUrl: '', notifyLiveEnabled: true, feedEnabled: false, feedScope: 'podcasts', emailConfigured: false,
+      notifyWebhookUrl: '', notifyLiveEnabled: true, feedEnabled: false, feedScope: 'podcasts', emailConfigured: false, trackGlowColor: '#39ff14',
     });
 
     const bad = await request(baseUrl, '/api/dashboard/settings', {
@@ -312,15 +374,20 @@ test('dashboard settings round-trip and validate the webhook URL', async () => {
     });
     assert.equal(badScope.res.status, 400);
 
+    const badColor = await request(baseUrl, '/api/dashboard/settings', {
+      method: 'PUT', headers: DASH, body: JSON.stringify({ trackGlowColor: 'green' }),
+    });
+    assert.equal(badColor.res.status, 400);
+
     const ok = await request(baseUrl, '/api/dashboard/settings', {
       method: 'PUT', headers: DASH,
-      body: JSON.stringify({ notifyWebhookUrl: 'https://discord.com/api/webhooks/1/x', notifyLiveEnabled: false, feedEnabled: true, feedScope: 'all' }),
+      body: JSON.stringify({ notifyWebhookUrl: 'https://discord.com/api/webhooks/1/x', notifyLiveEnabled: false, feedEnabled: true, feedScope: 'all', trackGlowColor: '#ff00aa' }),
     });
     assert.equal(ok.res.status, 200);
 
     const updated = await request(baseUrl, '/api/dashboard/settings', { headers: DASH });
     assert.deepEqual(updated.body, {
-      notifyWebhookUrl: 'https://discord.com/api/webhooks/1/x', notifyLiveEnabled: false, feedEnabled: true, feedScope: 'all', emailConfigured: false,
+      notifyWebhookUrl: 'https://discord.com/api/webhooks/1/x', notifyLiveEnabled: false, feedEnabled: true, feedScope: 'all', emailConfigured: false, trackGlowColor: '#ff00aa',
     });
   });
 });

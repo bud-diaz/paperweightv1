@@ -45,23 +45,40 @@ function attachTier(req, res, next) {
   next();
 }
 
+function activeSubscriptionTierForListener(listenerId) {
+  if (!listenerId) return null;
+  const rows = getDb().prepare(
+    "SELECT tier, current_period_end FROM subscriptions WHERE listener_id = ? AND status = 'active' ORDER BY created_at DESC"
+  ).all(listenerId);
+  let best = null;
+  const nowMs = Date.now();
+  for (const row of rows) {
+    const expiresAt = new Date(row.current_period_end).getTime();
+    if (!Number.isFinite(expiresAt) || expiresAt <= nowMs) continue;
+    if (!best || isHigherTier(row.tier, best)) {
+      best = row.tier;
+    }
+  }
+  return best;
+}
+
 function effectiveTierForTokenRow(row) {
   if (!row) return 'free';
-  let tier = row.tier;
+  let tier = row.tier || 'free';
 
-  // Stripe-linked listener tokens are downgraded immediately when their latest
-  // active subscription period is missing or expired.
-  if (isSubscriberTier(row.tier) && row.listener_id) {
+  // Listener tokens reflect the account's unexpired active subscription:
+  // stale paid tokens downgrade, while free login tokens can upgrade.
+  if (row.listener_id) {
     try {
-      const sub = getDb().prepare(
-        "SELECT current_period_end FROM subscriptions WHERE listener_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
-      ).get(row.listener_id);
-      if (!sub || new Date(sub.current_period_end) < new Date()) {
-        tier = 'free';
+      const subscriptionTier = activeSubscriptionTierForListener(row.listener_id);
+      if (isSubscriberTier(row.tier)) {
+        tier = subscriptionTier || 'free';
+      } else if (subscriptionTier && isHigherTier(subscriptionTier, tier)) {
+        tier = subscriptionTier;
       }
     } catch {
-      // Leave tier at row.tier on DB errors — downgrading a paying subscriber
-      // on a transient DB hiccup would incorrectly lock them out of content.
+      // Preserve row.tier on DB errors. This avoids locking out a paid token
+      // during a transient DB hiccup, while free tokens remain free.
     }
   }
 
@@ -104,7 +121,7 @@ function requireDashboard(req, res, next) {
   const sessionId = req.cookies?.pw_dashboard_session;
   if (sessionId && validateSession(sessionId)) return next();
 
-  // Direct token header — accepted only when 2FA is disabled.
+  // Direct token header, accepted only when 2FA is disabled.
   const headerToken = req.headers['x-dashboard-token'];
   const hasValidToken =
     !!config.auth.dashboardToken &&
@@ -123,4 +140,11 @@ function requireDashboard(req, res, next) {
   res.status(401).json({ error: 'Dashboard access denied' });
 }
 
-module.exports = { attachTier, effectiveTierForTokenRow, requireSubscriber, requireAllAccess, requireDashboard };
+module.exports = {
+  attachTier,
+  effectiveTierForTokenRow,
+  requireSubscriber,
+  requireAllAccess,
+  requireDashboard,
+  activeSubscriptionTierForListener,
+};

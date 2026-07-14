@@ -647,6 +647,10 @@ export async function playOnDemand(t, { nextUp = false } = {}) {
 
 export async function selectVOD(t) {
   if (!t) return;
+  if (t.isExternal) {
+    showToast('External imports are not playable in the web player yet');
+    return;
+  }
   if (!isPlayableTrack(t)) {
     await startGatedPreview(t);
     return;

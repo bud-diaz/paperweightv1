@@ -8,6 +8,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 
+let stableIdCache = null;
+
 function readLinuxMachineId() {
   for (const file of ['/etc/machine-id', '/var/lib/dbus/machine-id']) {
     try {
@@ -48,19 +50,31 @@ function readWindowsMachineGuid() {
 }
 
 function getStableId() {
+  if (stableIdCache) return stableIdCache;
+
   if (process.platform === 'linux') {
     const id = readLinuxMachineId();
-    if (id) return { id, source: 'linux-machine-id' };
+    if (id) {
+      stableIdCache = { id, source: 'linux-machine-id' };
+      return stableIdCache;
+    }
   } else if (process.platform === 'darwin') {
     const id = readMacPlatformUuid();
-    if (id) return { id, source: 'macos-ioreg' };
+    if (id) {
+      stableIdCache = { id, source: 'macos-ioreg' };
+      return stableIdCache;
+    }
   } else if (process.platform === 'win32') {
     const id = readWindowsMachineGuid();
-    if (id) return { id, source: 'windows-registry' };
+    if (id) {
+      stableIdCache = { id, source: 'windows-registry' };
+      return stableIdCache;
+    }
   }
 
   const cpuModel = os.cpus()[0]?.model || '';
-  return { id: `${os.hostname()}|${cpuModel}`, source: 'fallback' };
+  stableIdCache = { id: `${os.hostname()}|${cpuModel}`, source: 'fallback' };
+  return stableIdCache;
 }
 
 function computeFingerprint() {

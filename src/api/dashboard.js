@@ -19,6 +19,7 @@ const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCo
 const { getFFmpegStatus } = require('../runtime/ffmpeg');
 const asyncHandler = require('../middleware/asyncHandler');
 const { clearArtworkCache, ARTWORK_DIR } = require('./library');
+const { isBroadcastPlayableTrack } = require('../broadcast/playlist');
 const { validateSlug } = require('../auth/reserved-slugs');
 const { resolvesToBlockedAddress } = require('../runtime/net-guard');
 const { isValidExternalHttpUrl } = require('../runtime/base-url');
@@ -1224,7 +1225,12 @@ router.get('/broadcast/queue', (req, res) => {
   const queue = broadcast.getStationQueue();
   const db = getDb();
   const items = queue.map(mediaId => {
-    const row = db.prepare('SELECT id, title, filename, artist FROM media WHERE id = ? AND is_active = 1').get(mediaId);
+    const row = db.prepare(`
+      SELECT id, filepath, title, filename, artist, visibility, is_active
+      FROM media
+      WHERE id = ? AND is_active = 1
+    `).get(mediaId);
+    if (!isBroadcastPlayableTrack(row)) return null;
     return row ? { id: row.id, title: row.title || row.filename, artist: row.artist || null } : null;
   }).filter(Boolean);
   res.json({ queue: items });
@@ -1235,8 +1241,15 @@ router.get('/broadcast/queue', (req, res) => {
 router.post('/broadcast/queue', (req, res) => {
   const { mediaId } = req.body;
   if (!mediaId) return res.status(400).json({ error: 'mediaId required' });
-  const row = getDb().prepare('SELECT id FROM media WHERE id = ? AND is_active = 1').get(mediaId);
+  const row = getDb().prepare(`
+    SELECT id, filepath, visibility, is_active
+    FROM media
+    WHERE id = ? AND is_active = 1
+  `).get(mediaId);
   if (!row) return res.status(404).json({ error: 'Track not found' });
+  if (!isBroadcastPlayableTrack(row)) {
+    return res.status(400).json({ error: 'Only public local tracks can be queued for broadcast' });
+  }
   const ok = broadcast.addToStationQueue(Number(mediaId));
   if (!ok) return res.status(400).json({ error: 'Queue is full (max 5)' });
   const queue = broadcast.getStationQueue();

@@ -4,6 +4,10 @@ const { getDb, log } = require('../db');
 const { probe } = require('./probe');
 const config = require('../config');
 
+function isExternalMediaPath(filepath) {
+  return typeof filepath === 'string' && filepath.startsWith('external://');
+}
+
 // Scanner-discovered files default to config.vault.defaultVisibility (set via
 // VAULT_DEFAULT_VISIBILITY, chosen at setup time — 'vault' unless the creator
 // opted into public imports). Creators can still publish/unpublish individual
@@ -88,6 +92,7 @@ function reconcileInactive() {
     );
     const removed = [];
     for (const { filepath } of rows) {
+      if (isExternalMediaPath(filepath)) continue;
       if (!fs.existsSync(filepath)) {
         markMissing.run(filepath);
         removed.push(filepath);
@@ -110,7 +115,7 @@ function reconcileInactive() {
 async function repairVideoMimeTypes() {
   const db = getDb();
   const rows = db.prepare(
-    "SELECT filepath FROM media WHERE is_active = 1 AND mime_type = 'audio/mp4'"
+    "SELECT filepath FROM media WHERE is_active = 1 AND mime_type = 'audio/mp4' AND filepath NOT LIKE 'external://%'"
   ).all();
 
   let fixed = 0;
@@ -130,4 +135,4 @@ async function repairVideoMimeTypes() {
   if (fixed > 0) log('info', 'scanner', `Repaired mime_type for ${fixed} misclassified video file(s)`);
 }
 
-module.exports = { needsProbe, upsert, markInactive, reconcileInactive, repairVideoMimeTypes };
+module.exports = { needsProbe, upsert, markInactive, reconcileInactive, repairVideoMimeTypes, isExternalMediaPath };
