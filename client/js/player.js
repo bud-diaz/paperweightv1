@@ -13,14 +13,16 @@
  *   #queue-btn                 (color, background, border)
  *   #share-tab-label           (color, textContent)
  *   #auth-badge                (class: visible)
- *   #type-badge                (background, innerHTML/textContent)
+ *   #type-badge                (display, background, textContent)
+ *   #live-tab-dot              (display)
  *   #real-video-toggle-wrap    (hidden)
  *   #back-live-btn             (display)
  *   #track-title               (textContent)
  *   #track-creator             (textContent)
  *   #track-station             (textContent)
  *   #on-air-badge              (display)
- *   #quota-badge               (display, textContent)
+ *   #quota-badge               (display)
+ *   #quota-badge-count         (textContent)
  *   #fullscreen-btn            (display)
  *   #pr1                       (display)
  *   #pr2                       (display)
@@ -266,16 +268,17 @@ export function render() {
   if (trackKey !== artLastTrackKey) { artLastTrackKey = trackKey; resetArtFlip(); }
   setColor(t.color);
 
-  // type badge
+  // type badge — only shown for on-demand playback states; the live state is
+  // conveyed by the pulsing dot above the PLAY tab instead
   const badge = el('type-badge');
-  badge.style.background = t.color;
-  if (!state.track) {
-    badge.innerHTML = `<span class="live-dot-badge"></span>LIVE`;
-  } else if (state.isPreview) {
-    badge.textContent = '◈ PREVIEW';
-  } else {
-    badge.textContent = t.type === 'video' ? '● VIDEO' : '◉ AUDIO';
+  badge.style.display = state.track ? 'flex' : 'none';
+  if (state.track) {
+    badge.style.background = t.color;
+    badge.textContent = state.isPreview ? '◈ PREVIEW' : (t.type === 'video' ? '● VIDEO' : '◉ AUDIO');
   }
+
+  // live indicator dot above the PLAY tab
+  el('live-tab-dot').style.display = !state.track ? 'block' : 'none';
 
   // real-video toggle — only relevant for the live video stream, never previews
   const rvWrap = el('real-video-toggle-wrap');
@@ -300,9 +303,7 @@ export function render() {
   const showQuota = !isPaidTier() && quota?.limit;
   quotaBadge.style.display = showQuota ? 'flex' : 'none';
   if (showQuota) {
-    quotaBadge.textContent = quota.remaining > 0
-      ? `${quota.remaining} ON-DEMAND PLAY${quota.remaining === 1 ? '' : 'S'} LEFT`
-      : `0 LEFT — RESETS IN ${Math.max(1, Math.ceil((quota.resetSec || 3600) / 60))}M`;
+    el('quota-badge-count').textContent = quota.remaining;
   }
 
   // pulse rings
