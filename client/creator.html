@@ -167,7 +167,10 @@
       </div>
       <div id="view-toggle">
         <button class="view-tab" data-view="stack">STACK</button>
-        <button class="view-tab active" data-view="player">PLAY</button>
+        <button class="view-tab active" data-view="player">
+          <span id="live-tab-dot" class="live-tab-dot"></span>
+          PLAY
+        </button>
         <button class="view-tab" data-view="dashboard">STUDIO</button>
       </div>
       <div id="topbar-right">
@@ -181,9 +184,9 @@
           </label>
         </div>
         <div id="quota-badge">
-          <div id="quota-badge-label">ON-DEMAND<br>PLAYS LEFT</div>
+          <div id="quota-badge-label">ON-DEMAND</div>
           <div id="quota-badge-count"></div>
-          <div id="quota-badge-period">THIS HOUR</div>
+          <div id="quota-badge-period">PLAYS LEFT</div>
         </div>
       </div>
     </div>
