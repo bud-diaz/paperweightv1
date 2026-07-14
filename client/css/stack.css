@@ -1,5 +1,4 @@
 #panel-stack {
-  background: var(--card);
   overflow-y: auto;
 }
 
