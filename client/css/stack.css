@@ -136,6 +136,32 @@
   color: var(--t4);
 }
 
+.stack-folder-glyph {
+  width: 9px;
+  height: 7px;
+  border: 1px solid var(--t3);
+  border-radius: 1px 3px 1px 1px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.stack-folder-glyph::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 5px;
+  height: 2px;
+  background: var(--t3);
+  border-radius: 1px 1px 0 0;
+}
+
+.stack-folder.open .stack-folder-glyph,
+.stack-folder.open .stack-folder-glyph::before {
+  border-color: rgba(57,255,20,.55);
+  background: rgba(57,255,20,.55);
+}
+
 .stack-folder-body {
   display: none;
   border-top: 1px solid var(--border);
@@ -151,6 +177,52 @@
   font-size: 10px;
   color: var(--t4);
   letter-spacing: .14em;
+}
+
+.stack-tree {
+  position: relative;
+  --tree-x: 16px;
+  --tree-tick: 14px;
+}
+
+.stack-tree .stack-row {
+  position: relative;
+  padding-left: calc(var(--tree-x) + var(--tree-tick) + 4px);
+}
+
+.stack-tree .stack-row::before {
+  content: '';
+  position: absolute;
+  left: var(--tree-x);
+  top: 0;
+  width: var(--tree-tick);
+  height: 50%;
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  pointer-events: none;
+}
+
+.stack-tree .stack-row:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: var(--tree-x);
+  top: 50%;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+.stack-folder.open .stack-tree .stack-row::before {
+  border-color: rgba(57,255,20,.22);
+}
+
+.stack-folder.open .stack-tree .stack-row::after {
+  background: rgba(57,255,20,.22);
+}
+
+.stack-folder.open .stack-folder-chevron {
+  color: rgba(57,255,20,.85);
 }
 
 .stack-row {
@@ -269,6 +341,11 @@
 }
 
 @media (max-width: 430px) {
+  .stack-tree {
+    --tree-x: 11px;
+    --tree-tick: 11px;
+  }
+
   .stack-card-head {
     padding: 13px 16px;
   }
