@@ -202,12 +202,23 @@
 .live-dot-badge { width: 5px; height: 5px; border-radius: 50%; background: #000; display: inline-block; }
 
 #quota-badge {
-  position: absolute; top: 100%; right: 0; margin-top: 6px; z-index: 5;
-  display: none; align-items: center; white-space: nowrap;
-  background: var(--raised); border: 1px solid var(--border);
-  border-radius: var(--radius-xs); padding: 3px 9px;
-  font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .1em;
+  position: absolute; top: 100%; right: 0; margin-top: 8px; z-index: 5;
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; width: 118px; text-align: center;
+  background: rgba(0,0,0,.4); border: 1.5px solid #ff5566; border-radius: 5px;
+  padding: 8px 8px 9px;
   color: #ff5566;
+}
+#quota-badge-label {
+  font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 700;
+  letter-spacing: .1em; line-height: 1.5;
+}
+#quota-badge-count {
+  font-family: 'DM Serif Display', serif; font-size: 36px; line-height: 1;
+}
+#quota-badge-period {
+  font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 700;
+  letter-spacing: .1em;
 }
 
 /* Creator previewing their own station never sees the listener-facing quota */

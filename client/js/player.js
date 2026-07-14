@@ -20,7 +20,9 @@
  *   #track-creator             (textContent)
  *   #track-station             (textContent)
  *   #on-air-badge              (display)
- *   #quota-badge               (display, textContent)
+ *   #quota-badge               (display)
+ *   #quota-badge-count         (textContent)
+ *   #quota-badge-period        (textContent)
  *   #fullscreen-btn            (display)
  *   #pr1                       (display)
  *   #pr2                       (display)
@@ -300,9 +302,10 @@ export function render() {
   const showQuota = !isPaidTier() && quota?.limit;
   quotaBadge.style.display = showQuota ? 'flex' : 'none';
   if (showQuota) {
-    quotaBadge.textContent = quota.remaining > 0
-      ? `${quota.remaining} ON-DEMAND PLAY${quota.remaining === 1 ? '' : 'S'} LEFT`
-      : `0 LEFT — RESETS IN ${Math.max(1, Math.ceil((quota.resetSec || 3600) / 60))}M`;
+    el('quota-badge-count').textContent = quota.remaining;
+    el('quota-badge-period').textContent = quota.remaining > 0
+      ? 'THIS HOUR'
+      : `RESET IN ${Math.max(1, Math.ceil((quota.resetSec || 3600) / 60))}M`;
   }
 
   // pulse rings
