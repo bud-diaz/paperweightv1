@@ -2,16 +2,20 @@ const fs = require('fs');
 const path = require('path');
 const { getDb, log } = require('../db');
 const { probe } = require('./probe');
+const config = require('../config');
 
-// Scanner-discovered files are private by default: creators can publish them
-// intentionally from the dashboard, while pre-stamped rows keep their choice.
+// Scanner-discovered files default to config.vault.defaultVisibility (set via
+// VAULT_DEFAULT_VISIBILITY, chosen at setup time — 'vault' unless the creator
+// opted into public imports). Creators can still publish/unpublish individual
+// tracks from the dashboard afterward; pre-stamped rows keep their choice (see
+// ON CONFLICT below).
 const upsertStmt = `
   INSERT INTO media (
     filepath, filename, category, title, artist, album, genre,
     duration, bpm, tags, file_size, mime_type, visibility, updated_at
   ) VALUES (
     :filepath, :filename, :category, :title, :artist, :album, :genre,
-    :duration, :bpm, :tags, :file_size, :mime_type, 'vault', datetime('now')
+    :duration, :bpm, :tags, :file_size, :mime_type, :visibility, datetime('now')
   )
   ON CONFLICT(filepath) DO UPDATE SET
     filename   = excluded.filename,
@@ -63,6 +67,7 @@ function upsert(filepath, category, probeData) {
     tags: null,
     file_size: probeData.file_size || null,
     mime_type: probeData.mime_type || null,
+    visibility: config.vault.defaultVisibility,
   });
 }
 

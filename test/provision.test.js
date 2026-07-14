@@ -29,10 +29,24 @@ test('buildEnv writes expected .env keys and defaults', () => {
   assert.match(built.contents, /^STATION_NAME=Test Station$/m);
   assert.match(built.contents, /^STATION_IDENTITY=anonymous$/m);
   assert.match(built.contents, /^VAULT_MODE=hybrid$/m);
+  assert.match(built.contents, /^VAULT_DEFAULT_VISIBILITY=vault$/m);
   assert.match(built.contents, /^TRUST_PROXY=false$/m);
   assert.match(built.contents, /^DASHBOARD_TOKEN=[0-9a-f]{64}$/m);
   assert.match(built.contents, /^DOWNLOAD_SIGNING_SECRET=[0-9a-f]{64}$/m);
   assert.equal(built.slug, 'test-station');
+  assert.equal(built.vaultDefaultVisibility, 'vault');
+});
+
+test('buildEnv accepts an explicit public initial import visibility', () => {
+  const built = buildEnv({ stationName: 'Test Station', initialVisibility: 'public' });
+  assert.match(built.contents, /^VAULT_DEFAULT_VISIBILITY=public$/m);
+  assert.equal(built.vaultDefaultVisibility, 'public');
+});
+
+test('buildEnv falls back to vault for an invalid initial import visibility', () => {
+  const built = buildEnv({ stationName: 'Test Station', initialVisibility: 'nonsense' });
+  assert.match(built.contents, /^VAULT_DEFAULT_VISIBILITY=vault$/m);
+  assert.equal(built.vaultDefaultVisibility, 'vault');
 });
 
 test('buildEnv sets TRUST_PROXY=loopback when a Cloudflare tunnel token is given', () => {

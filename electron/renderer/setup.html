@@ -10,72 +10,114 @@
     <h1>Welcome to Paperweight</h1>
     <p class="sub">Let's set up your station. This only takes a minute.</p>
 
+    <ol class="stepper">
+      <li data-step="1" class="active">Station</li>
+      <li data-step="2">Vault &amp; Import</li>
+      <li data-step="3">Network</li>
+      <li data-step="4">Done</li>
+    </ol>
+
     <form id="setup-form">
-      <label>
-        Station name
-        <input type="text" id="stationName" placeholder="My Cool Station" required>
-      </label>
-
-      <label>
-        Station slug
-        <input type="text" id="slug" placeholder="auto-generated from station name">
-      </label>
-
-      <fieldset>
-        <legend>Identity</legend>
-        <label class="radio">
-          <input type="radio" name="identityMode" value="anonymous" checked> Anonymous station
-        </label>
-        <label class="radio">
-          <input type="radio" name="identityMode" value="creator"> Creator brand
-        </label>
-      </fieldset>
-
-      <div id="creator-fields" hidden>
+      <div class="step" data-step="1">
         <label>
-          Creator name
-          <input type="text" id="creatorName">
+          Station name
+          <input type="text" id="stationName" placeholder="My Cool Station" required>
         </label>
+
         <label>
-          Station description
-          <textarea id="creatorDesc" rows="2"></textarea>
+          Station slug
+          <input type="text" id="slug" placeholder="auto-generated from station name">
         </label>
+
+        <fieldset>
+          <legend>Identity</legend>
+          <label class="radio">
+            <input type="radio" name="identityMode" value="anonymous" checked> Anonymous station
+          </label>
+          <label class="radio">
+            <input type="radio" name="identityMode" value="creator"> Creator brand
+          </label>
+        </fieldset>
+
+        <div id="creator-fields" hidden>
+          <label>
+            Creator name
+            <input type="text" id="creatorName">
+          </label>
+          <label>
+            Station description
+            <textarea id="creatorDesc" rows="2"></textarea>
+          </label>
+        </div>
+
+        <div class="step-nav">
+          <span></span>
+          <button type="button" class="next-btn" data-next="2">Next →</button>
+        </div>
       </div>
 
-      <label>
-        Vault folder
-        <div class="row">
-          <input type="text" id="vaultPath" value="./vault" readonly>
-          <button type="button" id="choose-vault-btn">Browse…</button>
+      <div class="step" data-step="2" hidden>
+        <label>
+          Vault folder
+          <div class="row">
+            <input type="text" id="vaultPath" value="./vault" readonly>
+            <button type="button" id="choose-vault-btn">Browse…</button>
+          </div>
+        </label>
+
+        <label>
+          Vault mode
+          <select id="vaultMode">
+            <option value="hybrid" selected>Hybrid (recommended)</option>
+            <option value="folder">Folder</option>
+            <option value="metadata">Metadata</option>
+          </select>
+        </label>
+
+        <p class="hint">
+          Imported media starts out <strong>Private (Vault)</strong> by default —
+          the broadcast only plays Public tracks, so newly scanned files won't
+          play until you publish them from the dashboard.
+        </p>
+
+        <fieldset>
+          <legend>Initial import visibility</legend>
+          <label class="radio">
+            <input type="radio" name="initialVisibility" value="public"> Public — play imports on the broadcast right away
+          </label>
+          <label class="radio">
+            <input type="radio" name="initialVisibility" value="vault" checked> Private (Vault) — review before publishing (current default)
+          </label>
+        </fieldset>
+
+        <div class="step-nav">
+          <button type="button" class="back-btn" data-back="1">← Back</button>
+          <button type="button" class="next-btn" data-next="3">Next →</button>
         </div>
-      </label>
+      </div>
 
-      <label>
-        Vault mode
-        <select id="vaultMode">
-          <option value="hybrid" selected>Hybrid (recommended)</option>
-          <option value="folder">Folder</option>
-          <option value="metadata">Metadata</option>
-        </select>
-      </label>
+      <div class="step" data-step="3" hidden>
+        <label>
+          Cloudflare tunnel token (optional)
+          <input type="text" id="cfTunnelToken" placeholder="leave blank if not using a tunnel">
+        </label>
 
-      <label>
-        Cloudflare tunnel token (optional)
-        <input type="text" id="cfTunnelToken" placeholder="leave blank if not using a tunnel">
-      </label>
+        <label>
+          Public URL (optional)
+          <input type="text" id="publicUrl" placeholder="https://your-tunnel.trycloudflare.com">
+          <p class="hint">Your station's actual reachable address — the tunnel, reverse-proxy, or public IP URL. Leave blank until you have one. Do not enter your paperweighthq.com slug URL here.</p>
+        </label>
 
-      <label>
-        Public URL (optional)
-        <input type="text" id="publicUrl" placeholder="https://your-tunnel.trycloudflare.com">
-        <p class="hint">Your station's actual reachable address — the tunnel, reverse-proxy, or public IP URL. Leave blank until you have one. Do not enter your paperweighthq.com slug URL here.</p>
-      </label>
+        <p id="setup-error" class="error" hidden></p>
 
-      <p id="setup-error" class="error" hidden></p>
-
-      <button type="submit" id="submit-btn">Create station</button>
+        <div class="step-nav">
+          <button type="button" class="back-btn" data-back="2">← Back</button>
+          <button type="submit" id="submit-btn">Create station</button>
+        </div>
+      </div>
     </form>
 
-    <div id="done-screen" hidden>
+    <div class="step" data-step="4" id="done-screen" hidden>
       <h2>You're all set!</h2>
       <p>Your dashboard token — copy it now. It won't be shown again here, only in your <code>.env</code> file.</p>
       <div class="row">
