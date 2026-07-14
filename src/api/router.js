@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { attachTier } = require('../auth/middleware');
 const { generalLimiter } = require('../middleware/rateLimiter');
 const config = require('../config');
+const { getSetting } = require('../db/settings');
 
 // Attach tier and general rate limit to every API request
 router.use(attachTier);
@@ -9,7 +10,11 @@ router.use(generalLimiter);
 
 // Health check
 router.get('/health', (req, res) => {
-  res.json({ status: 'ok', station: config.station.name });
+  res.json({
+    status: 'ok',
+    station: config.station.name,
+    trackGlowColor: getSetting('track_glow_color', '#39ff14'),
+  });
 });
 
 router.use('/auth', require('./auth'));

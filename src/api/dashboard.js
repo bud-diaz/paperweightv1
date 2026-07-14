@@ -930,12 +930,13 @@ router.get('/settings', (req, res) => {
     notifyLiveEnabled: getBoolSetting('notify_live_enabled', true),
     feedEnabled: getBoolSetting('feed_enabled', false),
     feedScope: getSetting('feed_scope') || 'podcasts',
+    trackGlowColor: getSetting('track_glow_color') || '#39ff14',
     emailConfigured: isEmailConfigured(),
   });
 });
 
 // PUT /api/dashboard/settings
-// Body: any subset of { notifyWebhookUrl, notifyLiveEnabled, feedEnabled, feedScope }
+// Body: any subset of { notifyWebhookUrl, notifyLiveEnabled, feedEnabled, feedScope, trackGlowColor }
 router.put('/settings', (req, res) => {
   const { setSetting } = require('../db/settings');
   const body = req.body || {};
@@ -966,6 +967,13 @@ router.put('/settings', (req, res) => {
       return res.status(400).json({ error: "feedScope must be 'podcasts' or 'all'" });
     }
     setSetting('feed_scope', body.feedScope);
+  }
+  if (body.trackGlowColor !== undefined) {
+    const color = String(body.trackGlowColor || '').trim();
+    if (!/^#[0-9a-fA-F]{6}$/.test(color)) {
+      return res.status(400).json({ error: 'trackGlowColor must be a 6-digit hex color' });
+    }
+    setSetting('track_glow_color', color);
   }
 
   log('info', 'dashboard', 'Station settings updated');

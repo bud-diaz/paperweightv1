@@ -15,6 +15,7 @@ export async function loadDashSettings() {
     el('set-notify-live').checked = !!s.notifyLiveEnabled;
     el('set-feed-enabled').checked = !!s.feedEnabled;
     el('set-feed-scope').value = s.feedScope || 'podcasts';
+    el('set-track-glow-color').value = s.trackGlowColor || '#39ff14';
     el('set-email-status').textContent = s.emailConfigured
       ? 'SMTP is configured — password reset emails and supporter post emails are available.'
       : 'SMTP not configured — add SMTP_HOST / SMTP_FROM (and SMTP_USER / SMTP_PASS) to .env to enable reset and post emails.';
@@ -42,6 +43,7 @@ export function initToolsHandlers() {
         notifyLiveEnabled: el('set-notify-live').checked,
         feedEnabled: el('set-feed-enabled').checked,
         feedScope: el('set-feed-scope').value,
+        trackGlowColor: el('set-track-glow-color').value,
       });
       if (res.ok) {
         msg.textContent = 'Saved ✓';

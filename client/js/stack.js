@@ -190,6 +190,7 @@ function makeTrackRow(raw) {
   const row = document.createElement('div');
   row.className = [
     'stack-row',
+    playable ? 'stack-row-playable' : '',
     lockedSupporter || t.isExternal ? 'stack-row-locked' : '',
     lockedVault ? 'stack-row-redacted' : '',
   ].filter(Boolean).join(' ');
@@ -258,17 +259,18 @@ function makeFolder(project) {
   folder.innerHTML = `
     <button class="stack-folder-head" type="button">
       <span class="stack-folder-chevron" aria-hidden="true">&#9662;</span>
+      <span class="stack-folder-glyph" aria-hidden="true"></span>
       <span class="stack-folder-name">${esc(project.name)}</span>
       <span class="stack-folder-count">${tracks.length}</span>
     </button>
-    <div class="stack-folder-body"></div>
+    <div class="stack-folder-body"><div class="stack-tree"></div></div>
   `;
   folder.querySelector('.stack-folder-head').addEventListener('click', () => {
     if (openProjects.has(key)) openProjects.delete(key);
     else openProjects.add(key);
     folder.classList.toggle('open', openProjects.has(key));
   });
-  const body = folder.querySelector('.stack-folder-body');
+  const body = folder.querySelector('.stack-tree');
   tracks.forEach(track => body.appendChild(makeTrackRow(track)));
   return folder;
 }
@@ -303,7 +305,10 @@ function renderStack() {
     sep.className = 'stack-sep';
     sep.textContent = 'SINGLES';
     card.appendChild(sep);
-    standalone.forEach(track => card.appendChild(makeTrackRow(track)));
+    const tree = document.createElement('div');
+    tree.className = 'stack-tree';
+    card.appendChild(tree);
+    standalone.forEach(track => tree.appendChild(makeTrackRow(track)));
   }
 }
 
@@ -342,7 +347,7 @@ async function refreshStash() {
   for (const item of saved) {
     const track = fallbackTrack(item);
     const row = document.createElement('div');
-    row.className = 'stack-row stack-stash-row';
+    row.className = 'stack-row stack-row-playable stack-stash-row';
     row.innerHTML = `
       <div class="stack-row-main">
         <div class="stack-row-title">${esc(track.title)}</div>

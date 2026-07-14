@@ -570,6 +570,10 @@ async function init() {
       window._stationName = d.station;
       document.title = d.station;
     }
+    if (/^#[0-9a-fA-F]{6}$/.test(d.trackGlowColor || '')) {
+      document.documentElement.style.setProperty('--track-glow-color', d.trackGlowColor);
+      document.documentElement.style.setProperty('--track-glow-color-soft', d.trackGlowColor + '59');
+    }
   } catch {}
 
   // Creator bio landing page (parallel — non-blocking)
