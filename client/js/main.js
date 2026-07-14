@@ -313,19 +313,19 @@ document.querySelectorAll('.view-tab').forEach(btn => {
       window._bioSessionPassed = true;
       el('player-card').classList.remove('bio-landing');
       el('player-card').classList.add('dash-active');
-      el('topbar-right').style.opacity      = '0';
-      el('topbar-right').style.pointerEvents = 'none';
+      el('topbar-right-controls').style.opacity      = '0';
+      el('topbar-right-controls').style.pointerEvents = 'none';
       dashIndex.initDashboard();
     } else if (view === 'stack') {
       window._bioSessionPassed = true;
       el('player-card').classList.remove('bio-landing');
       el('player-card').classList.add('stack-active');
-      el('topbar-right').style.opacity      = '1';
-      el('topbar-right').style.pointerEvents = '';
+      el('topbar-right-controls').style.opacity      = '1';
+      el('topbar-right-controls').style.pointerEvents = '';
       stack.initStackView();
     } else {
-      el('topbar-right').style.opacity      = '1';
-      el('topbar-right').style.pointerEvents = '';
+      el('topbar-right-controls').style.opacity      = '1';
+      el('topbar-right-controls').style.pointerEvents = '';
     }
   });
 });
@@ -339,8 +339,8 @@ function enterDashboard() {
     b.classList.toggle('active', b.dataset.view === 'dashboard'));
   el('player-card').classList.remove('stack-active');
   el('player-card').classList.add('dash-active');
-  el('topbar-right').style.opacity      = '0';
-  el('topbar-right').style.pointerEvents = 'none';
+  el('topbar-right-controls').style.opacity      = '0';
+  el('topbar-right-controls').style.pointerEvents = 'none';
   dashIndex.initDashboard();
 }
 
