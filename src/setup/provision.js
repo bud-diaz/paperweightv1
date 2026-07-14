@@ -39,6 +39,7 @@ function buildEnv({
   creatorDesc = '',
   vaultPath = './vault',
   vaultMode = 'hybrid',
+  initialVisibility = 'vault',
   cfTunnelToken = '',
   publicUrl = '',
 }) {
@@ -60,6 +61,7 @@ function buildEnv({
 
   const cleanVaultPath = cleanEnvValue('Vault path', vaultPath || './vault') || './vault';
   const cleanVaultMode = ['hybrid', 'folder', 'metadata'].includes(vaultMode) ? vaultMode : 'hybrid';
+  const cleanInitialVisibility = initialVisibility === 'public' ? 'public' : 'vault';
 
   const cleanCfToken = cleanEnvValue('Tunnel token', cfTunnelToken);
   const trustProxyValue = cleanCfToken ? 'loopback' : 'false';
@@ -80,6 +82,7 @@ function buildEnv({
     '',
     `VAULT_PATH=${cleanVaultPath}`,
     `VAULT_MODE=${cleanVaultMode}`,
+    `VAULT_DEFAULT_VISIBILITY=${cleanInitialVisibility}`,
     '',
     `DASHBOARD_TOKEN=${dashboardToken}`,
     `DOWNLOAD_SIGNING_SECRET=${downloadSigningSecret}`,
@@ -127,6 +130,7 @@ function buildEnv({
     stationPublicUrl,
     vaultPath: cleanVaultPath,
     vaultMode: cleanVaultMode,
+    vaultDefaultVisibility: cleanInitialVisibility,
   };
 }
 

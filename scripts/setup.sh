@@ -92,6 +92,20 @@ case "$VAULT_MODE_CHOICE" in
 esac
 
 echo ""
+echo "Initial import visibility:"
+echo "  Imported media starts out Private (Vault) by default — the broadcast"
+echo "  only plays Public tracks, so newly scanned files won't play until"
+echo "  you publish them from the dashboard."
+echo "  1) Public         (imports play on the broadcast right away)"
+echo "  2) Private/Vault  (review before publishing) [recommended, default]"
+read -rp "Choose [1/2, default 2]: " VISIBILITY_CHOICE
+if [ "$VISIBILITY_CHOICE" = "1" ]; then
+  VAULT_DEFAULT_VISIBILITY="public"
+else
+  VAULT_DEFAULT_VISIBILITY="vault"
+fi
+
+echo ""
 echo "Cloudflare Tunnel (optional):"
 echo "  Hides your IP address from listeners. Recommended for public stations."
 echo "  Set up a free tunnel at: https://one.dash.cloudflare.com"
@@ -128,6 +142,7 @@ TRUST_PROXY=$TRUST_PROXY_VALUE
 
 VAULT_PATH=$VAULT_PATH
 VAULT_MODE=$VAULT_MODE
+VAULT_DEFAULT_VISIBILITY=$VAULT_DEFAULT_VISIBILITY
 
 DASHBOARD_TOKEN=$DASHBOARD_TOKEN
 DOWNLOAD_SIGNING_SECRET=$DOWNLOAD_SIGNING_SECRET
@@ -174,6 +189,7 @@ echo "  Station:         $STATION_NAME"
 echo "  Identity:        $STATION_IDENTITY"
 echo "  Vault:           $VAULT_ABS"
 echo "  Vault mode:      $VAULT_MODE"
+echo "  Initial import:  $VAULT_DEFAULT_VISIBILITY"
 echo ""
 if [[ -n "$STATION_PUBLIC_URL" ]]; then
   echo "  Station URL:     $STATION_PUBLIC_URL"

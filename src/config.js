@@ -260,6 +260,7 @@ const config = {
   vault: {
     path: path.resolve(dataRoot, process.env.VAULT_PATH || './vault'),
     mode: process.env.VAULT_MODE || 'hybrid',
+    defaultVisibility: process.env.VAULT_DEFAULT_VISIBILITY === 'public' ? 'public' : 'vault',
   },
 
   paths: {

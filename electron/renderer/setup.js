@@ -7,6 +7,8 @@ const creatorFields = document.getElementById('creator-fields');
 const vaultPathInput = document.getElementById('vaultPath');
 const errorEl = document.getElementById('setup-error');
 const submitBtn = document.getElementById('submit-btn');
+const stepperItems = document.querySelectorAll('.stepper li');
+const stepEls = document.querySelectorAll('.step');
 
 let slugTouched = false;
 slugInput.addEventListener('input', () => { slugTouched = true; });
@@ -24,7 +26,6 @@ stationNameInput.addEventListener('input', () => {
 
 for (const radio of document.querySelectorAll('input[name="identityMode"]')) {
   radio.addEventListener('change', () => {
-    creatorFields.hidden = radio.value !== 'creator' || !radio.checked;
     const checked = document.querySelector('input[name="identityMode"]:checked');
     creatorFields.hidden = checked.value !== 'creator';
   });
@@ -35,12 +36,43 @@ document.getElementById('choose-vault-btn').addEventListener('click', async () =
   if (dir) vaultPathInput.value = dir;
 });
 
+// ─── Step navigation ─────────────────────────────────────────────────────────
+
+function showStep(step) {
+  for (const el of stepEls) {
+    el.hidden = Number(el.dataset.step) !== step;
+  }
+  for (const li of stepperItems) {
+    const n = Number(li.dataset.step);
+    li.classList.toggle('active', n === step);
+    li.classList.toggle('completed', n < step);
+  }
+}
+
+document.querySelectorAll('.next-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const currentStepEl = btn.closest('.step');
+    const requiredInputs = currentStepEl.querySelectorAll('input[required]');
+    for (const input of requiredInputs) {
+      if (!input.reportValidity()) return;
+    }
+    showStep(Number(btn.dataset.next));
+  });
+});
+
+document.querySelectorAll('.back-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    showStep(Number(btn.dataset.back));
+  });
+});
+
 form.addEventListener('submit', async e => {
   e.preventDefault();
   errorEl.hidden = true;
   submitBtn.disabled = true;
 
   const identityMode = document.querySelector('input[name="identityMode"]:checked').value;
+  const initialVisibility = document.querySelector('input[name="initialVisibility"]:checked').value;
 
   const formData = {
     stationName: stationNameInput.value,
@@ -50,6 +82,7 @@ form.addEventListener('submit', async e => {
     creatorDesc: document.getElementById('creatorDesc').value,
     vaultPath: vaultPathInput.value,
     vaultMode: document.getElementById('vaultMode').value,
+    initialVisibility,
     cfTunnelToken: document.getElementById('cfTunnelToken').value,
     publicUrl: document.getElementById('publicUrl').value,
   };
@@ -63,9 +96,8 @@ form.addEventListener('submit', async e => {
     return;
   }
 
-  form.hidden = true;
   document.getElementById('dashboard-token-display').value = result.dashboardToken;
-  document.getElementById('done-screen').hidden = false;
+  showStep(4);
 });
 
 document.getElementById('copy-token-btn').addEventListener('click', () => {
