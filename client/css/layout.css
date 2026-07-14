@@ -169,7 +169,10 @@
   padding: 7px 8px; font-family: 'Space Mono', monospace;
   font-size: 11px; color: var(--t3);
 }
-#topbar-right { grid-column: 3; grid-row: 1; justify-self: end; flex-shrink: 0; position: relative; }
+#topbar-right {
+  grid-column: 3; grid-row: 1; justify-self: end; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
+}
 #topbar-right-controls { display: flex; align-items: center; gap: 8px; }
 
 #view-toggle {
@@ -203,23 +206,22 @@
 .live-dot-badge { width: 5px; height: 5px; border-radius: 50%; background: #000; display: inline-block; }
 
 #quota-badge {
-  position: absolute; top: 100%; right: 0; margin-top: 6px; z-index: 5;
   display: none; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2px; width: 100px; text-align: center;
+  gap: 1px; width: 78px; text-align: center;
   background: rgba(0,0,0,.4); border: 1.5px solid #ff5566; border-radius: 5px;
-  padding: 5px 6px 6px;
+  padding: 4px 5px 5px;
   color: #ff5566;
 }
 #quota-badge-label {
-  font-family: 'Space Mono', monospace; font-size: 8px; font-weight: 700;
-  letter-spacing: .06em; line-height: 1.25;
+  font-family: 'Space Mono', monospace; font-size: 7px; font-weight: 700;
+  letter-spacing: .04em; line-height: 1.2;
 }
 #quota-badge-count {
-  font-family: 'DM Serif Display', serif; font-size: 24px; line-height: 1;
+  font-family: 'DM Serif Display', serif; font-size: 18px; line-height: 1.1;
 }
 #quota-badge-period {
-  font-family: 'Space Mono', monospace; font-size: 8px; font-weight: 700;
-  letter-spacing: .06em; line-height: 1.2;
+  font-family: 'Space Mono', monospace; font-size: 7px; font-weight: 700;
+  letter-spacing: .04em; line-height: 1.2;
 }
 
 /* Creator previewing their own station never sees the listener-facing quota */
