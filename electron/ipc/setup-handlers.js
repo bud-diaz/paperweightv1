@@ -3,8 +3,13 @@
 const { ipcMain, dialog } = require('electron');
 
 const { provisionEnv } = require('../../src/setup/provision');
+const { SUPPORTED_EXTENSIONS } = require('../../src/scanner/probe');
 
-const SETUP_CHANNELS = ['setup:choose-folder', 'setup:submit', 'setup:close'];
+const SETUP_CHANNELS = ['setup:choose-folder', 'setup:choose-seed-file', 'setup:submit', 'setup:close'];
+
+// Same extensions the scanner will actually index (src/scanner/probe.js),
+// stripped of their leading dots for Electron's file-picker filter format.
+const SEED_FILE_EXTENSIONS = [...SUPPORTED_EXTENSIONS].map(ext => ext.slice(1));
 
 function unregisterSetupHandlers() {
   for (const channel of SETUP_CHANNELS) {
@@ -28,6 +33,17 @@ function registerSetupHandlers({ dataRoot, win, onComplete }) {
     const result = await dialog.showOpenDialog(win, {
       title: 'Choose vault folder',
       properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle('setup:choose-seed-file', async event => {
+    if (!isSetupSender(event)) return null;
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Choose a file to publish immediately',
+      properties: ['openFile'],
+      filters: [{ name: 'Media', extensions: SEED_FILE_EXTENSIONS }],
     });
     if (result.canceled || !result.filePaths.length) return null;
     return result.filePaths[0];

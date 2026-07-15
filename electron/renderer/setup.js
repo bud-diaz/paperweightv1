@@ -5,6 +5,9 @@ const stationNameInput = document.getElementById('stationName');
 const slugInput = document.getElementById('slug');
 const creatorFields = document.getElementById('creator-fields');
 const vaultPathInput = document.getElementById('vaultPath');
+const seedFileField = document.getElementById('seed-file-field');
+const seedFilePathInput = document.getElementById('seedFilePath');
+const seedFileError = document.getElementById('seed-file-error');
 const errorEl = document.getElementById('setup-error');
 const submitBtn = document.getElementById('submit-btn');
 const stepperItems = document.querySelectorAll('.stepper li');
@@ -36,6 +39,27 @@ document.getElementById('choose-vault-btn').addEventListener('click', async () =
   if (dir) vaultPathInput.value = dir;
 });
 
+// A public seed track is only required when imports start out Private —
+// once Public is chosen, every import already plays on the broadcast.
+function isSeedFileRequired() {
+  return document.querySelector('input[name="initialVisibility"]:checked').value === 'vault';
+}
+
+for (const radio of document.querySelectorAll('input[name="initialVisibility"]')) {
+  radio.addEventListener('change', () => {
+    seedFileField.hidden = !isSeedFileRequired();
+    seedFileError.hidden = true;
+  });
+}
+
+document.getElementById('choose-seed-file-btn').addEventListener('click', async () => {
+  const file = await window.electronAPI.chooseSeedFile();
+  if (file) {
+    seedFilePathInput.value = file;
+    seedFileError.hidden = true;
+  }
+});
+
 // ─── Step navigation ─────────────────────────────────────────────────────────
 
 function showStep(step) {
@@ -55,6 +79,10 @@ document.querySelectorAll('.next-btn').forEach(btn => {
     const requiredInputs = currentStepEl.querySelectorAll('input[required]');
     for (const input of requiredInputs) {
       if (!input.reportValidity()) return;
+    }
+    if (currentStepEl.dataset.step === '2' && isSeedFileRequired() && !seedFilePathInput.value) {
+      seedFileError.hidden = false;
+      return;
     }
     showStep(Number(btn.dataset.next));
   });
@@ -83,6 +111,7 @@ form.addEventListener('submit', async e => {
     vaultPath: vaultPathInput.value,
     vaultMode: document.getElementById('vaultMode').value,
     initialVisibility,
+    seedFile: seedFilePathInput.value,
     cfTunnelToken: document.getElementById('cfTunnelToken').value,
     publicUrl: document.getElementById('publicUrl').value,
   };

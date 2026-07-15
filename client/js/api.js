@@ -512,6 +512,26 @@ export const dashboard = {
     },
   },
 
+  // ── Onboarding (required-public seed track spotlight) ──────────────────────────
+
+  onboardingSeed: {
+    /**
+     * GET /api/dashboard/onboarding-seed
+     * @returns {{ seedTrackId: number|null, tourSeen: boolean }}
+     */
+    get() {
+      return _json('/api/dashboard/onboarding-seed');
+    },
+
+    /**
+     * POST /api/dashboard/onboarding-seed/dismiss
+     * @returns {{ res: Response, data: { ok?: boolean } }}
+     */
+    dismiss() {
+      return _send('/api/dashboard/onboarding-seed/dismiss', {});
+    },
+  },
+
   // ── Station ────────────────────────────────────────────────────────────────────
 
   station: {

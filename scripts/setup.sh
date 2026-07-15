@@ -101,8 +101,15 @@ echo "  2) Private/Vault  (review before publishing) [recommended, default]"
 read -rp "Choose [1/2, default 2]: " VISIBILITY_CHOICE
 if [ "$VISIBILITY_CHOICE" = "1" ]; then
   VAULT_DEFAULT_VISIBILITY="public"
+  SEED_FILE=""
 else
   VAULT_DEFAULT_VISIBILITY="vault"
+  echo ""
+  read -rp "Path to one file to publish immediately (required, so the broadcast has something to play): " SEED_FILE
+  if [ -z "$SEED_FILE" ] || [ ! -f "$SEED_FILE" ]; then
+    echo "ERROR: A public seed file is required when Private import visibility is chosen, and must be an existing file."
+    exit 1
+  fi
 fi
 
 echo ""
@@ -129,6 +136,32 @@ STATION_PUBLIC_URL="$(clean_env_value "Station public URL" "$STATION_PUBLIC_URL"
 DASHBOARD_TOKEN="$(node -e "const c=require('crypto');console.log(c.randomBytes(32).toString('hex'))")"
 DOWNLOAD_SIGNING_SECRET="$(node -e "const c=require('crypto');console.log(c.randomBytes(32).toString('hex'))")"
 
+mkdir -p "$ROOT/data" "$ROOT/logs" "$ROOT/hls_output/stream" "$ROOT/hls_output/previews"
+
+VAULT_ABS="$(resolve_path "$VAULT_PATH")"
+mkdir -p \
+  "$VAULT_ABS/music" \
+  "$VAULT_ABS/beats" \
+  "$VAULT_ABS/podcasts" \
+  "$VAULT_ABS/videos" \
+  "$VAULT_ABS/drafts" \
+  "$VAULT_ABS/live_sessions"
+
+VAULT_SEED_PUBLIC_FILE=""
+if [ -n "$SEED_FILE" ]; then
+  SEED_BASENAME="$(basename "$SEED_FILE")"
+  SEED_STEM="${SEED_BASENAME%.*}"
+  SEED_EXT="${SEED_BASENAME##*.}"
+  SEED_DEST="$VAULT_ABS/$SEED_BASENAME"
+  N=2
+  while [ -e "$SEED_DEST" ]; do
+    SEED_DEST="$VAULT_ABS/${SEED_STEM}-${N}.${SEED_EXT}"
+    N=$((N + 1))
+  done
+  cp "$SEED_FILE" "$SEED_DEST"
+  VAULT_SEED_PUBLIC_FILE="$SEED_DEST"
+fi
+
 cat > "$ENV_FILE" <<EOF
 # Paperweight configuration
 STATION_NAME=$STATION_NAME
@@ -143,6 +176,7 @@ TRUST_PROXY=$TRUST_PROXY_VALUE
 VAULT_PATH=$VAULT_PATH
 VAULT_MODE=$VAULT_MODE
 VAULT_DEFAULT_VISIBILITY=$VAULT_DEFAULT_VISIBILITY
+VAULT_SEED_PUBLIC_FILE=$VAULT_SEED_PUBLIC_FILE
 
 DASHBOARD_TOKEN=$DASHBOARD_TOKEN
 DOWNLOAD_SIGNING_SECRET=$DOWNLOAD_SIGNING_SECRET
@@ -171,17 +205,6 @@ HLS_OUTPUT_PATH=./hls_output
 LOG_PATH=./logs
 EOF
 
-mkdir -p "$ROOT/data" "$ROOT/logs" "$ROOT/hls_output/stream" "$ROOT/hls_output/previews"
-
-VAULT_ABS="$(resolve_path "$VAULT_PATH")"
-mkdir -p \
-  "$VAULT_ABS/music" \
-  "$VAULT_ABS/beats" \
-  "$VAULT_ABS/podcasts" \
-  "$VAULT_ABS/videos" \
-  "$VAULT_ABS/drafts" \
-  "$VAULT_ABS/live_sessions"
-
 echo ""
 echo "Setup complete."
 echo ""
@@ -190,6 +213,9 @@ echo "  Identity:        $STATION_IDENTITY"
 echo "  Vault:           $VAULT_ABS"
 echo "  Vault mode:      $VAULT_MODE"
 echo "  Initial import:  $VAULT_DEFAULT_VISIBILITY"
+if [ -n "$VAULT_SEED_PUBLIC_FILE" ]; then
+  echo "  Seed track:      $VAULT_SEED_PUBLIC_FILE (public)"
+fi
 echo ""
 if [[ -n "$STATION_PUBLIC_URL" ]]; then
   echo "  Station URL:     $STATION_PUBLIC_URL"

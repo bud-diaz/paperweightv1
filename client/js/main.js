@@ -39,6 +39,7 @@ import * as dashIndex   from './dashboard/index.js';
 import * as station     from './dashboard/station.js';
 import * as bio         from './dashboard/bio.js';
 import * as vault       from './dashboard/vault.js';
+import * as onboarding  from './dashboard/onboarding.js';
 import * as projects    from './dashboard/projects.js';
 import * as shareLinks  from './dashboard/share.js';
 import * as allAccess   from './dashboard/allaccess.js';
@@ -177,6 +178,10 @@ vault.init({
   makeTypeahead:       dashIndex.makeTypeahead,
   getDashAccounts:     () => dashIndex.DASH_ACCOUNTS,
   refreshQueueButtons: broadcast.refreshQueueButtons,
+});
+
+onboarding.init({
+  openVaultPanel: vault.openVaultPanel,
 });
 
 projects.init({

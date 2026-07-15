@@ -15,6 +15,7 @@ if (isSetupWindow) {
   contextBridge.exposeInMainWorld('electronAPI', {
     submitSetup: formData => ipcRenderer.invoke('setup:submit', formData),
     chooseVaultFolder: () => ipcRenderer.invoke('setup:choose-folder'),
+    chooseSeedFile: () => ipcRenderer.invoke('setup:choose-seed-file'),
     closeSetup: () => ipcRenderer.invoke('setup:close'),
   });
 }
