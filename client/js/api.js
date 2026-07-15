@@ -259,6 +259,15 @@ export const auth = {
   },
 
   /**
+   * PATCH /api/listener/preferences — update listener-side preferences.
+   * @param {{ marketingOptIn: boolean }} prefs
+   * @returns {{ res: Response, data: { ok?: boolean, error?: string } }}
+   */
+  updatePreferences(prefs) {
+    return _send('/api/listener/preferences', prefs, 'PATCH');
+  },
+
+  /**
    * POST /api/listener/request-password-reset — always resolves ok:true.
    * @param {string} email
    * @returns {{ res: Response, data: { ok: boolean, emailEnabled: boolean } }}
@@ -275,6 +284,40 @@ export const auth = {
    */
   resetPassword(token, password) {
     return _send('/api/listener/reset-password', { token, password });
+  },
+
+  /**
+   * POST /api/listener/verify-email — complete an emailed verification link.
+   * @param {string} token
+   * @returns {{ res: Response, data: { error?: string } }}
+   */
+  verifyEmail(token) {
+    return _send('/api/listener/verify-email', { token });
+  },
+
+  /**
+   * POST /api/listener/resend-verification — requires login; always resolves ok:true.
+   * @returns {{ res: Response, data: { ok: boolean, emailEnabled: boolean } }}
+   */
+  resendVerification() {
+    return _send('/api/listener/resend-verification', {});
+  },
+
+  /**
+   * POST /api/listener/auto-login — complete a tip-flow magic login link.
+   * @param {string} token
+   * @returns {{ res: Response, data: { tier?: string, error?: string } }}
+   */
+  autoLogin(token) {
+    return _send('/api/listener/auto-login', { token });
+  },
+
+  /**
+   * POST /api/listener/settings-tour-seen — dismiss the one-time Settings spotlight.
+   * @returns {{ res: Response, data: { ok?: boolean } }}
+   */
+  settingsTourSeen() {
+    return _send('/api/listener/settings-tour-seen', {});
   },
 
   /**
@@ -331,11 +374,17 @@ export const payment = {
 
   /**
    * POST /api/payment/tip — create a Stripe tip checkout session.
+   * donorName/donorEmail are optional; leaving both blank keeps the tip
+   * anonymous. A donorEmail grants 7 days of supporter access after payment.
    * @param {number} amountCents
+   * @param {{ donorName?: string, donorEmail?: string }} [donor]
    * @returns {{ res: Response, data: { checkoutUrl?: string, error?: string } }}
    */
-  sendTip(amountCents) {
-    return _send('/api/payment/tip', { amountCents });
+  sendTip(amountCents, donor = {}) {
+    const body = { amountCents };
+    if (donor.donorName) body.donorName = donor.donorName;
+    if (donor.donorEmail) body.donorEmail = donor.donorEmail;
+    return _send('/api/payment/tip', body);
   },
 
   /**

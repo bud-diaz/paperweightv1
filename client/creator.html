@@ -97,6 +97,11 @@
             <input id="tip-amount" type="number" min="1" placeholder="5.00"/>
           </div>
           <div id="tip-presets"></div>
+          <div id="tip-donor-fields">
+            <input id="tip-donor-name" type="text" maxlength="100" placeholder="Name (optional)" autocomplete="name"/>
+            <input id="tip-donor-email" type="email" maxlength="254" placeholder="Email (optional)" autocomplete="email"/>
+            <div id="tip-donor-hint">Leave blank to tip anonymously. Add your email to get 7 days of supporter access.</div>
+          </div>
         </div>
         <!-- subscribe pane -->
         <div class="tab-pane" data-pane="subscribe">
@@ -153,6 +158,87 @@
   </div>
 </div>
 
+<!-- Settings modal (listener account, verification, preferences) -->
+<div id="settings-backdrop">
+  <div id="settings-modal">
+    <div id="settings-modal-header">
+      <span id="settings-modal-title">SETTINGS</span>
+      <button id="settings-modal-close">×</button>
+    </div>
+    <div id="settings-modal-body">
+
+      <!-- Account section (relocated from the share drawer — same IDs, same auth.js wiring) -->
+      <button id="auth-toggle">
+        <div id="auth-toggle-left">
+          <span>ACCOUNT</span>
+          <span id="auth-toggle-status"></span>
+        </div>
+        <svg id="auth-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none">
+          <path d="M1 3l3 3 3-3" stroke="rgba(255,255,255,.3)" stroke-width="1.2"/>
+        </svg>
+      </button>
+      <div id="auth-body">
+      <div id="auth-section">
+        <div id="auth-logged-out">
+          <div id="auth-tabs">
+            <button class="auth-tab active" data-auth-tab="login">LOG IN</button>
+            <button class="auth-tab" data-auth-tab="register">CREATE ACCOUNT</button>
+          </div>
+          <div id="auth-form">
+            <input class="auth-input" id="auth-email" type="email" placeholder="email address" autocomplete="email"/>
+            <input class="auth-input" id="auth-password" type="password" placeholder="password (min 8 chars)" autocomplete="current-password"/>
+            <button class="auth-submit" id="auth-submit-btn">LOG IN</button>
+            <button id="auth-forgot-btn" style="background:none;border:none;color:rgba(255,255,255,.35);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.06em;cursor:pointer;padding:6px 0;text-align:left;">FORGOT PASSWORD?</button>
+            <div class="auth-msg" id="auth-msg"></div>
+          </div>
+        </div>
+        <div id="auth-logged-in" hidden>
+          <div class="auth-account-row">
+            <span class="auth-email-disp" id="auth-email-display"></span>
+            <span class="auth-tier-badge" id="auth-tier-badge"></span>
+            <button class="auth-logout-btn" id="auth-logout-btn">LOG OUT</button>
+          </div>
+          <button id="auth-complete-account-btn" hidden>Complete account to buy and keep access →</button>
+          <button id="auth-set-pw" hidden>Set a password to log in from any device →</button>
+          <div id="auth-setpw-form" hidden>
+            <input class="auth-input" id="auth-new-password" type="password" placeholder="choose a password (min 8 chars)" autocomplete="new-password"/>
+            <button class="auth-submit" id="auth-setpw-btn">SET PASSWORD</button>
+            <div class="auth-msg" id="auth-setpw-msg"></div>
+          </div>
+          <div id="settings-verify-row" hidden>
+            <span id="settings-verify-status"></span>
+            <button id="settings-resend-btn" class="mgmt-btn" hidden>RESEND VERIFICATION EMAIL</button>
+          </div>
+          <div id="auth-manage" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">
+            <button class="mgmt-btn" id="auth-portal-btn" hidden>MANAGE BILLING</button>
+            <button class="mgmt-btn" id="auth-cancel-sub-btn" hidden>CANCEL SUBSCRIPTION</button>
+            <button class="mgmt-btn" id="auth-export-btn" hidden>DOWNLOAD MY DATA</button>
+            <button class="mgmt-btn danger" id="auth-delete-btn" hidden>DELETE ACCOUNT</button>
+          </div>
+          <div class="auth-msg" id="auth-manage-msg"></div>
+        </div>
+      </div>
+      <!-- Your Collection (unlocked content + purchase history) -->
+      <div id="collection-section" hidden>
+        <div class="drawer-label" style="margin-top:14px;">YOUR COLLECTION</div>
+        <div id="collection-list"></div>
+        <div id="collection-purchases" hidden></div>
+      </div>
+      </div><!-- /auth-body -->
+
+      <!-- Preferences -->
+      <div id="settings-preferences-section" hidden>
+        <div class="drawer-label" style="margin-top:14px;">PREFERENCES</div>
+        <label id="settings-marketing-row">
+          <input type="checkbox" id="settings-marketing-checkbox"/>
+          <span>Email me about new releases and updates</span>
+        </label>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <!-- Player -->
 <div id="layout">
 <div id="player-wrap">
@@ -164,6 +250,11 @@
         <span class="pw-wordmark" id="pw-wordmark-text">Paperweight</span>
         <input id="pw-station-search" class="pw-station-search" type="search" autocomplete="off" placeholder="Search stations" aria-label="Search public stations" hidden>
         <div id="pw-station-results" class="pw-station-results" hidden></div>
+        <button id="pw-settings-btn" class="pw-settings-btn" aria-label="Account settings" title="Account">⚙</button>
+        <div id="pw-settings-dropdown" class="pw-settings-dropdown" hidden>
+          <button id="pw-settings-open-btn" class="pw-settings-dropdown-item">SETTINGS</button>
+          <button id="pw-settings-logout-btn" class="pw-settings-dropdown-item" hidden>LOG OUT</button>
+        </div>
       </div>
       <div id="view-toggle">
         <button class="view-tab" data-view="stack">STACK</button>
@@ -381,61 +472,9 @@
         <div class="drawer" id="share-drawer">
           <div class="drawer-inner">
             <div class="share-drawer-panel" id="account-panel-content">
-
-            <!-- Account section -->
-            <button id="auth-toggle">
-              <div id="auth-toggle-left">
-                <span>ACCOUNT</span>
-                <span id="auth-toggle-status"></span>
-              </div>
-              <svg id="auth-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none">
-                <path d="M1 3l3 3 3-3" stroke="rgba(255,255,255,.3)" stroke-width="1.2"/>
-              </svg>
-            </button>
-            <div id="auth-body">
-            <div id="auth-section">
-              <div id="auth-logged-out">
-                <div id="auth-tabs">
-                  <button class="auth-tab active" data-auth-tab="login">LOG IN</button>
-                  <button class="auth-tab" data-auth-tab="register">CREATE ACCOUNT</button>
-                </div>
-                <div id="auth-form">
-                  <input class="auth-input" id="auth-email" type="email" placeholder="email address" autocomplete="email"/>
-                  <input class="auth-input" id="auth-password" type="password" placeholder="password (min 8 chars)" autocomplete="current-password"/>
-                  <button class="auth-submit" id="auth-submit-btn">LOG IN</button>
-                  <button id="auth-forgot-btn" style="background:none;border:none;color:rgba(255,255,255,.35);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.06em;cursor:pointer;padding:6px 0;text-align:left;">FORGOT PASSWORD?</button>
-                  <div class="auth-msg" id="auth-msg"></div>
-                </div>
-              </div>
-              <div id="auth-logged-in" hidden>
-                <div class="auth-account-row">
-                  <span class="auth-email-disp" id="auth-email-display"></span>
-                  <span class="auth-tier-badge" id="auth-tier-badge"></span>
-                  <button class="auth-logout-btn" id="auth-logout-btn">LOG OUT</button>
-                </div>
-                <button id="auth-complete-account-btn" hidden>Complete account to buy and keep access →</button>
-                <button id="auth-set-pw" hidden>Set a password to log in from any device →</button>
-                <div id="auth-setpw-form" hidden>
-                  <input class="auth-input" id="auth-new-password" type="password" placeholder="choose a password (min 8 chars)" autocomplete="new-password"/>
-                  <button class="auth-submit" id="auth-setpw-btn">SET PASSWORD</button>
-                  <div class="auth-msg" id="auth-setpw-msg"></div>
-                </div>
-                <div id="auth-manage" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">
-                  <button class="mgmt-btn" id="auth-portal-btn" hidden>MANAGE BILLING</button>
-                  <button class="mgmt-btn" id="auth-cancel-sub-btn" hidden>CANCEL SUBSCRIPTION</button>
-                  <button class="mgmt-btn" id="auth-export-btn" hidden>DOWNLOAD MY DATA</button>
-                  <button class="mgmt-btn danger" id="auth-delete-btn" hidden>DELETE ACCOUNT</button>
-                </div>
-                <div class="auth-msg" id="auth-manage-msg"></div>
-              </div>
-            </div>
-            <!-- Your Collection (unlocked content + purchase history) -->
-            <div id="collection-section" hidden>
-              <div class="drawer-label" style="margin-top:14px;">YOUR COLLECTION</div>
-              <div id="collection-list"></div>
-              <div id="collection-purchases" hidden></div>
-            </div>
-            </div><!-- /auth-body -->
+              <div class="drawer-label">ACCOUNT</div>
+              <div id="account-panel-summary">Manage your account, email verification, and preferences from Settings.</div>
+              <button id="account-panel-open-settings-btn" class="mgmt-btn">OPEN SETTINGS</button>
             </div>
 
             <div class="share-drawer-panel" id="share-panel-content">

@@ -170,6 +170,39 @@ function runMigrations(database) {
       // the release scheduler re-announce every historical post on next boot.
       backfill: "UPDATE creator_posts SET release_notified_at = published_at WHERE release_notified_at IS NULL AND published_at IS NOT NULL",
     },
+    {
+      // Set when a verify/auto-login email link is clicked (or a magic tip
+      // login is used). NULL means the listener's email is unverified.
+      table:  'listener_accounts',
+      column: 'email_verified_at',
+      sql:    'ALTER TABLE listener_accounts ADD COLUMN email_verified_at TEXT',
+    },
+    {
+      // Set exactly once, the first time an account becomes paid while still
+      // unverified (see activateSubscription in src/api/payment.js). Starts the
+      // 24h grace clock; never reset on renewal. NULL = never required, which
+      // grandfathers in accounts that were already paid before this shipped.
+      table:  'listener_accounts',
+      column: 'email_verification_required_at',
+      sql:    'ALTER TABLE listener_accounts ADD COLUMN email_verification_required_at TEXT',
+    },
+    {
+      // Set once the one-time Settings spotlight has been dismissed.
+      table:  'listener_accounts',
+      column: 'settings_tour_seen_at',
+      sql:    'ALTER TABLE listener_accounts ADD COLUMN settings_tour_seen_at TEXT',
+    },
+    {
+      // Optional donor identity captured on the tip form. Both null = anonymous.
+      table:  'tips',
+      column: 'donor_name',
+      sql:    'ALTER TABLE tips ADD COLUMN donor_name TEXT',
+    },
+    {
+      table:  'tips',
+      column: 'donor_email',
+      sql:    'ALTER TABLE tips ADD COLUMN donor_email TEXT',
+    },
   ];
 
   for (const guard of alterGuards) {
@@ -226,6 +259,32 @@ function runMigrations(database) {
           listener_id              INTEGER NOT NULL REFERENCES listener_accounts(id),
           tier                     TEXT    NOT NULL CHECK(tier IN ('subscriber', 'pro', 'all_access')),
           provider                 TEXT    NOT NULL CHECK(provider IN ('stripe', 'paypal')),
+          provider_subscription_id TEXT    NOT NULL,
+          status                   TEXT    NOT NULL CHECK(status IN ('active', 'cancelled', 'expired')),
+          current_period_end       TEXT    NOT NULL,
+          created_at               TEXT    NOT NULL DEFAULT (datetime('now'))
+        )
+      `);
+      database.exec(`INSERT INTO subscriptions SELECT * FROM subscriptions_old`);
+      database.exec(`DROP TABLE subscriptions_old`);
+    })();
+  }
+
+  // 027 — widen subscriptions.provider CHECK to include 'tip' (temporary
+  // 7-day supporter access granted by a tip with an email attached).
+  const subSchema2 = database.prepare(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'subscriptions'"
+  ).get();
+
+  if (subSchema2 && !subSchema2.sql.includes("'tip'")) {
+    database.transaction(() => {
+      database.exec(`ALTER TABLE subscriptions RENAME TO subscriptions_old`);
+      database.exec(`
+        CREATE TABLE subscriptions (
+          id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+          listener_id              INTEGER NOT NULL REFERENCES listener_accounts(id),
+          tier                     TEXT    NOT NULL CHECK(tier IN ('subscriber', 'pro', 'all_access')),
+          provider                 TEXT    NOT NULL CHECK(provider IN ('stripe', 'paypal', 'tip')),
           provider_subscription_id TEXT    NOT NULL,
           status                   TEXT    NOT NULL CHECK(status IN ('active', 'cancelled', 'expired')),
           current_period_end       TEXT    NOT NULL,

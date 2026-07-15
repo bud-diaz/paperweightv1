@@ -42,6 +42,24 @@ function attachTier(req, res, next) {
 
   req.tier = effectiveTierForTokenRow(row);
 
+  // Only fetched for subscriber+ tiers — free-tier requests have nothing to
+  // gate, so this stays off the hot path for the vast majority of traffic.
+  if (isSubscriberTier(req.tier) && row.listener_id) {
+    try {
+      const account = getDb().prepare(
+        'SELECT email_verified_at, email_verification_required_at FROM listener_accounts WHERE id = ?'
+      ).get(row.listener_id);
+      if (account) {
+        req.emailVerification = {
+          verifiedAt: account.email_verified_at,
+          requiredAt: account.email_verification_required_at,
+        };
+      }
+    } catch {
+      // Fail open — don't lock out a paid listener over a transient DB hiccup.
+    }
+  }
+
   next();
 }
 
