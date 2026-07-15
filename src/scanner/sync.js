@@ -75,6 +75,24 @@ function upsert(filepath, category, probeData) {
   });
 }
 
+// Pre-stamps the setup wizard's chosen "seed" file as public before the
+// scanner's first recursive scan reaches it. The real scan's upsert() above
+// then fills in title/category/etc. via ffprobe on conflict, while its
+// ON CONFLICT clause never touches visibility — so this row's 'public' value
+// survives untouched. Idempotent: once the row exists, this is a no-op on
+// every subsequent boot.
+function seedPublicVisibility() {
+  const seedPath = config.vault.seedPublicFile;
+  if (!seedPath) return;
+  const db = getDb();
+  const resolved = path.resolve(seedPath);
+  db.prepare(
+    `INSERT INTO media (filepath, filename, category, visibility)
+     VALUES (?, ?, 'music', 'public')
+     ON CONFLICT(filepath) DO NOTHING`
+  ).run(resolved, path.basename(resolved));
+}
+
 function markInactive(filepath) {
   const db = getDb();
   db.prepare(
@@ -135,4 +153,4 @@ async function repairVideoMimeTypes() {
   if (fixed > 0) log('info', 'scanner', `Repaired mime_type for ${fixed} misclassified video file(s)`);
 }
 
-module.exports = { needsProbe, upsert, markInactive, reconcileInactive, repairVideoMimeTypes, isExternalMediaPath };
+module.exports = { needsProbe, upsert, seedPublicVisibility, markInactive, reconcileInactive, repairVideoMimeTypes, isExternalMediaPath };

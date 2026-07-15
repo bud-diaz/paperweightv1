@@ -100,4 +100,4 @@ function probe(filepath) {
   });
 }
 
-module.exports = { probe, isSupported };
+module.exports = { probe, isSupported, SUPPORTED_EXTENSIONS };

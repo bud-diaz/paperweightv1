@@ -981,6 +981,29 @@ router.put('/settings', (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Onboarding: required-public seed track spotlight ───────────────────────
+
+// GET /api/dashboard/onboarding-seed
+// Resolves the setup wizard's VAULT_SEED_PUBLIC_FILE (when Private import
+// visibility was chosen) to its media row id, so the dashboard can spotlight
+// it once. tourSeen sticks after the creator dismisses it.
+router.get('/onboarding-seed', (req, res) => {
+  const seedPath = config.vault.seedPublicFile;
+  const row = seedPath
+    ? getDb().prepare('SELECT id FROM media WHERE filepath = ?').get(path.resolve(seedPath))
+    : null;
+  res.json({
+    seedTrackId: row ? row.id : null,
+    tourSeen: getBoolSetting('onboarding_seed_tour_seen', false),
+  });
+});
+
+// POST /api/dashboard/onboarding-seed/dismiss
+router.post('/onboarding-seed/dismiss', (req, res) => {
+  setSetting('onboarding_seed_tour_seen', '1');
+  res.json({ ok: true });
+});
+
 // GET /api/dashboard/payment-config
 // Returns which payment env vars are configured (never exposes the values themselves).
 router.get('/payment-config', (req, res) => {

@@ -99,6 +99,105 @@ test('scanner reconciliation preserves external imports while marking missing lo
   assert.equal(db.prepare('SELECT is_active FROM media WHERE id = ?').get(external.id).is_active, 1);
 });
 
+test('seedPublicVisibility pre-stamps the setup wizard\'s seed file public, surviving the real scan', () => {
+  const db = freshDb();
+  const config = require('../src/config');
+  const { upsert, seedPublicVisibility } = require('../src/scanner/sync');
+  fs.mkdirSync(config.vault.path, { recursive: true });
+
+  const seedPath = path.join(config.vault.path, `scanner-seed-${Date.now()}.mp3`);
+  fs.writeFileSync(seedPath, 'seed audio');
+  const previousSeedPublicFile = config.vault.seedPublicFile;
+  const previousDefaultVisibility = config.vault.defaultVisibility;
+
+  try {
+    config.vault.seedPublicFile = seedPath;
+    config.vault.defaultVisibility = 'vault';
+
+    seedPublicVisibility();
+    const placeholder = db.prepare('SELECT visibility FROM media WHERE filepath = ?').get(path.resolve(seedPath));
+    assert.equal(placeholder.visibility, 'public');
+
+    // The real scan then reaches this same file and fills in probed metadata —
+    // visibility must stay 'public' even though the configured default is 'vault'.
+    upsert(seedPath, 'music', { title: 'Seed Track', duration: 20, file_size: 9, mime_type: 'audio/mpeg' });
+    const scanned = db.prepare('SELECT title, category, visibility FROM media WHERE filepath = ?').get(path.resolve(seedPath));
+    assert.equal(scanned.title, 'Seed Track');
+    assert.equal(scanned.category, 'music');
+    assert.equal(scanned.visibility, 'public');
+  } finally {
+    config.vault.seedPublicFile = previousSeedPublicFile;
+    config.vault.defaultVisibility = previousDefaultVisibility;
+    try { fs.unlinkSync(seedPath); } catch {}
+  }
+});
+
+test('seedPublicVisibility is a no-op when no seed file is configured', () => {
+  const db = freshDb();
+  const config = require('../src/config');
+  const { seedPublicVisibility } = require('../src/scanner/sync');
+  const previousSeedPublicFile = config.vault.seedPublicFile;
+
+  try {
+    config.vault.seedPublicFile = '';
+    assert.doesNotThrow(() => seedPublicVisibility());
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM media').get().n, 0);
+  } finally {
+    config.vault.seedPublicFile = previousSeedPublicFile;
+  }
+});
+
+test('GET/POST onboarding-seed resolves the seed track and sticks after dismissal', async () => {
+  const db = freshDb();
+  resetAuthLimiter();
+  const config = require('../src/config');
+  const previousSeedPublicFile = config.vault.seedPublicFile;
+
+  const seedPath = path.join(config.vault.path, `onboarding-seed-${Date.now()}.mp3`);
+  const info = db.prepare(
+    "INSERT INTO media (filepath, filename, category, title, visibility) VALUES (?, ?, 'music', 'Starter Track', 'public')"
+  ).run(path.resolve(seedPath), path.basename(seedPath));
+
+  try {
+    config.vault.seedPublicFile = seedPath;
+
+    await withServer(async baseUrl => {
+      const initial = await request(baseUrl, '/api/dashboard/onboarding-seed', { headers: DASH });
+      assert.equal(initial.res.status, 200);
+      assert.deepEqual(initial.body, { seedTrackId: info.lastInsertRowid, tourSeen: false });
+
+      const dismissed = await request(baseUrl, '/api/dashboard/onboarding-seed/dismiss', {
+        method: 'POST', headers: DASH,
+      });
+      assert.equal(dismissed.res.status, 200);
+      assert.equal(dismissed.body.ok, true);
+
+      const after = await request(baseUrl, '/api/dashboard/onboarding-seed', { headers: DASH });
+      assert.equal(after.body.tourSeen, true);
+    });
+  } finally {
+    config.vault.seedPublicFile = previousSeedPublicFile;
+  }
+});
+
+test('GET onboarding-seed reports no seed track when none is configured', async () => {
+  freshDb();
+  resetAuthLimiter();
+  const config = require('../src/config');
+  const previousSeedPublicFile = config.vault.seedPublicFile;
+
+  try {
+    config.vault.seedPublicFile = '';
+    await withServer(async baseUrl => {
+      const { res, body } = await request(baseUrl, '/api/dashboard/onboarding-seed', { headers: DASH });
+      assert.equal(res.status, 200);
+      assert.deepEqual(body, { seedTrackId: null, tourSeen: false });
+    });
+  } finally {
+    config.vault.seedPublicFile = previousSeedPublicFile;
+  }
+});
+
 async function loginToken(baseUrl, email, password) {
   const { body } = await request(baseUrl, '/api/listener/login', {
     method: 'POST', headers: JSON_HDR, body: JSON.stringify({ email, password }),

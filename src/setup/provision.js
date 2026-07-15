@@ -40,6 +40,7 @@ function buildEnv({
   vaultPath = './vault',
   vaultMode = 'hybrid',
   initialVisibility = 'vault',
+  seedFile = '',
   cfTunnelToken = '',
   publicUrl = '',
 }) {
@@ -62,6 +63,10 @@ function buildEnv({
   const cleanVaultPath = cleanEnvValue('Vault path', vaultPath || './vault') || './vault';
   const cleanVaultMode = ['hybrid', 'folder', 'metadata'].includes(vaultMode) ? vaultMode : 'hybrid';
   const cleanInitialVisibility = initialVisibility === 'public' ? 'public' : 'vault';
+  const cleanSeedFile = cleanInitialVisibility === 'vault' ? cleanEnvValue('Seed file path', seedFile) : '';
+  if (cleanInitialVisibility === 'vault' && !cleanSeedFile) {
+    throw new Error('A public seed file is required when Private import visibility is chosen, so the broadcast has something to play at launch.');
+  }
 
   const cleanCfToken = cleanEnvValue('Tunnel token', cfTunnelToken);
   const trustProxyValue = cleanCfToken ? 'loopback' : 'false';
@@ -83,6 +88,7 @@ function buildEnv({
     `VAULT_PATH=${cleanVaultPath}`,
     `VAULT_MODE=${cleanVaultMode}`,
     `VAULT_DEFAULT_VISIBILITY=${cleanInitialVisibility}`,
+    'VAULT_SEED_PUBLIC_FILE=',
     '',
     `DASHBOARD_TOKEN=${dashboardToken}`,
     `DOWNLOAD_SIGNING_SECRET=${downloadSigningSecret}`,
@@ -131,7 +137,22 @@ function buildEnv({
     vaultPath: cleanVaultPath,
     vaultMode: cleanVaultMode,
     vaultDefaultVisibility: cleanInitialVisibility,
+    seedFile: cleanSeedFile,
   };
+}
+
+// Appends "-2", "-3", etc. before the extension if `basename` already exists
+// in `vaultAbs`, so copying a seed file never silently overwrites an existing one.
+function dedupeVaultFilename(vaultAbs, basename) {
+  const ext = path.extname(basename);
+  const stem = path.basename(basename, ext);
+  let candidate = basename;
+  let n = 2;
+  while (fs.existsSync(path.join(vaultAbs, candidate))) {
+    candidate = `${stem}-${n}${ext}`;
+    n++;
+  }
+  return candidate;
 }
 
 // Writes .env and creates the runtime directory tree under `dataRoot`.
@@ -143,7 +164,6 @@ function provisionEnv(fields, dataRoot) {
   }
 
   const built = buildEnv(fields);
-  fs.writeFileSync(envPath, built.contents, 'utf8');
 
   for (const dir of ['data', 'logs', path.join('hls_output', 'stream'), path.join('hls_output', 'previews')]) {
     fs.mkdirSync(path.join(dataRoot, dir), { recursive: true });
@@ -154,7 +174,21 @@ function provisionEnv(fields, dataRoot) {
     fs.mkdirSync(path.join(vaultAbs, sub), { recursive: true });
   }
 
-  return { ...built, envPath, vaultAbs };
+  let contents = built.contents;
+  let seedDestPath = '';
+  if (built.seedFile) {
+    if (!fs.existsSync(built.seedFile)) {
+      throw new Error(`Seed file not found: ${built.seedFile}`);
+    }
+    const destBasename = dedupeVaultFilename(vaultAbs, path.basename(built.seedFile));
+    seedDestPath = path.join(vaultAbs, destBasename);
+    fs.copyFileSync(built.seedFile, seedDestPath);
+    contents = contents.replace(/^VAULT_SEED_PUBLIC_FILE=$/m, `VAULT_SEED_PUBLIC_FILE=${seedDestPath}`);
+  }
+
+  fs.writeFileSync(envPath, contents, 'utf8');
+
+  return { ...built, envPath, vaultAbs, seedDestPath };
 }
 
 module.exports = { cleanEnvValue, slugify, buildEnv, provisionEnv, VAULT_SUBDIRS };

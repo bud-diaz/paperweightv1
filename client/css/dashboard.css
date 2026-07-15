@@ -738,3 +738,43 @@ textarea.dash-input { resize: vertical; min-height: 46px; line-height: 1.4; }
 }
 .tip-cfg-actions { align-self: flex-end; display: flex; align-items: center; gap: 8px; }
 #tip-cfg-msg { font-size: 11px; font-family: 'Space Mono', monospace; }
+
+/* ── Onboarding: required-public seed track spotlight ── */
+.onboarding-banner {
+  position: fixed; bottom: 20px; right: 20px; z-index: 500;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-3);
+  padding: 10px 12px 10px 16px; max-width: 320px;
+  font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t2);
+}
+.onboarding-banner-close {
+  background: none; border: none; color: var(--t3); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 2px 4px;
+}
+.onboarding-banner-close:hover { color: var(--t1); }
+
+.onboarding-spotlight {
+  animation: onboarding-pulse 1.8s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+@keyframes onboarding-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--track-glow-color-soft); }
+  50%      { box-shadow: 0 0 0 6px var(--track-glow-color-soft); }
+}
+/* prefers-reduced-motion collapses the animation duration globally (tokens.css);
+   fall back to a static highlight ring instead of a frozen mid-pulse frame. */
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-spotlight { box-shadow: 0 0 0 2px var(--track-glow-color-soft); }
+}
+
+.onboarding-tooltip {
+  position: absolute; top: 100%; left: 56px; right: 8px; margin-top: 6px;
+  background: var(--card); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-2);
+  padding: 10px 12px; z-index: 10;
+}
+.onboarding-tooltip p {
+  font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t2);
+  line-height: 1.5; margin: 0 0 8px;
+}

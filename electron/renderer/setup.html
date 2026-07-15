@@ -90,6 +90,19 @@
           </label>
         </fieldset>
 
+        <div id="seed-file-field">
+          <label>
+            Pick one file to launch your broadcast with
+            <div class="row">
+              <input type="text" id="seedFilePath" readonly placeholder="No file chosen">
+              <button type="button" id="choose-seed-file-btn">Choose file…</button>
+            </div>
+            <p class="hint">This file is set Public immediately so your broadcast has something to play. Everything else stays Private until you publish it.</p>
+          </label>
+        </div>
+
+        <p id="seed-file-error" class="error" hidden>Choose a file to publish, or switch to Public import visibility above.</p>
+
         <div class="step-nav">
           <button type="button" class="back-btn" data-back="1">← Back</button>
           <button type="button" class="next-btn" data-next="3">Next →</button>

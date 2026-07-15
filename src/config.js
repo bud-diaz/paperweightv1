@@ -261,6 +261,7 @@ const config = {
     path: path.resolve(dataRoot, process.env.VAULT_PATH || './vault'),
     mode: process.env.VAULT_MODE || 'hybrid',
     defaultVisibility: process.env.VAULT_DEFAULT_VISIBILITY === 'public' ? 'public' : 'vault',
+    seedPublicFile: process.env.VAULT_SEED_PUBLIC_FILE || '',
   },
 
   paths: {

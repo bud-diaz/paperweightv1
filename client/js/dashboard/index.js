@@ -4,6 +4,7 @@
 
 import * as api from '../api.js';
 import { el, esc } from '../utils.js';
+import * as onboarding from './onboarding.js';
 
 // ── Module-local state ─────────────────────────────────────────────────────────
 let dashboardInitialized = false;
@@ -290,6 +291,7 @@ export async function loadDashboard() {
   _loadDashAllAccess();
   _loadDashPosts();
   _loadDashSettings();
+  onboarding.checkSeedTrackTour();
   _loadDashAnalytics();
   _loadDash2FA();
   loadDashPaymentConfig();
