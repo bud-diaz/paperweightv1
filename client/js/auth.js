@@ -23,16 +23,20 @@ let authOpen = false;
 
 let _loadLibrary  = () => {};
 let _refreshQuota = () => {};
+let _maybeShowTour = () => {};
+let _renderSettings = () => {};
 
 /**
- * Register the loadLibrary/refreshQuota callbacks from library.js/player.js.
- * Called from main.js in Phase 8.
+ * Register the loadLibrary/refreshQuota/maybeShowTour/renderSettings callbacks
+ * from library.js/player.js/tour.js/settings.js. Called from main.js in Phase 8.
  *
- * @param {{ loadLibrary: () => void, refreshQuota: () => void }} cbs
+ * @param {{ loadLibrary: () => void, refreshQuota: () => void, maybeShowTour: () => void, renderSettings: () => void }} cbs
  */
-export function init({ loadLibrary, refreshQuota } = {}) {
+export function init({ loadLibrary, refreshQuota, maybeShowTour, renderSettings } = {}) {
   if (loadLibrary)  _loadLibrary  = loadLibrary;
   if (refreshQuota) _refreshQuota = refreshQuota;
+  if (maybeShowTour) _maybeShowTour = maybeShowTour;
+  if (renderSettings) _renderSettings = renderSettings;
 }
 
 // ── Auth state ────────────────────────────────────────────────────────────────
@@ -44,8 +48,12 @@ export async function loadAuthState() {
       // A listener account can exist at any tier (including free), and its
       // owner must always be able to log out, export, or delete it.
       // Welcome-page profiles (display name only) also answer here with
-      // hasAccount: false.
+      // hasAccount: false. _json() never throws on a non-2xx response (it
+      // just parses whatever JSON body came back), so an anonymous visitor's
+      // 401 { error: 'Authentication required' } must be rejected explicitly
+      // here — otherwise it reads as a successful, logged-in response below.
       const acc = await api.auth.listenerMe();
+      if (!acc || acc.error) throw new Error(acc?.error || 'Not authenticated');
       Object.assign(authState, {
         loggedIn: true,
         email: acc.email || '',
@@ -55,19 +63,23 @@ export async function loadAuthState() {
         hasAccount: acc.hasAccount !== false,
         subscriptionStatus: acc.subscriptionStatus || null,
         provider: acc.provider || null,
+        emailVerified: !!acc.emailVerified,
+        settingsTourSeenAt: acc.settingsTourSeenAt || null,
+        marketingOptIn: !!acc.marketingOptIn,
       });
     } catch {
       if (me.tier === 'free') {
-        Object.assign(authState, { loggedIn: false, email: '', displayName: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null });
+        Object.assign(authState, { loggedIn: false, email: '', displayName: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null, emailVerified: false, settingsTourSeenAt: null, marketingOptIn: false });
       } else {
         // Creator-issued token: valid non-free tier but no listener account
-        Object.assign(authState, { loggedIn: true, email: '', displayName: '', tier: me.tier, hasPassword: true, hasAccount: false, subscriptionStatus: null, provider: null });
+        Object.assign(authState, { loggedIn: true, email: '', displayName: '', tier: me.tier, hasPassword: true, hasAccount: false, subscriptionStatus: null, provider: null, emailVerified: false, settingsTourSeenAt: null, marketingOptIn: false });
       }
     }
   } catch {
-    Object.assign(authState, { loggedIn: false, email: '', displayName: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null });
+    Object.assign(authState, { loggedIn: false, email: '', displayName: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null, emailVerified: false, settingsTourSeenAt: null, marketingOptIn: false });
   }
   renderAuthSection();
+  if (authState.loggedIn && authState.hasAccount) _maybeShowTour();
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
@@ -76,6 +88,14 @@ export function toggleAuthSection(force) {
   authOpen = force !== undefined ? force : !authOpen;
   el('auth-toggle').classList.toggle('open', authOpen);
   el('auth-body').classList.toggle('open', authOpen);
+  // #auth-toggle/#auth-body now live inside the Settings modal (moved there
+  // when Settings consolidated account management out of the share drawer).
+  // Every existing call site that opens this accordion is trying to surface
+  // the login/account form to the listener, so opening it also reveals the
+  // modal it lives in. Collapsing the accordion never closes the modal back
+  // — that's an explicit action (close button / backdrop click) — this is a
+  // one-way coupling on open only.
+  if (authOpen) el('settings-backdrop').classList.add('open');
 }
 
 export function renderAuthSection() {
@@ -114,6 +134,7 @@ export function renderAuthSection() {
     status.textContent = '';
     el('auth-complete-account-btn').hidden = true;
   }
+  _renderSettings();
 }
 
 export function setAuthTab(tab) {
@@ -326,6 +347,63 @@ export function maybeShowResetForm() {
   setTimeout(() => input.focus(), 80);
 }
 
+// ── Email verification / tip auto-login (#verify=<token> / #autologin=<token>) ─
+
+/**
+ * If the URL carries a verify or auto-login token (emailed link), consume it
+ * immediately — neither needs user input, unlike a password reset — and show
+ * a brief status overlay. Independent of drawer state, same as the reset flow.
+ */
+export function maybeHandleEmailLink() {
+  const verifyMatch = window.location.hash.match(/^#verify=([A-Za-z0-9]+)$/);
+  const loginMatch = window.location.hash.match(/^#autologin=([A-Za-z0-9]+)$/);
+  if (!verifyMatch && !loginMatch) return;
+
+  const token = (verifyMatch || loginMatch)[1];
+  const isLogin = !!loginMatch;
+
+  const wrap = document.createElement('div');
+  wrap.id = 'email-link-overlay';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  wrap.innerHTML = `
+    <div style="width:100%;max-width:340px;background:#0d0d0d;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:22px;text-align:center;">
+      <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.14em;color:rgba(255,255,255,.6);margin-bottom:10px;">
+        ${isLogin ? 'LOGGING YOU IN…' : 'VERIFYING YOUR EMAIL…'}
+      </div>
+      <div class="auth-msg" id="email-link-msg"></div>
+    </div>`;
+  document.body.appendChild(wrap);
+
+  function closeOverlay() {
+    wrap.remove();
+    history.replaceState(null, '', window.location.pathname);
+  }
+
+  const msg = wrap.querySelector('#email-link-msg');
+
+  (async () => {
+    try {
+      const { res, data } = isLogin ? await api.auth.autoLogin(token) : await api.auth.verifyEmail(token);
+      if (!res.ok) {
+        msg.className = 'auth-msg error';
+        msg.textContent = data.error || 'This link is invalid or has expired.';
+        setTimeout(closeOverlay, 3000);
+        return;
+      }
+      msg.className = 'auth-msg success';
+      msg.textContent = isLogin ? "You're logged in!" : 'Email verified!';
+      await loadAuthState();
+      _loadLibrary();
+      _refreshQuota();
+      setTimeout(closeOverlay, 1400);
+    } catch {
+      msg.className = 'auth-msg error';
+      msg.textContent = 'Network error — please try again.';
+      setTimeout(closeOverlay, 3000);
+    }
+  })();
+}
+
 // ── Account management (cancel / billing portal / export / delete) ───────────
 
 async function handleCancelSubscription() {
@@ -445,4 +523,5 @@ export function initAuthHandlers() {
   el('auth-delete-btn').addEventListener('click', handleDeleteAccount);
 
   maybeShowResetForm();
+  maybeHandleEmailLink();
 }

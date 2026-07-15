@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const { getDb, log } = require('../db');
 const { hashToken } = require('../auth');
 const config = require('../config');
@@ -7,6 +8,7 @@ const { paymentLimiter } = require('../middleware/rateLimiter');
 const { cloudOnly } = require('../middleware/cloudGate');
 const asyncHandler = require('../middleware/asyncHandler');
 const { publicBaseUrl } = require('../runtime/base-url');
+const { isEmailConfigured, sendMail } = require('../email');
 
 const VALID_TIERS = new Set(['subscriber', 'pro', 'all_access']);
 
@@ -14,6 +16,43 @@ const VALID_TIERS = new Set(['subscriber', 'pro', 'all_access']);
 // (vault.js → router.js → payment.js, and payment.js → vault.js)
 function getCreateVaultUnlock() {
   return require('./vault').createVaultUnlock;
+}
+
+// Lazy-loaded for the same reason — listener.js lazily requires this module
+// (account deletion's provider-side cancel), so this module must not require
+// listener.js at top level either.
+function getListenerHelpers() {
+  return require('./listener');
+}
+
+// Fire-and-forget verification email sent the first time an account goes
+// paid while unverified. Never blocks the caller (webhook or checkout
+// redirect) on SMTP latency/failure.
+function sendVerificationEmail(db, listenerId) {
+  if (!isEmailConfigured()) return;
+  const account = db.prepare('SELECT id, email FROM listener_accounts WHERE id = ?').get(listenerId);
+  if (!account) return;
+
+  const { createEmailToken, verifyLinkUrl } = getListenerHelpers();
+  const { token } = createEmailToken(db, account.id, 'verify', 24 * 60);
+  const url = verifyLinkUrl(null, token);
+  const station = config.station.name || 'Paperweight';
+  setImmediate(() => {
+    sendMail({
+      to: account.email,
+      subject: `Verify your email for ${station}`,
+      text: [
+        `Thanks for supporting ${station}! Please confirm this is your email address.`,
+        '',
+        'Open this link to verify (valid for 24 hours):',
+        url,
+        '',
+        "If you don't verify within 24 hours, paid content access will pause until you do.",
+      ].join('\n'),
+    }).catch(err => {
+      log('error', 'payment', `Verification email to listener #${account.id} failed: ${err.message}`);
+    });
+  });
 }
 
 const ACTIVE_STRIPE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
@@ -61,6 +100,43 @@ function createPendingListener(db, nonce) {
     'INSERT INTO listener_accounts (email, password_hash) VALUES (?, ?)'
   ).run(email, passwordHash);
   return info.lastInsertRowid;
+}
+
+const TIP_SUPPORTER_DAYS = 7;
+
+// Find-or-create for a donor email captured on the tip form. Unlike
+// createPendingListener's synthetic email, this uses the donor's real
+// address and a real (bcrypt, synchronous) temp password so it can be
+// emailed to them as usable login credentials. Synchronous throughout —
+// this may run inside claimAndRun's transaction (webhook path), which
+// better-sqlite3 requires to be fully synchronous.
+function findOrCreateListenerByEmail(db, email) {
+  const existing = db.prepare('SELECT id FROM listener_accounts WHERE email = ?').get(email);
+  if (existing) return { listenerId: existing.id, isNewAccount: false, tempPassword: null };
+
+  const tempPassword = crypto.randomBytes(6).toString('hex');
+  const passwordHash = bcrypt.hashSync(tempPassword, 10);
+  const info = db.prepare(
+    'INSERT INTO listener_accounts (email, password_hash) VALUES (?, ?)'
+  ).run(email, passwordHash);
+  return { listenerId: info.lastInsertRowid, isNewAccount: true, tempPassword };
+}
+
+// Grants (or refreshes) 7 days of subscriber-tier access via the same
+// subscriptions table every other tier grant uses, so it expires on its own
+// through the existing activeSubscriptionTierForListener logic — no separate
+// scheduler needed. Idempotent per payment intent via activateSubscription's
+// upsert-by-provider_subscription_id lookup, so the webhook and the
+// tip-success redirect can both call this safely.
+function grantTipSupporterAccess(db, { listenerId, paymentIntentId }) {
+  const currentPeriodEnd = new Date(Date.now() + TIP_SUPPORTER_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  return activateSubscription(db, {
+    providerSubscriptionId: `tip-${paymentIntentId}`,
+    provider: 'tip',
+    tier: 'subscriber',
+    currentPeriodEnd,
+    listenerIdOrEmail: listenerId,
+  });
 }
 
 function refreshExistingStripeSubscription(db, sub) {
@@ -113,6 +189,17 @@ function activateSubscription(db, { providerSubscriptionId, provider, tier, curr
   db.prepare(
     'UPDATE tokens SET tier = ? WHERE listener_id = ? AND is_active = 1'
   ).run(tier, listenerId);
+
+  // Starts the email-verification grace clock exactly once, the first time
+  // this account goes paid while unverified (see src/auth/access.js for the
+  // 24h gate this feeds). Never reset on renewal; already-paid accounts from
+  // before this shipped are grandfathered (this UPDATE never touches them
+  // since it only ever runs on a fresh subscription activation).
+  const graceStarted = db.prepare(
+    `UPDATE listener_accounts SET email_verification_required_at = datetime('now')
+     WHERE id = ? AND email_verified_at IS NULL AND email_verification_required_at IS NULL`
+  ).run(listenerId);
+  if (graceStarted.changes > 0) sendVerificationEmail(db, listenerId);
 
   return true;
 }
@@ -610,10 +697,27 @@ router.get('/tip-config', (req, res) => {
   res.json({ enabled: true, amounts, customEnabled });
 });
 
+// Both optional; leaving them blank is how a tip stays anonymous. Truncated
+// defensively — Stripe metadata values are capped at 500 chars each anyway.
+function cleanDonorName(raw) {
+  if (raw === undefined || raw === null || raw === '') return null;
+  if (typeof raw !== 'string') return undefined; // signals "invalid" to the caller
+  const name = raw.trim().replace(/[\x00-\x1F\x7F]/g, '').slice(0, 100);
+  return name || null;
+}
+
+function cleanDonorEmail(raw) {
+  if (raw === undefined || raw === null || raw === '') return null;
+  if (typeof raw !== 'string' || !raw.includes('@') || raw.length > 254) return undefined;
+  return raw.toLowerCase().trim();
+}
+
 // POST /api/payment/tip
-// Public — no auth. Body: { amountCents: number }
+// Public — no auth. Body: { amountCents: number, donorName?, donorEmail? }
 // Creates a Stripe Checkout session (mode: 'payment') for a one-time tip.
-// Does NOT create listener accounts, subscriptions, or change any tiers.
+// donorName/donorEmail are optional and tagged onto the Stripe metadata so the
+// success redirect and webhook can grant a 7-day supporter account after
+// payment — this route itself still creates nothing.
 router.post('/tip', paymentLimiter, asyncHandler(async (req, res) => {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeKey) return res.status(503).json({ error: 'Stripe not configured on this server' });
@@ -626,10 +730,19 @@ router.post('/tip', paymentLimiter, asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Amount exceeds maximum allowed tip' });
   }
 
+  const donorName = cleanDonorName(req.body.donorName);
+  const donorEmail = cleanDonorEmail(req.body.donorEmail);
+  if (donorName === undefined) return res.status(400).json({ error: 'Invalid name' });
+  if (donorEmail === undefined) return res.status(400).json({ error: 'Invalid email address' });
+
   try {
     const stripe      = require('stripe')(stripeKey);
     const base        = publicBaseUrl(req);
     const stationName = config.station.name || 'the station';
+
+    const piMetadata = { type: 'tip', amount_cents: String(amountCents) };
+    if (donorName) piMetadata.donor_name = donorName;
+    if (donorEmail) piMetadata.donor_email = donorEmail;
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -645,8 +758,8 @@ router.post('/tip', paymentLimiter, asyncHandler(async (req, res) => {
       cancel_url:           `${base}/#player`,
       // Tag both the session and the payment intent so webhook handlers can
       // distinguish tip payments from subscription payments unambiguously.
-      metadata:             { type: 'tip' },
-      payment_intent_data:  { metadata: { type: 'tip', amount_cents: String(amountCents) } },
+      metadata:             piMetadata,
+      payment_intent_data:  { metadata: piMetadata },
     });
 
     res.json({ checkoutUrl: session.url });
@@ -655,6 +768,64 @@ router.post('/tip', paymentLimiter, asyncHandler(async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to create tip checkout' });
   }
 }));
+
+// Grants 7-day supporter access for a tip with a donor email attached, then
+// gets the browser logged in — via an emailed magic link + credentials when
+// SMTP is configured, or straight onto this response's cookie when it isn't
+// (the "if that's not possible, just log them in" fallback). Only called from
+// the redirect handler (never the webhook) so the email/cookie side effect
+// fires exactly once per tip, even though the DB grant itself is idempotent.
+function grantTipAccessAndSignIn(req, res, db, { donorEmail, paymentIntentId }) {
+  let listenerId;
+  let isNewAccount = false;
+  let tempPassword = null;
+
+  if (req.tokenRow?.listener_id) {
+    // Already logged in — extend their existing account instead of creating
+    // a second one for the same person.
+    listenerId = req.tokenRow.listener_id;
+  } else {
+    const found = findOrCreateListenerByEmail(db, donorEmail);
+    listenerId = found.listenerId;
+    isNewAccount = found.isNewAccount;
+    tempPassword = found.tempPassword;
+  }
+
+  grantTipSupporterAccess(db, { listenerId, paymentIntentId });
+
+  if (isEmailConfigured()) {
+    const { createEmailToken, autoLoginLinkUrl } = getListenerHelpers();
+    const { token } = createEmailToken(db, listenerId, 'login', 30);
+    const url = autoLoginLinkUrl(null, token);
+    const station = config.station.name || 'Paperweight';
+    const lines = [`Thank you for supporting ${station}!`, '', `You now have ${TIP_SUPPORTER_DAYS} days of supporter access.`, ''];
+    if (isNewAccount) {
+      lines.push(
+        `We created an account for you: ${donorEmail}`,
+        `Temporary password: ${tempPassword}`,
+        '(you can change this any time from Settings)',
+        '',
+      );
+    }
+    lines.push('Click below to log in instantly:', url);
+    setImmediate(() => {
+      sendMail({ to: donorEmail, subject: `You're a ${station} supporter`, text: lines.join('\n') }).catch(err => {
+        log('error', 'payment', `Tip supporter email to listener #${listenerId} failed: ${err.message}`);
+      });
+    });
+    return;
+  }
+
+  // No SMTP configured — just log them in directly.
+  const { issueToken } = getListenerHelpers();
+  const issued = issueToken(db, listenerId, 'subscriber');
+  res.cookie('pw_token', issued.token, {
+    httpOnly: true,
+    secure:   config.https || req.secure || req.headers['x-forwarded-proto'] === 'https',
+    sameSite: 'lax',
+    maxAge:   365 * 24 * 60 * 60 * 1000,
+  });
+}
 
 // GET /api/payment/tip-success?session_id=xxx
 // Stripe redirects here after a successful tip payment.
@@ -674,17 +845,29 @@ router.get('/tip-success', asyncHandler(async (req, res) => {
       if (session.metadata?.type === 'tip' && isPaidCheckoutSession(session) && isSucceededPaymentIntent(session.payment_intent)) {
         const pi          = session.payment_intent;
         const amountCents = pi.amount_received || pi.amount;
+        const donorName   = pi.metadata?.donor_name || null;
+        const donorEmail  = pi.metadata?.donor_email || null;
         const db          = getDb();
 
         // ON CONFLICT DO NOTHING — idempotent against idx_tips_payment_intent if the
         // webhook already logged this intent (redirect and webhook race each other).
+        // The account/grant/email step below runs regardless of which side won that
+        // race: findOrCreateListenerByEmail and grantTipSupporterAccess are each
+        // idempotent by design (find-or-create by email; upsert by payment intent id).
         db.prepare(
-          'INSERT INTO tips (amount_cents, stripe_payment_intent_id, stripe_checkout_session_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING'
-        ).run(amountCents, pi.id, session.id);
+          'INSERT INTO tips (amount_cents, stripe_payment_intent_id, stripe_checkout_session_id, donor_name, donor_email) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING'
+        ).run(amountCents, pi.id, session.id, donorName, donorEmail);
 
         log('info', 'payment', `Tip logged via redirect: $${(amountCents / 100).toFixed(2)} (${pi.id})`);
+
+        if (donorEmail) {
+          grantTipAccessAndSignIn(req, res, db, { donorEmail, paymentIntentId: pi.id });
+        }
       }
-    } catch { /* webhook is authoritative — don't block redirect */ }
+    } catch (err) {
+      log('error', 'payment', `Tip-success redirect handling failed: ${err.message}`);
+      /* webhook is authoritative — don't block redirect */
+    }
   }
 
   res.redirect('/creator.html?tipped=1#player');
@@ -1004,14 +1187,25 @@ async function stripeWebhookHandler(req, res) {
       if (pi.metadata?.type !== 'tip') break;
 
       const amountCents = parseInt(pi.metadata?.amount_cents, 10) || pi.amount_received;
+      const donorName   = pi.metadata?.donor_name || null;
+      const donorEmail  = pi.metadata?.donor_email || null;
       outcome = 'ok';
       mutate = () => {
         // ON CONFLICT DO NOTHING — idempotent against idx_tips_payment_intent if the
         // tip-success redirect already logged this intent.
         db.prepare(
-          'INSERT INTO tips (amount_cents, stripe_payment_intent_id) VALUES (?, ?) ON CONFLICT DO NOTHING'
-        ).run(amountCents, pi.id);
+          'INSERT INTO tips (amount_cents, stripe_payment_intent_id, donor_name, donor_email) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING'
+        ).run(amountCents, pi.id, donorName, donorEmail);
         log('info', 'payment', `Tip confirmed via webhook: $${(amountCents / 100).toFixed(2)} (${pi.id})`);
+
+        // Authoritative safety net for the 7-day supporter grant in case the
+        // tip-success redirect never ran (tab closed mid-checkout, etc). Does
+        // not send an email/set a cookie — no browser response to act on here;
+        // that only happens on the redirect path (grantTipAccessAndSignIn).
+        if (donorEmail) {
+          const { listenerId } = findOrCreateListenerByEmail(db, donorEmail);
+          grantTipSupporterAccess(db, { listenerId, paymentIntentId: pi.id });
+        }
       };
       break;
     }
@@ -1061,3 +1255,5 @@ module.exports.isPaidCheckoutSession = isPaidCheckoutSession;
 module.exports.isSucceededPaymentIntent = isSucceededPaymentIntent;
 module.exports.isStripeSubscriptionActive = isStripeSubscriptionActive;
 module.exports.refreshExistingStripeSubscription = refreshExistingStripeSubscription;
+module.exports.findOrCreateListenerByEmail = findOrCreateListenerByEmail;
+module.exports.grantTipSupporterAccess = grantTipSupporterAccess;

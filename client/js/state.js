@@ -34,7 +34,7 @@ export let currentLiveActive = false;
 export let stationName       = '';
 
 // ── Auth state ────────────────────────────────────────────────────────────────────
-export let authState = { loggedIn: false, email: '', displayName: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null };
+export let authState = { loggedIn: false, email: '', displayName: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null, emailVerified: false, settingsTourSeenAt: null, marketingOptIn: false };
 export let authTab   = 'login';
 export let authOpen  = false;
 

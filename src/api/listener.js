@@ -77,6 +77,8 @@ function getActiveSubscription(db, listenerId) {
 }
 
 const RESET_TTL_MINUTES = 60;
+const VERIFY_TTL_MINUTES = 24 * 60;
+const AUTO_LOGIN_TTL_MINUTES = 30;
 
 // Creates a password reset row and returns the raw token (stored only as a
 // SHA-256 hash). `via` is 'email' (listener-requested) or 'dashboard' (creator
@@ -92,6 +94,50 @@ function createPasswordReset(db, listenerId, via) {
 
 function resetLinkUrl(req, token) {
   return `${publicBaseUrl(req)}/#reset=${token}`;
+}
+
+// Creates a single-use listener_email_tokens row and returns the raw token
+// (stored only as a SHA-256 hash). `purpose` is 'verify' (confirms the
+// listener owns the email on file) or 'login' (tip-flow auto-login link).
+function createEmailToken(db, listenerId, purpose, ttlMinutes) {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
+  db.prepare(
+    'INSERT INTO listener_email_tokens (listener_id, token_hash, purpose, expires_at) VALUES (?, ?, ?, ?)'
+  ).run(listenerId, hashToken(token), purpose, expiresAt);
+  return { token, expiresAt };
+}
+
+function verifyLinkUrl(req, token) {
+  return `${publicBaseUrl(req)}/#verify=${token}`;
+}
+
+function autoLoginLinkUrl(req, token) {
+  return `${publicBaseUrl(req)}/#autologin=${token}`;
+}
+
+// Consumes a listener_email_tokens row of the given purpose. Returns the
+// listener_id on success, or null if the token is missing/used/expired/wrong
+// purpose. Marks the token used as a side effect of a successful consume.
+function consumeEmailToken(db, token, purpose) {
+  if (!token || typeof token !== 'string') return null;
+  const row = db.prepare(
+    'SELECT * FROM listener_email_tokens WHERE token_hash = ? AND purpose = ?'
+  ).get(hashToken(token), purpose);
+  const expired = row && new Date(row.expires_at).getTime() < Date.now();
+  if (!row || row.used_at || expired) return null;
+
+  db.prepare("UPDATE listener_email_tokens SET used_at = datetime('now') WHERE id = ?").run(row.id);
+  return row.listener_id;
+}
+
+// Marks the account's email verified if it isn't already. Both the verify
+// link and the tip auto-login link (mailed to the listener's own inbox)
+// count as proof of ownership.
+function markEmailVerified(db, listenerId) {
+  db.prepare(
+    "UPDATE listener_accounts SET email_verified_at = datetime('now') WHERE id = ? AND email_verified_at IS NULL"
+  ).run(listenerId);
 }
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
@@ -270,7 +316,9 @@ router.get('/me', (req, res) => {
   }
 
   const account = db.prepare(
-    'SELECT id, email, password_hash, created_at FROM listener_accounts WHERE id = ? AND is_active = 1'
+    `SELECT id, email, password_hash, created_at, email_verified_at,
+            email_verification_required_at, settings_tour_seen_at
+     FROM listener_accounts WHERE id = ? AND is_active = 1`
   ).get(req.tokenRow.listener_id);
 
   if (!account) {
@@ -291,7 +339,100 @@ router.get('/me', (req, res) => {
     subscriptionStatus: sub ? sub.status : null,
     currentPeriodEnd: sub ? sub.current_period_end : null,
     provider: sub ? sub.provider : null,
+    emailVerified: !!account.email_verified_at,
+    emailVerificationRequiredAt: account.email_verification_required_at,
+    settingsTourSeenAt: account.settings_tour_seen_at,
   });
+});
+
+// POST /api/listener/verify-email
+// Body: { token } — completes an email verification link (from the initial
+// paid-tier verification email or a resend). No auth required: the token
+// itself proves ownership of the mailbox it was sent to.
+router.post('/verify-email', authLimiter, (req, res) => {
+  const { token } = req.body || {};
+  const db = getDb();
+  const listenerId = consumeEmailToken(db, token, 'verify');
+  if (!listenerId) {
+    return res.status(400).json({ error: 'Verification link is invalid or has expired' });
+  }
+  markEmailVerified(db, listenerId);
+  log('info', 'listener', `Email verified for listener #${listenerId}`);
+  res.json({ ok: true });
+});
+
+// POST /api/listener/resend-verification
+// Requires login. No-ops quietly if already verified or SMTP is unconfigured
+// (mirrors request-password-reset's no-enumeration style).
+router.post('/resend-verification', authLimiter, (req, res) => {
+  if (!req.tokenRow || !req.tokenRow.listener_id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const emailEnabled = isEmailConfigured();
+  const db = getDb();
+  const account = db.prepare(
+    'SELECT id, email, email_verified_at FROM listener_accounts WHERE id = ? AND is_active = 1'
+  ).get(req.tokenRow.listener_id);
+
+  if (account && !account.email_verified_at && emailEnabled) {
+    const { token } = createEmailToken(db, account.id, 'verify', VERIFY_TTL_MINUTES);
+    const url = verifyLinkUrl(req, token);
+    const station = config.station.name || 'Paperweight';
+    setImmediate(() => {
+      sendMail({
+        to: account.email,
+        subject: `Verify your email for ${station}`,
+        text: [
+          `Please confirm this is your email address for your ${station} account.`,
+          '',
+          `Open this link to verify (valid for ${Math.round(VERIFY_TTL_MINUTES / 60)} hours):`,
+          url,
+        ].join('\n'),
+      }).catch(err => {
+        log('error', 'listener', `Verification email to listener #${account.id} failed: ${err.message}`);
+      });
+    });
+  }
+
+  res.json({ ok: true, emailEnabled });
+});
+
+// POST /api/listener/auto-login
+// Body: { token } — consumes a tip-flow login link, verifies the email (a
+// link mailed to the listener's own inbox proves ownership), and logs them
+// in by issuing a fresh pw_token.
+router.post('/auto-login', (req, res) => {
+  const { token } = req.body || {};
+  const db = getDb();
+  const listenerId = consumeEmailToken(db, token, 'login');
+  if (!listenerId) {
+    return res.status(400).json({ error: 'Login link is invalid or has expired' });
+  }
+
+  const account = db.prepare('SELECT id FROM listener_accounts WHERE id = ? AND is_active = 1').get(listenerId);
+  if (!account) {
+    return res.status(400).json({ error: 'Account not found' });
+  }
+
+  markEmailVerified(db, account.id);
+  const sub = getActiveSubscription(db, account.id);
+  const issued = issueToken(db, account.id, sub ? sub.tier : 'free');
+
+  res.cookie('pw_token', issued.token, listenerCookieOpts(req));
+  res.json({ token: issued.token, tier: issued.tier });
+});
+
+// POST /api/listener/settings-tour-seen
+// Marks the one-time Settings spotlight dismissed so it never shows again.
+router.post('/settings-tour-seen', (req, res) => {
+  if (!req.tokenRow || !req.tokenRow.listener_id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  getDb().prepare(
+    "UPDATE listener_accounts SET settings_tour_seen_at = datetime('now') WHERE id = ? AND settings_tour_seen_at IS NULL"
+  ).run(req.tokenRow.listener_id);
+  res.json({ ok: true });
 });
 
 // POST /api/listener/request-password-reset
@@ -550,6 +691,39 @@ router.patch('/password', authLimiter, asyncHandler(async (req, res) => {
   }
 }));
 
+// PATCH /api/listener/preferences
+// Body: { marketingOptIn: boolean } — the only preference so far. Updates the
+// listener_profiles row for this account (created lazily if the listener
+// never went through the welcome-page flow, e.g. tip-created or registered
+// directly), since marketing_opt_in lives there rather than on the account.
+router.patch('/preferences', authLimiter, (req, res) => {
+  if (!req.tokenRow || !req.tokenRow.listener_id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const { marketingOptIn } = req.body || {};
+  if (typeof marketingOptIn !== 'boolean') {
+    return res.status(400).json({ error: 'marketingOptIn must be a boolean' });
+  }
+
+  const db = getDb();
+  const listenerId = req.tokenRow.listener_id;
+  const existing = db.prepare(
+    'SELECT id FROM listener_profiles WHERE account_id = ? ORDER BY created_at DESC LIMIT 1'
+  ).get(listenerId);
+
+  if (existing) {
+    db.prepare('UPDATE listener_profiles SET marketing_opt_in = ? WHERE id = ?')
+      .run(marketingOptIn ? 1 : 0, existing.id);
+  } else {
+    const account = db.prepare('SELECT email FROM listener_accounts WHERE id = ?').get(listenerId);
+    db.prepare(
+      'INSERT INTO listener_profiles (display_name, account_id, marketing_opt_in) VALUES (?, ?, ?)'
+    ).run(account?.email || 'Listener', listenerId, marketingOptIn ? 1 : 0);
+  }
+
+  res.json({ ok: true, marketingOptIn });
+});
+
 // ─── Collection & purchases ──────────────────────────────────────────────────
 
 // GET /api/listener/collection
@@ -685,3 +859,10 @@ module.exports = router;
 // Shared with the dashboard "generate reset link" route (no-SMTP fallback).
 module.exports.createPasswordReset = createPasswordReset;
 module.exports.resetLinkUrl = resetLinkUrl;
+// Shared with the tip flow (src/api/payment.js): mint a login token, send the
+// verification email, and issue a session for a tip-created account.
+module.exports.issueToken = issueToken;
+module.exports.createEmailToken = createEmailToken;
+module.exports.verifyLinkUrl = verifyLinkUrl;
+module.exports.autoLoginLinkUrl = autoLoginLinkUrl;
+module.exports.AUTO_LOGIN_TTL_MINUTES = AUTO_LOGIN_TTL_MINUTES;

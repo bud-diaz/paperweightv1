@@ -121,6 +121,8 @@ export function closeModal() {
   el('modal-done').style.display = 'none';
   el('modal-main').style.display = '';
   el('tip-amount').value         = '';
+  el('tip-donor-name').value     = '';
+  el('tip-donor-email').value    = '';
   selectedTipCents               = null;
   document.querySelectorAll('.tip-preset').forEach(p => p.classList.remove('active'));
   _updateCTA();
@@ -163,7 +165,11 @@ async function _handleCtaClick() {
     cta.classList.add('processing');
     cta.textContent = 'CONNECTING TO STRIPE…';
     try {
-      const { res, data } = await api.payment.sendTip(cents);
+      const donor = {
+        donorName:  el('tip-donor-name').value.trim(),
+        donorEmail: el('tip-donor-email').value.trim(),
+      };
+      const { res, data } = await api.payment.sendTip(cents, donor);
       if (!res.ok) throw new Error(data.error || 'Payment failed');
       window.location.href = data.checkoutUrl;
     } catch (err) {

@@ -18,6 +18,22 @@ function isHigherTier(candidate, current) {
   return (TIER_RANK[candidate] ?? 0) > (TIER_RANK[current] ?? 0);
 }
 
+const EMAIL_VERIFICATION_GRACE_MS = 24 * 60 * 60 * 1000;
+
+// Gates tier-based paid content (supporters_only + the vault subscriber
+// bypass) on email verification, with a 24h grace period from the moment the
+// account first went paid (see activateSubscription in src/api/payment.js,
+// which sets req.tokenRow-adjacent emailVerification via attachTier).
+// req.emailVerification is only populated for subscriber+ tiers; free-tier
+// requests always pass (nothing to gate).
+function isEmailVerificationOk(req) {
+  const info = req.emailVerification;
+  if (!info) return true;
+  if (info.verifiedAt) return true;
+  if (!info.requiredAt) return true;
+  return Date.now() - new Date(info.requiredAt).getTime() < EMAIL_VERIFICATION_GRACE_MS;
+}
+
 function hasScopedVaultAccess(req, mediaId, projectId) {
   const tok = req.tokenRow;
   if (!tok || !tok.scope_type) return false;
@@ -41,13 +57,17 @@ function canAccessMedia(req, media, projectId = null) {
   if (!media) return { allowed: false, error: 'Not found' };
 
   if (media.visibility === 'supporters_only') {
-    if (!isSubscriberTier(req.tier) && !hasScopedVaultAccess(req, media.id, projectId)) {
-      return { allowed: false, error: 'Supporter access required' };
+    const hasSupporterAccess = isSubscriberTier(req.tier) && isEmailVerificationOk(req);
+    if (!hasSupporterAccess && !hasScopedVaultAccess(req, media.id, projectId)) {
+      return {
+        allowed: false,
+        error: isSubscriberTier(req.tier) ? 'Email verification required' : 'Supporter access required',
+      };
     }
   }
 
   if (media.visibility === 'vault') {
-    if (isSubscriberTier(req.tier) && allAccessTierIncludesVault()) {
+    if (isSubscriberTier(req.tier) && allAccessTierIncludesVault() && isEmailVerificationOk(req)) {
       return { allowed: true };
     }
 
@@ -78,7 +98,7 @@ function canDownloadMedia(req, media, projectId = null) {
     return canAccessMedia(req, media, projectId);
   }
 
-  if (!isSubscriberTier(req.tier)) {
+  if (!isSubscriberTier(req.tier) || !isEmailVerificationOk(req)) {
     return { allowed: false, error: 'Subscriber access required' };
   }
 
@@ -91,6 +111,7 @@ module.exports = {
   isHigherTier,
   hasScopedVaultAccess,
   allAccessTierIncludesVault,
+  isEmailVerificationOk,
   canAccessMedia,
   canDownloadMedia,
 };

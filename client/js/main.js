@@ -34,6 +34,8 @@ import * as libraryModal from './library-modal.js';
 import * as payment      from './payment.js';
 import * as welcome      from './welcome.js';
 import * as collection   from './collection.js';
+import * as settings     from './settings.js';
+import * as tour         from './tour.js';
 
 import * as dashIndex   from './dashboard/index.js';
 import * as station     from './dashboard/station.js';
@@ -73,7 +75,17 @@ auth.init({
     await player.loadQuota();
     player.render();
   },
+  maybeShowTour: tour.maybeShowSettingsTour,
+  renderSettings: settings.renderSettingsModal,
 });
+
+settings.init({
+  toggleAuthSection: auth.toggleAuthSection,
+  logoutListener: auth.logoutListener,
+  maybeShowTour: tour.maybeShowSettingsTour,
+});
+
+tour.init();
 
 library.init({
   selectVOD:         player.selectVOD,
@@ -233,6 +245,7 @@ tools.init();
 // ── Event handler wiring ───────────────────────────────────────────────────
 
 auth.initAuthHandlers();
+settings.initSettingsHandlers();
 earnings.initEarningsHandlers();
 ascii.initRealVideoToggleHandlers();
 library.initListenerQueueHandlers();
@@ -275,17 +288,7 @@ el('queue-drawer-close').addEventListener('click', e => { e.stopPropagation(); p
 el('share-area').addEventListener('click', player.toggleShare);
 el('account-area').addEventListener('click', () => {
   if (state.showLib || state.showQueue) return;
-  const closing = state.showShare && state.sharePanel === 'account';
-  state.showShare = !closing;
-  state.sharePanel = 'account';
-  player.render();
-  if (!closing) {
-    auth.toggleAuthSection(true);
-    setTimeout(() => {
-      const authToggle = el('auth-toggle');
-      if (authToggle) authToggle.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 50);
-  }
+  settings.openSettingsModal();
 });
 el('waveform').addEventListener('click', player.seekWaveform);
 
