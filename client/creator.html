@@ -147,6 +147,19 @@
   </div>
 </div>
 
+<!-- Posts modal (full list, opened from the ticker's SEE MORE) -->
+<div id="posts-modal-backdrop">
+  <div id="posts-modal">
+    <div id="posts-modal-header">
+      <span id="posts-modal-title">POSTS</span>
+      <button id="posts-modal-close">×</button>
+    </div>
+    <div id="posts-modal-body">
+      <div id="posts-modal-list"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Vault gate overlay -->
 <div id="vault-gate-backdrop">
   <div id="vault-gate">
@@ -397,6 +410,11 @@
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg>
               </button>
             </div>
+            <label class="toggle-sw" id="motion-toggle" title="Tilt cards with device motion">
+              <input type="checkbox" id="motion-toggle-input">
+              <span class="toggle-track"></span>
+              <span class="toggle-label">MOTION</span>
+            </label>
             <div id="art-meta">
               <div id="track-title"></div>
               <div id="track-creator"></div>
@@ -434,7 +452,7 @@
 
           <!-- Controls -->
           <div id="controls">
-            <button class="drawer-btn" id="lib-btn" title="Posts">≡<span class="sq-lbl">POSTS</span></button>
+            <button class="drawer-btn" id="share-btn" title="Share"><svg class="drawer-btn-icon" width="15" height="15" viewBox="0 0 12 12" fill="none" aria-hidden="true"><circle cx="10" cy="2" r="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="2" cy="6" r="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="10" cy="10" r="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="3.3" y1="5.2" x2="8.7" y2="2.8" stroke="currentColor" stroke-width="1.2"/><line x1="3.3" y1="6.8" x2="8.7" y2="9.2" stroke="currentColor" stroke-width="1.2"/></svg><span class="sq-lbl">SHARE</span></button>
             <div id="controls-center">
               <button class="skip-btn hidden" id="skip-prev" title="Previous">⏮</button>
               <button id="play-btn" title="Play/Pause">
@@ -451,17 +469,6 @@
           </div>
         </div><!-- /spine -->
 
-        <!-- Library drawer -->
-        <div class="drawer" id="lib-drawer">
-          <div class="drawer-inner">
-            <div class="drawer-head">
-              <div class="drawer-label">POSTS</div>
-              <button class="drawer-close" id="lib-drawer-close" title="Close">✕</button>
-            </div>
-            <div class="drawer-scroll" id="posts-list"></div>
-          </div>
-        </div>
-
         <!-- Queue drawer -->
         <div class="drawer" id="queue-drawer">
           <div class="drawer-inner">
@@ -476,12 +483,6 @@
         <!-- Share drawer -->
         <div class="drawer" id="share-drawer">
           <div class="drawer-inner">
-            <div class="share-drawer-panel" id="account-panel-content">
-              <div class="drawer-label">ACCOUNT</div>
-              <div id="account-panel-summary">Manage your account, email verification, and preferences from Settings.</div>
-              <button id="account-panel-open-settings-btn" class="mgmt-btn">OPEN SETTINGS</button>
-            </div>
-
             <div class="share-drawer-panel" id="share-panel-content">
             <div class="drawer-label">SHARE</div>
             <div id="share-options">
@@ -512,26 +513,12 @@
         <!-- Bottom accent -->
         <div id="bottom-accent"></div>
 
-        <!-- Share tab strip (split: SHARE left | ACCOUNT right) -->
-        <div id="share-tab">
-          <div id="share-area">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <circle cx="10" cy="2"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
-              <circle cx="2"  cy="6"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
-              <circle cx="10" cy="10" r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
-              <line x1="3.3" y1="5.2" x2="8.7" y2="2.8"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
-              <line x1="3.3" y1="6.8" x2="8.7" y2="9.2"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
-            </svg>
-            <span id="share-tab-label">SHARE</span>
-            <svg id="share-chevron" width="8" height="8" viewBox="0 0 8 8">
-              <path d="M1 3l3 3 3-3" stroke="rgba(255,255,255,.25)" stroke-width="1.2" fill="none"/>
-            </svg>
+        <!-- Posts ticker (revolving 2 most-recent posts + static SEE MORE) -->
+        <div id="posts-ticker" hidden>
+          <div id="posts-ticker-viewport">
+            <div id="posts-ticker-track"></div>
           </div>
-          <div id="share-tab-divider"></div>
-          <div id="account-area">
-            <div id="auth-badge"><span id="auth-badge-dot"></span><span id="auth-badge-text"></span></div>
-            <span id="account-tab-label">ACCOUNT</span>
-          </div>
+          <button id="posts-ticker-more" type="button">SEE MORE</button>
         </div>
 
         </div><!-- /legacy-player-ui -->

@@ -117,7 +117,6 @@ export function initSettingsHandlers() {
     closeSettingsDropdown();
     _logoutListener();
   });
-  el('account-panel-open-settings-btn').addEventListener('click', openSettingsModal);
 
   el('settings-modal-close').addEventListener('click', closeSettingsModal);
   el('settings-backdrop').addEventListener('click', e => {

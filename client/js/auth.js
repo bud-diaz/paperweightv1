@@ -103,7 +103,9 @@ export function renderAuthSection() {
   el('auth-logged-out').hidden = loggedIn;
   el('auth-logged-in').hidden  = !loggedIn;
 
-  el('auth-badge').classList.toggle('visible', loggedIn);
+  // #auth-badge was removed with the Play-tab Account card; guard for absence.
+  const authBadge = el('auth-badge');
+  if (authBadge) authBadge.classList.toggle('visible', loggedIn);
 
   document.querySelectorAll('.auth-tab').forEach(b => { b.disabled = loggedIn; });
   el('auth-submit-btn').disabled = loggedIn;

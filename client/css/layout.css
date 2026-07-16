@@ -607,23 +607,6 @@ body.creator-mode #quota-badge { display: none !important; }
 
 /* ── Bottom chrome ── */
 #card-spacer { flex: 1; min-height: 0; }
-#share-tab {
-  display: flex; align-items: stretch;
-  border-top: 1px solid var(--border);
-  user-select: none; flex-shrink: 0;
-}
-#share-tab.locked { cursor: default; opacity: .25; pointer-events: none; }
-#share-area, #account-area {
-  display: flex; align-items: center; gap: 7px;
-  padding: 10px 14px; cursor: pointer; transition: background .15s;
-  flex: 1; justify-content: center;
-}
-#share-area:hover, #account-area:hover { background: rgba(255,255,255,.025); }
-#share-area.active, #account-area.active { background: rgba(255,255,255,.04); }
-#share-tab-divider { width: 1px; background: var(--border); flex-shrink: 0; }
-#share-tab-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); letter-spacing: .14em; }
-#account-tab-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t3); letter-spacing: .14em; }
-#share-chevron { transition: transform .25s; }
 
 /* Library queue button */
 .lib-thumb { position: relative; }
@@ -859,8 +842,6 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
   font-family: 'Space Mono', monospace; font-size: 12px; color: var(--t2);
 }
 
-#account-panel-summary { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--t3); line-height: 1.6; margin: 10px 0 12px; }
-
 /* ── Library modal ── */
 #library-modal-backdrop {
   display: none; position: fixed; inset: 0; z-index: 500;
@@ -1085,10 +1066,17 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
 #panel-player #art-wrap,
 #panel-player #spine,
 #panel-player .drawer,
-#panel-player #share-tab {
+#panel-player #posts-ticker {
   width: var(--pw-stack-w);
   margin-left: 0;
   margin-right: 0;
+}
+
+/* Gentle 3D tilt scaffolding (transforms are set inline by tilt.js). */
+#panel-player #art-wrap,
+#panel-player #spine {
+  will-change: transform;
+  transform-origin: center;
 }
 
 #panel-player #art-wrap {
@@ -1238,7 +1226,6 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
   background: rgba(255,255,255,.018);
 }
 
-#panel-player #lib-drawer,
 #panel-player #queue-drawer {
   border: 1px solid var(--pw-hard-border);
   border-top: 0;
@@ -1247,12 +1234,10 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
   box-shadow: var(--shadow-2), 0 0 70px -15px rgba(255,255,255,.08);
 }
 
-#panel-player #lib-drawer.open,
 #panel-player #queue-drawer.open {
   margin-top: -6px;
 }
 
-#panel-player #lib-drawer .drawer-inner,
 #panel-player #queue-drawer .drawer-inner {
   background: transparent;
   border-top: 0;
@@ -1310,33 +1295,25 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
   padding: 8px 13px;
 }
 
+/* Share drawer now opens from the SHARE transport button as its own rounded
+   card (previously it fed the removed bottom SHARE/ACCOUNT tab strip). */
 #panel-player #share-drawer {
   flex-shrink: 0;
-  border-radius: var(--pw-card-r) var(--pw-card-r) 0 0;
+  border: 1px solid var(--pw-hard-border);
+  border-radius: var(--pw-card-r);
+  background: var(--pw-soft-surface);
+  box-shadow: var(--shadow-2), 0 0 70px -15px rgba(255,255,255,.08);
+}
+
+#panel-player #share-drawer.open {
+  margin-top: -6px;
 }
 
 #panel-player #share-drawer .drawer-inner {
-  background: var(--pw-soft-surface);
-  border: 1px solid var(--pw-hard-border);
-  border-bottom: 0;
-  border-radius: var(--pw-card-r) var(--pw-card-r) 0 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
   padding: 12px 13px;
-  box-shadow: var(--shadow-2);
-}
-
-#panel-player #share-drawer:not(.open) .drawer-inner {
-  border-width: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-#panel-player #share-drawer.open + #card-spacer + #bottom-accent + #share-tab {
-  border-radius: 0 0 var(--pw-card-r) var(--pw-card-r);
-}
-
-#share-drawer[data-panel="share"] #account-panel-content,
-#share-drawer[data-panel="account"] #share-panel-content {
-  display: none;
 }
 
 #panel-player #share-options {
@@ -1380,24 +1357,128 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
   display: none;
 }
 
-#panel-player #share-tab {
+/* ── Posts ticker (revolving 2 most-recent posts + static SEE MORE) ── */
+#panel-player #posts-ticker {
   flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  min-height: 40px;
   border: 1px solid var(--pw-hard-border);
   border-radius: var(--pw-card-r);
   background: var(--pw-soft-surface);
   box-shadow: var(--shadow-2), 0 0 70px -15px rgba(255,255,255,.08);
   overflow: hidden;
 }
+#panel-player #posts-ticker[hidden] { display: none; }
 
-#panel-player #share-area,
-#panel-player #account-area {
-  min-height: 39px;
-  padding: 10px 13px;
+#panel-player #posts-ticker-viewport {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
 }
 
-#panel-player #share-tab.open {
-  border-color: rgba(255,255,255,.13);
+#panel-player #posts-ticker-track {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  will-change: transform;
+  animation: pw-ticker 30s linear infinite;
 }
+#panel-player #posts-ticker-track.single { animation-duration: 20s; }
+#panel-player #posts-ticker:hover #posts-ticker-track { animation-play-state: paused; }
+
+@keyframes pw-ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #panel-player #posts-ticker-track { animation: none; }
+}
+
+#panel-player .ticker-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 0 4px;
+  font-family: 'Space Mono', monospace;
+}
+#panel-player .ticker-title {
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--t2);
+  text-transform: uppercase;
+}
+#panel-player .ticker-badge {
+  font-size: 8px;
+  letter-spacing: .08em;
+  color: var(--color);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+#panel-player .ticker-body { font-size: 11px; color: var(--t3); }
+#panel-player .ticker-sep { color: var(--t4); padding: 0 14px; font-size: 10px; }
+
+#panel-player #posts-ticker-more {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  padding: 0 13px;
+  border: 0;
+  border-left: 1px solid var(--pw-hard-border);
+  background: var(--pw-raised-surface);
+  color: var(--t3);
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: color .15s, background .15s;
+}
+#panel-player #posts-ticker-more:hover { color: var(--t1); background: rgba(255,255,255,.05); }
+
+/* Mobile-only device-motion toggle, pinned in the viewport corner. */
+#panel-player #motion-toggle {
+  display: none;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 4;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0,0,0,.45);
+  border: 1px solid rgba(255,255,255,.1);
+}
+body.is-touch #panel-player #motion-toggle { display: inline-flex; }
+
+/* ── Posts "see more" modal (mirrors the library modal) ── */
+#posts-modal-backdrop {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  align-items: center; justify-content: center;
+  background: rgba(0,0,0,.82);
+  backdrop-filter: blur(var(--vibrancy-blur)) saturate(var(--vibrancy-sat));
+}
+#posts-modal-backdrop.open { display: flex; }
+#posts-modal {
+  width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 64px);
+  display: flex; flex-direction: column; border-radius: var(--radius-card);
+  background: var(--vibrancy-bg); backdrop-filter: blur(24px) saturate(var(--vibrancy-sat));
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-4), var(--shadow-edge-top);
+}
+#posts-modal-header {
+  padding: 18px 22px; display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0; border-bottom: 1px solid var(--border);
+}
+#posts-modal-title { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .12em; color: var(--t3); }
+#posts-modal-close { background: none; border: none; cursor: pointer; color: var(--t3); font-size: 24px; line-height: 1; transition: color .15s; }
+#posts-modal-close:hover { color: var(--t1); }
+#posts-modal-body { overflow-y: auto; padding: 12px 20px 20px; }
+.posts-modal-empty { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--t3); padding: 24px 0; text-align: center; }
 
 @media (max-width: 430px) {
   #panel-player {
