@@ -325,6 +325,24 @@ body.creator-mode #quota-badge { display: none !important; }
   border-radius: 0; z-index: 2147483647;
 }
 #art-box.is-fullscreen video { object-fit: fill; background: #000; }
+/* The docked "#panel-player" skin pins video/art height to a fixed 134px
+   (116px under the short-viewport media query) via 2-ID selectors, which
+   otherwise outrank the generic 100%-height rule above and leave fullscreen
+   video capped at that fixed height. Match that specificity to win instead. */
+#panel-player #art-box.is-fullscreen video,
+#panel-player #art-box.is-fullscreen #art-svg,
+#panel-player #art-box.is-fullscreen #asci-wrap {
+  height: 100%; bottom: 0; border-radius: 0;
+}
+/* Same skin also docks #art-meta as a solid block starting at the fixed
+   134px/116px mark, which would otherwise sit on top of most of the
+   now-fullscreen video hiding it behind a solid panel. Put it back to a
+   thin bottom caption over the video, matching the generic (non-docked)
+   skin's fullscreen look. */
+#panel-player #art-box.is-fullscreen #art-meta {
+  top: auto; padding: 36px 18px 16px;
+  background: linear-gradient(to top, rgba(0,0,0,.88) 0%, rgba(0,0,0,.2) 65%, transparent 100%);
+}
 
 .pulse-ring {
   position: absolute; top: 50%; left: 50%;
