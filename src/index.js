@@ -451,7 +451,7 @@ function shutdown() {
   }, 5000);
   forceTimer.unref();
 
-  Promise.resolve()
+  return Promise.resolve()
     .then(async () => {
       live.stopLive();
       broadcast.stop();
@@ -470,8 +470,11 @@ function shutdown() {
         return;
       }
 
-      server.close(() => {
-        finishShutdown();
+      return new Promise(resolve => {
+        server.close(() => {
+          finishShutdown();
+          resolve();
+        });
       });
     })
     .catch(err => {

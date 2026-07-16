@@ -41,6 +41,8 @@ if (!app.isPackaged) {
 }
 
 const { openSetupWindow } = require('./setup-window');
+const { registerAppHandlers } = require('./ipc/app-handlers');
+const { registerVaultHandlers } = require('./ipc/vault-handlers');
 
 let mainWindow = null;
 let serverApp = null;
@@ -99,6 +101,16 @@ async function openMainWindow() {
     },
   });
 
+  registerAppHandlers({
+    serverApp,
+    config,
+    quitApp,
+    restartApp,
+    autostartFile: linuxAutostartFile,
+    desktopPath: app.getPath('desktop'),
+  });
+  registerVaultHandlers({ win: mainWindow });
+
   // The broadcast keeps running whether the window is open or not — closing
   // it should hide the app to the tray, not stop the station. Only the tray's
   // "Quit Paperweight" (or platform quit shortcuts, which set isQuitting via
@@ -129,6 +141,18 @@ function showMainWindow() {
 function quitApp() {
   isQuitting = true;
   app.quit();
+}
+
+// app.exit() (unlike app.quit()) does not emit 'before-quit'/'will-quit', so
+// the server must be shut down explicitly first — otherwise the relaunched
+// instance could race the old process for the port/DB file.
+async function restartApp() {
+  isQuitting = true;
+  if (serverApp) {
+    try { await serverApp.shutdown(); } catch {}
+  }
+  app.relaunch();
+  app.exit(0);
 }
 
 // Electron's login-item API only covers Windows and macOS; on Linux,
@@ -198,12 +222,24 @@ function createTray() {
   tray.on('click', showMainWindow);
 }
 
-// Called by the setup wizard (via IPC) once .env has been provisioned.
+// Called by the setup wizard (via IPC) once .env has been provisioned. Runs
+// exactly once, on first launch after setup — later ordinary boots go
+// through boot()'s other branch and never call this, so folders the creator
+// organizes later (outside the explicit "import folder" button) are never
+// silently swept into collections behind their back.
 function onSetupComplete() {
-  startServerAndOpenWindow().catch(err => {
-    console.error('[Paperweight] Failed to start after setup:', err);
-    app.quit();
-  });
+  startServerAndOpenWindow()
+    .then(() => {
+      const { adoptExistingVaultFolders } = require('../src/collections/collections');
+      // Safe/idempotent against a freshly-created empty vault — fast no-op.
+      return adoptExistingVaultFolders().catch(err => {
+        console.error('[Paperweight] Folder adoption failed:', err);
+      });
+    })
+    .catch(err => {
+      console.error('[Paperweight] Failed to start after setup:', err);
+      app.quit();
+    });
 }
 
 function boot() {

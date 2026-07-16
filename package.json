@@ -2,6 +2,10 @@
   "name": "paperweight",
   "version": "1.5.1",
   "description": "Self-hosted creator-first streaming and distribution.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bud-diaz/paper-packs"
+  },
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

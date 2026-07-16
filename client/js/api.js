@@ -690,6 +690,14 @@ export const dashboard = {
     },
 
     /**
+     * POST /api/dashboard/broadcast/stop
+     * @returns {Response}
+     */
+    stop() {
+      return _fetch('/api/dashboard/broadcast/stop', { method: 'POST' });
+    },
+
+    /**
      * GET /api/dashboard/broadcast/queue
      * @returns {{ queue: Array<{ mediaId: number, title?: string }> }}
      */
