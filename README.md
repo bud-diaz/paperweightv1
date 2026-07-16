@@ -10,11 +10,12 @@ It is built for one creator or a small trusted team running one station on Windo
 
 - Live internet radio from local audio/video files using FFmpeg and HLS.
 - Live mic broadcast from the creator dashboard (go-live directly from the browser).
-- Public library and archive browsing from `vault/`.
+- Paid-tier live video broadcast via RTMP/OBS (desktop to start/stop), gated to a creator-configurable minimum tier — independent of the free mic/RTMP audio broadcast.
+- Public library and archive browsing from `vault/`, including importing an existing folder as a named collection (desktop).
 - Visibility controls: public, supporters-only, and vault.
-- Listener accounts with password reset (via SMTP or creator-generated links), data export, and self-service deletion.
+- Listener accounts with password reset (via SMTP or creator-generated links), data export, self-service deletion, and email verification enforced on paid tiers (24h grace period after first going paid).
 - Creator-issued access tokens and account token assignments.
-- Stripe subscriptions, tips, and vault unlock checkout when configured — with listener self-service cancellation and Stripe billing portal.
+- Stripe subscriptions, tips (with optional donor name/email and a 7-day supporter-tier grant when an email is given), and vault unlock checkout when configured — with listener self-service cancellation and Stripe billing portal.
 - PayPal subscriptions with verified webhooks when configured.
 - Creator dashboard for media, schedule, uploads, tokens, payments, and analytics.
 - CSV exports (subscribers, listeners, download leads) and one-click hot database backups.
@@ -22,7 +23,8 @@ It is built for one creator or a small trusted team running one station on Windo
 - Optional public RSS/podcast feed of public media at `/feed.xml`.
 - Embeddable mini player at `/embed` for external websites.
 - Optional TOTP 2FA on dashboard login.
-- Desktop app for Windows, macOS, and Linux (Electron); convenience executable packaging for headless Linux/Raspberry Pi.
+- Optional Cloudflare Tunnel auto-setup from the dashboard's Station panel (creates the tunnel and DNS record via a Cloudflare API token) alongside the manual `cloudflared` setup path.
+- Desktop app for Windows, macOS, and Linux (Electron), with in-app power/update/uninstall controls; convenience executable packaging for headless Linux/Raspberry Pi.
 
 ## Supported Platforms
 
@@ -198,7 +200,7 @@ hls_output/
 
 - One station owner or small trusted team.
 - Dashboard auth is a shared owner token, not named team accounts.
-- No listener email verification.
+- Listener email verification is only enforced for paid tiers (24h grace window from first going paid); free-tier listeners are never required to verify.
 - Password reset emails require SMTP configuration; without it, the creator generates reset links from the dashboard.
 - Payments require provider setup and verified webhooks.
 - FFmpeg/ffprobe remain external system dependencies.

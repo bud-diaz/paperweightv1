@@ -70,7 +70,8 @@ Access tokens are the universal credential. They are stored hashed, delivered as
 - **Now-playing display.** The player shows the current track (title/artist/artwork), pulled from live broadcast state, and updates as the station moves through its playlist.
 - **Up-next visibility.** The next few queued tracks (from the current batch plus anything the creator hand-queued) are exposed to the player.
 - **Live listener count.** The player pings every 30 seconds; the station shows how many people are listening right now (anonymous, IP-hashed sessions that expire after 60 s of silence).
-- **Live broadcasts interrupt the radio.** When the creator goes live (mic or external encoder), the player automatically switches to the live HLS source and shows a live indicator; when the broadcast ends it falls back to the station stream.
+- **Live broadcasts interrupt the radio.** When the creator goes live (mic or external audio encoder), the player automatically switches to the live HLS source and shows a live indicator; when the broadcast ends it falls back to the station stream.
+- **Paid-tier live video.** A separate, independent live feed: the creator streams video (RTMP from OBS or any encoder) to its own HLS output, and only listeners at or above a creator-configurable minimum tier (default `subscriber`) can load it — access is enforced server-side on every segment request, not just hidden in the UI. Listeners below the tier see a subscribe/tip call to action instead. This is unrelated to the free mic/RTMP audio broadcast above; the two run on separate ports, processes, and HLS outputs, and either can be live independent of the other.
 
 ### 2. Library browsing & discovery
 
@@ -99,6 +100,7 @@ Paperweight deliberately keeps the entry gradient shallow:
 Account self-service includes:
 
 - **Login/logout** with per-login token minting (multiple concurrent devices, each with its own revocable credential).
+- **Email verification (paid tiers only).** The first time an account goes paid (subscription, tip-with-email, etc.) while its email is unverified, a verification email goes out and a 24-hour grace period starts. Inside the window everything works normally; once the window lapses, an unverified account loses supporters-only and vault subscriber-tier access (already-purchased vault unlocks are unaffected) until the listener clicks the link or requests a resend. Free-tier listeners are never asked to verify.
 - **Password reset** two ways: self-service email (when the creator configured SMTP; responses never reveal whether an account exists) or a **creator-generated reset link** handed over any channel — the no-SMTP fallback. Reset links live 60 minutes and consume all outstanding resets for the account when used.
 - **Set/change password** — including subscribers whose accounts were auto-created during Stripe checkout (the UI detects they have no usable password and prompts them to set one).
 - **Data export.** One click downloads a JSON file of everything stored about the listener: account, profile, subscriptions, vault unlocks, token assignments, saved stations.
@@ -111,7 +113,7 @@ Account self-service includes:
 - **Self-service cancellation** from the player. Stripe cancels at period end (access continues until paid time lapses); PayPal cancels future billing and downgrades when the provider confirms.
 - **Stripe billing portal.** One click opens Stripe's hosted portal to manage cards, view invoices, and cancel.
 - **Subscription status** is always visible in the account panel: tier, provider, renewal date.
-- **Tips.** Anyone — no account required — can tip the station through Stripe Checkout, choosing from three creator-configured amounts or a custom amount (when the creator allows it, $1–$1,000 bounds).
+- **Tips.** Anyone — no account required — can tip the station through Stripe Checkout, choosing from three creator-configured amounts or a custom amount (when the creator allows it, $1–$1,000 bounds). An optional name and email on the tip form let the tipper stay anonymous or be recognized; giving an email grants **7 days of subscriber-tier access** (an existing matching account is reused, or a fresh one is created and either logged in automatically or emailed an auto-login link, depending on whether SMTP is configured), the same grant/expiry mechanism used for real subscriptions, just sourced from a one-time tip instead of a recurring provider subscription.
 
 ### 6. The vault: pay-what-you-want unlocks
 
@@ -172,6 +174,7 @@ Everything below lives in the dashboard, a tab of the same single-page app (`/#d
 ### 2. Media & vault management
 
 - **Automatic ingestion.** Drop files in `vault/` — the watcher probes, categorizes, and indexes them live. Startup reconciliation marks vanished files inactive and repairs stale video MIME types.
+- **Folder-import collections (desktop).** Pick any external folder and Paperweight copies it into the vault, indexes every supported file, and creates (or reuses) a project named after the folder with all of it linked in — turning a folder of tracks into a collection in one action instead of uploading and organizing file by file. The same logic also runs once, automatically, right after first-run setup to adopt any folders already present in a vault the creator pointed setup at.
 - **Browser uploads.** Drag-and-drop upload (up to 2 GB/file; audio and video MIME types only). Uploads are ffprobe-validated *before* entering the vault, land in the right category folder with sanitized collision-safe names, and the chosen visibility is stamped so the scanner can't override it.
 - **Metadata editing.** Title, artist, album, genre, producer, credits, tags, artwork URL — all editable per item.
 - **Artwork uploads.** Upload a cover image per track (10 MB max, content-sniffed to be a real image); it overrides embedded art and external URLs.
@@ -196,8 +199,9 @@ Everything below lives in the dashboard, a tab of the same single-page app (`/#d
 Two ways to interrupt the radio with a live broadcast — only one can be on-air at a time, and listeners are switched over automatically:
 
 - **Browser mic broadcast.** Go live straight from the dashboard: the browser captures mic audio and streams 2-second PCM chunks to the server, which encodes to the live HLS output. Built-in backpressure signaling keeps the pipe healthy.
-- **External encoder / RTMP (desktop).** One click opens a local RTMP listener with a generated **stream key** for OBS or any encoder. The dashboard shows pending → live state (detected when the encoder actually connects), supports stream-key regeneration, guards the port with reconnect limits, and times out an unclaimed listener after 10 minutes.
-- **Go-live announcements.** Starting a live broadcast fires the station's Discord-compatible webhook (toggleable).
+- **External encoder / RTMP, audio (desktop).** One click opens a local RTMP listener with a generated **stream key** for OBS or any encoder. The dashboard shows pending → live state (detected when the encoder actually connects), supports stream-key regeneration, guards the port with reconnect limits, and times out an unclaimed listener after 10 minutes.
+- **Live video, paid-tier (desktop to start/stop).** A second, independent RTMP listener (its own port) accepts video+audio from an encoder and transcodes it to a dedicated HLS output that only listeners at or above a chosen minimum tier can load — enforced server-side, not just a UI gate. The creator picks the minimum tier (`subscriber`/`pro`/`all_access`) and a separate go-live notify toggle from dashboard settings; those settings routes work even without the desktop app, so a creator can configure them ahead of ever running it. Supports the same stream-key regeneration and pending → live detection as the audio path, on its own state.
+- **Go-live announcements.** Starting either live broadcast fires the station's Discord-compatible webhook (independently toggleable per broadcast type).
 
 ### 5. Monetization
 
@@ -257,6 +261,7 @@ All computed from real listen events (anonymous IP-hashed sessions, seconds-list
 ### 12. Station identity & public directory
 
 - **Station registry:** the station's slug and public URL (auto-claimed from `.env`, updatable from the dashboard with strict URL validation, persisted back to `.env`).
+- **Cloudflare Tunnel auto-setup (desktop).** As an alternative to running `cloudflared` and pasting a tunnel token by hand, the Station panel accepts a Cloudflare API token (a different, more powerful credential than the tunnel connector token), lists the creator's zones, and on request creates a Named Tunnel, points its ingress at the local server, creates the DNS record, and saves the resulting tunnel token and public URL — the creator still has to run `cloudflared service install` once and restart Paperweight to bring it online; this only automates the Cloudflare-side setup, not running the tunnel client itself.
 - **Reachability health check:** the server pings its own public URL from the outside (SSRF-guarded — private/reserved addresses are refused) and reports latency.
 - **Directory searchability (desktop):** opting into the public "Paperweight Listen" directory requires three verified conditions — Cloudflare tunnel configured, public URL registered, and the station actually reachable externally. One toggle, honestly enforced.
 
@@ -272,6 +277,7 @@ All computed from real listen events (anonymous IP-hashed sessions, seconds-list
 
 - **One-click hot database backup** streamed through the browser (SQLite online backup — safe while the server runs), plus a scheduled/local backup script with retention pruning.
 - **Runtime diagnostics:** app version, bind host, proxy trust, and FFmpeg/ffprobe status.
+- **Power/update/uninstall controls (desktop).** A power menu can stop/restart the broadcast, or stop/restart the whole app. A check-for-updates button compares against the latest GitHub release and opens the release page for a manual download (no silent auto-update — the app isn't code-signed/notarized yet). Uninstall requires typing the station name to confirm, then exports subscribers/listeners/download-leads CSVs, a full database backup, the vault, `.env`, and logs to a timestamped folder on the Desktop before wiping the app's runtime data and quitting — the installed program files are left for the OS's normal uninstall flow.
 - **Radio Host mode (desktop):** flips the station identity between `creator` and `radio_host` presets, with a 3-switch lock to prevent identity thrash.
 - **Broadcast mode & restart controls** (see §3).
 - **Legal/launch acceptance state.**
@@ -314,7 +320,7 @@ The webhook URL is SSRF-guarded (URLs resolving to private/reserved addresses ar
 - **FFmpeg/ffprobe** are the only external dependencies; installers verify or install them.
 - **Public exposure** is designed around a Cloudflare Tunnel (documented setup), which is also a hard requirement for directory listing.
 
-Some features are **desktop-only** (token management, schedule-block CRUD, smart playlists, RTMP broadcasting, external search/import, directory searchability, radio-host mode, webhook log) — they assume the creator is at their own machine. A small set of routes is **cloud-gated** (`PAPERWEIGHT_CLOUD`) for the future hosted/native-app phase: saved multi-station lists and native-app checkout with deep-link returns. These are inert in self-hosted builds.
+Some features are **desktop-only** (token management, schedule-block CRUD, smart playlists, RTMP broadcasting including paid-tier live video start/stop, folder-import collections, external search/import, directory searchability, Cloudflare Tunnel auto-setup, radio-host mode, webhook log, power/update/uninstall controls) — they assume the creator is at their own machine. A small set of routes is **cloud-gated** (`PAPERWEIGHT_CLOUD`) for the future hosted/native-app phase: saved multi-station lists and native-app checkout with deep-link returns. These are inert in self-hosted builds.
 
 ---
 
@@ -323,6 +329,7 @@ Some features are **desktop-only** (token management, schedule-block CRUD, smart
 A condensed inventory of the protections that shape the product experience:
 
 - **Listener privacy by default:** anonymous listening needs no identity; analytics use salted IP hashes, not IPs; marketing lists are strictly opt-in; full data export and self-service deletion are built in; password-reset responses never reveal account existence.
+- **Paid-tier email verification:** the first time an account goes paid, a verification email fires and a 24-hour grace period starts; an account that stays unverified past the window loses supporters-only and vault subscriber-tier access until it verifies. Free-tier listeners are never gated on this.
 - **Payment integrity:** webhooks are signature-verified (Stripe raw-body verification, PayPal verification API), idempotent via a claim-and-run transaction (an event can never double-apply), and tiers are derived from the provider's own price IDs — never from client-influenced metadata.
 - **Access enforcement:** every stream/download/artwork route re-checks entitlement server-side; signed download URLs are context-bound and re-authorized at redemption; download tokens are single-use.
 - **Filesystem safety:** all file serving is confined to the vault (`safeVaultPath`), upload names are sanitized, uploads are ffprobe-validated before entering the vault, and images are content-sniffed.
