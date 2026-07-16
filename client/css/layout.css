@@ -1390,7 +1390,15 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
   animation: pw-ticker 30s linear infinite;
 }
 #panel-player #posts-ticker-track.single { animation-duration: 20s; }
+#panel-player #posts-ticker-track.empty { animation: none; padding: 0 14px; }
 #panel-player #posts-ticker:hover #posts-ticker-track { animation-play-state: paused; }
+
+#panel-player .ticker-empty {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--t4);
+}
 
 @keyframes pw-ticker {
   from { transform: translateX(0); }
@@ -1441,19 +1449,19 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
 }
 #panel-player #posts-ticker-more:hover { color: var(--t1); background: rgba(255,255,255,.05); }
 
-/* Mobile-only device-motion toggle, pinned in the viewport corner. */
-#panel-player #motion-toggle {
+/* Mobile-only device-motion toggle, top-right below the on-demand tracker.
+   Only shown on touch devices while the PLAY view is active. */
+#motion-toggle {
   display: none;
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 4;
+  align-self: flex-end;
   padding: 3px 8px;
   border-radius: 6px;
-  background: rgba(0,0,0,.45);
+  background: rgba(0,0,0,.35);
   border: 1px solid rgba(255,255,255,.1);
 }
-body.is-touch #panel-player #motion-toggle { display: inline-flex; }
+body.is-touch #player-card:not(.stack-active):not(.dash-active):not(.bio-landing) #motion-toggle {
+  display: inline-flex;
+}
 
 /* ── Posts "see more" modal (mirrors the library modal) ── */
 #posts-modal-backdrop {
