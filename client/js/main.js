@@ -304,6 +304,15 @@ el('fullscreen-btn').addEventListener('click', e => {
   player.toggleFullscreen();
 });
 
+// real-video edge tab — stopPropagation on the whole wrap so interacting with
+// the switch or its handle doesn't bubble up into the art-flip click-to-flip
+// listener; the handle click itself owns the open/closed state.
+el('real-video-toggle-wrap').addEventListener('click', e => e.stopPropagation());
+el('real-video-tab-handle').addEventListener('click', () => {
+  const open = el('real-video-toggle-wrap').classList.toggle('open');
+  el('real-video-tab-handle').setAttribute('aria-expanded', String(open));
+});
+
 // ─── View toggle (PLAY / STUDIO) ────────────────────────────────────────────
 document.querySelectorAll('.view-tab').forEach(btn => {
   btn.addEventListener('click', () => {
