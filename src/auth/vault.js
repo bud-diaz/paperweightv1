@@ -21,16 +21,20 @@ function isUnlockActive(row) {
 //   { allowed: false, unlockOptions: { track, project, allAccess } }
 //
 // Access chain:
-//   1. subscriber tier + creator has subscribers_included=1 → allow
+//   1. subscriber tier + creator has subscribers_included=1 + email verified → allow
 //   2. Active all_access vault unlock → allow
 //   3. Active project unlock for the content's project → allow
 //   4. Active per-track unlock → allow
 //   5. Deny with pricing options
-function canAccessVaultContent(listenerId, contentId) {
+//
+// `emailVerified` gates step 1 only (paid-tier vault bypass); unlock
+// purchases (steps 2-4) are not gated on email verification since they are
+// a separate paid grant, not the subscriber-tier bypass.
+function canAccessVaultContent(listenerId, contentId, { emailVerified = true } = {}) {
   const db = getDb();
 
   // ── Step 1: subscriber bypass (if creator enabled it) ────────────────────
-  if (listenerId) {
+  if (listenerId && emailVerified) {
     const vaultConfig = db.prepare(
       'SELECT subscribers_included FROM vault_all_access WHERE id = 1'
     ).get();

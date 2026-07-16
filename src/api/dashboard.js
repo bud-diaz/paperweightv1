@@ -22,7 +22,7 @@ const asyncHandler = require('../middleware/asyncHandler');
 const { clearArtworkCache, ARTWORK_DIR } = require('./library');
 const { isBroadcastPlayableTrack } = require('../broadcast/playlist');
 const { validateSlug } = require('../auth/reserved-slugs');
-const { resolvesToBlockedAddress } = require('../runtime/net-guard');
+const { resolveSafeAddress } = require('../runtime/net-guard');
 const { isValidExternalHttpUrl } = require('../runtime/base-url');
 const { IMAGE_MIMES, IMAGE_EXTS, sniffImageFile } = require('../runtime/images');
 const { getBoolSetting, setSetting } = require('../db/settings');
@@ -988,6 +988,9 @@ router.post('/station/cloudflare/auto-tunnel', requireDesktop, asyncHandler(asyn
 // Ping a URL's /api/health endpoint and return { reachable, latencyMs, error? }.
 // Resolves the host first and refuses private/loopback/metadata targets so the
 // owner-set station URL can't be used to probe the server's internal network.
+// The connection is pinned to the validated address (see resolveSafeAddress)
+// rather than letting `lib.get` re-resolve the hostname, closing a
+// DNS-rebinding TOCTOU gap.
 async function pingUrl(baseUrl) {
   const start = Date.now();
   let parsed;
@@ -997,13 +1000,17 @@ async function pingUrl(baseUrl) {
     return { reachable: false, latencyMs: 0, error: 'Invalid URL' };
   }
 
-  if (await resolvesToBlockedAddress(parsed.hostname)) {
+  const safeAddress = await resolveSafeAddress(parsed.hostname);
+  if (!safeAddress) {
     return { reachable: false, latencyMs: Date.now() - start, error: 'URL resolves to a private or reserved address' };
   }
 
   return new Promise(resolve => {
     const lib = parsed.protocol === 'https:' ? https : http;
-    const req = lib.get(parsed.href, { timeout: 5000 }, res => {
+    const req = lib.get(parsed.href, {
+      timeout: 5000,
+      lookup: (_hostname, _options, cb) => cb(null, safeAddress.address, safeAddress.family),
+    }, res => {
       res.resume();
       resolve({ reachable: res.statusCode >= 200 && res.statusCode < 500, latencyMs: Date.now() - start });
     });

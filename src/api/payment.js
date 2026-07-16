@@ -699,6 +699,10 @@ router.get('/tip-config', (req, res) => {
 
 // Both optional; leaving them blank is how a tip stays anonymous. Truncated
 // defensively — Stripe metadata values are capped at 500 chars each anyway.
+// NOTE: this strips control characters only, not HTML — it is not safe to
+// insert into markup via innerHTML. Any future UI that displays donor_name
+// must escape it at render time (e.g. textContent or the esc() helper in
+// client/js/utils.js), the same as every other creator/listener-supplied string.
 function cleanDonorName(raw) {
   if (raw === undefined || raw === null || raw === '') return null;
   if (typeof raw !== 'string') return undefined; // signals "invalid" to the caller
