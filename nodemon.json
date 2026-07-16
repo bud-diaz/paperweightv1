@@ -1,0 +1,22 @@
+{
+  "watch": [
+    "src",
+    "scripts/dev-server.js",
+    "package.json"
+  ],
+  "ignore": [
+    "client/**",
+    "landing/**",
+    "data/**",
+    "logs/**",
+    "hls_output/**",
+    "vault/**",
+    "dist/**",
+    "electron/dist/**",
+    "electron/stage/**",
+    "electron/native/**",
+    "node_modules/**"
+  ],
+  "ext": "js,json",
+  "delay": "250"
+}

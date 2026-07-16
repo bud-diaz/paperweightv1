@@ -1,0 +1,30 @@
+{
+  "watch": [
+    "src",
+    "electron/main.js",
+    "electron/preload.js",
+    "electron/setup-window.js",
+    "electron/ipc",
+    "electron/renderer",
+    "scripts/dev-electron.js",
+    "package.json",
+    "electron/package.json"
+  ],
+  "ignore": [
+    "client/**",
+    "landing/**",
+    "data/**",
+    "logs/**",
+    "hls_output/**",
+    "vault/**",
+    "dist/**",
+    "electron/dist/**",
+    "electron/stage/**",
+    "electron/native/**",
+    "node_modules/**",
+    "electron/node_modules/**"
+  ],
+  "ext": "js,json,html,css",
+  "delay": "500",
+  "signal": "SIGTERM"
+}

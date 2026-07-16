@@ -5,7 +5,9 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "dev": "nodemon --config nodemon.json scripts/dev-server.js",
+    "dev:plain": "nodemon src/index.js",
+    "dev:desktop": "nodemon --config nodemon.electron.json --exec node scripts/dev-electron.js",
     "preflight": "node scripts/preflight.js",
     "check:migrations": "node scripts/check-migrations.js",
     "check:scheduler": "node scripts/check-scheduler.js",
