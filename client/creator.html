@@ -582,6 +582,26 @@
               <div id="station-searchable-hint" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;"></div>
               <div id="station-searchable-msg"></div>
             </div>
+            <div data-desktop-only>
+              <div class="dash-edit-label" style="margin-top:14px;">CLOUDFLARE TUNNEL (OPTIONAL)</div>
+              <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;">
+                Save a Cloudflare API token to let Paperweight create the tunnel and DNS record for you. See CLOUDFLARE_SETUP.md.
+              </div>
+              <div class="station-update-row">
+                <input type="password" class="dash-input dash-input-sm" id="cf-api-token-input" placeholder="Cloudflare API token"/>
+                <button class="mgmt-btn" id="btn-save-cf-token">SAVE</button>
+              </div>
+              <div id="cf-token-msg"></div>
+              <div id="cf-tunnel-section" hidden>
+                <div class="station-update-row">
+                  <select class="dash-input dash-input-sm" id="cf-zone-select"></select>
+                  <input type="text" class="dash-input dash-input-sm" id="cf-hostname-input" placeholder="radio.yoursite.com"/>
+                  <button class="mgmt-btn" id="btn-auto-tunnel">CREATE TUNNEL</button>
+                </div>
+                <div id="cf-tunnel-msg"></div>
+                <div id="cf-tunnel-result" hidden style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.5);padding:4px 0;word-break:break-all;"></div>
+              </div>
+            </div>
             <div class="dash-edit-label" style="margin-top:14px;">EXPORTS &amp; BACKUP</div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">
               <a class="mgmt-btn" href="/api/dashboard/export/subscribers.csv" download style="text-decoration:none;">SUBSCRIBERS CSV</a>

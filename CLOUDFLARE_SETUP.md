@@ -10,6 +10,13 @@ If you're only running Paperweight locally for yourself, you can skip this
 entirely — see [SETUP_WINDOWS.md](SETUP_WINDOWS.md),
 [SETUP_MACOS.md](SETUP_MACOS.md), or [SETUP_LINUX_PI.md](SETUP_LINUX_PI.md).
 
+**For maintainers:** this repo registers Cloudflare's MCP server
+(`.mcp.json`) for Claude Code sessions, so tunnels and DNS records can be
+created/inspected via chat during development instead of the Zero Trust
+dashboard. That's a dev-tooling convenience only — it's unrelated to
+anything shipped to end users; see "1a. Or: let the dashboard create the
+tunnel for you" below for the actual product feature.
+
 ## Two Ways To Tunnel
 
 | | Quick Tunnel | Named Tunnel |
@@ -98,6 +105,30 @@ want to keep online.
    (`RTMP_INGEST_PORT`, default `1935`). That's for local/LAN encoders only
    (e.g. OBS) and must never be reachable from the internet.
 
+### 1a. Or: let the dashboard create the tunnel for you
+
+Instead of steps above, the dashboard's **Station** panel can create the
+tunnel and DNS record for you via Cloudflare's API:
+
+1. Generate a Cloudflare API Token at
+   [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)
+   scoped with **Cloudflare Tunnel: Edit** and **DNS: Edit** permissions. This
+   is a different token from the tunnel connector token described above —
+   don't confuse the two, and treat it as equally sensitive.
+2. In the dashboard's Station panel, paste it into **Cloudflare Tunnel
+   (optional)** and click **Save**.
+3. Pick a zone (domain) from the dropdown, enter the hostname you want (e.g.
+   `radio.yoursite.com`), and click **Create Tunnel**.
+4. The dashboard creates the tunnel, points its ingress at this Paperweight
+   instance, creates the DNS CNAME, and saves the resulting
+   `CLOUDFLARE_TUNNEL_TOKEN` and `STATION_PUBLIC_URL` for you.
+
+This is entirely optional — `CLOUDFLARE_TUNNEL_TOKEN` works exactly the same
+whether it was pasted in by hand or created this way. You still need to run
+`cloudflared` as a background service afterward — see step 3 below — this
+flow only replaces the manual dashboard clicking in step 1, not
+`cloudflared` itself.
+
 ### 2. Configure Paperweight
 
 Run `bash scripts/setup.sh` (or `scripts/setup.ps1` equivalent flow) and paste
@@ -148,8 +179,10 @@ sudo cloudflared service install <token>
 ```
 
 **Desktop app (Electron):** paste the tunnel token into the setup wizard's
-"Cloudflare tunnel token" field and the app manages the connection for you —
-no separate service install needed.
+"Cloudflare tunnel token" field (or the dashboard's Station panel later).
+This does *not* run or supervise `cloudflared` for you — you still need to
+install it and run `cloudflared service install <token>` as shown above, same
+as any other platform. The wizard/dashboard only manage the token value.
 
 ### 4. Restart and verify
 

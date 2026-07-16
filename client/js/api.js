@@ -597,6 +597,33 @@ export const dashboard = {
     setSearchable(enabled) {
       return _send('/api/dashboard/station/searchable', { enabled }, 'PUT');
     },
+
+    /**
+     * PUT /api/dashboard/station/cloudflare/token — save + verify a Cloudflare API token.
+     * @param {string} apiToken
+     * @returns {{ res: Response, data: { error?: string } }}
+     */
+    saveCloudflareToken(apiToken) {
+      return _send('/api/dashboard/station/cloudflare/token', { apiToken }, 'PUT');
+    },
+
+    /**
+     * GET /api/dashboard/station/cloudflare/zones
+     * @returns {{ zones: Array<{ id: string, name: string }> }}
+     */
+    cloudflareZones() {
+      return _json('/api/dashboard/station/cloudflare/zones');
+    },
+
+    /**
+     * POST /api/dashboard/station/cloudflare/auto-tunnel
+     * @param {string} zoneId
+     * @param {string} hostname
+     * @returns {{ res: Response, data: { error?: string, url?: string, tunnelToken?: string, note?: string } }}
+     */
+    autoCreateTunnel(zoneId, hostname) {
+      return _send('/api/dashboard/station/cloudflare/auto-tunnel', { zoneId, hostname }, 'POST');
+    },
   },
 
   /**
