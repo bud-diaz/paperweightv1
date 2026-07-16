@@ -268,11 +268,6 @@
         <div id="topbar-right-controls">
           <button id="back-live-btn">↩ LIVE</button>
           <span id="type-badge" class="type-badge"></span>
-          <label class="toggle-sw" id="real-video-toggle-wrap" hidden title="Watch full-quality video instead of ASCII art">
-            <input type="checkbox" id="real-video-toggle">
-            <span class="toggle-track"></span>
-            <span class="toggle-label">REAL VIDEO</span>
-          </label>
         </div>
         <div id="quota-badge">
           <div id="quota-badge-label">ON-DEMAND</div>
@@ -392,6 +387,16 @@
                 <path d="M9 3v3a2 2 0 0 1-2 2H4M15 3v3a2 2 0 0 0 2 2h3M9 21v-3a2 2 0 0 0-2-2H4M15 21v-3a2 2 0 0 1 2-2h3"/>
               </svg>
             </button>
+            <div id="real-video-toggle-wrap" hidden>
+              <label class="toggle-sw" id="real-video-switch" title="Watch full-quality video instead of ASCII art">
+                <input type="checkbox" id="real-video-toggle">
+                <span class="toggle-track"></span>
+                <span class="toggle-label">REAL VIDEO</span>
+              </label>
+              <button id="real-video-tab-handle" type="button" aria-expanded="false" aria-label="Real video settings" title="Real video settings">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg>
+              </button>
+            </div>
             <div id="art-meta">
               <div id="track-title"></div>
               <div id="track-creator"></div>

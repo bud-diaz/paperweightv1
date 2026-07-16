@@ -15,7 +15,7 @@
  *   #auth-badge                (class: visible)
  *   #type-badge                (display, background, textContent)
  *   #live-tab-dot              (display)
- *   #real-video-toggle-wrap    (hidden)
+ *   #real-video-toggle-wrap    (hidden, class: open)
  *   #back-live-btn             (display)
  *   #track-title               (textContent)
  *   #track-creator             (textContent)
@@ -68,6 +68,8 @@
  *   #waveform        click → seekWaveform
  *   #art-flip        click → flip art card / renderArtBack
  *   #fullscreen-btn  click → toggleFullscreen
+ *   #real-video-toggle-wrap  click → stopPropagation (main.js)
+ *   #real-video-tab-handle   click → toggle 'open' class (main.js)
  *   .view-tab (all)  click → switch PLAY/STUDIO view
  *   #pw-wordmark-text mousedown/touchstart/up/leave → long-press enterDashboard,
  *                     short press → station-directory search field (main.js)
@@ -282,7 +284,11 @@ export function render() {
 
   // real-video toggle — only relevant for the live video stream, never previews
   const rvWrap = el('real-video-toggle-wrap');
-  if (rvWrap) rvWrap.hidden = state.isPreview || t.type !== 'video';
+  if (rvWrap) {
+    const rvHidden = state.isPreview || t.type !== 'video';
+    rvWrap.hidden = rvHidden;
+    if (rvHidden) rvWrap.classList.remove('open');
+  }
 
   // fullscreen button — only when a video surface is actually on screen
   el('fullscreen-btn').style.display = t.type === 'video' ? 'flex' : 'none';
