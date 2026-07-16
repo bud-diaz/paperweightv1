@@ -259,6 +259,12 @@ const config = {
   broadcast: {
     rtmpHost: process.env.RTMP_INGEST_HOST || '127.0.0.1',
     rtmpPort: parseInt(process.env.RTMP_INGEST_PORT || '1935', 10),
+
+    // Separate RTMP listener for the paid-tier live video feature
+    // (src/broadcast/liveVideo.js). Distinct default port so both can run at
+    // once on the same machine.
+    videoRtmpHost: process.env.RTMP_VIDEO_INGEST_HOST || '127.0.0.1',
+    videoRtmpPort: parseInt(process.env.RTMP_VIDEO_INGEST_PORT || '1936', 10),
   },
 
   vault: {

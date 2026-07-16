@@ -18,6 +18,14 @@ function isHigherTier(candidate, current) {
   return (TIER_RANK[candidate] ?? 0) > (TIER_RANK[current] ?? 0);
 }
 
+// True when `tier` is at least as high as `minTier` (rank-wise, inclusive).
+// Used to gate features against a creator-configurable minimum tier (e.g.
+// live video's app_settings-backed live_video_min_tier) rather than a fixed
+// isSubscriberTier()/requireAllAccess() check.
+function meetsMinTier(tier, minTier) {
+  return (TIER_RANK[tier] ?? 0) >= (TIER_RANK[minTier] ?? 0);
+}
+
 const EMAIL_VERIFICATION_GRACE_MS = 24 * 60 * 60 * 1000;
 
 // Gates tier-based paid content (supporters_only + the vault subscriber
@@ -109,6 +117,7 @@ module.exports = {
   SUBSCRIBER_TIERS,
   isSubscriberTier,
   isHigherTier,
+  meetsMinTier,
   hasScopedVaultAccess,
   allAccessTierIncludesVault,
   isEmailVerificationOk,

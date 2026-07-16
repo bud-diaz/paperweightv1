@@ -48,6 +48,7 @@ import * as allAccess   from './dashboard/allaccess.js';
 import * as broadcast   from './dashboard/broadcast.js';
 import * as live        from './dashboard/live.js';
 import * as liveExternal from './dashboard/live-external.js';
+import * as liveVideo    from './dashboard/liveVideo.js';
 import * as schedule    from './dashboard/schedule.js';
 import * as smartPlaylists from './dashboard/smartplaylists.js';
 import * as dashPosts   from './dashboard/posts.js';
@@ -159,6 +160,7 @@ dashIndex.init({
   loadDashBroadcast:    broadcast.loadDashBroadcast,
   loadDashLive:         live.loadDashLive,
   loadDashLiveExternal: liveExternal.loadDashExternal,
+  loadDashLiveVideo:    liveVideo.loadDashLiveVideo,
   loadRadioHostStatus:  search.loadRadioHostStatus,
   loadDashSchedule:     schedule.loadDashSchedule,
   loadDashProjects:     projects.loadDashProjects,
@@ -227,13 +229,14 @@ live.init({
   teardownExternalOnAir: liveExternal.teardownOnAir,
 });
 
-// station.js, bio.js, broadcast.js, live-external.js, schedule.js, twofa.js
-// have no-op init() (no callbacks needed) — called for consistency/
+// station.js, bio.js, broadcast.js, live-external.js, liveVideo.js, schedule.js,
+// twofa.js have no-op init() (no callbacks needed) — called for consistency/
 // forward-compatibility.
 station.init();
 bio.init();
 broadcast.init();
 liveExternal.init();
+liveVideo.init();
 schedule.init();
 smartPlaylists.init();
 dashPosts.init();
@@ -264,6 +267,7 @@ allAccess.initAllAccessHandlers();
 broadcast.initBroadcastHandlers();
 live.initLiveHandlers();
 liveExternal.initLiveExternalHandlers();
+liveVideo.initLiveVideoHandlers();
 schedule.initScheduleHandlers();
 smartPlaylists.initSmartPlaylistHandlers();
 dashPosts.initPostHandlers();
@@ -305,6 +309,14 @@ el('art-flip').addEventListener('click', () => {
 el('fullscreen-btn').addEventListener('click', e => {
   e.stopPropagation();
   player.toggleFullscreen();
+});
+
+// Shown over the art/video box while live video is on air but the listener's
+// tier doesn't meet the creator's minimum (hls-client.js fetchStreamStatus).
+// Opens the same tip/subscribe modal the floating tip button already uses.
+el('live-video-cta').addEventListener('click', e => {
+  e.stopPropagation();
+  payment.openModal();
 });
 
 // real-video edge tab — stopPropagation on the whole wrap so interacting with

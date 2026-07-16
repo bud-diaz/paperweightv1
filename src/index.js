@@ -9,7 +9,11 @@ const { startScanner, stopScanner } = require('./scanner');
 const releaseScheduler = require('./release/scheduler');
 const broadcast = require('./broadcast');
 const live = require('./broadcast/live');
+const liveVideo = require('./broadcast/liveVideo');
 const apiRouter = require('./api/router');
+const { attachTier } = require('./auth/middleware');
+const { meetsMinTier } = require('./auth/access');
+const { getSetting } = require('./db/settings');
 const { csrfCheck } = require('./middleware/csrfCheck');
 const asyncHandler = require('./middleware/asyncHandler');
 const { getFFmpegStatus } = require('./runtime/ffmpeg');
@@ -130,6 +134,15 @@ function relaxCspForListen(req, res, next) {
   next();
 }
 
+// Gate for the paid-tier live video HLS output. This — not the frontend CTA —
+// is the actual access boundary: every .m3u8 and .ts segment request under
+// /hls/live-video is tier-checked here before express.static ever serves it.
+function requireLiveVideoAccess(req, res, next) {
+  const minTier = getSetting('live_video_min_tier') || 'subscriber';
+  if (meetsMinTier(req.tier, minTier)) return next();
+  res.status(403).json({ error: 'Subscriber access required to watch live video' });
+}
+
 function createApp() {
   const app = express();
   if (config.trustProxy !== false) {
@@ -195,6 +208,8 @@ function createApp() {
 
   app.use('/hls/stream', express.static(path.join(config.paths.hlsOutput, 'stream')));
   app.use('/hls/live',   express.static(path.join(config.paths.hlsOutput, 'live')));
+  app.use('/hls/live-video', attachTier, requireLiveVideoAccess,
+    express.static(path.join(config.paths.hlsOutput, 'live-video')));
 
   app.get('/vendor/hls.min.js', (req, res) => {
     if (isBundledRuntime) {
@@ -454,6 +469,7 @@ function shutdown() {
   return Promise.resolve()
     .then(async () => {
       live.stopLive();
+      liveVideo.stopLive();
       broadcast.stop();
       releaseScheduler.stop();
 

@@ -21,6 +21,7 @@ let _loadDashVaultStats     = () => {};
 let _loadDashBroadcast      = () => {};
 let _loadDashLive           = () => {};
 let _loadDashLiveExternal   = () => {};
+let _loadDashLiveVideo      = () => {};
 let _loadRadioHostStatus    = () => {};
 let _loadDashSchedule       = () => {};
 let _loadDashProjects       = () => {};
@@ -49,6 +50,7 @@ export function init(callbacks = {}) {
   if (callbacks.loadDashBroadcast)     _loadDashBroadcast     = callbacks.loadDashBroadcast;
   if (callbacks.loadDashLive)          _loadDashLive          = callbacks.loadDashLive;
   if (callbacks.loadDashLiveExternal)  _loadDashLiveExternal  = callbacks.loadDashLiveExternal;
+  if (callbacks.loadDashLiveVideo)     _loadDashLiveVideo     = callbacks.loadDashLiveVideo;
   if (callbacks.loadRadioHostStatus)   _loadRadioHostStatus   = callbacks.loadRadioHostStatus;
   if (callbacks.loadDashSchedule)      _loadDashSchedule      = callbacks.loadDashSchedule;
   if (callbacks.loadDashProjects)      _loadDashProjects      = callbacks.loadDashProjects;
@@ -278,6 +280,7 @@ export async function loadDashboard() {
   _loadDashBroadcast();
   _loadDashLive();
   _loadDashLiveExternal();
+  _loadDashLiveVideo();
   _loadRadioHostStatus();
   _loadDashSchedule();
   _loadDashSmartPlaylists();

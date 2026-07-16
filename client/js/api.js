@@ -1311,6 +1311,63 @@ export const dashboard = {
     },
   },
 
+  // ── Live video (paid-tier, RTMP-only) broadcast ────────────────────────────────
+
+  liveVideo: {
+    /**
+     * GET /api/dashboard/live-video/status
+     * @returns {{ state: 'idle'|'pending'|'live', startedAt, rtmp: { url, streamKey, host, port } }}
+     */
+    status() {
+      return _json('/api/dashboard/live-video/status');
+    },
+
+    /**
+     * POST /api/dashboard/live-video/start
+     * @returns {{ res: Response, data: object }}
+     */
+    async start() {
+      const res = await _fetch('/api/dashboard/live-video/start', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      return { res, data };
+    },
+
+    /**
+     * POST /api/dashboard/live-video/stop
+     * @returns {Promise<void>}
+     */
+    async stop() {
+      await _fetch('/api/dashboard/live-video/stop', { method: 'POST' });
+    },
+
+    /**
+     * POST /api/dashboard/live-video/regenerate-key
+     * @returns {{ res: Response, data: { streamKey?: string, error?: string } }}
+     */
+    async regenerateKey() {
+      const res = await _fetch('/api/dashboard/live-video/regenerate-key', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      return { res, data };
+    },
+
+    /**
+     * GET /api/dashboard/live-video/settings
+     * @returns {{ minTier: 'subscriber'|'pro'|'all_access', notifyEnabled: boolean }}
+     */
+    settings() {
+      return _json('/api/dashboard/live-video/settings');
+    },
+
+    /**
+     * PUT /api/dashboard/live-video/settings
+     * @param {{ minTier?: string, notifyEnabled?: boolean }} body
+     * @returns {{ res: Response, data: object }}
+     */
+    updateSettings(body) {
+      return _send('/api/dashboard/live-video/settings', body, 'PUT');
+    },
+  },
+
   // ── Creator profile (dashboard) ────────────────────────────────────────────────
 
   creator: {

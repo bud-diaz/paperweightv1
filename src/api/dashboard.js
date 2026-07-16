@@ -13,6 +13,7 @@ const { requireDesktop } = require('../auth/platform');
 const { createToken, revokeToken, listTokens, updateTokenTier, listTokensForScope, hashToken } = require('../auth');
 const broadcast = require('../broadcast');
 const live = require('../broadcast/live');
+const liveVideo = require('../broadcast/liveVideo');
 const config = require('../config');
 const { probe } = require('../scanner/probe');
 const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCode } = require('../auth/totp');
@@ -25,7 +26,7 @@ const { validateSlug } = require('../auth/reserved-slugs');
 const { resolveSafeAddress } = require('../runtime/net-guard');
 const { isValidExternalHttpUrl } = require('../runtime/base-url');
 const { IMAGE_MIMES, IMAGE_EXTS, sniffImageFile } = require('../runtime/images');
-const { getBoolSetting, setSetting } = require('../db/settings');
+const { getSetting, getBoolSetting, setSetting } = require('../db/settings');
 const { toSqliteDatetime } = require('../runtime/datetime');
 const {
   SUBSCRIBER_HEADERS, LISTENER_HEADERS, DOWNLOAD_LEAD_HEADERS,
@@ -1328,6 +1329,87 @@ router.post('/broadcast/external/regenerate-key', requireDesktop, (req, res) => 
   } catch (err) {
     res.status(409).json({ error: err.message });
   }
+});
+
+// ─── Live video (paid-tier) broadcast ─────────────────────────────────────────
+// Desktop-only for the same reason as the external audio encoder above: the
+// RTMP listener binds to the local machine/LAN. The min-tier/notify settings
+// stay available on the hosted web platform, though, so a creator can
+// configure them ahead of ever running the desktop app.
+
+function liveVideoState() {
+  const liveState = liveVideo.getLiveVideoState();
+  if (!liveState.rtmpPending && !liveState.isLive) return 'idle';
+  return liveState.isLive ? 'live' : 'pending';
+}
+
+// GET /api/dashboard/live-video/status
+router.get('/live-video/status', requireDesktop, (req, res) => {
+  const liveState = liveVideo.getLiveVideoState();
+  res.json({
+    state: liveVideoState(),
+    startedAt: liveState.startedAt,
+    rtmp: liveVideo.getRtmpConnectionInfo(),
+  });
+});
+
+// POST /api/dashboard/live-video/start
+router.post('/live-video/start', requireDesktop, asyncHandler(async (req, res) => {
+  const liveState = liveVideo.getLiveVideoState();
+  if (liveState.isLive || liveState.rtmpPending) {
+    return res.status(409).json({ error: 'A video broadcast is already live or pending' });
+  }
+  try {
+    await liveVideo.startLiveVideoRtmp({});
+    res.json({ state: liveVideoState(), rtmp: liveVideo.getRtmpConnectionInfo() });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}));
+
+// POST /api/dashboard/live-video/stop
+router.post('/live-video/stop', requireDesktop, (req, res) => {
+  liveVideo.stopLive();
+  res.json({ ok: true });
+});
+
+// POST /api/dashboard/live-video/regenerate-key
+router.post('/live-video/regenerate-key', requireDesktop, (req, res) => {
+  try {
+    const streamKey = liveVideo.regenerateStreamKey();
+    res.json({ ok: true, streamKey });
+  } catch (err) {
+    res.status(409).json({ error: err.message });
+  }
+});
+
+const LIVE_VIDEO_TIERS = new Set(['subscriber', 'pro', 'all_access']);
+
+// GET /api/dashboard/live-video/settings
+router.get('/live-video/settings', (req, res) => {
+  res.json({
+    minTier: getSetting('live_video_min_tier') || 'subscriber',
+    notifyEnabled: getBoolSetting('notify_live_video_enabled', true),
+  });
+});
+
+// PUT /api/dashboard/live-video/settings
+// Body: any subset of { minTier, notifyEnabled }
+router.put('/live-video/settings', (req, res) => {
+  const { minTier, notifyEnabled } = req.body || {};
+
+  if (minTier !== undefined) {
+    if (!LIVE_VIDEO_TIERS.has(minTier)) {
+      return res.status(400).json({ error: 'minTier must be subscriber, pro, or all_access' });
+    }
+    setSetting('live_video_min_tier', minTier);
+  }
+  if (notifyEnabled !== undefined) {
+    setSetting('notify_live_video_enabled', notifyEnabled ? '1' : '0');
+  }
+
+  log('info', 'dashboard', 'Live video settings updated');
+  res.json({ ok: true });
 });
 
 // GET /api/dashboard/creator-type
