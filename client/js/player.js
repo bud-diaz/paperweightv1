@@ -267,7 +267,7 @@ export function render() {
   }
 
   // live indicator dot above the PLAY tab
-  el('live-tab-dot').style.display = !state.track ? 'block' : 'none';
+  el('live-tab-dot').style.display = !state.track ? 'inline-block' : 'none';
 
   // real-video toggle — only relevant for the live video stream, never previews
   const rvWrap = el('real-video-toggle-wrap');

@@ -263,18 +263,11 @@
         <span class="pw-wordmark" id="pw-wordmark-text">Paperweight</span>
         <input id="pw-station-search" class="pw-station-search" type="search" autocomplete="off" placeholder="Search stations" aria-label="Search public stations" hidden>
         <div id="pw-station-results" class="pw-station-results" hidden></div>
-        <button id="pw-settings-btn" class="pw-settings-btn" aria-label="Account settings" title="Account">⚙</button>
-        <div id="pw-settings-dropdown" class="pw-settings-dropdown" hidden>
-          <button id="pw-settings-open-btn" class="pw-settings-dropdown-item">SETTINGS</button>
-          <button id="pw-settings-logout-btn" class="pw-settings-dropdown-item" hidden>LOG OUT</button>
-        </div>
+        <span id="live-tab-dot" class="live-tab-dot"></span>
       </div>
       <div id="view-toggle">
         <button class="view-tab" data-view="stack">STACK</button>
-        <button class="view-tab active" data-view="player">
-          <span id="live-tab-dot" class="live-tab-dot"></span>
-          PLAY
-        </button>
+        <button class="view-tab active" data-view="player">PLAY</button>
         <button class="view-tab" data-view="dashboard">STUDIO</button>
       </div>
       <div id="topbar-right">
@@ -282,16 +275,18 @@
           <button id="back-live-btn">↩ LIVE</button>
           <span id="type-badge" class="type-badge"></span>
         </div>
+        <div class="pw-settings-wrap">
+          <button id="pw-settings-btn" class="pw-settings-btn" aria-label="Account settings" title="Account">⚙</button>
+          <div id="pw-settings-dropdown" class="pw-settings-dropdown" hidden>
+            <button id="pw-settings-open-btn" class="pw-settings-dropdown-item">SETTINGS</button>
+            <button id="pw-settings-logout-btn" class="pw-settings-dropdown-item" hidden>LOG OUT</button>
+          </div>
+        </div>
         <div id="quota-badge">
           <div id="quota-badge-label">ON-DEMAND</div>
           <div id="quota-badge-count"></div>
           <div id="quota-badge-period">PLAYS LEFT</div>
         </div>
-        <label class="toggle-sw" id="motion-toggle" title="Tilt cards with device motion">
-          <input type="checkbox" id="motion-toggle-input">
-          <span class="toggle-track"></span>
-          <span class="toggle-label">MOTION</span>
-        </label>
       </div>
     </div>
 
@@ -1304,7 +1299,14 @@
 
 <audio id="audio-el" hidden></audio>
 
-<div id="credit">PAPERWEIGHT SYSTEMS LLC</div>
+<div id="credit">
+  <label class="toggle-sw" id="motion-toggle" title="Tilt cards with device motion">
+    <input type="checkbox" id="motion-toggle-input">
+    <span class="toggle-track"></span>
+    <span class="toggle-label">MOTION</span>
+  </label>
+  <span id="credit-text">PAPERWEIGHT SYSTEMS LLC</span>
+</div>
 
 <script type="module" src="/js/main.js"></script>
 

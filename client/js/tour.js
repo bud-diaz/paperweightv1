@@ -45,7 +45,7 @@ export async function maybeShowSettingsTour() {
       pointer-events:none;
     "></div>
     <div id="settings-tour-tooltip" style="
-      position:fixed; left:${rect.left}px; top:${rect.bottom + pad + 8}px;
+      position:fixed; right:${window.innerWidth - rect.right}px; top:${rect.bottom + pad + 8}px;
       max-width:220px; background:#0d0d0d; border:1px solid rgba(255,255,255,.14);
       border-radius:10px; padding:14px; font-family:'Space Mono',monospace;
     ">
