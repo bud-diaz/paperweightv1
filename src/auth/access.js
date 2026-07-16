@@ -73,7 +73,7 @@ function canAccessMedia(req, media, projectId = null) {
 
     if (!hasScopedVaultAccess(req, media.id, projectId)) {
       const listenerId = req.tokenRow?.listener_id || null;
-      const result = canAccessVaultContent(listenerId, media.id);
+      const result = canAccessVaultContent(listenerId, media.id, { emailVerified: isEmailVerificationOk(req) });
       if (!result.allowed) {
         return {
           allowed: false,

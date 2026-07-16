@@ -8,7 +8,7 @@
 'use strict';
 
 const http = require('http');
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 
 // require('./index') triggers config.js which calls loadEnv() and populates
 // process.env from the .env file. The server may also bind to a different port
@@ -18,15 +18,18 @@ const { exec } = require('child_process');
 const app = require('./index');
 const config = require('./config');
 
+// Spawned with an explicit argv array (no shell) so `target` is never
+// interpreted as shell syntax, regardless of what it contains.
 function openBrowser(target) {
-  const cmd = process.platform === 'darwin'
-    ? `open "${target}"`
+  const [command, args] = process.platform === 'darwin'
+    ? ['open', [target]]
     : process.platform === 'win32'
-      ? `start "" "${target}"`
-      : `xdg-open "${target}"`;
+      ? ['cmd.exe', ['/c', 'start', '""', target]]
+      : ['xdg-open', [target]];
 
-  exec(cmd, err => {
-    if (err) console.warn('[Paperweight] Could not open browser automatically:', err.message);
+  const child = spawn(command, args, { stdio: 'ignore' });
+  child.on('error', err => {
+    console.warn('[Paperweight] Could not open browser automatically:', err.message);
   });
 }
 
