@@ -324,7 +324,7 @@ body.creator-mode #quota-badge { display: none !important; }
   position: fixed; inset: 0; width: 100vw; height: 100vh;
   border-radius: 0; z-index: 2147483647;
 }
-#art-box.is-fullscreen video { object-fit: contain; background: #000; }
+#art-box.is-fullscreen video { object-fit: fill; background: #000; }
 
 .pulse-ring {
   position: absolute; top: 50%; left: 50%;
@@ -354,6 +354,42 @@ body.creator-mode #quota-badge { display: none !important; }
   border-radius: 6px; cursor: pointer;
 }
 #fullscreen-btn:hover { background: rgba(0,0,0,.8); }
+
+/* Collapsible edge tab — pinned flush to the video box's right edge so it
+   never gets clipped by #art-box's own overflow:hidden (protruding past
+   the box would be cut off); the "sticking out" look comes from styling,
+   not actual overflow. */
+#real-video-toggle-wrap {
+  position: absolute; top: 50%; right: 0; z-index: 5;
+  transform: translateY(-50%);
+  display: flex; align-items: stretch;
+}
+#art-flip.flipped #real-video-toggle-wrap { display: none; }
+
+#real-video-switch {
+  display: flex; align-items: center; gap: 6px;
+  max-width: 0; opacity: 0; overflow: hidden;
+  padding: 0; white-space: nowrap; height: 34px; box-sizing: border-box;
+  background: rgba(0,0,0,.72);
+  backdrop-filter: blur(var(--vibrancy-blur-sm)) saturate(var(--vibrancy-sat));
+  border: 1px solid rgba(255,255,255,.1); border-right: none;
+  border-radius: 6px 0 0 6px;
+  transition: max-width .28s cubic-bezier(.4,0,.2,1), opacity .2s ease, padding .28s cubic-bezier(.4,0,.2,1);
+}
+#real-video-toggle-wrap.open #real-video-switch { max-width: 160px; opacity: 1; padding: 0 10px 0 12px; }
+
+#real-video-tab-handle {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  width: 20px; height: 34px; padding: 0;
+  background: rgba(0,0,0,.72);
+  backdrop-filter: blur(var(--vibrancy-blur-sm)) saturate(var(--vibrancy-sat));
+  border: 1px solid rgba(255,255,255,.1);
+  box-shadow: -2px 0 8px rgba(0,0,0,.3);
+  color: rgba(255,255,255,.55); cursor: pointer; transition: color .15s, background .15s;
+}
+#real-video-tab-handle:hover { color: #fff; background: rgba(0,0,0,.85); }
+#real-video-tab-handle svg { transition: transform .28s cubic-bezier(.4,0,.2,1); display: block; }
+#real-video-toggle-wrap.open #real-video-tab-handle svg { transform: rotate(180deg); }
 
 #art-meta {
   position: absolute; bottom: 0; left: 0; right: 0; z-index: 4;
