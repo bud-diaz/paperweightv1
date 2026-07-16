@@ -265,6 +265,13 @@
         <div id="pw-station-results" class="pw-station-results" hidden></div>
         <span id="live-tab-dot" class="live-tab-dot"></span>
       </div>
+      <div class="pw-settings-wrap" id="topbar-settings">
+        <button id="pw-settings-btn" class="pw-settings-btn" aria-label="Account settings" title="Account">⚙</button>
+        <div id="pw-settings-dropdown" class="pw-settings-dropdown" hidden>
+          <button id="pw-settings-open-btn" class="pw-settings-dropdown-item">SETTINGS</button>
+          <button id="pw-settings-logout-btn" class="pw-settings-dropdown-item" hidden>LOG OUT</button>
+        </div>
+      </div>
       <div id="view-toggle">
         <button class="view-tab" data-view="stack">STACK</button>
         <button class="view-tab active" data-view="player">PLAY</button>
@@ -275,17 +282,9 @@
           <button id="back-live-btn">↩ LIVE</button>
           <span id="type-badge" class="type-badge"></span>
         </div>
-        <div class="pw-settings-wrap">
-          <button id="pw-settings-btn" class="pw-settings-btn" aria-label="Account settings" title="Account">⚙</button>
-          <div id="pw-settings-dropdown" class="pw-settings-dropdown" hidden>
-            <button id="pw-settings-open-btn" class="pw-settings-dropdown-item">SETTINGS</button>
-            <button id="pw-settings-logout-btn" class="pw-settings-dropdown-item" hidden>LOG OUT</button>
-          </div>
-        </div>
-        <div id="quota-badge">
-          <div id="quota-badge-label">ON-DEMAND</div>
-          <div id="quota-badge-count"></div>
-          <div id="quota-badge-period">PLAYS LEFT</div>
+        <div id="quota-badge" title="On-demand plays remaining">
+          <span id="quota-badge-count"></span>
+          <span id="quota-badge-period">PLAYS LEFT</span>
         </div>
       </div>
     </div>
