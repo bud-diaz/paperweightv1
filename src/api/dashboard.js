@@ -17,6 +17,7 @@ const config = require('../config');
 const { probe } = require('../scanner/probe');
 const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCode } = require('../auth/totp');
 const { getFFmpegStatus } = require('../runtime/ffmpeg');
+const cloudflareApi = require('../runtime/cloudflare');
 const asyncHandler = require('../middleware/asyncHandler');
 const { clearArtworkCache, ARTWORK_DIR } = require('./library');
 const { isBroadcastPlayableTrack } = require('../broadcast/playlist');
@@ -726,6 +727,11 @@ router.get('/station', (req, res) => {
     row = db.prepare('SELECT * FROM station_registry WHERE id = 1').get();
   }
 
+  // Independent of `requirements` above (which gates /station/searchable):
+  // whether a Cloudflare API token is saved, so the dashboard knows whether
+  // to offer the auto-tunnel flow at all.
+  const cloudflareApiConfigured = cloudflareApi.isCloudflareApiConfigured(config.station.cloudflareApiToken);
+
   if (!row) {
     return res.json({
       slug: null,
@@ -737,6 +743,7 @@ router.get('/station', (req, res) => {
         cloudflareTunnel: config.station.cloudflareTunnel,
         publicUrlSet: false,
       },
+      cloudflareApiConfigured,
     });
   }
 
@@ -750,6 +757,7 @@ router.get('/station', (req, res) => {
       cloudflareTunnel: config.station.cloudflareTunnel,
       publicUrlSet: !!(row && row.url),
     },
+    cloudflareApiConfigured,
   });
 });
 
@@ -854,6 +862,125 @@ router.put('/station/searchable', requireDesktop, asyncHandler(async (req, res) 
   setSetting('station_searchable', '1');
   log('info', 'dashboard', 'Station directory searchability enabled');
   res.json({ ok: true, searchable: true, checks });
+}));
+
+// ─── Cloudflare API-token automation (optional) ───────────────────────────────
+// Distinct from CLOUDFLARE_TUNNEL_TOKEN above: this lets the dashboard call
+// Cloudflare's REST API on the owner's behalf to create a tunnel and DNS
+// record, instead of the owner doing it by hand in the Zero Trust dashboard.
+// Entirely optional — CLOUDFLARE_TUNNEL_TOKEN keeps working exactly as before
+// whether or not this is ever used.
+
+const HOSTNAME_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/i;
+
+// PUT /api/dashboard/station/cloudflare/token
+// Body: { apiToken }
+// Verifies the token against Cloudflare, then persists it to .env.
+router.put('/station/cloudflare/token', requireDesktop, asyncHandler(async (req, res) => {
+  const { apiToken } = req.body || {};
+  if (!apiToken || typeof apiToken !== 'string' || !apiToken.trim() || /[\r\n#]/.test(apiToken)) {
+    return res.status(400).json({ error: 'apiToken is required' });
+  }
+  const cleanToken = apiToken.trim();
+
+  const verified = await cloudflareApi.verifyToken(cleanToken);
+  if (!verified.ok) {
+    return res.status(400).json({ error: verified.error || 'Could not verify Cloudflare API token' });
+  }
+
+  updateEnvKey('CLOUDFLARE_API_TOKEN', cleanToken);
+  config.station.cloudflareApiToken = cleanToken;
+
+  log('info', 'dashboard', 'Cloudflare API token saved and verified');
+  res.json({ ok: true });
+}));
+
+// GET /api/dashboard/station/cloudflare/zones
+// Lists the Cloudflare zones (domains) available to the saved API token, for
+// the dashboard's "which domain should the tunnel use" picker.
+router.get('/station/cloudflare/zones', requireDesktop, asyncHandler(async (req, res) => {
+  const token = config.station.cloudflareApiToken;
+  if (!cloudflareApi.isCloudflareApiConfigured(token)) {
+    return res.status(409).json({ error: 'Save a Cloudflare API token first' });
+  }
+
+  const zones = await cloudflareApi.listZones(token);
+  if (!zones.ok) {
+    return res.status(502).json({ error: zones.error || 'Could not list Cloudflare zones' });
+  }
+
+  res.json({ zones: (zones.result || []).map(z => ({ id: z.id, name: z.name })) });
+}));
+
+// POST /api/dashboard/station/cloudflare/auto-tunnel
+// Body: { zoneId, hostname }
+// Creates a Named Tunnel + DNS route via the Cloudflare API and persists the
+// resulting CLOUDFLARE_TUNNEL_TOKEN and STATION_PUBLIC_URL, same as if the
+// owner had done it by hand and pasted the result into the dashboard/.env.
+router.post('/station/cloudflare/auto-tunnel', requireDesktop, asyncHandler(async (req, res) => {
+  const token = config.station.cloudflareApiToken;
+  if (!cloudflareApi.isCloudflareApiConfigured(token)) {
+    return res.status(409).json({ error: 'Save a Cloudflare API token first' });
+  }
+
+  const { zoneId, hostname } = req.body || {};
+  if (!zoneId || typeof zoneId !== 'string') {
+    return res.status(400).json({ error: 'zoneId is required' });
+  }
+  if (!hostname || typeof hostname !== 'string' || !HOSTNAME_RE.test(hostname.trim())) {
+    return res.status(400).json({ error: 'A valid hostname is required (e.g. radio.yoursite.com)' });
+  }
+  const cleanHostname = hostname.trim().toLowerCase();
+
+  const accounts = await cloudflareApi.listAccounts(token);
+  if (!accounts.ok) {
+    return res.status(502).json({ error: accounts.error || 'Could not list Cloudflare accounts' });
+  }
+  if (!accounts.result || accounts.result.length !== 1) {
+    const count = accounts.result ? accounts.result.length : 0;
+    return res.status(409).json({ error: `Expected exactly one Cloudflare account for this token, found ${count}` });
+  }
+  const accountId = accounts.result[0].id;
+
+  const tunnelName = `paperweight-${(config.station.slug || 'station').slice(0, 40)}`;
+  const tunnel = await cloudflareApi.createTunnel(token, accountId, tunnelName);
+  if (!tunnel.ok) {
+    return res.status(502).json({ error: tunnel.error || 'Could not create Cloudflare tunnel' });
+  }
+  const tunnelId = tunnel.result.id;
+
+  const tunnelToken = await cloudflareApi.getTunnelToken(token, accountId, tunnelId);
+  if (!tunnelToken.ok) {
+    return res.status(502).json({ error: tunnelToken.error || 'Could not fetch the tunnel connector token' });
+  }
+
+  const dnsRoute = await cloudflareApi.createDnsRoute(token, accountId, tunnelId, zoneId, cleanHostname, config.port);
+  if (!dnsRoute.ok) {
+    return res.status(502).json({ error: dnsRoute.error || 'Could not create the DNS route' });
+  }
+
+  const publicUrl = `https://${cleanHostname}`;
+
+  updateEnvKey('CLOUDFLARE_TUNNEL_TOKEN', tunnelToken.result);
+  updateEnvKey('STATION_PUBLIC_URL', publicUrl);
+  updateEnvKey('TRUST_PROXY', 'loopback');
+  config.station.cloudflareTunnel = true;
+  config.station.publicUrl = publicUrl;
+
+  const db = getDb();
+  const row = db.prepare('SELECT id FROM station_registry WHERE id = 1').get();
+  if (row) {
+    db.prepare("UPDATE station_registry SET url = ?, updated_at = datetime('now') WHERE id = 1").run(publicUrl);
+  }
+
+  log('info', 'dashboard', `Cloudflare tunnel auto-created for ${cleanHostname}`);
+  res.json({
+    ok: true,
+    url: publicUrl,
+    tunnelToken: tunnelToken.result,
+    restartRequired: true,
+    note: 'Run `cloudflared service install <token>` with the tunnelToken above (see CLOUDFLARE_SETUP.md), then restart Paperweight.',
+  });
 }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

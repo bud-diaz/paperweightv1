@@ -39,6 +39,7 @@ Supporting modules:
 - `src/notify/`: best-effort outbound notifications — Discord-compatible webhook on go-live/new post/media release, optional supporter email on post publish. Never blocks the triggering request.
 - `src/runtime/net-guard.js`: SSRF guard for owner-configured URLs (station health ping, notify webhook).
 - `src/runtime/datetime.js`: normalizes creator-submitted ISO datetime strings to SQLite's own `datetime('now')` format so scheduled-release comparisons stay plain SQL.
+- `src/runtime/cloudflare.js`: pure-Node (no new deps) Cloudflare REST API client (`https`, no MCP/OAuth involved) backing the dashboard's optional `CLOUDFLARE_API_TOKEN`-driven "auto-create tunnel" flow (`PUT/GET/POST /api/dashboard/station/cloudflare/*` in `src/api/dashboard.js`) — creates a Named Tunnel + DNS route on request and persists the resulting `CLOUDFLARE_TUNNEL_TOKEN`/`STATION_PUBLIC_URL`. Distinct from the root `.mcp.json` (registers Cloudflare's MCP server for maintainer use in Claude Code sessions only — no shipped-product involvement).
 - `scripts/backup.js` (`npm run backup`): hot SQLite backup with pruning; `GET /api/dashboard/backup` streams one through the browser.
 
 Plain Express and `better-sqlite3` are used directly. There is no ORM.

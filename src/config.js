@@ -243,6 +243,10 @@ const config = {
     slug:        process.env.STATION_SLUG        || '',
     publicUrl:   process.env.STATION_PUBLIC_URL  || '',
     cloudflareTunnel: !!(process.env.CLOUDFLARE_TUNNEL_TOKEN && process.env.CLOUDFLARE_TUNNEL_TOKEN.trim()),
+    // Separate from CLOUDFLARE_TUNNEL_TOKEN (the tunnel connector token): this
+    // is a Cloudflare API token used only to let the dashboard create tunnels
+    // and DNS records on the owner's behalf. See src/runtime/cloudflare.js.
+    cloudflareApiToken: (process.env.CLOUDFLARE_API_TOKEN || '').trim(),
   },
 
   externalSearch: {
