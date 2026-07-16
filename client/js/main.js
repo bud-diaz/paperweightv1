@@ -9,7 +9,7 @@
  *   3. Call every module's init*Handlers() function to wire DOM event listeners.
  *   4. Bind the small set of top-level player-owned DOM listeners that were
  *      never folded into a module export (view-tab switch, wordmark long-press,
- *      art-flip, drawer/share-area/account-area clicks — see player.js header
+ *      art-flip, share/queue drawer clicks — see player.js header
  *      comment "Event listeners owned by player").
  *   5. Replicate the original inline-script init() startup sequence exactly.
  *
@@ -36,6 +36,7 @@ import * as welcome      from './welcome.js';
 import * as collection   from './collection.js';
 import * as settings     from './settings.js';
 import * as tour         from './tour.js';
+import * as tilt         from './tilt.js';
 
 import * as dashIndex   from './dashboard/index.js';
 import * as station     from './dashboard/station.js';
@@ -69,7 +70,7 @@ ascii.init({
 auth.init({
   loadLibrary: () => {
     library.loadLibrary();
-    postsModule.loadPosts();
+    postsModule.loadPostsTicker();
     collection.loadCollection();
   },
   refreshQuota: async () => {
@@ -112,10 +113,7 @@ welcome.init({
   },
   openLogin: () => {
     auth.setAuthTab('login');
-    state.showShare = true;
-    state.sharePanel = 'account';
-    player.render();
-    auth.toggleAuthSection(true);
+    auth.toggleAuthSection(true); // reveals the Settings modal that hosts the auth form
     setTimeout(() => el('auth-email').focus(), 120);
   },
 });
@@ -284,16 +282,18 @@ el('play-btn').addEventListener('click', player.togglePlay);
 el('skip-prev').addEventListener('click', () => player.skipTrack(-1));
 el('skip-next').addEventListener('click', () => player.skipTrack(1));
 el('back-live-btn').addEventListener('click', player.goLive);
-el('lib-btn').addEventListener('click', () => player.toggleDrawer('lib'));
+el('share-btn').addEventListener('click', player.toggleShare);
 el('queue-btn').addEventListener('click', () => player.toggleDrawer('queue'));
-el('lib-drawer-close').addEventListener('click', e => { e.stopPropagation(); player.toggleDrawer('lib'); });
 el('queue-drawer-close').addEventListener('click', e => { e.stopPropagation(); player.toggleDrawer('queue'); });
-el('share-area').addEventListener('click', player.toggleShare);
-el('account-area').addEventListener('click', () => {
-  if (state.showLib || state.showQueue) return;
-  settings.openSettingsModal();
-});
 el('waveform').addEventListener('click', player.seekWaveform);
+
+// Posts ticker "see more" → full-list modal.
+postsModule.initPostsModalHandlers();
+
+// Touch detection drives the mobile-only motion toggle and device-motion tilt;
+// desktop uses the mouse. Kept in sync via a body class so CSS can gate the toggle.
+document.body.classList.toggle('is-touch', ('ontouchstart' in window) || navigator.maxTouchPoints > 0);
+tilt.initTilt();
 
 // art-flip toggles a CSS class and renders the back face; the "artFlipped"
 // flag itself is owned by player.js and not exposed, so the DOM class is used
@@ -612,7 +612,7 @@ async function init() {
   // Library and queue
   library.loadLibrary();
   library.loadQueue();
-  postsModule.loadPosts();
+  postsModule.loadPostsTicker();
   collection.loadCollection();
 
   // Tip presets for modal
@@ -634,10 +634,7 @@ async function init() {
   if (new URLSearchParams(location.search).get('subscribed') === '1') {
     history.replaceState(null, '', location.pathname + location.hash);
     if (authState.tier !== 'free' && !authState.hasPassword) {
-      state.showShare = true;
-      state.sharePanel = 'account';
-      player.render();
-      auth.toggleAuthSection(true);
+      auth.toggleAuthSection(true); // reveals the Settings modal that hosts the auth form
       el('auth-set-pw').hidden = false;
       el('auth-setpw-form').hidden = false;
       setTimeout(() => el('auth-new-password').focus(), 120);

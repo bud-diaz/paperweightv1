@@ -26,7 +26,7 @@
  *   _showAccountCompletion — auth.js
  */
 
-import { state, authState } from './state.js';
+import { authState } from './state.js';
 import { el, esc } from './utils.js';
 import * as api from './api.js';
 
@@ -226,9 +226,6 @@ export function handleTippedParam() {
     nudgeBtn.addEventListener('click', () => {
       closeModal();
       _setAuthTab('register');
-      state.showShare = true;
-      state.sharePanel = 'account';
-      _render();
       _toggleAuthSection(true);
       setTimeout(() => el('auth-email').focus(), 120);
     });
@@ -333,9 +330,6 @@ function _showVaultGate(t, opts) {
       } else {
         _closeVaultGate();
         _setAuthTab('login');
-        state.showShare = true;
-        state.sharePanel = 'account';
-        _render();
         _toggleAuthSection(true);
         setTimeout(() => el('auth-email').focus(), 120);
       }
@@ -362,9 +356,6 @@ export async function startVaultUnlock(unlockType, targetId, amount, paymentType
 
 function openAccountCompletion() {
   _closeVaultGate();
-  state.showShare = true;
-  state.sharePanel = 'account';
-  _render();
   _showAccountCompletion();
 }
 
