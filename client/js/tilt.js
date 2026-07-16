@@ -1,7 +1,7 @@
 /**
  * tilt.js — Gentle 3D tilt for the PLAY viewport (#art-wrap) and waveform/
  * transport (#spine) cards. Modeled on the landing-page hero tilt
- * (landing/index.html) but ~40% of its intensity and resting flat (0°).
+ * (landing/index.html) but resting flat (0°).
  *
  * Desktop: follows the mouse across the window.
  * Mobile:  opt-in via the #motion-toggle switch (device orientation; iOS needs
@@ -14,7 +14,7 @@
 import { el } from './utils.js';
 
 const PERSPECTIVE = 1200;
-const TILT_MAX    = 5;      // landing hero uses 12 → ~40%
+const TILT_MAX    = 10;     // landing hero uses 12
 const SMOOTH      = 0.10;
 const MOTION_KEY  = 'pw_motion_tilt';
 

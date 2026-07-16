@@ -170,15 +170,15 @@
   font-size: 11px; color: var(--t3);
 }
 
-/* Settings dropdown trigger + menu (top bar, next to wordmark/search) */
+/* Settings dropdown trigger + menu (top bar, top-right cluster) */
 .pw-settings-btn {
   background: none; border: none; cursor: pointer; padding: 2px 4px;
   color: var(--t3); font-size: 15px; line-height: 1; transition: color .15s;
-  vertical-align: middle; margin-left: 4px;
+  vertical-align: middle;
 }
 .pw-settings-btn:hover { color: var(--t1); }
 .pw-settings-dropdown {
-  position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+  position: absolute; top: calc(100% + 6px); right: 0; left: auto; z-index: 60;
   min-width: 160px;
   background: var(--raised); border: 1px solid var(--border);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-1);
@@ -227,6 +227,7 @@
   grid-column: 3; grid-row: 1; justify-self: end; flex-shrink: 0;
   display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
 }
+.pw-settings-wrap { position: relative; }
 #topbar-right-controls { display: flex; align-items: center; gap: 8px; }
 
 #view-toggle {
@@ -260,7 +261,7 @@
 
 .live-tab-dot {
   display: none;
-  position: absolute; top: -46px; left: 50%; transform: translateX(-50%);
+  vertical-align: middle; margin-left: 6px;
   width: 10px; height: 10px; border-radius: 50%;
   background: #ff3b3b; box-shadow: 0 0 10px 2px rgba(255,59,59,.85);
   animation: live-dot 1.2s ease-in-out infinite;
@@ -698,7 +699,8 @@ body.creator-mode #quota-badge { display: none !important; }
 
 /* ── Credit ── */
 #credit {
-  text-align: center; padding: 10px 0 13px;
+  position: relative; display: flex; align-items: center; justify-content: center;
+  padding: 10px 0 13px;
   font-size: 10px; color: var(--t4); letter-spacing: .12em; flex-shrink: 0;
 }
 
@@ -1449,18 +1451,14 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
 }
 #panel-player #posts-ticker-more:hover { color: var(--t1); background: rgba(255,255,255,.05); }
 
-/* Mobile-only device-motion toggle, top-right below the on-demand tracker.
-   Only shown on touch devices while the PLAY view is active. */
+/* Device-motion toggle, pinned to the left side of the page footer. */
 #motion-toggle {
-  display: none;
-  align-self: flex-end;
+  display: inline-flex;
+  position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
   padding: 3px 8px;
   border-radius: 6px;
   background: rgba(0,0,0,.35);
   border: 1px solid rgba(255,255,255,.1);
-}
-body.is-touch #player-card:not(.stack-active):not(.dash-active):not(.bio-landing) #motion-toggle {
-  display: inline-flex;
 }
 
 /* ── Posts "see more" modal (mirrors the library modal) ── */
