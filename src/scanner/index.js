@@ -26,4 +26,4 @@ function startScanner() {
   startWatcher(vaultPath, adapter);
 }
 
-module.exports = { startScanner, stopScanner: stopWatcher };
+module.exports = { startScanner, stopScanner: stopWatcher, loadAdapter };

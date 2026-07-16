@@ -57,6 +57,7 @@ import * as sections    from './dashboard/sections.js';
 import * as search      from './dashboard/search.js';
 import * as tools       from './dashboard/tools.js';
 import * as earnings    from './dashboard/earnings.js';
+import * as desktopControls from './dashboard/desktop-controls.js';
 
 // ── Cross-module callback wiring ─────────────────────────────────────────────
 
@@ -241,6 +242,7 @@ dashPosts.init();
 twofa.init();
 sections.init();
 tools.init();
+desktopControls.init();
 
 // ── Event handler wiring ───────────────────────────────────────────────────
 
@@ -272,6 +274,7 @@ analytics.initAnalyticsHandlers();
 tools.initToolsHandlers();
 twofa.initTwoFAHandlers();
 search.initRadioHostHandlers();
+desktopControls.initDesktopControlsHandlers();
 
 // ── Player-owned top-level DOM listeners ─────────────────────────────────────
 // These were never folded into a module export (see player.js header comment

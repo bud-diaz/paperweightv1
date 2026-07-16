@@ -243,8 +243,33 @@ export function buildDashProjectCard(proj, allItems, unassigned, highlight = nul
   return card;
 }
 
+// ── Import folder handler (desktop only) ───────────────────────────────────────
+function initImportFolderHandler() {
+  const btn = el('btn-import-folder');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    if (!window.desktopAPI) return;
+    const msg = el('import-folder-msg');
+    msg.style.color = 'rgba(255,255,255,.4)';
+    msg.textContent = 'Importing…';
+    const result = await window.desktopAPI.importFolder();
+    if (!result) { msg.textContent = ''; return; } // user canceled the picker
+    if (result.ok === false) {
+      msg.style.color = '#ff6b6b';
+      msg.textContent = result.error;
+      return;
+    }
+    msg.style.color = 'rgba(255,255,255,.5)';
+    msg.textContent = `Imported "${result.name}" — ${result.trackCount} track${result.trackCount !== 1 ? 's' : ''}`;
+    _loadDashProjects();
+    _loadDashLibrary();
+  });
+}
+
 // ── Project creation handler ───────────────────────────────────────────────────
 export function initProjectHandlers() {
+  initImportFolderHandler();
+
   el('btn-new-proj').addEventListener('click', async () => {
     const msgEl    = el('new-proj-msg');
     const name      = el('new-proj-name').value.trim();

@@ -26,6 +26,11 @@ const { isValidExternalHttpUrl } = require('../runtime/base-url');
 const { IMAGE_MIMES, IMAGE_EXTS, sniffImageFile } = require('../runtime/images');
 const { getBoolSetting, setSetting } = require('../db/settings');
 const { toSqliteDatetime } = require('../runtime/datetime');
+const {
+  SUBSCRIBER_HEADERS, LISTENER_HEADERS, DOWNLOAD_LEAD_HEADERS,
+  getDownloadLeadRows, getSubscriberRows, getListenerRows,
+  csvEscape, toCsvString,
+} = require('../export/exports');
 
 router.use(requireDashboard);
 
@@ -403,6 +408,12 @@ router.post('/broadcast/restart', (req, res) => {
   res.json({ ok: true, restarting: true });
 });
 
+// POST /api/dashboard/broadcast/stop
+router.post('/broadcast/stop', (req, res) => {
+  broadcast.stop();
+  res.json({ ok: true, stopped: true });
+});
+
 // ─── Token management ─────────────────────────────────────────────────────────
 
 // GET /api/dashboard/tokens
@@ -461,51 +472,25 @@ router.get('/download-leads', (req, res) => {
 // bulk mailer. Values are formula-escaped so a hostile email like
 // "=HYPERLINK(...)" can't execute when the CSV is opened in a spreadsheet.
 
-function csvEscape(value) {
-  if (value === null || value === undefined) return '';
-  let s = String(value);
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
 function sendCsv(res, filename, headers, rows) {
-  const lines = [headers.join(',')];
-  for (const row of rows) {
-    lines.push(headers.map(h => csvEscape(row[h])).join(','));
-  }
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  res.send(lines.join('\r\n') + '\r\n');
+  res.send(toCsvString(headers, rows));
 }
 
 // GET /api/dashboard/export/download-leads.csv
 router.get('/export/download-leads.csv', (req, res) => {
-  const rows = getDb().prepare(
-    'SELECT email, platform, updates_opt_in, created_at FROM download_leads ORDER BY created_at DESC'
-  ).all();
-  sendCsv(res, 'download-leads.csv', ['email', 'platform', 'updates_opt_in', 'created_at'], rows);
+  sendCsv(res, 'download-leads.csv', DOWNLOAD_LEAD_HEADERS, getDownloadLeadRows(getDb()));
 });
 
 // GET /api/dashboard/export/subscribers.csv — listeners with an active subscription.
 router.get('/export/subscribers.csv', (req, res) => {
-  const rows = getDb().prepare(`
-    SELECT la.email, s.tier, s.provider, s.status, s.current_period_end, la.created_at
-    FROM listener_accounts la
-    JOIN subscriptions s ON s.listener_id = la.id AND s.status = 'active'
-    WHERE la.is_active = 1 AND la.email NOT LIKE '%@pending.paperweight.local'
-    ORDER BY s.created_at DESC
-  `).all();
-  sendCsv(res, 'subscribers.csv', ['email', 'tier', 'provider', 'status', 'current_period_end', 'created_at'], rows);
+  sendCsv(res, 'subscribers.csv', SUBSCRIBER_HEADERS, getSubscriberRows(getDb()));
 });
 
 // GET /api/dashboard/export/listeners.csv — every registered listener account.
 router.get('/export/listeners.csv', (req, res) => {
-  const rows = getDb().prepare(`
-    SELECT email, created_at FROM listener_accounts
-    WHERE is_active = 1 AND email NOT LIKE '%@pending.paperweight.local'
-    ORDER BY created_at DESC
-  `).all();
-  sendCsv(res, 'listeners.csv', ['email', 'created_at'], rows);
+  sendCsv(res, 'listeners.csv', LISTENER_HEADERS, getListenerRows(getDb()));
 });
 
 // Consented marketing contacts, deduplicated by email: welcome-page profiles

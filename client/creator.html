@@ -767,6 +767,8 @@
           <!-- Collections -->
           <div class="dash-section">
             <div class="dash-section-label">COLLECTIONS</div>
+            <button class="mgmt-btn" id="btn-import-folder" data-desktop-only style="margin-bottom:8px;">IMPORT FOLDER…</button>
+            <div id="import-folder-msg" class="dash-inline-msg" data-desktop-only></div>
             <div id="dash-proj-list"></div>
             <details id="dash-new-proj">
               <summary class="dash-summary">+ NEW COLLECTION</summary>
@@ -1278,6 +1280,20 @@
   </div><!-- /player-card -->
 </div><!-- /player-wrap -->
 </div><!-- /layout -->
+
+<!-- Desktop-only power/update/uninstall controls (see client/js/dashboard/desktop-controls.js) -->
+<div id="desktop-power-cluster" data-desktop-only hidden>
+  <button id="desktop-power-btn" class="desktop-power-btn" title="Power">⏻</button>
+  <div id="desktop-power-dropdown" class="desktop-power-dropdown" hidden>
+    <button id="dp-stop-broadcast" class="desktop-power-dropdown-item">STOP BROADCAST</button>
+    <button id="dp-restart-broadcast" class="desktop-power-dropdown-item">RESTART BROADCAST</button>
+    <button id="dp-stop-server" class="desktop-power-dropdown-item">STOP SERVER (QUITS APP)</button>
+    <button id="dp-restart-server" class="desktop-power-dropdown-item">RESTART SERVER</button>
+    <button id="dp-stop-both" class="desktop-power-dropdown-item">STOP BOTH</button>
+  </div>
+  <button id="desktop-update-btn" class="desktop-power-cluster-btn" title="Check for updates">⟳</button>
+  <button id="desktop-uninstall-btn" class="desktop-power-cluster-btn" title="Uninstall">⌫</button>
+</div>
 
 <audio id="audio-el" hidden></audio>
 
