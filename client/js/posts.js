@@ -39,16 +39,25 @@ export async function loadPostsTicker() {
   const card = el('posts-ticker');
   const track = el('posts-ticker-track');
   if (!card || !track) return;
+  let posts = [];
   try {
-    const { posts } = await api.posts.list(1, 2);
-    if (!posts.length) { card.hidden = true; return; }
-    const sep = '<span class="ticker-sep">•</span>';
-    const seq = posts.map(tickerItem).join(sep) + sep;
-    // Duplicate the sequence so the -50% marquee loop is seamless.
-    track.innerHTML = seq + seq;
-    track.classList.toggle('single', posts.length < 2);
+    ({ posts } = await api.posts.list(1, 2));
+  } catch { posts = []; }
+  if (!posts.length) {
+    // Keep the card visible with a static placeholder so it always loads in.
+    track.classList.add('empty');
+    track.classList.remove('single');
+    track.innerHTML = '<span class="ticker-empty">No posts yet — new updates appear here</span>';
     card.hidden = false;
-  } catch { card.hidden = true; }
+    return;
+  }
+  track.classList.remove('empty');
+  const sep = '<span class="ticker-sep">•</span>';
+  const seq = posts.map(tickerItem).join(sep) + sep;
+  // Duplicate the sequence so the -50% marquee loop is seamless.
+  track.innerHTML = seq + seq;
+  track.classList.toggle('single', posts.length < 2);
+  card.hidden = false;
 }
 
 // ── Full-list "see more" modal ──────────────────────────────────────────────
