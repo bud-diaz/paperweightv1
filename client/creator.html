@@ -391,6 +391,10 @@
               <div id="on-air-dot"></div>
               <span id="on-air-text">ON AIR</span>
             </div>
+            <div id="live-video-cta" hidden>
+              <div class="lv-cta-badge">🔴 LIVE NOW</div>
+              <div class="lv-cta-copy">Subscribe to watch the video broadcast</div>
+            </div>
             <button id="fullscreen-btn" title="Fullscreen">
               <svg id="fullscreen-enter-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>
@@ -1045,6 +1049,65 @@
                 <button id="rh-switch" class="rh-switch" title="Toggle Radio Host mode"></button>
               </div>
               <div id="rh-switches-info" class="rh-switches-used" data-desktop-only></div>
+            </div>
+          </div>
+
+          <div class="dash-divider"></div>
+
+          <!-- Live Video (paid-tier gated) -->
+          <div class="dash-section" id="dash-live-video-section">
+            <div class="dash-section-label">LIVE VIDEO</div>
+            <div class="live-idle-copy">
+              Broadcast video from OBS (or another RTMP-capable encoder). Only listeners at or above the tier below can watch — everyone else sees a subscribe prompt.
+            </div>
+            <div class="station-url-row">
+              <span class="ext-field-label">Minimum tier</span>
+              <select id="live-video-min-tier">
+                <option value="subscriber">Subscriber</option>
+                <option value="pro">Pro</option>
+                <option value="all_access">All-Access</option>
+              </select>
+            </div>
+            <div class="station-url-row">
+              <span class="ext-field-label">Announce go-live</span>
+              <input type="checkbox" id="live-video-notify-toggle">
+            </div>
+
+            <div data-desktop-only>
+              <div id="live-video-idle">
+                <button id="btn-go-live-video">● GO LIVE (VIDEO)</button>
+                <div id="live-video-msg"></div>
+              </div>
+              <div id="live-video-pending" hidden>
+                <div class="live-idle-copy">Paste these into OBS → Settings → Stream → Custom:</div>
+                <div class="station-url-row">
+                  <span class="ext-field-label">Server</span>
+                  <span id="lv-rtmp-url"></span>
+                  <button class="mgmt-btn" id="btn-copy-lv-rtmp-url">COPY</button>
+                </div>
+                <div class="station-url-row">
+                  <span class="ext-field-label">Key</span>
+                  <span id="lv-rtmp-key"></span>
+                  <button class="mgmt-btn" id="btn-copy-lv-rtmp-key">COPY</button>
+                </div>
+                <div id="live-video-status" class="live-idle-copy">Waiting for OBS to connect…</div>
+                <div class="broadcast-actions">
+                  <button class="mgmt-btn" id="btn-regen-lv-rtmp-key">REGENERATE KEY</button>
+                  <button class="mgmt-btn danger" id="btn-cancel-live-video">CANCEL</button>
+                </div>
+                <div class="ext-key-warning">This key personalizes your setup but isn't a strong secret — anyone who can reach this port while it's open can push video. Keep the ingest port on your local machine or LAN.</div>
+              </div>
+              <div id="live-video-onair" hidden>
+                <div class="broadcast-row live-broadcast-row">
+                  <div class="broadcast-info">
+                    <div class="broadcast-np" id="live-video-timer">0:00</div>
+                    <div class="broadcast-mode-badge onair-badge">● ON AIR</div>
+                  </div>
+                  <div class="broadcast-actions">
+                    <button class="mgmt-btn danger" id="btn-end-live-video">END BROADCAST</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

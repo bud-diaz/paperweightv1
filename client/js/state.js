@@ -7,6 +7,7 @@
 // ── Config constants ──────────────────────────────────────────────────────────────
 export const HLS_URL             = '/hls/stream/index.m3u8';
 export const HLS_LIVE_URL        = '/hls/live/index.m3u8';
+export const HLS_LIVE_VIDEO_URL  = '/hls/live-video/index.m3u8';
 export const STATUS_INTERVAL_MS  = 10_000;
 export const PING_INTERVAL_MS    = 30_000;
 export const HLS_RETRY_DELAYS_MS = [3000, 6000, 12000, 30000];

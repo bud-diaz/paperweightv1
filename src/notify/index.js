@@ -85,6 +85,14 @@ function liveStarted() {
   fireWebhook(`🔴 ${stationName()} is live now — listen at ${stationUrl()}`, 'go-live');
 }
 
+// Called when an RTMP encoder connects to the (paid-tier) live video feature.
+// Separate setting from notify_live_enabled so creators can silence video-live
+// announcements independently of the audio-only live feature.
+function liveVideoStarted() {
+  if (!getBoolSetting('notify_live_video_enabled', true)) return;
+  fireWebhook(`🔴 ${stationName()} is live on video now — watch at ${stationUrl()}`, 'go-live-video');
+}
+
 // Emails of listeners with an active subscription (the audience that opted into
 // a relationship with this station). Pending Stripe placeholders are excluded.
 function supporterEmails(db) {
@@ -144,4 +152,4 @@ function mediaReleased(media) {
   fireWebhook(`📀 ${stationName()} released: ${title} — ${stationUrl()}`, 'media-release');
 }
 
-module.exports = { liveStarted, postPublished, mediaReleased, postWebhook, supporterEmails };
+module.exports = { liveStarted, liveVideoStarted, postPublished, mediaReleased, postWebhook, supporterEmails };
