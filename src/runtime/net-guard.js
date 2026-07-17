@@ -27,17 +27,24 @@ function isBlockedAddress(ip) {
   return true; // not a recognizable IP literal — refuse
 }
 
-// Resolves a hostname and returns true if any resolved address is private,
-// reserved, or unresolvable. Used before making requests to owner-configured URLs.
-async function resolvesToBlockedAddress(hostname) {
+// Resolves a hostname once and returns the validated address to connect to,
+// or null if it's invalid/unresolvable/blocked. Callers MUST pin their actual
+// connection to this address (e.g. via a custom `lookup` on http(s).request)
+// instead of letting the request re-resolve the hostname — otherwise a
+// short-TTL DNS record on an attacker-controlled domain can answer with a
+// public address for this check and a private/metadata address moments later
+// for the real connection (DNS rebinding).
+async function resolveSafeAddress(hostname) {
   try {
-    const resolved = net.isIP(hostname)
-      ? [{ address: hostname }]
-      : await dns.lookup(hostname, { all: true });
-    return resolved.some(r => isBlockedAddress(r.address));
+    if (net.isIP(hostname)) {
+      return isBlockedAddress(hostname) ? null : { address: hostname, family: net.isIP(hostname) };
+    }
+    const resolved = await dns.lookup(hostname, { all: true });
+    if (resolved.length === 0 || resolved.some(r => isBlockedAddress(r.address))) return null;
+    return resolved[0];
   } catch {
-    return true; // DNS failure — treat as blocked so callers fail closed
+    return null;
   }
 }
 
-module.exports = { isBlockedAddress, resolvesToBlockedAddress };
+module.exports = { isBlockedAddress, resolveSafeAddress };

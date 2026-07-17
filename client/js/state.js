@@ -7,6 +7,7 @@
 // ── Config constants ──────────────────────────────────────────────────────────────
 export const HLS_URL             = '/hls/stream/index.m3u8';
 export const HLS_LIVE_URL        = '/hls/live/index.m3u8';
+export const HLS_LIVE_VIDEO_URL  = '/hls/live-video/index.m3u8';
 export const STATUS_INTERVAL_MS  = 10_000;
 export const PING_INTERVAL_MS    = 30_000;
 export const HLS_RETRY_DELAYS_MS = [3000, 6000, 12000, 30000];
@@ -20,10 +21,8 @@ export let state = {
   playing:       false,
   progress:      0,
   elapsed:       0,
-  showLib:       false,
   showQueue:     false,
   showShare:     false,
-  sharePanel:    'share', // 'share' | 'account'
   nowPlaying:    null,   // { title, artist } from stream status
   listenerCount: 0,
   isPreview:     false,
@@ -34,7 +33,7 @@ export let currentLiveActive = false;
 export let stationName       = '';
 
 // ── Auth state ────────────────────────────────────────────────────────────────────
-export let authState = { loggedIn: false, email: '', displayName: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null };
+export let authState = { loggedIn: false, email: '', displayName: '', tier: 'free', hasPassword: false, hasAccount: false, subscriptionStatus: null, provider: null, emailVerified: false, settingsTourSeenAt: null, marketingOptIn: false };
 export let authTab   = 'login';
 export let authOpen  = false;
 

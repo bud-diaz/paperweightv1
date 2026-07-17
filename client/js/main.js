@@ -9,7 +9,7 @@
  *   3. Call every module's init*Handlers() function to wire DOM event listeners.
  *   4. Bind the small set of top-level player-owned DOM listeners that were
  *      never folded into a module export (view-tab switch, wordmark long-press,
- *      art-flip, drawer/share-area/account-area clicks — see player.js header
+ *      art-flip, share/queue drawer clicks — see player.js header
  *      comment "Event listeners owned by player").
  *   5. Replicate the original inline-script init() startup sequence exactly.
  *
@@ -34,6 +34,9 @@ import * as libraryModal from './library-modal.js';
 import * as payment      from './payment.js';
 import * as welcome      from './welcome.js';
 import * as collection   from './collection.js';
+import * as settings     from './settings.js';
+import * as tour         from './tour.js';
+import * as tilt         from './tilt.js';
 
 import * as dashIndex   from './dashboard/index.js';
 import * as station     from './dashboard/station.js';
@@ -45,6 +48,7 @@ import * as allAccess   from './dashboard/allaccess.js';
 import * as broadcast   from './dashboard/broadcast.js';
 import * as live        from './dashboard/live.js';
 import * as liveExternal from './dashboard/live-external.js';
+import * as liveVideo    from './dashboard/liveVideo.js';
 import * as schedule    from './dashboard/schedule.js';
 import * as smartPlaylists from './dashboard/smartplaylists.js';
 import * as dashPosts   from './dashboard/posts.js';
@@ -55,6 +59,7 @@ import * as sections    from './dashboard/sections.js';
 import * as search      from './dashboard/search.js';
 import * as tools       from './dashboard/tools.js';
 import * as earnings    from './dashboard/earnings.js';
+import * as desktopControls from './dashboard/desktop-controls.js';
 
 // ── Cross-module callback wiring ─────────────────────────────────────────────
 
@@ -66,14 +71,24 @@ ascii.init({
 auth.init({
   loadLibrary: () => {
     library.loadLibrary();
-    postsModule.loadPosts();
+    postsModule.loadPostsTicker();
     collection.loadCollection();
   },
   refreshQuota: async () => {
     await player.loadQuota();
     player.render();
   },
+  maybeShowTour: tour.maybeShowSettingsTour,
+  renderSettings: settings.renderSettingsModal,
 });
+
+settings.init({
+  toggleAuthSection: auth.toggleAuthSection,
+  logoutListener: auth.logoutListener,
+  maybeShowTour: tour.maybeShowSettingsTour,
+});
+
+tour.init();
 
 library.init({
   selectVOD:         player.selectVOD,
@@ -99,10 +114,7 @@ welcome.init({
   },
   openLogin: () => {
     auth.setAuthTab('login');
-    state.showShare = true;
-    state.sharePanel = 'account';
-    player.render();
-    auth.toggleAuthSection(true);
+    auth.toggleAuthSection(true); // reveals the Settings modal that hosts the auth form
     setTimeout(() => el('auth-email').focus(), 120);
   },
 });
@@ -148,6 +160,7 @@ dashIndex.init({
   loadDashBroadcast:    broadcast.loadDashBroadcast,
   loadDashLive:         live.loadDashLive,
   loadDashLiveExternal: liveExternal.loadDashExternal,
+  loadDashLiveVideo:    liveVideo.loadDashLiveVideo,
   loadRadioHostStatus:  search.loadRadioHostStatus,
   loadDashSchedule:     schedule.loadDashSchedule,
   loadDashProjects:     projects.loadDashProjects,
@@ -216,23 +229,26 @@ live.init({
   teardownExternalOnAir: liveExternal.teardownOnAir,
 });
 
-// station.js, bio.js, broadcast.js, live-external.js, schedule.js, twofa.js
-// have no-op init() (no callbacks needed) — called for consistency/
+// station.js, bio.js, broadcast.js, live-external.js, liveVideo.js, schedule.js,
+// twofa.js have no-op init() (no callbacks needed) — called for consistency/
 // forward-compatibility.
 station.init();
 bio.init();
 broadcast.init();
 liveExternal.init();
+liveVideo.init();
 schedule.init();
 smartPlaylists.init();
 dashPosts.init();
 twofa.init();
 sections.init();
 tools.init();
+desktopControls.init();
 
 // ── Event handler wiring ───────────────────────────────────────────────────
 
 auth.initAuthHandlers();
+settings.initSettingsHandlers();
 earnings.initEarningsHandlers();
 ascii.initRealVideoToggleHandlers();
 library.initListenerQueueHandlers();
@@ -251,6 +267,7 @@ allAccess.initAllAccessHandlers();
 broadcast.initBroadcastHandlers();
 live.initLiveHandlers();
 liveExternal.initLiveExternalHandlers();
+liveVideo.initLiveVideoHandlers();
 schedule.initScheduleHandlers();
 smartPlaylists.initSmartPlaylistHandlers();
 dashPosts.initPostHandlers();
@@ -259,6 +276,7 @@ analytics.initAnalyticsHandlers();
 tools.initToolsHandlers();
 twofa.initTwoFAHandlers();
 search.initRadioHostHandlers();
+desktopControls.initDesktopControlsHandlers();
 
 // ── Player-owned top-level DOM listeners ─────────────────────────────────────
 // These were never folded into a module export (see player.js header comment
@@ -268,26 +286,18 @@ el('play-btn').addEventListener('click', player.togglePlay);
 el('skip-prev').addEventListener('click', () => player.skipTrack(-1));
 el('skip-next').addEventListener('click', () => player.skipTrack(1));
 el('back-live-btn').addEventListener('click', player.goLive);
-el('lib-btn').addEventListener('click', () => player.toggleDrawer('lib'));
+el('share-btn').addEventListener('click', player.toggleShare);
 el('queue-btn').addEventListener('click', () => player.toggleDrawer('queue'));
-el('lib-drawer-close').addEventListener('click', e => { e.stopPropagation(); player.toggleDrawer('lib'); });
 el('queue-drawer-close').addEventListener('click', e => { e.stopPropagation(); player.toggleDrawer('queue'); });
-el('share-area').addEventListener('click', player.toggleShare);
-el('account-area').addEventListener('click', () => {
-  if (state.showLib || state.showQueue) return;
-  const closing = state.showShare && state.sharePanel === 'account';
-  state.showShare = !closing;
-  state.sharePanel = 'account';
-  player.render();
-  if (!closing) {
-    auth.toggleAuthSection(true);
-    setTimeout(() => {
-      const authToggle = el('auth-toggle');
-      if (authToggle) authToggle.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 50);
-  }
-});
 el('waveform').addEventListener('click', player.seekWaveform);
+
+// Posts ticker "see more" → full-list modal.
+postsModule.initPostsModalHandlers();
+
+// Touch detection drives the mobile-only motion toggle and device-motion tilt;
+// desktop uses the mouse. Kept in sync via a body class so CSS can gate the toggle.
+document.body.classList.toggle('is-touch', ('ontouchstart' in window) || navigator.maxTouchPoints > 0);
+tilt.initTilt();
 
 // art-flip toggles a CSS class and renders the back face; the "artFlipped"
 // flag itself is owned by player.js and not exposed, so the DOM class is used
@@ -299,6 +309,23 @@ el('art-flip').addEventListener('click', () => {
 el('fullscreen-btn').addEventListener('click', e => {
   e.stopPropagation();
   player.toggleFullscreen();
+});
+
+// Shown over the art/video box while live video is on air but the listener's
+// tier doesn't meet the creator's minimum (hls-client.js fetchStreamStatus).
+// Opens the same tip/subscribe modal the floating tip button already uses.
+el('live-video-cta').addEventListener('click', e => {
+  e.stopPropagation();
+  payment.openModal();
+});
+
+// real-video edge tab — stopPropagation on the whole wrap so interacting with
+// the switch or its handle doesn't bubble up into the art-flip click-to-flip
+// listener; the handle click itself owns the open/closed state.
+el('real-video-toggle-wrap').addEventListener('click', e => e.stopPropagation());
+el('real-video-tab-handle').addEventListener('click', () => {
+  const open = el('real-video-toggle-wrap').classList.toggle('open');
+  el('real-video-tab-handle').setAttribute('aria-expanded', String(open));
 });
 
 // ─── View toggle (PLAY / STUDIO) ────────────────────────────────────────────
@@ -597,7 +624,7 @@ async function init() {
   // Library and queue
   library.loadLibrary();
   library.loadQueue();
-  postsModule.loadPosts();
+  postsModule.loadPostsTicker();
   collection.loadCollection();
 
   // Tip presets for modal
@@ -619,10 +646,7 @@ async function init() {
   if (new URLSearchParams(location.search).get('subscribed') === '1') {
     history.replaceState(null, '', location.pathname + location.hash);
     if (authState.tier !== 'free' && !authState.hasPassword) {
-      state.showShare = true;
-      state.sharePanel = 'account';
-      player.render();
-      auth.toggleAuthSection(true);
+      auth.toggleAuthSection(true); // reveals the Settings modal that hosts the auth form
       el('auth-set-pw').hidden = false;
       el('auth-setpw-form').hidden = false;
       setTimeout(() => el('auth-new-password').focus(), 120);

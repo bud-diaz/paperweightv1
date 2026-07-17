@@ -26,7 +26,7 @@
  *   _showAccountCompletion — auth.js
  */
 
-import { state, authState } from './state.js';
+import { authState } from './state.js';
 import { el, esc } from './utils.js';
 import * as api from './api.js';
 
@@ -121,6 +121,8 @@ export function closeModal() {
   el('modal-done').style.display = 'none';
   el('modal-main').style.display = '';
   el('tip-amount').value         = '';
+  el('tip-donor-name').value     = '';
+  el('tip-donor-email').value    = '';
   selectedTipCents               = null;
   document.querySelectorAll('.tip-preset').forEach(p => p.classList.remove('active'));
   _updateCTA();
@@ -163,7 +165,11 @@ async function _handleCtaClick() {
     cta.classList.add('processing');
     cta.textContent = 'CONNECTING TO STRIPE…';
     try {
-      const { res, data } = await api.payment.sendTip(cents);
+      const donor = {
+        donorName:  el('tip-donor-name').value.trim(),
+        donorEmail: el('tip-donor-email').value.trim(),
+      };
+      const { res, data } = await api.payment.sendTip(cents, donor);
       if (!res.ok) throw new Error(data.error || 'Payment failed');
       window.location.href = data.checkoutUrl;
     } catch (err) {
@@ -220,9 +226,6 @@ export function handleTippedParam() {
     nudgeBtn.addEventListener('click', () => {
       closeModal();
       _setAuthTab('register');
-      state.showShare = true;
-      state.sharePanel = 'account';
-      _render();
       _toggleAuthSection(true);
       setTimeout(() => el('auth-email').focus(), 120);
     });
@@ -327,9 +330,6 @@ function _showVaultGate(t, opts) {
       } else {
         _closeVaultGate();
         _setAuthTab('login');
-        state.showShare = true;
-        state.sharePanel = 'account';
-        _render();
         _toggleAuthSection(true);
         setTimeout(() => el('auth-email').focus(), 120);
       }
@@ -356,9 +356,6 @@ export async function startVaultUnlock(unlockType, targetId, amount, paymentType
 
 function openAccountCompletion() {
   _closeVaultGate();
-  state.showShare = true;
-  state.sharePanel = 'account';
-  _render();
   _showAccountCompletion();
 }
 

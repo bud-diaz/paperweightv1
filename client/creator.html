@@ -97,6 +97,11 @@
             <input id="tip-amount" type="number" min="1" placeholder="5.00"/>
           </div>
           <div id="tip-presets"></div>
+          <div id="tip-donor-fields">
+            <input id="tip-donor-name" type="text" maxlength="100" placeholder="Name (optional)" autocomplete="name"/>
+            <input id="tip-donor-email" type="email" maxlength="254" placeholder="Email (optional)" autocomplete="email"/>
+            <div id="tip-donor-hint">Leave blank to tip anonymously. Add your email to get 7 days of supporter access.</div>
+          </div>
         </div>
         <!-- subscribe pane -->
         <div class="tab-pane" data-pane="subscribe">
@@ -142,6 +147,19 @@
   </div>
 </div>
 
+<!-- Posts modal (full list, opened from the ticker's SEE MORE) -->
+<div id="posts-modal-backdrop">
+  <div id="posts-modal">
+    <div id="posts-modal-header">
+      <span id="posts-modal-title">POSTS</span>
+      <button id="posts-modal-close">×</button>
+    </div>
+    <div id="posts-modal-body">
+      <div id="posts-modal-list"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Vault gate overlay -->
 <div id="vault-gate-backdrop">
   <div id="vault-gate">
@@ -150,6 +168,87 @@
     <div id="vg-title"></div>
     <div id="vg-subtitle">MEMBERS ONLY</div>
     <div id="vg-options"></div>
+  </div>
+</div>
+
+<!-- Settings modal (listener account, verification, preferences) -->
+<div id="settings-backdrop">
+  <div id="settings-modal">
+    <div id="settings-modal-header">
+      <span id="settings-modal-title">SETTINGS</span>
+      <button id="settings-modal-close">×</button>
+    </div>
+    <div id="settings-modal-body">
+
+      <!-- Account section (relocated from the share drawer — same IDs, same auth.js wiring) -->
+      <button id="auth-toggle">
+        <div id="auth-toggle-left">
+          <span>ACCOUNT</span>
+          <span id="auth-toggle-status"></span>
+        </div>
+        <svg id="auth-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none">
+          <path d="M1 3l3 3 3-3" stroke="rgba(255,255,255,.3)" stroke-width="1.2"/>
+        </svg>
+      </button>
+      <div id="auth-body">
+      <div id="auth-section">
+        <div id="auth-logged-out">
+          <div id="auth-tabs">
+            <button class="auth-tab active" data-auth-tab="login">LOG IN</button>
+            <button class="auth-tab" data-auth-tab="register">CREATE ACCOUNT</button>
+          </div>
+          <div id="auth-form">
+            <input class="auth-input" id="auth-email" type="email" placeholder="email address" autocomplete="email"/>
+            <input class="auth-input" id="auth-password" type="password" placeholder="password (min 8 chars)" autocomplete="current-password"/>
+            <button class="auth-submit" id="auth-submit-btn">LOG IN</button>
+            <button id="auth-forgot-btn" style="background:none;border:none;color:rgba(255,255,255,.35);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.06em;cursor:pointer;padding:6px 0;text-align:left;">FORGOT PASSWORD?</button>
+            <div class="auth-msg" id="auth-msg"></div>
+          </div>
+        </div>
+        <div id="auth-logged-in" hidden>
+          <div class="auth-account-row">
+            <span class="auth-email-disp" id="auth-email-display"></span>
+            <span class="auth-tier-badge" id="auth-tier-badge"></span>
+            <button class="auth-logout-btn" id="auth-logout-btn">LOG OUT</button>
+          </div>
+          <button id="auth-complete-account-btn" hidden>Complete account to buy and keep access →</button>
+          <button id="auth-set-pw" hidden>Set a password to log in from any device →</button>
+          <div id="auth-setpw-form" hidden>
+            <input class="auth-input" id="auth-new-password" type="password" placeholder="choose a password (min 8 chars)" autocomplete="new-password"/>
+            <button class="auth-submit" id="auth-setpw-btn">SET PASSWORD</button>
+            <div class="auth-msg" id="auth-setpw-msg"></div>
+          </div>
+          <div id="settings-verify-row" hidden>
+            <span id="settings-verify-status"></span>
+            <button id="settings-resend-btn" class="mgmt-btn" hidden>RESEND VERIFICATION EMAIL</button>
+          </div>
+          <div id="auth-manage" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">
+            <button class="mgmt-btn" id="auth-portal-btn" hidden>MANAGE BILLING</button>
+            <button class="mgmt-btn" id="auth-cancel-sub-btn" hidden>CANCEL SUBSCRIPTION</button>
+            <button class="mgmt-btn" id="auth-export-btn" hidden>DOWNLOAD MY DATA</button>
+            <button class="mgmt-btn danger" id="auth-delete-btn" hidden>DELETE ACCOUNT</button>
+          </div>
+          <div class="auth-msg" id="auth-manage-msg"></div>
+        </div>
+      </div>
+      <!-- Your Collection (unlocked content + purchase history) -->
+      <div id="collection-section" hidden>
+        <div class="drawer-label" style="margin-top:14px;">YOUR COLLECTION</div>
+        <div id="collection-list"></div>
+        <div id="collection-purchases" hidden></div>
+      </div>
+      </div><!-- /auth-body -->
+
+      <!-- Preferences -->
+      <div id="settings-preferences-section" hidden>
+        <div class="drawer-label" style="margin-top:14px;">PREFERENCES</div>
+        <label id="settings-marketing-row">
+          <input type="checkbox" id="settings-marketing-checkbox"/>
+          <span>Email me about new releases and updates</span>
+        </label>
+      </div>
+
+    </div>
   </div>
 </div>
 
@@ -164,29 +263,28 @@
         <span class="pw-wordmark" id="pw-wordmark-text">Paperweight</span>
         <input id="pw-station-search" class="pw-station-search" type="search" autocomplete="off" placeholder="Search stations" aria-label="Search public stations" hidden>
         <div id="pw-station-results" class="pw-station-results" hidden></div>
+        <span id="live-tab-dot" class="live-tab-dot"></span>
+      </div>
+      <div class="pw-settings-wrap" id="topbar-settings">
+        <button id="pw-settings-btn" class="pw-settings-btn" aria-label="Account settings" title="Account">⚙</button>
+        <div id="pw-settings-dropdown" class="pw-settings-dropdown" hidden>
+          <button id="pw-settings-open-btn" class="pw-settings-dropdown-item">SETTINGS</button>
+          <button id="pw-settings-logout-btn" class="pw-settings-dropdown-item" hidden>LOG OUT</button>
+        </div>
       </div>
       <div id="view-toggle">
         <button class="view-tab" data-view="stack">STACK</button>
-        <button class="view-tab active" data-view="player">
-          <span id="live-tab-dot" class="live-tab-dot"></span>
-          PLAY
-        </button>
+        <button class="view-tab active" data-view="player">PLAY</button>
         <button class="view-tab" data-view="dashboard">STUDIO</button>
       </div>
       <div id="topbar-right">
         <div id="topbar-right-controls">
           <button id="back-live-btn">↩ LIVE</button>
           <span id="type-badge" class="type-badge"></span>
-          <label class="toggle-sw" id="real-video-toggle-wrap" hidden title="Watch full-quality video instead of ASCII art">
-            <input type="checkbox" id="real-video-toggle">
-            <span class="toggle-track"></span>
-            <span class="toggle-label">REAL VIDEO</span>
-          </label>
         </div>
-        <div id="quota-badge">
-          <div id="quota-badge-label">ON-DEMAND</div>
-          <div id="quota-badge-count"></div>
-          <div id="quota-badge-period">PLAYS LEFT</div>
+        <div id="quota-badge" title="On-demand plays remaining">
+          <span id="quota-badge-count"></span>
+          <span id="quota-badge-period">PLAYS LEFT</span>
         </div>
       </div>
     </div>
@@ -293,6 +391,10 @@
               <div id="on-air-dot"></div>
               <span id="on-air-text">ON AIR</span>
             </div>
+            <div id="live-video-cta" hidden>
+              <div class="lv-cta-badge">🔴 LIVE NOW</div>
+              <div class="lv-cta-copy">Subscribe to watch the video broadcast</div>
+            </div>
             <button id="fullscreen-btn" title="Fullscreen">
               <svg id="fullscreen-enter-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>
@@ -301,6 +403,16 @@
                 <path d="M9 3v3a2 2 0 0 1-2 2H4M15 3v3a2 2 0 0 0 2 2h3M9 21v-3a2 2 0 0 0-2-2H4M15 21v-3a2 2 0 0 1 2-2h3"/>
               </svg>
             </button>
+            <div id="real-video-toggle-wrap" hidden>
+              <label class="toggle-sw" id="real-video-switch" title="Watch full-quality video instead of ASCII art">
+                <input type="checkbox" id="real-video-toggle">
+                <span class="toggle-track"></span>
+                <span class="toggle-label">REAL VIDEO</span>
+              </label>
+              <button id="real-video-tab-handle" type="button" aria-expanded="false" aria-label="Real video settings" title="Real video settings">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg>
+              </button>
+            </div>
             <div id="art-meta">
               <div id="track-title"></div>
               <div id="track-creator"></div>
@@ -338,7 +450,7 @@
 
           <!-- Controls -->
           <div id="controls">
-            <button class="drawer-btn" id="lib-btn" title="Posts">≡<span class="sq-lbl">POSTS</span></button>
+            <button class="drawer-btn" id="share-btn" title="Share"><svg class="drawer-btn-icon" width="15" height="15" viewBox="0 0 12 12" fill="none" aria-hidden="true"><circle cx="10" cy="2" r="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="2" cy="6" r="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="10" cy="10" r="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="3.3" y1="5.2" x2="8.7" y2="2.8" stroke="currentColor" stroke-width="1.2"/><line x1="3.3" y1="6.8" x2="8.7" y2="9.2" stroke="currentColor" stroke-width="1.2"/></svg><span class="sq-lbl">SHARE</span></button>
             <div id="controls-center">
               <button class="skip-btn hidden" id="skip-prev" title="Previous">⏮</button>
               <button id="play-btn" title="Play/Pause">
@@ -355,17 +467,6 @@
           </div>
         </div><!-- /spine -->
 
-        <!-- Library drawer -->
-        <div class="drawer" id="lib-drawer">
-          <div class="drawer-inner">
-            <div class="drawer-head">
-              <div class="drawer-label">POSTS</div>
-              <button class="drawer-close" id="lib-drawer-close" title="Close">✕</button>
-            </div>
-            <div class="drawer-scroll" id="posts-list"></div>
-          </div>
-        </div>
-
         <!-- Queue drawer -->
         <div class="drawer" id="queue-drawer">
           <div class="drawer-inner">
@@ -380,64 +481,6 @@
         <!-- Share drawer -->
         <div class="drawer" id="share-drawer">
           <div class="drawer-inner">
-            <div class="share-drawer-panel" id="account-panel-content">
-
-            <!-- Account section -->
-            <button id="auth-toggle">
-              <div id="auth-toggle-left">
-                <span>ACCOUNT</span>
-                <span id="auth-toggle-status"></span>
-              </div>
-              <svg id="auth-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none">
-                <path d="M1 3l3 3 3-3" stroke="rgba(255,255,255,.3)" stroke-width="1.2"/>
-              </svg>
-            </button>
-            <div id="auth-body">
-            <div id="auth-section">
-              <div id="auth-logged-out">
-                <div id="auth-tabs">
-                  <button class="auth-tab active" data-auth-tab="login">LOG IN</button>
-                  <button class="auth-tab" data-auth-tab="register">CREATE ACCOUNT</button>
-                </div>
-                <div id="auth-form">
-                  <input class="auth-input" id="auth-email" type="email" placeholder="email address" autocomplete="email"/>
-                  <input class="auth-input" id="auth-password" type="password" placeholder="password (min 8 chars)" autocomplete="current-password"/>
-                  <button class="auth-submit" id="auth-submit-btn">LOG IN</button>
-                  <button id="auth-forgot-btn" style="background:none;border:none;color:rgba(255,255,255,.35);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.06em;cursor:pointer;padding:6px 0;text-align:left;">FORGOT PASSWORD?</button>
-                  <div class="auth-msg" id="auth-msg"></div>
-                </div>
-              </div>
-              <div id="auth-logged-in" hidden>
-                <div class="auth-account-row">
-                  <span class="auth-email-disp" id="auth-email-display"></span>
-                  <span class="auth-tier-badge" id="auth-tier-badge"></span>
-                  <button class="auth-logout-btn" id="auth-logout-btn">LOG OUT</button>
-                </div>
-                <button id="auth-complete-account-btn" hidden>Complete account to buy and keep access →</button>
-                <button id="auth-set-pw" hidden>Set a password to log in from any device →</button>
-                <div id="auth-setpw-form" hidden>
-                  <input class="auth-input" id="auth-new-password" type="password" placeholder="choose a password (min 8 chars)" autocomplete="new-password"/>
-                  <button class="auth-submit" id="auth-setpw-btn">SET PASSWORD</button>
-                  <div class="auth-msg" id="auth-setpw-msg"></div>
-                </div>
-                <div id="auth-manage" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">
-                  <button class="mgmt-btn" id="auth-portal-btn" hidden>MANAGE BILLING</button>
-                  <button class="mgmt-btn" id="auth-cancel-sub-btn" hidden>CANCEL SUBSCRIPTION</button>
-                  <button class="mgmt-btn" id="auth-export-btn" hidden>DOWNLOAD MY DATA</button>
-                  <button class="mgmt-btn danger" id="auth-delete-btn" hidden>DELETE ACCOUNT</button>
-                </div>
-                <div class="auth-msg" id="auth-manage-msg"></div>
-              </div>
-            </div>
-            <!-- Your Collection (unlocked content + purchase history) -->
-            <div id="collection-section" hidden>
-              <div class="drawer-label" style="margin-top:14px;">YOUR COLLECTION</div>
-              <div id="collection-list"></div>
-              <div id="collection-purchases" hidden></div>
-            </div>
-            </div><!-- /auth-body -->
-            </div>
-
             <div class="share-drawer-panel" id="share-panel-content">
             <div class="drawer-label">SHARE</div>
             <div id="share-options">
@@ -468,26 +511,12 @@
         <!-- Bottom accent -->
         <div id="bottom-accent"></div>
 
-        <!-- Share tab strip (split: SHARE left | ACCOUNT right) -->
-        <div id="share-tab">
-          <div id="share-area">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <circle cx="10" cy="2"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
-              <circle cx="2"  cy="6"  r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
-              <circle cx="10" cy="10" r="1.5" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
-              <line x1="3.3" y1="5.2" x2="8.7" y2="2.8"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
-              <line x1="3.3" y1="6.8" x2="8.7" y2="9.2"  stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
-            </svg>
-            <span id="share-tab-label">SHARE</span>
-            <svg id="share-chevron" width="8" height="8" viewBox="0 0 8 8">
-              <path d="M1 3l3 3 3-3" stroke="rgba(255,255,255,.25)" stroke-width="1.2" fill="none"/>
-            </svg>
+        <!-- Posts ticker (revolving 2 most-recent posts + static SEE MORE) -->
+        <div id="posts-ticker" hidden>
+          <div id="posts-ticker-viewport">
+            <div id="posts-ticker-track"></div>
           </div>
-          <div id="share-tab-divider"></div>
-          <div id="account-area">
-            <div id="auth-badge"><span id="auth-badge-dot"></span><span id="auth-badge-text"></span></div>
-            <span id="account-tab-label">ACCOUNT</span>
-          </div>
+          <button id="posts-ticker-more" type="button">SEE MORE</button>
         </div>
 
         </div><!-- /legacy-player-ui -->
@@ -550,6 +579,26 @@
               </label>
               <div id="station-searchable-hint" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;"></div>
               <div id="station-searchable-msg"></div>
+            </div>
+            <div data-desktop-only>
+              <div class="dash-edit-label" style="margin-top:14px;">CLOUDFLARE TUNNEL (OPTIONAL)</div>
+              <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;">
+                Save a Cloudflare API token to let Paperweight create the tunnel and DNS record for you. See CLOUDFLARE_SETUP.md.
+              </div>
+              <div class="station-update-row">
+                <input type="password" class="dash-input dash-input-sm" id="cf-api-token-input" placeholder="Cloudflare API token"/>
+                <button class="mgmt-btn" id="btn-save-cf-token">SAVE</button>
+              </div>
+              <div id="cf-token-msg"></div>
+              <div id="cf-tunnel-section" hidden>
+                <div class="station-update-row">
+                  <select class="dash-input dash-input-sm" id="cf-zone-select"></select>
+                  <input type="text" class="dash-input dash-input-sm" id="cf-hostname-input" placeholder="radio.yoursite.com"/>
+                  <button class="mgmt-btn" id="btn-auto-tunnel">CREATE TUNNEL</button>
+                </div>
+                <div id="cf-tunnel-msg"></div>
+                <div id="cf-tunnel-result" hidden style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.5);padding:4px 0;word-break:break-all;"></div>
+              </div>
             </div>
             <div class="dash-edit-label" style="margin-top:14px;">EXPORTS &amp; BACKUP</div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">
@@ -723,6 +772,8 @@
           <!-- Collections -->
           <div class="dash-section">
             <div class="dash-section-label">COLLECTIONS</div>
+            <button class="mgmt-btn" id="btn-import-folder" data-desktop-only style="margin-bottom:8px;">IMPORT FOLDER…</button>
+            <div id="import-folder-msg" class="dash-inline-msg" data-desktop-only></div>
             <div id="dash-proj-list"></div>
             <details id="dash-new-proj">
               <summary class="dash-summary">+ NEW COLLECTION</summary>
@@ -1003,6 +1054,65 @@
 
           <div class="dash-divider"></div>
 
+          <!-- Live Video (paid-tier gated) -->
+          <div class="dash-section" id="dash-live-video-section">
+            <div class="dash-section-label">LIVE VIDEO</div>
+            <div class="live-idle-copy">
+              Broadcast video from OBS (or another RTMP-capable encoder). Only listeners at or above the tier below can watch — everyone else sees a subscribe prompt.
+            </div>
+            <div class="station-url-row">
+              <span class="ext-field-label">Minimum tier</span>
+              <select id="live-video-min-tier">
+                <option value="subscriber">Subscriber</option>
+                <option value="pro">Pro</option>
+                <option value="all_access">All-Access</option>
+              </select>
+            </div>
+            <div class="station-url-row">
+              <span class="ext-field-label">Announce go-live</span>
+              <input type="checkbox" id="live-video-notify-toggle">
+            </div>
+
+            <div data-desktop-only>
+              <div id="live-video-idle">
+                <button id="btn-go-live-video">● GO LIVE (VIDEO)</button>
+                <div id="live-video-msg"></div>
+              </div>
+              <div id="live-video-pending" hidden>
+                <div class="live-idle-copy">Paste these into OBS → Settings → Stream → Custom:</div>
+                <div class="station-url-row">
+                  <span class="ext-field-label">Server</span>
+                  <span id="lv-rtmp-url"></span>
+                  <button class="mgmt-btn" id="btn-copy-lv-rtmp-url">COPY</button>
+                </div>
+                <div class="station-url-row">
+                  <span class="ext-field-label">Key</span>
+                  <span id="lv-rtmp-key"></span>
+                  <button class="mgmt-btn" id="btn-copy-lv-rtmp-key">COPY</button>
+                </div>
+                <div id="live-video-status" class="live-idle-copy">Waiting for OBS to connect…</div>
+                <div class="broadcast-actions">
+                  <button class="mgmt-btn" id="btn-regen-lv-rtmp-key">REGENERATE KEY</button>
+                  <button class="mgmt-btn danger" id="btn-cancel-live-video">CANCEL</button>
+                </div>
+                <div class="ext-key-warning">This key personalizes your setup but isn't a strong secret — anyone who can reach this port while it's open can push video. Keep the ingest port on your local machine or LAN.</div>
+              </div>
+              <div id="live-video-onair" hidden>
+                <div class="broadcast-row live-broadcast-row">
+                  <div class="broadcast-info">
+                    <div class="broadcast-np" id="live-video-timer">0:00</div>
+                    <div class="broadcast-mode-badge onair-badge">● ON AIR</div>
+                  </div>
+                  <div class="broadcast-actions">
+                    <button class="mgmt-btn danger" id="btn-end-live-video">END BROADCAST</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dash-divider"></div>
+
           <!-- Schedule -->
           <div class="dash-section">
             <div class="dash-section-label">SCHEDULE</div>
@@ -1235,9 +1345,30 @@
 </div><!-- /player-wrap -->
 </div><!-- /layout -->
 
+<!-- Desktop-only power/update/uninstall controls (see client/js/dashboard/desktop-controls.js) -->
+<div id="desktop-power-cluster" data-desktop-only hidden>
+  <button id="desktop-power-btn" class="desktop-power-btn" title="Power">⏻</button>
+  <div id="desktop-power-dropdown" class="desktop-power-dropdown" hidden>
+    <button id="dp-stop-broadcast" class="desktop-power-dropdown-item">STOP BROADCAST</button>
+    <button id="dp-restart-broadcast" class="desktop-power-dropdown-item">RESTART BROADCAST</button>
+    <button id="dp-stop-server" class="desktop-power-dropdown-item">STOP SERVER (QUITS APP)</button>
+    <button id="dp-restart-server" class="desktop-power-dropdown-item">RESTART SERVER</button>
+    <button id="dp-stop-both" class="desktop-power-dropdown-item">STOP BOTH</button>
+  </div>
+  <button id="desktop-update-btn" class="desktop-power-cluster-btn" title="Check for updates">⟳</button>
+  <button id="desktop-uninstall-btn" class="desktop-power-cluster-btn" title="Uninstall">⌫</button>
+</div>
+
 <audio id="audio-el" hidden></audio>
 
-<div id="credit">PAPERWEIGHT SYSTEMS LLC</div>
+<div id="credit">
+  <label class="toggle-sw" id="motion-toggle" title="Tilt cards with device motion">
+    <input type="checkbox" id="motion-toggle-input">
+    <span class="toggle-track"></span>
+    <span class="toggle-label">MOTION</span>
+  </label>
+  <span id="credit-text">PAPERWEIGHT SYSTEMS LLC</span>
+</div>
 
 <script type="module" src="/js/main.js"></script>
 

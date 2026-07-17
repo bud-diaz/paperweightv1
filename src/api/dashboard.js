@@ -13,19 +13,26 @@ const { requireDesktop } = require('../auth/platform');
 const { createToken, revokeToken, listTokens, updateTokenTier, listTokensForScope, hashToken } = require('../auth');
 const broadcast = require('../broadcast');
 const live = require('../broadcast/live');
+const liveVideo = require('../broadcast/liveVideo');
 const config = require('../config');
 const { probe } = require('../scanner/probe');
 const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCode } = require('../auth/totp');
 const { getFFmpegStatus } = require('../runtime/ffmpeg');
+const cloudflareApi = require('../runtime/cloudflare');
 const asyncHandler = require('../middleware/asyncHandler');
 const { clearArtworkCache, ARTWORK_DIR } = require('./library');
 const { isBroadcastPlayableTrack } = require('../broadcast/playlist');
 const { validateSlug } = require('../auth/reserved-slugs');
-const { resolvesToBlockedAddress } = require('../runtime/net-guard');
+const { resolveSafeAddress } = require('../runtime/net-guard');
 const { isValidExternalHttpUrl } = require('../runtime/base-url');
 const { IMAGE_MIMES, IMAGE_EXTS, sniffImageFile } = require('../runtime/images');
-const { getBoolSetting, setSetting } = require('../db/settings');
+const { getSetting, getBoolSetting, setSetting } = require('../db/settings');
 const { toSqliteDatetime } = require('../runtime/datetime');
+const {
+  SUBSCRIBER_HEADERS, LISTENER_HEADERS, DOWNLOAD_LEAD_HEADERS,
+  getDownloadLeadRows, getSubscriberRows, getListenerRows,
+  csvEscape, toCsvString,
+} = require('../export/exports');
 
 router.use(requireDashboard);
 
@@ -403,6 +410,12 @@ router.post('/broadcast/restart', (req, res) => {
   res.json({ ok: true, restarting: true });
 });
 
+// POST /api/dashboard/broadcast/stop
+router.post('/broadcast/stop', (req, res) => {
+  broadcast.stop();
+  res.json({ ok: true, stopped: true });
+});
+
 // ─── Token management ─────────────────────────────────────────────────────────
 
 // GET /api/dashboard/tokens
@@ -461,51 +474,25 @@ router.get('/download-leads', (req, res) => {
 // bulk mailer. Values are formula-escaped so a hostile email like
 // "=HYPERLINK(...)" can't execute when the CSV is opened in a spreadsheet.
 
-function csvEscape(value) {
-  if (value === null || value === undefined) return '';
-  let s = String(value);
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
 function sendCsv(res, filename, headers, rows) {
-  const lines = [headers.join(',')];
-  for (const row of rows) {
-    lines.push(headers.map(h => csvEscape(row[h])).join(','));
-  }
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  res.send(lines.join('\r\n') + '\r\n');
+  res.send(toCsvString(headers, rows));
 }
 
 // GET /api/dashboard/export/download-leads.csv
 router.get('/export/download-leads.csv', (req, res) => {
-  const rows = getDb().prepare(
-    'SELECT email, platform, updates_opt_in, created_at FROM download_leads ORDER BY created_at DESC'
-  ).all();
-  sendCsv(res, 'download-leads.csv', ['email', 'platform', 'updates_opt_in', 'created_at'], rows);
+  sendCsv(res, 'download-leads.csv', DOWNLOAD_LEAD_HEADERS, getDownloadLeadRows(getDb()));
 });
 
 // GET /api/dashboard/export/subscribers.csv — listeners with an active subscription.
 router.get('/export/subscribers.csv', (req, res) => {
-  const rows = getDb().prepare(`
-    SELECT la.email, s.tier, s.provider, s.status, s.current_period_end, la.created_at
-    FROM listener_accounts la
-    JOIN subscriptions s ON s.listener_id = la.id AND s.status = 'active'
-    WHERE la.is_active = 1 AND la.email NOT LIKE '%@pending.paperweight.local'
-    ORDER BY s.created_at DESC
-  `).all();
-  sendCsv(res, 'subscribers.csv', ['email', 'tier', 'provider', 'status', 'current_period_end', 'created_at'], rows);
+  sendCsv(res, 'subscribers.csv', SUBSCRIBER_HEADERS, getSubscriberRows(getDb()));
 });
 
 // GET /api/dashboard/export/listeners.csv — every registered listener account.
 router.get('/export/listeners.csv', (req, res) => {
-  const rows = getDb().prepare(`
-    SELECT email, created_at FROM listener_accounts
-    WHERE is_active = 1 AND email NOT LIKE '%@pending.paperweight.local'
-    ORDER BY created_at DESC
-  `).all();
-  sendCsv(res, 'listeners.csv', ['email', 'created_at'], rows);
+  sendCsv(res, 'listeners.csv', LISTENER_HEADERS, getListenerRows(getDb()));
 });
 
 // Consented marketing contacts, deduplicated by email: welcome-page profiles
@@ -741,6 +728,11 @@ router.get('/station', (req, res) => {
     row = db.prepare('SELECT * FROM station_registry WHERE id = 1').get();
   }
 
+  // Independent of `requirements` above (which gates /station/searchable):
+  // whether a Cloudflare API token is saved, so the dashboard knows whether
+  // to offer the auto-tunnel flow at all.
+  const cloudflareApiConfigured = cloudflareApi.isCloudflareApiConfigured(config.station.cloudflareApiToken);
+
   if (!row) {
     return res.json({
       slug: null,
@@ -752,6 +744,7 @@ router.get('/station', (req, res) => {
         cloudflareTunnel: config.station.cloudflareTunnel,
         publicUrlSet: false,
       },
+      cloudflareApiConfigured,
     });
   }
 
@@ -765,6 +758,7 @@ router.get('/station', (req, res) => {
       cloudflareTunnel: config.station.cloudflareTunnel,
       publicUrlSet: !!(row && row.url),
     },
+    cloudflareApiConfigured,
   });
 });
 
@@ -871,11 +865,133 @@ router.put('/station/searchable', requireDesktop, asyncHandler(async (req, res) 
   res.json({ ok: true, searchable: true, checks });
 }));
 
+// ─── Cloudflare API-token automation (optional) ───────────────────────────────
+// Distinct from CLOUDFLARE_TUNNEL_TOKEN above: this lets the dashboard call
+// Cloudflare's REST API on the owner's behalf to create a tunnel and DNS
+// record, instead of the owner doing it by hand in the Zero Trust dashboard.
+// Entirely optional — CLOUDFLARE_TUNNEL_TOKEN keeps working exactly as before
+// whether or not this is ever used.
+
+const HOSTNAME_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/i;
+
+// PUT /api/dashboard/station/cloudflare/token
+// Body: { apiToken }
+// Verifies the token against Cloudflare, then persists it to .env.
+router.put('/station/cloudflare/token', requireDesktop, asyncHandler(async (req, res) => {
+  const { apiToken } = req.body || {};
+  if (!apiToken || typeof apiToken !== 'string' || !apiToken.trim() || /[\r\n#]/.test(apiToken)) {
+    return res.status(400).json({ error: 'apiToken is required' });
+  }
+  const cleanToken = apiToken.trim();
+
+  const verified = await cloudflareApi.verifyToken(cleanToken);
+  if (!verified.ok) {
+    return res.status(400).json({ error: verified.error || 'Could not verify Cloudflare API token' });
+  }
+
+  updateEnvKey('CLOUDFLARE_API_TOKEN', cleanToken);
+  config.station.cloudflareApiToken = cleanToken;
+
+  log('info', 'dashboard', 'Cloudflare API token saved and verified');
+  res.json({ ok: true });
+}));
+
+// GET /api/dashboard/station/cloudflare/zones
+// Lists the Cloudflare zones (domains) available to the saved API token, for
+// the dashboard's "which domain should the tunnel use" picker.
+router.get('/station/cloudflare/zones', requireDesktop, asyncHandler(async (req, res) => {
+  const token = config.station.cloudflareApiToken;
+  if (!cloudflareApi.isCloudflareApiConfigured(token)) {
+    return res.status(409).json({ error: 'Save a Cloudflare API token first' });
+  }
+
+  const zones = await cloudflareApi.listZones(token);
+  if (!zones.ok) {
+    return res.status(502).json({ error: zones.error || 'Could not list Cloudflare zones' });
+  }
+
+  res.json({ zones: (zones.result || []).map(z => ({ id: z.id, name: z.name })) });
+}));
+
+// POST /api/dashboard/station/cloudflare/auto-tunnel
+// Body: { zoneId, hostname }
+// Creates a Named Tunnel + DNS route via the Cloudflare API and persists the
+// resulting CLOUDFLARE_TUNNEL_TOKEN and STATION_PUBLIC_URL, same as if the
+// owner had done it by hand and pasted the result into the dashboard/.env.
+router.post('/station/cloudflare/auto-tunnel', requireDesktop, asyncHandler(async (req, res) => {
+  const token = config.station.cloudflareApiToken;
+  if (!cloudflareApi.isCloudflareApiConfigured(token)) {
+    return res.status(409).json({ error: 'Save a Cloudflare API token first' });
+  }
+
+  const { zoneId, hostname } = req.body || {};
+  if (!zoneId || typeof zoneId !== 'string') {
+    return res.status(400).json({ error: 'zoneId is required' });
+  }
+  if (!hostname || typeof hostname !== 'string' || !HOSTNAME_RE.test(hostname.trim())) {
+    return res.status(400).json({ error: 'A valid hostname is required (e.g. radio.yoursite.com)' });
+  }
+  const cleanHostname = hostname.trim().toLowerCase();
+
+  const accounts = await cloudflareApi.listAccounts(token);
+  if (!accounts.ok) {
+    return res.status(502).json({ error: accounts.error || 'Could not list Cloudflare accounts' });
+  }
+  if (!accounts.result || accounts.result.length !== 1) {
+    const count = accounts.result ? accounts.result.length : 0;
+    return res.status(409).json({ error: `Expected exactly one Cloudflare account for this token, found ${count}` });
+  }
+  const accountId = accounts.result[0].id;
+
+  const tunnelName = `paperweight-${(config.station.slug || 'station').slice(0, 40)}`;
+  const tunnel = await cloudflareApi.createTunnel(token, accountId, tunnelName);
+  if (!tunnel.ok) {
+    return res.status(502).json({ error: tunnel.error || 'Could not create Cloudflare tunnel' });
+  }
+  const tunnelId = tunnel.result.id;
+
+  const tunnelToken = await cloudflareApi.getTunnelToken(token, accountId, tunnelId);
+  if (!tunnelToken.ok) {
+    return res.status(502).json({ error: tunnelToken.error || 'Could not fetch the tunnel connector token' });
+  }
+
+  const dnsRoute = await cloudflareApi.createDnsRoute(token, accountId, tunnelId, zoneId, cleanHostname, config.port);
+  if (!dnsRoute.ok) {
+    return res.status(502).json({ error: dnsRoute.error || 'Could not create the DNS route' });
+  }
+
+  const publicUrl = `https://${cleanHostname}`;
+
+  updateEnvKey('CLOUDFLARE_TUNNEL_TOKEN', tunnelToken.result);
+  updateEnvKey('STATION_PUBLIC_URL', publicUrl);
+  updateEnvKey('TRUST_PROXY', 'loopback');
+  config.station.cloudflareTunnel = true;
+  config.station.publicUrl = publicUrl;
+
+  const db = getDb();
+  const row = db.prepare('SELECT id FROM station_registry WHERE id = 1').get();
+  if (row) {
+    db.prepare("UPDATE station_registry SET url = ?, updated_at = datetime('now') WHERE id = 1").run(publicUrl);
+  }
+
+  log('info', 'dashboard', `Cloudflare tunnel auto-created for ${cleanHostname}`);
+  res.json({
+    ok: true,
+    url: publicUrl,
+    tunnelToken: tunnelToken.result,
+    restartRequired: true,
+    note: 'Run `cloudflared service install <token>` with the tunnelToken above (see CLOUDFLARE_SETUP.md), then restart Paperweight.',
+  });
+}));
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // Ping a URL's /api/health endpoint and return { reachable, latencyMs, error? }.
 // Resolves the host first and refuses private/loopback/metadata targets so the
 // owner-set station URL can't be used to probe the server's internal network.
+// The connection is pinned to the validated address (see resolveSafeAddress)
+// rather than letting `lib.get` re-resolve the hostname, closing a
+// DNS-rebinding TOCTOU gap.
 async function pingUrl(baseUrl) {
   const start = Date.now();
   let parsed;
@@ -885,13 +1001,17 @@ async function pingUrl(baseUrl) {
     return { reachable: false, latencyMs: 0, error: 'Invalid URL' };
   }
 
-  if (await resolvesToBlockedAddress(parsed.hostname)) {
+  const safeAddress = await resolveSafeAddress(parsed.hostname);
+  if (!safeAddress) {
     return { reachable: false, latencyMs: Date.now() - start, error: 'URL resolves to a private or reserved address' };
   }
 
   return new Promise(resolve => {
     const lib = parsed.protocol === 'https:' ? https : http;
-    const req = lib.get(parsed.href, { timeout: 5000 }, res => {
+    const req = lib.get(parsed.href, {
+      timeout: 5000,
+      lookup: (_hostname, _options, cb) => cb(null, safeAddress.address, safeAddress.family),
+    }, res => {
       res.resume();
       resolve({ reachable: res.statusCode >= 200 && res.statusCode < 500, latencyMs: Date.now() - start });
     });
@@ -1209,6 +1329,87 @@ router.post('/broadcast/external/regenerate-key', requireDesktop, (req, res) => 
   } catch (err) {
     res.status(409).json({ error: err.message });
   }
+});
+
+// ─── Live video (paid-tier) broadcast ─────────────────────────────────────────
+// Desktop-only for the same reason as the external audio encoder above: the
+// RTMP listener binds to the local machine/LAN. The min-tier/notify settings
+// stay available on the hosted web platform, though, so a creator can
+// configure them ahead of ever running the desktop app.
+
+function liveVideoState() {
+  const liveState = liveVideo.getLiveVideoState();
+  if (!liveState.rtmpPending && !liveState.isLive) return 'idle';
+  return liveState.isLive ? 'live' : 'pending';
+}
+
+// GET /api/dashboard/live-video/status
+router.get('/live-video/status', requireDesktop, (req, res) => {
+  const liveState = liveVideo.getLiveVideoState();
+  res.json({
+    state: liveVideoState(),
+    startedAt: liveState.startedAt,
+    rtmp: liveVideo.getRtmpConnectionInfo(),
+  });
+});
+
+// POST /api/dashboard/live-video/start
+router.post('/live-video/start', requireDesktop, asyncHandler(async (req, res) => {
+  const liveState = liveVideo.getLiveVideoState();
+  if (liveState.isLive || liveState.rtmpPending) {
+    return res.status(409).json({ error: 'A video broadcast is already live or pending' });
+  }
+  try {
+    await liveVideo.startLiveVideoRtmp({});
+    res.json({ state: liveVideoState(), rtmp: liveVideo.getRtmpConnectionInfo() });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}));
+
+// POST /api/dashboard/live-video/stop
+router.post('/live-video/stop', requireDesktop, (req, res) => {
+  liveVideo.stopLive();
+  res.json({ ok: true });
+});
+
+// POST /api/dashboard/live-video/regenerate-key
+router.post('/live-video/regenerate-key', requireDesktop, (req, res) => {
+  try {
+    const streamKey = liveVideo.regenerateStreamKey();
+    res.json({ ok: true, streamKey });
+  } catch (err) {
+    res.status(409).json({ error: err.message });
+  }
+});
+
+const LIVE_VIDEO_TIERS = new Set(['subscriber', 'pro', 'all_access']);
+
+// GET /api/dashboard/live-video/settings
+router.get('/live-video/settings', (req, res) => {
+  res.json({
+    minTier: getSetting('live_video_min_tier') || 'subscriber',
+    notifyEnabled: getBoolSetting('notify_live_video_enabled', true),
+  });
+});
+
+// PUT /api/dashboard/live-video/settings
+// Body: any subset of { minTier, notifyEnabled }
+router.put('/live-video/settings', (req, res) => {
+  const { minTier, notifyEnabled } = req.body || {};
+
+  if (minTier !== undefined) {
+    if (!LIVE_VIDEO_TIERS.has(minTier)) {
+      return res.status(400).json({ error: 'minTier must be subscriber, pro, or all_access' });
+    }
+    setSetting('live_video_min_tier', minTier);
+  }
+  if (notifyEnabled !== undefined) {
+    setSetting('notify_live_video_enabled', notifyEnabled ? '1' : '0');
+  }
+
+  log('info', 'dashboard', 'Live video settings updated');
+  res.json({ ok: true });
 });
 
 // GET /api/dashboard/creator-type

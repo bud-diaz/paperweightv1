@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const http = require('http');
 
 const { freshDb, seedMedia, seedListener, seedToken, futureIso, pastIso } = require('./helpers');
 const { createApp } = require('../src/index');
@@ -317,6 +318,129 @@ test('dashboard station read includes searchability and requirements', async () 
     });
   } finally {
     config.station.cloudflareTunnel = originalTunnel;
+  }
+});
+
+test('station searchability gating is unaffected by a saved Cloudflare API token', async () => {
+  freshDb();
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN, 'Content-Type': 'application/json' } };
+  const originalPlatform = config.platform;
+  const originalTunnel = config.station.cloudflareTunnel;
+  const originalApiToken = config.station.cloudflareApiToken;
+
+  try {
+    config.platform = 'desktop';
+    config.station.cloudflareTunnel = false;
+    // A saved API token (used only for the auto-tunnel flow) must never
+    // substitute for the actual tunnel connector token in this gate — a
+    // hand-configured station has no API token at all and must keep working.
+    config.station.cloudflareApiToken = 'some-api-token';
+
+    await withServer(async baseUrl => {
+      const out = await request(baseUrl, '/api/dashboard/station/searchable', {
+        method: 'PUT',
+        headers: auth.headers,
+        body: JSON.stringify({ enabled: true }),
+      });
+      assert.equal(out.res.status, 409);
+      assert.equal(out.body.checks.cloudflareTunnel, false);
+    });
+  } finally {
+    config.platform = originalPlatform;
+    config.station.cloudflareTunnel = originalTunnel;
+    config.station.cloudflareApiToken = originalApiToken;
+  }
+});
+
+test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', async () => {
+  const db = freshDb();
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN, 'Content-Type': 'application/json' } };
+  const originalPlatform = config.platform;
+  const originalApiToken = config.station.cloudflareApiToken;
+  const originalTunnel = config.station.cloudflareTunnel;
+  const originalPublicUrl = config.station.publicUrl;
+  const originalBaseUrl = process.env.CLOUDFLARE_API_BASE_URL;
+
+  const stub = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      if (req.url === '/user/tokens/verify') {
+        return res.end(JSON.stringify({ success: true, result: { status: 'active' } }));
+      }
+      if (req.url === '/accounts') {
+        return res.end(JSON.stringify({ success: true, result: [{ id: 'acct1', name: 'Test Account' }] }));
+      }
+      if (req.url === '/zones') {
+        return res.end(JSON.stringify({ success: true, result: [{ id: 'zone1', name: 'example.com' }] }));
+      }
+      if (req.method === 'POST' && req.url === '/accounts/acct1/cfd_tunnel') {
+        return res.end(JSON.stringify({ success: true, result: { id: 'tunnel1' } }));
+      }
+      if (req.method === 'GET' && req.url === '/accounts/acct1/cfd_tunnel/tunnel1/token') {
+        return res.end(JSON.stringify({ success: true, result: 'connector-token-xyz' }));
+      }
+      if (req.method === 'PUT' && req.url === '/accounts/acct1/cfd_tunnel/tunnel1/configurations') {
+        return res.end(JSON.stringify({ success: true, result: {} }));
+      }
+      if (req.method === 'POST' && req.url === '/zones/zone1/dns_records') {
+        return res.end(JSON.stringify({ success: true, result: { id: 'dns1' } }));
+      }
+      res.statusCode = 404;
+      res.end(JSON.stringify({ success: false, errors: [{ message: 'not stubbed' }] }));
+    });
+  });
+  await new Promise(resolve => stub.listen(0, '127.0.0.1', resolve));
+
+  try {
+    config.platform = 'desktop';
+    process.env.CLOUDFLARE_API_BASE_URL = `http://127.0.0.1:${stub.address().port}`;
+    config.station.cloudflareApiToken = '';
+
+    await withServer(async baseUrl => {
+      const noZonesYet = await request(baseUrl, '/api/dashboard/station/cloudflare/zones', auth);
+      assert.equal(noZonesYet.res.status, 409);
+
+      const saveToken = await request(baseUrl, '/api/dashboard/station/cloudflare/token', {
+        method: 'PUT',
+        headers: auth.headers,
+        body: JSON.stringify({ apiToken: 'good-token' }),
+      });
+      assert.equal(saveToken.res.status, 200);
+      assert.equal(config.station.cloudflareApiToken, 'good-token');
+
+      const zones = await request(baseUrl, '/api/dashboard/station/cloudflare/zones', auth);
+      assert.equal(zones.res.status, 200);
+      assert.deepEqual(zones.body.zones, [{ id: 'zone1', name: 'example.com' }]);
+
+      db.prepare("INSERT INTO station_registry (id, slug, url) VALUES (1, 'radio-test', 'https://old.example.com')").run();
+
+      const autoTunnel = await request(baseUrl, '/api/dashboard/station/cloudflare/auto-tunnel', {
+        method: 'POST',
+        headers: auth.headers,
+        body: JSON.stringify({ zoneId: 'zone1', hostname: 'radio.example.com' }),
+      });
+      assert.equal(autoTunnel.res.status, 200);
+      assert.equal(autoTunnel.body.url, 'https://radio.example.com');
+      assert.equal(autoTunnel.body.tunnelToken, 'connector-token-xyz');
+      assert.equal(config.station.cloudflareTunnel, true);
+      assert.equal(config.station.publicUrl, 'https://radio.example.com');
+
+      const row = db.prepare('SELECT url FROM station_registry WHERE id = 1').get();
+      assert.equal(row.url, 'https://radio.example.com');
+
+      config.platform = 'web';
+      const webBlocked = await request(baseUrl, '/api/dashboard/station/cloudflare/zones', auth);
+      assert.equal(webBlocked.res.status, 403);
+    });
+  } finally {
+    stub.close();
+    config.platform = originalPlatform;
+    config.station.cloudflareApiToken = originalApiToken;
+    config.station.cloudflareTunnel = originalTunnel;
+    config.station.publicUrl = originalPublicUrl;
+    if (originalBaseUrl === undefined) delete process.env.CLOUDFLARE_API_BASE_URL;
+    else process.env.CLOUDFLARE_API_BASE_URL = originalBaseUrl;
   }
 });
 

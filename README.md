@@ -81,6 +81,24 @@ http://localhost:3000/#dashboard
 
 Use the dashboard token printed by `scripts/setup.sh`.
 
+## Development
+
+For live local testing from this checkout:
+
+```bash
+npm run dev
+```
+
+That starts the source server with backend restarts and browser live reload for
+`client/` and `landing/` changes. To test the desktop wrapper without rebuilding
+or reinstalling an app package:
+
+```bash
+npm run dev:desktop
+```
+
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for details.
+
 ## Setup Guides
 
 - Windows: [SETUP_WINDOWS.md](SETUP_WINDOWS.md)

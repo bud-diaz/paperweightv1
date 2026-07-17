@@ -2,10 +2,16 @@
   "name": "paperweight",
   "version": "1.5.1",
   "description": "Self-hosted creator-first streaming and distribution.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bud-diaz/paper-packs"
+  },
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "dev": "nodemon --config nodemon.json scripts/dev-server.js",
+    "dev:plain": "nodemon src/index.js",
+    "dev:desktop": "nodemon --config nodemon.electron.json --exec node scripts/dev-electron.js",
     "preflight": "node scripts/preflight.js",
     "check:migrations": "node scripts/check-migrations.js",
     "check:scheduler": "node scripts/check-scheduler.js",
@@ -16,7 +22,7 @@
     "smoke:exe": "node scripts/smoke-exe.js",
     "build:desktop-runtime": "node scripts/build-desktop-runtime.js",
     "check:desktop-artifact": "node scripts/check-desktop-artifact.js",
-    "test": "node --test test/broadcast-engine.test.js test/broadcast-live-external.test.js test/scheduler.test.js test/access.test.js test/payment.test.js test/http.test.js test/auth.test.js test/reserved-slugs.test.js test/platform.test.js test/provision.test.js test/device-lock.test.js test/security.test.js test/email.test.js test/features.test.js test/papercut-adoption.test.js test/release-scheduler.test.js",
+    "test": "node --test test/broadcast-engine.test.js test/broadcast-live-external.test.js test/broadcast-live-video.test.js test/scheduler.test.js test/access.test.js test/payment.test.js test/http.test.js test/auth.test.js test/reserved-slugs.test.js test/platform.test.js test/provision.test.js test/device-lock.test.js test/security.test.js test/email.test.js test/features.test.js test/papercut-adoption.test.js test/release-scheduler.test.js test/cloudflare.test.js",
     "check:clean": "node scripts/check-release-clean.js",
     "release:check": "node scripts/check-release-clean.js && npm test && node scripts/preflight.js && node scripts/check-migrations.js && node scripts/check-scheduler.js && node scripts/check-analytics.js && node scripts/check-package-assets.js && npm audit --omit=dev",
     "fetch:ffmpeg": "node scripts/fetch-ffmpeg.js",

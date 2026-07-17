@@ -17,4 +17,14 @@ if (isSetupWindow) {
     chooseVaultFolder: () => ipcRenderer.invoke('setup:choose-folder'),
     closeSetup: () => ipcRenderer.invoke('setup:close'),
   });
+} else {
+  // Main dashboard window — desktop-only power/update/uninstall controls and
+  // vault folder import (see electron/ipc/app-handlers.js + vault-handlers.js).
+  contextBridge.exposeInMainWorld('desktopAPI', {
+    quitApp: () => ipcRenderer.invoke('app:quit'),
+    restartServer: () => ipcRenderer.invoke('app:restart'),
+    checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
+    uninstall: confirmPhrase => ipcRenderer.invoke('app:uninstall', confirmPhrase),
+    importFolder: () => ipcRenderer.invoke('vault:import-folder'),
+  });
 }

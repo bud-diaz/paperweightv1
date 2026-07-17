@@ -243,6 +243,10 @@ const config = {
     slug:        process.env.STATION_SLUG        || '',
     publicUrl:   process.env.STATION_PUBLIC_URL  || '',
     cloudflareTunnel: !!(process.env.CLOUDFLARE_TUNNEL_TOKEN && process.env.CLOUDFLARE_TUNNEL_TOKEN.trim()),
+    // Separate from CLOUDFLARE_TUNNEL_TOKEN (the tunnel connector token): this
+    // is a Cloudflare API token used only to let the dashboard create tunnels
+    // and DNS records on the owner's behalf. See src/runtime/cloudflare.js.
+    cloudflareApiToken: (process.env.CLOUDFLARE_API_TOKEN || '').trim(),
   },
 
   externalSearch: {
@@ -255,6 +259,12 @@ const config = {
   broadcast: {
     rtmpHost: process.env.RTMP_INGEST_HOST || '127.0.0.1',
     rtmpPort: parseInt(process.env.RTMP_INGEST_PORT || '1935', 10),
+
+    // Separate RTMP listener for the paid-tier live video feature
+    // (src/broadcast/liveVideo.js). Distinct default port so both can run at
+    // once on the same machine.
+    videoRtmpHost: process.env.RTMP_VIDEO_INGEST_HOST || '127.0.0.1',
+    videoRtmpPort: parseInt(process.env.RTMP_VIDEO_INGEST_PORT || '1936', 10),
   },
 
   vault: {

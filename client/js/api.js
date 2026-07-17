@@ -259,6 +259,15 @@ export const auth = {
   },
 
   /**
+   * PATCH /api/listener/preferences — update listener-side preferences.
+   * @param {{ marketingOptIn: boolean }} prefs
+   * @returns {{ res: Response, data: { ok?: boolean, error?: string } }}
+   */
+  updatePreferences(prefs) {
+    return _send('/api/listener/preferences', prefs, 'PATCH');
+  },
+
+  /**
    * POST /api/listener/request-password-reset — always resolves ok:true.
    * @param {string} email
    * @returns {{ res: Response, data: { ok: boolean, emailEnabled: boolean } }}
@@ -275,6 +284,40 @@ export const auth = {
    */
   resetPassword(token, password) {
     return _send('/api/listener/reset-password', { token, password });
+  },
+
+  /**
+   * POST /api/listener/verify-email — complete an emailed verification link.
+   * @param {string} token
+   * @returns {{ res: Response, data: { error?: string } }}
+   */
+  verifyEmail(token) {
+    return _send('/api/listener/verify-email', { token });
+  },
+
+  /**
+   * POST /api/listener/resend-verification — requires login; always resolves ok:true.
+   * @returns {{ res: Response, data: { ok: boolean, emailEnabled: boolean } }}
+   */
+  resendVerification() {
+    return _send('/api/listener/resend-verification', {});
+  },
+
+  /**
+   * POST /api/listener/auto-login — complete a tip-flow magic login link.
+   * @param {string} token
+   * @returns {{ res: Response, data: { tier?: string, error?: string } }}
+   */
+  autoLogin(token) {
+    return _send('/api/listener/auto-login', { token });
+  },
+
+  /**
+   * POST /api/listener/settings-tour-seen — dismiss the one-time Settings spotlight.
+   * @returns {{ res: Response, data: { ok?: boolean } }}
+   */
+  settingsTourSeen() {
+    return _send('/api/listener/settings-tour-seen', {});
   },
 
   /**
@@ -331,11 +374,17 @@ export const payment = {
 
   /**
    * POST /api/payment/tip — create a Stripe tip checkout session.
+   * donorName/donorEmail are optional; leaving both blank keeps the tip
+   * anonymous. A donorEmail grants 7 days of supporter access after payment.
    * @param {number} amountCents
+   * @param {{ donorName?: string, donorEmail?: string }} [donor]
    * @returns {{ res: Response, data: { checkoutUrl?: string, error?: string } }}
    */
-  sendTip(amountCents) {
-    return _send('/api/payment/tip', { amountCents });
+  sendTip(amountCents, donor = {}) {
+    const body = { amountCents };
+    if (donor.donorName) body.donorName = donor.donorName;
+    if (donor.donorEmail) body.donorEmail = donor.donorEmail;
+    return _send('/api/payment/tip', body);
   },
 
   /**
@@ -548,6 +597,33 @@ export const dashboard = {
     setSearchable(enabled) {
       return _send('/api/dashboard/station/searchable', { enabled }, 'PUT');
     },
+
+    /**
+     * PUT /api/dashboard/station/cloudflare/token — save + verify a Cloudflare API token.
+     * @param {string} apiToken
+     * @returns {{ res: Response, data: { error?: string } }}
+     */
+    saveCloudflareToken(apiToken) {
+      return _send('/api/dashboard/station/cloudflare/token', { apiToken }, 'PUT');
+    },
+
+    /**
+     * GET /api/dashboard/station/cloudflare/zones
+     * @returns {{ zones: Array<{ id: string, name: string }> }}
+     */
+    cloudflareZones() {
+      return _json('/api/dashboard/station/cloudflare/zones');
+    },
+
+    /**
+     * POST /api/dashboard/station/cloudflare/auto-tunnel
+     * @param {string} zoneId
+     * @param {string} hostname
+     * @returns {{ res: Response, data: { error?: string, url?: string, tunnelToken?: string, note?: string } }}
+     */
+    autoCreateTunnel(zoneId, hostname) {
+      return _send('/api/dashboard/station/cloudflare/auto-tunnel', { zoneId, hostname }, 'POST');
+    },
   },
 
   /**
@@ -638,6 +714,14 @@ export const dashboard = {
      */
     restart() {
       return _fetch('/api/dashboard/broadcast/restart', { method: 'POST' });
+    },
+
+    /**
+     * POST /api/dashboard/broadcast/stop
+     * @returns {Response}
+     */
+    stop() {
+      return _fetch('/api/dashboard/broadcast/stop', { method: 'POST' });
     },
 
     /**
@@ -1224,6 +1308,63 @@ export const dashboard = {
       const res = await _fetch('/api/dashboard/broadcast/external/regenerate-key', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       return { res, data };
+    },
+  },
+
+  // ── Live video (paid-tier, RTMP-only) broadcast ────────────────────────────────
+
+  liveVideo: {
+    /**
+     * GET /api/dashboard/live-video/status
+     * @returns {{ state: 'idle'|'pending'|'live', startedAt, rtmp: { url, streamKey, host, port } }}
+     */
+    status() {
+      return _json('/api/dashboard/live-video/status');
+    },
+
+    /**
+     * POST /api/dashboard/live-video/start
+     * @returns {{ res: Response, data: object }}
+     */
+    async start() {
+      const res = await _fetch('/api/dashboard/live-video/start', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      return { res, data };
+    },
+
+    /**
+     * POST /api/dashboard/live-video/stop
+     * @returns {Promise<void>}
+     */
+    async stop() {
+      await _fetch('/api/dashboard/live-video/stop', { method: 'POST' });
+    },
+
+    /**
+     * POST /api/dashboard/live-video/regenerate-key
+     * @returns {{ res: Response, data: { streamKey?: string, error?: string } }}
+     */
+    async regenerateKey() {
+      const res = await _fetch('/api/dashboard/live-video/regenerate-key', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      return { res, data };
+    },
+
+    /**
+     * GET /api/dashboard/live-video/settings
+     * @returns {{ minTier: 'subscriber'|'pro'|'all_access', notifyEnabled: boolean }}
+     */
+    settings() {
+      return _json('/api/dashboard/live-video/settings');
+    },
+
+    /**
+     * PUT /api/dashboard/live-video/settings
+     * @param {{ minTier?: string, notifyEnabled?: boolean }} body
+     * @returns {{ res: Response, data: object }}
+     */
+    updateSettings(body) {
+      return _send('/api/dashboard/live-video/settings', body, 'PUT');
     },
   },
 

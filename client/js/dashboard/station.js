@@ -46,6 +46,7 @@ export async function loadDashStation() {
   try {
     const data = await api.dashboard.station.get();
     renderSearchableControls(data);
+    if (data.cloudflareApiConfigured) loadCloudflareZones();
     if (!data.slug) {
       el('station-unclaimed').hidden   = false;
       el('station-reg-content').hidden = true;
@@ -64,6 +65,22 @@ export async function loadDashStation() {
 
     checkStationHealth();
   } catch {}
+}
+
+async function loadCloudflareZones() {
+  const section = el('cf-tunnel-section');
+  const select = el('cf-zone-select');
+  try {
+    const data = await api.dashboard.station.cloudflareZones();
+    if (data.error || !data.zones) {
+      section.hidden = true;
+      return;
+    }
+    select.innerHTML = data.zones.map(z => `<option value="${esc(z.id)}">${esc(z.name)}</option>`).join('');
+    section.hidden = false;
+  } catch {
+    section.hidden = true;
+  }
 }
 
 export async function checkStationHealth() {
@@ -138,6 +155,53 @@ export function initStationHandlers() {
     } else {
       msg.className   = 'dash-error-msg';
       msg.textContent = data.error || 'Update failed';
+    }
+  });
+
+  el('btn-save-cf-token').addEventListener('click', async () => {
+    const apiToken = el('cf-api-token-input').value.trim();
+    const msg = el('cf-token-msg');
+    if (!apiToken) return;
+    msg.textContent = '';
+    msg.className = '';
+    const { res, data } = await api.dashboard.station.saveCloudflareToken(apiToken);
+    if (res.ok) {
+      msg.className   = 'dash-success-msg';
+      msg.textContent = 'Token saved and verified.';
+      el('cf-api-token-input').value = '';
+      loadCloudflareZones();
+    } else {
+      msg.className   = 'dash-error-msg';
+      msg.textContent = data.error || 'Could not verify token';
+    }
+  });
+
+  el('btn-auto-tunnel').addEventListener('click', async () => {
+    const zoneId = el('cf-zone-select').value;
+    const hostname = el('cf-hostname-input').value.trim();
+    const msg = el('cf-tunnel-msg');
+    const result = el('cf-tunnel-result');
+    if (!zoneId || !hostname) return;
+    msg.textContent = '';
+    msg.className = '';
+    result.hidden = true;
+    const button = el('btn-auto-tunnel');
+    button.disabled = true;
+    try {
+      const { res, data } = await api.dashboard.station.autoCreateTunnel(zoneId, hostname);
+      if (res.ok) {
+        msg.className   = 'dash-success-msg';
+        msg.textContent = `Tunnel created for ${data.url}.`;
+        result.hidden = false;
+        result.textContent = `Connector token: ${data.tunnelToken} — ${data.note || ''}`;
+        el('station-public-url').textContent = data.url;
+        checkStationHealth();
+      } else {
+        msg.className   = 'dash-error-msg';
+        msg.textContent = data.error || 'Could not create tunnel';
+      }
+    } finally {
+      button.disabled = false;
     }
   });
 }

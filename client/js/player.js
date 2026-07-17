@@ -9,13 +9,11 @@
  *   #on-air-text               (color)
  *   #art-box                   (border, background)
  *   .pulse-ring (all)          (borderColor)
- *   #lib-btn                   (color, background, border)
+ *   #share-btn                 (color, background, border)
  *   #queue-btn                 (color, background, border)
- *   #share-tab-label           (color, textContent)
- *   #auth-badge                (class: visible)
  *   #type-badge                (display, background, textContent)
  *   #live-tab-dot              (display)
- *   #real-video-toggle-wrap    (hidden)
+ *   #real-video-toggle-wrap    (hidden, class: open)
  *   #back-live-btn             (display)
  *   #track-title               (textContent)
  *   #track-creator             (textContent)
@@ -34,12 +32,8 @@
  *   #waveform                  (innerHTML, class: disabled — via renderWaveform)
  *   #time-elapsed              (textContent, color, opacity)
  *   #time-remain               (textContent)
- *   #lib-drawer                (maxHeight — via setDrawer)
- *   #queue-drawer              (maxHeight — via setDrawer)
- *   #share-drawer              (maxHeight — via setDrawer)
- *   #share-tab                 (class: locked)
- *   #account-tab-label         (textContent)
- *   #share-chevron             (transform)
+ *   #queue-drawer              (maxHeight — via setDrawer, class: open)
+ *   #share-drawer              (maxHeight — via setDrawer, class: open)
  *
  * DOM nodes touched by renderArtBack():
  *   #art-back                  (background, borderColor)
@@ -61,13 +55,13 @@
  *   #skip-prev       click → skipTrack(-1)
  *   #skip-next       click → skipTrack(1)
  *   #back-live-btn   click → goLive
- *   #lib-btn         click → toggleDrawer('lib')
+ *   #share-btn       click → toggleShare
  *   #queue-btn       click → toggleDrawer('queue')
- *   #share-area      click → toggleShare
- *   #account-area    click → open share + scroll to auth-toggle
  *   #waveform        click → seekWaveform
  *   #art-flip        click → flip art card / renderArtBack
  *   #fullscreen-btn  click → toggleFullscreen
+ *   #real-video-toggle-wrap  click → stopPropagation (main.js)
+ *   #real-video-tab-handle   click → toggle 'open' class (main.js)
  *   .view-tab (all)  click → switch PLAY/STUDIO view
  *   #pw-wordmark-text mousedown/touchstart/up/leave → long-press enterDashboard,
  *                     short press → station-directory search field (main.js)
@@ -226,18 +220,13 @@ function setColor(c) {
   el('art-box').style.border     = `1px solid ${c}22`;
   el('art-box').style.background = `linear-gradient(135deg, ${c}18 0%, #0a0a0a 60%)`;
   document.querySelectorAll('.pulse-ring').forEach(r => r.style.borderColor = c);
-  ['lib-btn', 'queue-btn'].forEach(id => {
+  ['share-btn', 'queue-btn'].forEach(id => {
     const btn    = el(id);
-    const active = (id === 'lib-btn' && state.showLib) || (id === 'queue-btn' && state.showQueue);
+    const active = (id === 'share-btn' && state.showShare) || (id === 'queue-btn' && state.showQueue);
     btn.style.color      = active ? c : 'rgba(255,255,255,.35)';
     btn.style.background = active ? `${c}22` : 'none';
     btn.style.border     = active ? `1px solid ${c}44` : '1px solid transparent';
   });
-  el('share-tab-label').style.color =
-    state.showShare && state.sharePanel === 'share' ? c : 'rgba(255,255,255,.25)';
-  el('account-tab-label').style.color =
-    state.showShare && state.sharePanel === 'account' ? c : 'rgba(255,255,255,.25)';
-  el('auth-badge').classList.toggle('visible', authState.loggedIn);
 }
 
 // ── Waveform ──────────────────────────────────────────────────────────────────────
@@ -278,11 +267,15 @@ export function render() {
   }
 
   // live indicator dot above the PLAY tab
-  el('live-tab-dot').style.display = !state.track ? 'block' : 'none';
+  el('live-tab-dot').style.display = !state.track ? 'inline-block' : 'none';
 
   // real-video toggle — only relevant for the live video stream, never previews
   const rvWrap = el('real-video-toggle-wrap');
-  if (rvWrap) rvWrap.hidden = state.isPreview || t.type !== 'video';
+  if (rvWrap) {
+    const rvHidden = state.isPreview || t.type !== 'video';
+    rvWrap.hidden = rvHidden;
+    if (rvHidden) rvWrap.classList.remove('open');
+  }
 
   // fullscreen button — only when a video surface is actually on screen
   el('fullscreen-btn').style.display = t.type === 'video' ? 'flex' : 'none';
@@ -345,27 +338,13 @@ export function render() {
   // waveform disabled on live or preview (no seek)
   el('waveform').classList.toggle('disabled', !state.track || state.isPreview);
 
-  // drawers
-  setDrawer('lib-drawer',   state.showLib);
+  // drawers — queue (transport-row button) and share (transport-row button).
+  // Posts is no longer a drawer; it lives in the bottom ticker + "see more" modal.
   setDrawer('queue-drawer', state.showQueue);
-  const shareOpen = state.showShare && !state.showLib && !state.showQueue;
-  const sharePanel = state.sharePanel === 'account' ? 'account' : 'share';
+  const shareOpen = state.showShare && !state.showQueue;
   setDrawer('share-drawer', shareOpen);
-  el('lib-drawer').classList.toggle('open', state.showLib);
   el('queue-drawer').classList.toggle('open', state.showQueue);
   el('share-drawer').classList.toggle('open', shareOpen);
-  el('share-drawer').dataset.panel = sharePanel;
-
-  // share tab
-  const shareUnlocked = !state.showLib && !state.showQueue;
-  el('share-tab').classList.toggle('locked', !shareUnlocked);
-  el('share-tab').classList.toggle('open', state.showShare && shareUnlocked);
-  el('share-area').classList.toggle('active', shareOpen && sharePanel === 'share');
-  el('account-area').classList.toggle('active', shareOpen && sharePanel === 'account');
-  el('share-tab-label').textContent    = shareOpen && sharePanel === 'share' ? 'CLOSE' : 'SHARE';
-  el('account-tab-label').textContent  = shareOpen && sharePanel === 'account' ? 'CLOSE' : 'ACCOUNT';
-  el('share-chevron').style.transform  =
-    shareOpen && sharePanel === 'share' ? 'rotate(180deg)' : 'none';
 
   setColor(t.color);
 }
@@ -497,7 +476,7 @@ function stopOnDemand() {
 
 function playPreview(t) {
   stopPreview();
-  Object.assign(state, { track: { ...t, isPreview: true }, progress: 0, elapsed: 0, isPreview: true, showLib: false });
+  Object.assign(state, { track: { ...t, isPreview: true }, progress: 0, elapsed: 0, isPreview: true, showShare: false });
   render();
   const src = `/api/library/${t.id}/preview`;
   if (t.type === 'video') {
@@ -615,7 +594,7 @@ export async function playOnDemand(t, { nextUp = false } = {}) {
     elapsed: 0,
     isPreview: false,
     playing: false,
-    showLib: false,
+    showShare: false,
   });
   render();
 
@@ -718,26 +697,17 @@ export function seekWaveform(e) {
 // ── Drawers / share ───────────────────────────────────────────────────────────────
 
 export function toggleDrawer(which) {
-  if (which === 'lib') {
-    state.showLib   = !state.showLib;
-    state.showQueue = false;
-    if (state.showLib) state.showShare = false;
-  } else {
-    state.showQueue = !state.showQueue;
-    state.showLib   = false;
-    if (state.showQueue) { state.showShare = false; _loadQueue(); }
-  }
+  // Only the queue drawer remains a toggleable drawer (posts moved to the ticker/
+  // modal; share is its own toggle below). Kept parameterized for call sites.
+  void which;
+  state.showQueue = !state.showQueue;
+  if (state.showQueue) { state.showShare = false; _loadQueue(); }
   render();
 }
 
 export function toggleShare() {
-  if (state.showLib || state.showQueue) return;
-  if (state.showShare && state.sharePanel === 'share') {
-    state.showShare = false;
-  } else {
-    state.showShare = true;
-    state.sharePanel = 'share';
-  }
+  if (state.showQueue) return;
+  state.showShare = !state.showShare;
   render();
 }
 

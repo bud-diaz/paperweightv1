@@ -5,10 +5,12 @@
 // Everything here is best-effort and fire-and-forget: a dead webhook or SMTP
 // hiccup must never break going live or publishing a post.
 
+const http = require('http');
+const https = require('https');
 const { getDb, log } = require('../db');
 const { getSetting, getBoolSetting } = require('../db/settings');
 const { isEmailConfigured, sendMail } = require('../email');
-const { resolvesToBlockedAddress } = require('../runtime/net-guard');
+const { resolveSafeAddress } = require('../runtime/net-guard');
 const config = require('../config');
 
 const WEBHOOK_TIMEOUT_MS = 10_000;
@@ -23,7 +25,9 @@ function stationName() {
 
 // POSTs { content, username } to the configured webhook URL. Refuses URLs that
 // resolve to private/reserved addresses so the owner-set value can't be used
-// to probe the server's own network.
+// to probe the server's own network. The connection is pinned to the address
+// validated here (see resolveSafeAddress) rather than letting the HTTP client
+// re-resolve the hostname, closing a DNS-rebinding TOCTOU gap.
 async function postWebhook(content) {
   const url = getSetting('notify_webhook_url');
   if (!url) return false;
@@ -39,18 +43,31 @@ async function postWebhook(content) {
     log('warn', 'notify', `notify_webhook_url has unsupported protocol ${parsed.protocol}`);
     return false;
   }
-  if (await resolvesToBlockedAddress(parsed.hostname)) {
+  const safeAddress = await resolveSafeAddress(parsed.hostname);
+  if (!safeAddress) {
     log('warn', 'notify', 'notify_webhook_url resolves to a private or reserved address; not sending');
     return false;
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content, username: stationName() }),
-    signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
+  const body = JSON.stringify({ content, username: stationName() });
+  const lib = parsed.protocol === 'https:' ? https : http;
+
+  await new Promise((resolve, reject) => {
+    const req = lib.request(parsed, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      timeout: WEBHOOK_TIMEOUT_MS,
+      lookup: (_hostname, _options, cb) => cb(null, safeAddress.address, safeAddress.family),
+    }, res => {
+      res.resume();
+      if (res.statusCode >= 200 && res.statusCode < 300) resolve();
+      else reject(new Error(`webhook responded HTTP ${res.statusCode}`));
+    });
+    req.on('timeout', () => req.destroy(new Error('webhook request timed out')));
+    req.on('error', reject);
+    req.write(body);
+    req.end();
   });
-  if (!res.ok) throw new Error(`webhook responded HTTP ${res.status}`);
   return true;
 }
 
@@ -66,6 +83,14 @@ function fireWebhook(content, context) {
 function liveStarted() {
   if (!getBoolSetting('notify_live_enabled', true)) return;
   fireWebhook(`🔴 ${stationName()} is live now — listen at ${stationUrl()}`, 'go-live');
+}
+
+// Called when an RTMP encoder connects to the (paid-tier) live video feature.
+// Separate setting from notify_live_enabled so creators can silence video-live
+// announcements independently of the audio-only live feature.
+function liveVideoStarted() {
+  if (!getBoolSetting('notify_live_video_enabled', true)) return;
+  fireWebhook(`🔴 ${stationName()} is live on video now — watch at ${stationUrl()}`, 'go-live-video');
 }
 
 // Emails of listeners with an active subscription (the audience that opted into
@@ -127,4 +152,4 @@ function mediaReleased(media) {
   fireWebhook(`📀 ${stationName()} released: ${title} — ${stationUrl()}`, 'media-release');
 }
 
-module.exports = { liveStarted, postPublished, mediaReleased, postWebhook, supporterEmails };
+module.exports = { liveStarted, liveVideoStarted, postPublished, mediaReleased, postWebhook, supporterEmails };

@@ -9,7 +9,11 @@ const { startScanner, stopScanner } = require('./scanner');
 const releaseScheduler = require('./release/scheduler');
 const broadcast = require('./broadcast');
 const live = require('./broadcast/live');
+const liveVideo = require('./broadcast/liveVideo');
 const apiRouter = require('./api/router');
+const { attachTier } = require('./auth/middleware');
+const { meetsMinTier } = require('./auth/access');
+const { getSetting } = require('./db/settings');
 const { csrfCheck } = require('./middleware/csrfCheck');
 const asyncHandler = require('./middleware/asyncHandler');
 const { getFFmpegStatus } = require('./runtime/ffmpeg');
@@ -21,6 +25,7 @@ const isBundledRuntime = isPackaged || process.env.PAPERWEIGHT_DESKTOP_RUNTIME =
 let server;
 let isShuttingDown = false;
 let fatalExitCode = 0;
+let devReloadCleanup = null;
 
 function hlsAssetPath() {
   return path.join(config.paths.app, 'node_modules', 'hls.js', 'dist', 'hls.min.js');
@@ -129,6 +134,15 @@ function relaxCspForListen(req, res, next) {
   next();
 }
 
+// Gate for the paid-tier live video HLS output. This — not the frontend CTA —
+// is the actual access boundary: every .m3u8 and .ts segment request under
+// /hls/live-video is tier-checked here before express.static ever serves it.
+function requireLiveVideoAccess(req, res, next) {
+  const minTier = getSetting('live_video_min_tier') || 'subscriber';
+  if (meetsMinTier(req.tier, minTier)) return next();
+  res.status(403).json({ error: 'Subscriber access required to watch live video' });
+}
+
 function createApp() {
   const app = express();
   if (config.trustProxy !== false) {
@@ -153,8 +167,49 @@ function createApp() {
   app.use(cookieParser());
   app.use(csrfCheck);
 
+  const devReload = process.env.PAPERWEIGHT_DEV_RELOAD === 'true'
+    ? require('./dev/live-reload').installDevReload(app, {
+        watchPaths: [
+          path.join(config.paths.app, 'client'),
+          path.join(config.paths.app, 'landing'),
+        ],
+      })
+    : null;
+  if (devReload) devReloadCleanup = devReload.close;
+
+  function sendHtmlFile(res, filePath) {
+    if (!devReload) return res.sendFile(filePath);
+
+    fs.readFile(filePath, 'utf8', (err, html) => {
+      if (err) {
+        const status = err.code === 'ENOENT' ? 404 : 500;
+        return res.status(status).type('text/plain').send(
+          status === 404 ? 'File not found' : 'Failed to read HTML file'
+        );
+      }
+      res.setHeader('Cache-Control', 'no-store');
+      res.type('html').send(devReload.injectHtml(html));
+    });
+  }
+
+  function sendCreatorHtml(res) {
+    const override = path.join(config.paths.root, 'client', 'creator.html');
+    if (fs.existsSync(override)) return sendHtmlFile(res, override);
+    if (isBundledRuntime) {
+      const entry = require('./client-bundle')['/creator.html'];
+      if (entry) {
+        const html = devReload ? devReload.injectHtml(entry.data.toString('utf8')) : entry.data;
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.end(html);
+      }
+    }
+    return sendHtmlFile(res, path.join(config.paths.app, 'client', 'creator.html'));
+  }
+
   app.use('/hls/stream', express.static(path.join(config.paths.hlsOutput, 'stream')));
   app.use('/hls/live',   express.static(path.join(config.paths.hlsOutput, 'live')));
+  app.use('/hls/live-video', attachTier, requireLiveVideoAccess,
+    express.static(path.join(config.paths.hlsOutput, 'live-video')));
 
   app.get('/vendor/hls.min.js', (req, res) => {
     if (isBundledRuntime) {
@@ -188,6 +243,12 @@ function createApp() {
 
   app.use('/api', apiRouter);
 
+  if (devReload) {
+    app.get(['/', '/creator.html'], (req, res) => {
+      sendCreatorHtml(res);
+    });
+  }
+
   // User-side overrides (files placed next to the exe) take precedence.
   app.use(express.static(path.join(config.paths.root, 'client')));
   // In packaged builds asset globs don't work with node20; serve from the JS bundle.
@@ -206,15 +267,16 @@ function createApp() {
   // frameable CSP. Overrides next to the exe win, then bundle, then app files.
   app.get('/embed', relaxCspForEmbed, (req, res) => {
     const override = path.join(config.paths.root, 'client', 'embed.html');
-    if (fs.existsSync(override)) return res.sendFile(override);
+    if (fs.existsSync(override)) return sendHtmlFile(res, override);
     if (isBundledRuntime) {
       const entry = require('./client-bundle')['/embed.html'];
       if (entry) {
+        const html = devReload ? devReload.injectHtml(entry.data.toString('utf8')) : entry.data;
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.end(entry.data);
+        return res.end(html);
       }
     }
-    res.sendFile(path.join(config.paths.app, 'client', 'embed.html'));
+    sendHtmlFile(res, path.join(config.paths.app, 'client', 'embed.html'));
   });
 
   app.get('/landing', (req, res) => {
@@ -229,11 +291,12 @@ function createApp() {
       if (isBundledRuntime) {
         const entry = require('./client-bundle')[bundleKey];
         if (entry) {
+          const html = devReload ? devReload.injectHtml(entry.data.toString('utf8')) : entry.data;
           res.setHeader('Content-Type', entry.mime);
-          return res.end(entry.data);
+          return res.end(html);
         }
       }
-      res.sendFile(path.join(config.paths.app, 'landing', diskFile));
+      sendHtmlFile(res, path.join(config.paths.app, 'landing', diskFile));
     };
   }
   app.get('/landing/license',               relaxCspForLanding, serveLanding('/landing/license.html',               'license.html'));
@@ -273,19 +336,6 @@ function createApp() {
     res.send(svg);
   });
 
-  function sendCreatorHtml(res) {
-    const override = path.join(config.paths.root, 'client', 'creator.html');
-    if (fs.existsSync(override)) return res.sendFile(override);
-    if (isBundledRuntime) {
-      const entry = require('./client-bundle')['/creator.html'];
-      if (entry) {
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.end(entry.data);
-      }
-    }
-    return res.sendFile(path.join(config.paths.app, 'client', 'creator.html'));
-  }
-
   app.get('/share/:token', (req, res) => {
     sendCreatorHtml(res);
   });
@@ -319,6 +369,14 @@ function fatalShutdown(kind, err) {
     console.error('[FATAL] Shutdown after fatal error failed:', shutdownErr);
     process.exit(1);
   }
+}
+
+function finishShutdown() {
+  closeDb();
+  process.exitCode = fatalExitCode;
+  setTimeout(() => {
+    process.exit(fatalExitCode);
+  }, 500).unref();
 }
 
 async function start() {
@@ -401,24 +459,46 @@ function shutdown() {
   isShuttingDown = true;
 
   try { log('info', 'server', 'Shutting down...'); } catch {}
-  live.stopLive();
-  broadcast.stop();
-  stopScanner();
-  releaseScheduler.stop();
 
-  if (server) {
-    server.close(() => {
+  const forceTimer = setTimeout(() => {
+    console.error('[WARN] Graceful shutdown timed out, forcing exit');
+    process.exit(fatalExitCode || 1);
+  }, 5000);
+  forceTimer.unref();
+
+  return Promise.resolve()
+    .then(async () => {
+      live.stopLive();
+      liveVideo.stopLive();
+      broadcast.stop();
+      releaseScheduler.stop();
+
+      const cleanupTasks = [Promise.resolve(stopScanner())];
+      if (devReloadCleanup) {
+        cleanupTasks.push(Promise.resolve().then(devReloadCleanup));
+        devReloadCleanup = null;
+      }
+      await Promise.allSettled(cleanupTasks);
+    })
+    .then(() => {
+      if (!server) {
+        finishShutdown();
+        return;
+      }
+
+      return new Promise(resolve => {
+        server.close(() => {
+          finishShutdown();
+          resolve();
+        });
+      });
+    })
+    .catch(err => {
+      console.error('[ERROR] Shutdown failed:', err);
+      clearTimeout(forceTimer);
       closeDb();
-      process.exit(fatalExitCode);
-    });
-    setTimeout(() => {
-      console.error('[WARN] Graceful shutdown timed out, forcing exit');
       process.exit(fatalExitCode || 1);
-    }, 5000).unref();
-  } else {
-    closeDb();
-    process.exit(fatalExitCode);
-  }
+    });
 }
 
 if (require.main === module) {

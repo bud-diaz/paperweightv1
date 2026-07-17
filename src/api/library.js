@@ -4,7 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { getDb } = require('../db');
-const { isSubscriberTier, canAccessMedia, canDownloadMedia, allAccessTierIncludesVault, hasScopedVaultAccess } = require('../auth/access');
+const { isSubscriberTier, canAccessMedia, canDownloadMedia, allAccessTierIncludesVault, hasScopedVaultAccess, isEmailVerificationOk } = require('../auth/access');
 const { effectiveTierForTokenRow } = require('../auth/middleware');
 const config = require('../config');
 const { ffmpegPath, installHint } = require('../runtime/ffmpeg');
@@ -161,7 +161,7 @@ function buildOwnershipContext(req) {
   const ctx = {
     tier: req.tier,
     tokenRow: req.tokenRow || null,
-    subscriberVault: isSubscriberTier(req.tier) && allAccessTierIncludesVault(),
+    subscriberVault: isSubscriberTier(req.tier) && allAccessTierIncludesVault() && isEmailVerificationOk(req),
     allAccess: false,
     trackIds: new Set(),
     projectIds: new Set(),

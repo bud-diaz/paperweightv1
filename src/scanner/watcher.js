@@ -90,14 +90,16 @@ function onRemove(filepath) {
 
 function stopWatcher() {
   if (watcherInstance) {
-    watcherInstance.close();
+    const watcher = watcherInstance;
     watcherInstance = null;
     for (const job of pendingFiles.values()) {
       if (job.timer) clearTimeout(job.timer);
     }
     pendingFiles.clear();
     log('info', 'scanner', 'Watcher stopped');
+    return watcher.close();
   }
+  return Promise.resolve();
 }
 
 module.exports = { startWatcher, stopWatcher };

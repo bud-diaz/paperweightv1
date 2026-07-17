@@ -2,7 +2,9 @@ const router = require('express').Router();
 const crypto = require('crypto');
 const broadcast = require('../broadcast');
 const live = require('../broadcast/live');
+const liveVideo = require('../broadcast/liveVideo');
 const { getDb, log } = require('../db');
+const { getSetting } = require('../db/settings');
 
 // In-memory listener sessions keyed by anonymous listener hash.
 // Sessions expire after 60s with no ping.
@@ -132,10 +134,16 @@ function recordPing(req) {
 router.get('/status', (req, res) => {
   const state = broadcast.getState();
   const liveState = live.getLiveState();
+  const liveVideoState = liveVideo.getLiveVideoState();
   res.json({
     ...state,
     liveActive: liveState.isLive,
     liveStartedAt: liveState.startedAt,
+    videoLive: {
+      active: liveVideoState.isLive,
+      startedAt: liveVideoState.startedAt,
+      minTier: getSetting('live_video_min_tier') || 'subscriber',
+    },
     listenerCount: getListenerCount(),
   });
 });
