@@ -34,6 +34,14 @@ function renderSearchableControls(data) {
   }
 }
 
+function renderTelemetryStatus(configured) {
+  const status = el('pape-secret-status');
+  if (!status) return;
+  status.textContent = configured
+    ? 'Configured — reporting to system.pape.'
+    : 'Not configured — the paperweighthq.com vanity URL and directory listing will not work.';
+}
+
 function describeFailedChecks(checks = {}) {
   const failed = [];
   if (checks.cloudflareTunnel === false) failed.push('Cloudflare tunnel token missing');
@@ -46,6 +54,7 @@ export async function loadDashStation() {
   try {
     const data = await api.dashboard.station.get();
     renderSearchableControls(data);
+    renderTelemetryStatus(data.telemetryConfigured);
     if (data.cloudflareApiConfigured) loadCloudflareZones();
     if (!data.slug) {
       el('station-unclaimed').hidden   = false;
@@ -173,6 +182,24 @@ export function initStationHandlers() {
     } else {
       msg.className   = 'dash-error-msg';
       msg.textContent = data.error || 'Could not verify token';
+    }
+  });
+
+  el('btn-save-pape-secret').addEventListener('click', async () => {
+    const secret = el('pape-secret-input').value.trim();
+    const msg = el('pape-secret-msg');
+    if (!secret) return;
+    msg.textContent = '';
+    msg.className = '';
+    const { res, data } = await api.dashboard.station.saveTelemetrySecret(secret);
+    if (res.ok) {
+      msg.className   = 'dash-success-msg';
+      msg.textContent = data.note || 'Secret saved. Restart Paperweight to start reporting.';
+      el('pape-secret-input').value = '';
+      renderTelemetryStatus(true);
+    } else {
+      msg.className   = 'dash-error-msg';
+      msg.textContent = data.error || 'Could not save secret';
     }
   });
 

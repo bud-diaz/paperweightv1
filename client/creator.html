@@ -599,6 +599,16 @@
                 <div id="cf-tunnel-msg"></div>
                 <div id="cf-tunnel-result" hidden style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.5);padding:4px 0;word-break:break-all;"></div>
               </div>
+              <div class="dash-edit-label" style="margin-top:14px;">SYSTEM.PAPE TELEMETRY (OPTIONAL)</div>
+              <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;">
+                Required for your paperweighthq.com vanity URL and public directory listing to resolve. Paste the shared secret Paperweight HQ gave you.
+              </div>
+              <div class="station-update-row">
+                <input type="password" class="dash-input dash-input-sm" id="pape-secret-input" placeholder="Telemetry shared secret"/>
+                <button class="mgmt-btn" id="btn-save-pape-secret">SAVE</button>
+              </div>
+              <div id="pape-secret-status" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;"></div>
+              <div id="pape-secret-msg"></div>
             </div>
             <div class="dash-edit-label" style="margin-top:14px;">EXPORTS &amp; BACKUP</div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">

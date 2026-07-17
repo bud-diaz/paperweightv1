@@ -745,6 +745,7 @@ router.get('/station', (req, res) => {
         publicUrlSet: false,
       },
       cloudflareApiConfigured,
+      telemetryConfigured: config.telemetry.secretConfigured,
     });
   }
 
@@ -759,6 +760,7 @@ router.get('/station', (req, res) => {
       publicUrlSet: !!(row && row.url),
     },
     cloudflareApiConfigured,
+    telemetryConfigured: config.telemetry.secretConfigured,
   });
 });
 
@@ -983,6 +985,31 @@ router.post('/station/cloudflare/auto-tunnel', requireDesktop, asyncHandler(asyn
     note: 'Run `cloudflared service install <token>` with the tunnelToken above (see CLOUDFLARE_SETUP.md), then restart Paperweight.',
   });
 }));
+
+// PUT /api/dashboard/station/telemetry/secret
+// Body: { secret }
+// Persists PAPE_TELEMETRY_SECRET (and PAPE_URL, defaulting to the hosted
+// system.pape instance) to .env. src/telemetry/reporter.js reads both as
+// module-level constants at boot, so this only takes effect after a restart —
+// same restart-required shape as the Cloudflare auto-tunnel flow above.
+router.put('/station/telemetry/secret', requireDesktop, (req, res) => {
+  const { secret } = req.body || {};
+  if (!secret || typeof secret !== 'string' || !secret.trim() || /[\r\n#]/.test(secret)) {
+    return res.status(400).json({ error: 'secret is required' });
+  }
+  const cleanSecret = secret.trim();
+
+  updateEnvKey('PAPE_TELEMETRY_SECRET', cleanSecret);
+  updateEnvKey('PAPE_URL', config.telemetry.url);
+  config.telemetry.secretConfigured = true;
+
+  log('info', 'dashboard', 'system.pape telemetry secret saved');
+  res.json({
+    ok: true,
+    restartRequired: true,
+    note: 'Restart Paperweight for telemetry reporting (and your paperweighthq.com vanity URL) to start working.',
+  });
+});
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

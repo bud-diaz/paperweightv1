@@ -249,6 +249,15 @@ const config = {
     cloudflareApiToken: (process.env.CLOUDFLARE_API_TOKEN || '').trim(),
   },
 
+  // system.pape telemetry (src/telemetry/reporter.js) — required for the
+  // <slug>.paperweighthq.com vanity URL and public directory listing to
+  // resolve. `url` always falls back to the hosted instance so the dashboard
+  // only needs to collect the shared secret from the creator.
+  telemetry: {
+    url: (process.env.PAPE_URL || 'https://system.paperweighthq.com').trim(),
+    secretConfigured: !!(process.env.PAPE_TELEMETRY_SECRET && process.env.PAPE_TELEMETRY_SECRET.trim()),
+  },
+
   externalSearch: {
     youtubeApiKey:      process.env.YOUTUBE_API_KEY      || '',
     soundcloudClientId: process.env.SOUNDCLOUD_CLIENT_ID || '',
