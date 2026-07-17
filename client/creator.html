@@ -601,14 +601,20 @@
               </div>
               <div class="dash-edit-label" style="margin-top:14px;">SYSTEM.PAPE TELEMETRY (OPTIONAL)</div>
               <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;">
-                Required for your paperweighthq.com vanity URL and public directory listing to resolve. Paste the shared secret Paperweight HQ gave you.
+                Required for your paperweighthq.com vanity URL and public directory listing to resolve.
               </div>
               <div class="station-update-row">
-                <input type="password" class="dash-input dash-input-sm" id="pape-secret-input" placeholder="Telemetry shared secret"/>
-                <button class="mgmt-btn" id="btn-save-pape-secret">SAVE</button>
+                <button class="mgmt-btn" id="btn-register-pape">REGISTER</button>
               </div>
               <div id="pape-secret-status" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;"></div>
               <div id="pape-secret-msg"></div>
+              <details style="margin-top:6px;">
+                <summary style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);cursor:pointer;">Already have a secret? Paste it manually.</summary>
+                <div class="station-update-row" style="margin-top:6px;">
+                  <input type="password" class="dash-input dash-input-sm" id="pape-secret-input" placeholder="Telemetry secret"/>
+                  <button class="mgmt-btn" id="btn-save-pape-secret">SAVE</button>
+                </div>
+              </details>
             </div>
             <div class="dash-edit-label" style="margin-top:14px;">EXPORTS &amp; BACKUP</div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">

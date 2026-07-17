@@ -633,6 +633,15 @@ export const dashboard = {
     saveTelemetrySecret(secret) {
       return _send('/api/dashboard/station/telemetry/secret', { secret }, 'PUT');
     },
+
+    /**
+     * POST /api/dashboard/station/telemetry/register — self-serve: generates a secret
+     * locally and registers it with system.pape for this station's slug.
+     * @returns {{ res: Response, data: { error?: string, restartRequired?: boolean, note?: string } }}
+     */
+    registerTelemetry() {
+      return _send('/api/dashboard/station/telemetry/register', {}, 'POST');
+    },
   },
 
   /**

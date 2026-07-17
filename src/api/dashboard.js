@@ -19,6 +19,7 @@ const { probe } = require('../scanner/probe');
 const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCode } = require('../auth/totp');
 const { getFFmpegStatus } = require('../runtime/ffmpeg');
 const cloudflareApi = require('../runtime/cloudflare');
+const telemetryReporter = require('../telemetry/reporter');
 const asyncHandler = require('../middleware/asyncHandler');
 const { clearArtworkCache, ARTWORK_DIR } = require('./library');
 const { isBroadcastPlayableTrack } = require('../broadcast/playlist');
@@ -1010,6 +1011,51 @@ router.put('/station/telemetry/secret', requireDesktop, (req, res) => {
     note: 'Restart Paperweight for telemetry reporting (and your paperweighthq.com vanity URL) to start working.',
   });
 });
+
+// POST /api/dashboard/station/telemetry/register
+// Self-serve alternative to pasting a secret by hand: generates a random
+// secret locally, hands it to system.pape's /register endpoint bound to this
+// station's slug (trust-on-first-use, same first-come-wins rule as slug
+// claiming on `ingest` — see docs/system-pape-directory.md), then persists it
+// exactly like the manual-paste route above.
+router.post('/station/telemetry/register', requireDesktop, asyncHandler(async (req, res) => {
+  if (!config.station.slug) {
+    return res.status(409).json({ error: 'Claim a station slug first' });
+  }
+
+  const stationKey = telemetryReporter.getStationKey();
+  const secret = crypto.randomBytes(32).toString('hex');
+
+  let response;
+  try {
+    response = await fetch(new NodeURL('/api/modules/paperweight/register', config.telemetry.url), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: config.station.slug, stationKey, secret }),
+    });
+  } catch (err) {
+    return res.status(502).json({ error: `Could not reach system.pape: ${err.message}` });
+  }
+
+  if (response.status === 409) {
+    const body = await response.json().catch(() => ({}));
+    return res.status(409).json({ error: body.error || 'Slug already registered by another station' });
+  }
+  if (!response.ok) {
+    return res.status(502).json({ error: `system.pape registration failed (HTTP ${response.status})` });
+  }
+
+  updateEnvKey('PAPE_TELEMETRY_SECRET', secret);
+  updateEnvKey('PAPE_URL', config.telemetry.url);
+  config.telemetry.secretConfigured = true;
+
+  log('info', 'dashboard', 'Registered with system.pape telemetry');
+  res.json({
+    ok: true,
+    restartRequired: true,
+    note: 'Restart Paperweight for telemetry reporting (and your paperweighthq.com vanity URL) to start working.',
+  });
+}));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
