@@ -56,7 +56,6 @@ export async function loadDashStation() {
     el('station-reg-content').hidden = false;
     el('station-public-url').textContent    = data.url || '';
     el('station-url-input').placeholder     = data.url || 'https://radio.yoursite.com';
-    el('cf-hostname-input').placeholder     = data.slug ? `${data.slug}.paperweighthq.com` : 'e.g. yourslug.paperweighthq.com';
 
     el('btn-copy-url').onclick = () => {
       navigator.clipboard?.writeText(data.url).catch(() => {});
