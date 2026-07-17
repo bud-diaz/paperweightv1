@@ -34,6 +34,24 @@ function renderSearchableControls(data) {
   }
 }
 
+function renderTelemetryControls(data) {
+  const btn = el('btn-register-telemetry');
+  const msg = el('telemetry-register-msg');
+  if (!btn) return;
+  msg.textContent = '';
+  msg.className = '';
+
+  if (!data.telemetryConfigured) {
+    btn.disabled = true;
+    msg.textContent = 'Set PAPE_URL in .env to enable telemetry before registering.';
+  } else if (!data.slug) {
+    btn.disabled = true;
+    msg.textContent = 'Set STATION_SLUG in .env and restart before registering.';
+  } else {
+    btn.disabled = false;
+  }
+}
+
 function describeFailedChecks(checks = {}) {
   const failed = [];
   if (checks.cloudflareTunnel === false) failed.push('Cloudflare tunnel token missing');
@@ -46,6 +64,7 @@ export async function loadDashStation() {
   try {
     const data = await api.dashboard.station.get();
     renderSearchableControls(data);
+    renderTelemetryControls(data);
     if (data.cloudflareApiConfigured) loadCloudflareZones();
     if (!data.slug) {
       el('station-unclaimed').hidden   = false;
@@ -155,6 +174,32 @@ export function initStationHandlers() {
     } else {
       msg.className   = 'dash-error-msg';
       msg.textContent = data.error || 'Update failed';
+    }
+  });
+
+  el('btn-register-telemetry').addEventListener('click', async () => {
+    const btn = el('btn-register-telemetry');
+    const msg = el('telemetry-register-msg');
+    msg.textContent = '';
+    msg.className = '';
+    btn.disabled = true;
+    const prevText = btn.textContent;
+    btn.textContent = 'REGISTERING…';
+    try {
+      const { res, data } = await api.dashboard.station.registerTelemetrySecret();
+      if (res.ok) {
+        msg.className   = 'dash-success-msg';
+        msg.textContent = data.note || 'Registered. Restart Paperweight to use the new secret.';
+      } else {
+        msg.className   = 'dash-error-msg';
+        msg.textContent = data.error || 'Registration failed';
+      }
+    } catch {
+      msg.className   = 'dash-error-msg';
+      msg.textContent = 'Registration failed';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prevText;
     }
   });
 

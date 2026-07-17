@@ -624,6 +624,15 @@ export const dashboard = {
     autoCreateTunnel(zoneId, hostname) {
       return _send('/api/dashboard/station/cloudflare/auto-tunnel', { zoneId, hostname }, 'POST');
     },
+
+    /**
+     * POST /api/dashboard/station/telemetry/register — generate + register a
+     * per-station telemetry secret with system.pape, replacing the shared one.
+     * @returns {{ res: Response, data: { error?: string, slug?: string, restartRequired?: boolean, note?: string } }}
+     */
+    registerTelemetrySecret() {
+      return _send('/api/dashboard/station/telemetry/register', {}, 'POST');
+    },
   },
 
   /**

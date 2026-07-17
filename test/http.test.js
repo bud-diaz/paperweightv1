@@ -230,6 +230,142 @@ test('telemetry reporter includes directory searchability per payload', async ()
   assert.equal(payload.searchable, true);
 });
 
+test('telemetry secret registration: registers with system.pape, persists secret, surfaces 409', async () => {
+  freshDb();
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN, 'Content-Type': 'application/json' } };
+  const reporterPath = require.resolve('../src/telemetry/reporter');
+  const originalPlatform = config.platform;
+  const originalSlug = config.station.slug;
+  const originalRoot = config.paths.root;
+  const originalPapeUrl = process.env.PAPE_URL;
+  const originalSecret = process.env.PAPE_TELEMETRY_SECRET;
+  const originalStationKey = process.env.STATION_KEY;
+
+  const received = [];
+  let conflictMode = false;
+  const stub = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      if (req.method === 'POST' && req.url === '/api/modules/paperweight/register') {
+        received.push(JSON.parse(body || '{}'));
+        if (conflictMode) {
+          res.statusCode = 409;
+          return res.end(JSON.stringify({ error: 'slug already registered by another station' }));
+        }
+        return res.end(JSON.stringify({ ok: true }));
+      }
+      res.statusCode = 404;
+      res.end('{}');
+    });
+  });
+  await new Promise(resolve => stub.listen(0, '127.0.0.1', resolve));
+
+  // Point config.paths.root at a throwaway dir with a .env so updateEnvKey has a
+  // real file to persist into without touching the repo's own .env.
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-env-'));
+  fs.writeFileSync(path.join(tmpRoot, '.env'), 'PAPE_URL=placeholder\n');
+
+  try {
+    config.platform = 'desktop';
+    config.station.slug = 'verify-station';
+    config.paths.root = tmpRoot;
+    process.env.PAPE_URL = `http://127.0.0.1:${stub.address().port}`;
+    process.env.STATION_KEY = 'verify-station-key';
+    delete process.env.PAPE_TELEMETRY_SECRET;
+    // Re-require the reporter so getStationKey picks up STATION_KEY set above.
+    delete require.cache[reporterPath];
+
+    await withServer(async baseUrl => {
+      const ok = await request(baseUrl, '/api/dashboard/station/telemetry/register', {
+        method: 'POST',
+        headers: auth.headers,
+        body: JSON.stringify({}),
+      });
+      assert.equal(ok.res.status, 200);
+      assert.equal(ok.body.ok, true);
+      assert.equal(ok.body.restartRequired, true);
+
+      assert.equal(received.length, 1);
+      assert.equal(received[0].slug, 'verify-station');
+      assert.equal(received[0].stationKey, 'verify-station-key');
+      assert.match(received[0].secret, /^[a-f0-9]{64}$/);
+
+      // Secret persisted to .env and to the live process env.
+      assert.equal(process.env.PAPE_TELEMETRY_SECRET, received[0].secret);
+      const envContent = fs.readFileSync(path.join(tmpRoot, '.env'), 'utf8');
+      assert.ok(envContent.includes(`PAPE_TELEMETRY_SECRET=${received[0].secret}`));
+
+      // A slug owned by another station surfaces as a 409 (not persisted).
+      conflictMode = true;
+      const conflict = await request(baseUrl, '/api/dashboard/station/telemetry/register', {
+        method: 'POST',
+        headers: auth.headers,
+        body: JSON.stringify({}),
+      });
+      assert.equal(conflict.res.status, 409);
+      assert.match(conflict.body.error, /already registered/);
+    });
+  } finally {
+    stub.close();
+    config.platform = originalPlatform;
+    config.station.slug = originalSlug;
+    config.paths.root = originalRoot;
+    if (originalPapeUrl === undefined) delete process.env.PAPE_URL; else process.env.PAPE_URL = originalPapeUrl;
+    if (originalSecret === undefined) delete process.env.PAPE_TELEMETRY_SECRET; else process.env.PAPE_TELEMETRY_SECRET = originalSecret;
+    if (originalStationKey === undefined) delete process.env.STATION_KEY; else process.env.STATION_KEY = originalStationKey;
+    delete require.cache[reporterPath];
+    try { fs.rmSync(tmpRoot, { recursive: true, force: true }); } catch {}
+  }
+});
+
+test('telemetry secret registration requires desktop, telemetry config, and a slug', async () => {
+  freshDb();
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN, 'Content-Type': 'application/json' } };
+  const originalPlatform = config.platform;
+  const originalSlug = config.station.slug;
+  const originalPapeUrl = process.env.PAPE_URL;
+
+  try {
+    // Not desktop → 403 from requireDesktop.
+    config.platform = 'web';
+    await withServer(async baseUrl => {
+      const webRes = await request(baseUrl, '/api/dashboard/station/telemetry/register', {
+        method: 'POST', headers: auth.headers, body: JSON.stringify({}),
+      });
+      assert.equal(webRes.res.status, 403);
+    });
+
+    config.platform = 'desktop';
+
+    // Desktop but PAPE_URL unset → 409.
+    delete process.env.PAPE_URL;
+    config.station.slug = 'verify-station';
+    await withServer(async baseUrl => {
+      const noPape = await request(baseUrl, '/api/dashboard/station/telemetry/register', {
+        method: 'POST', headers: auth.headers, body: JSON.stringify({}),
+      });
+      assert.equal(noPape.res.status, 409);
+      assert.match(noPape.body.error, /PAPE_URL/);
+    });
+
+    // Desktop + PAPE_URL but no slug → 409.
+    process.env.PAPE_URL = 'https://system.example.com';
+    config.station.slug = '';
+    await withServer(async baseUrl => {
+      const noSlug = await request(baseUrl, '/api/dashboard/station/telemetry/register', {
+        method: 'POST', headers: auth.headers, body: JSON.stringify({}),
+      });
+      assert.equal(noSlug.res.status, 409);
+      assert.match(noSlug.body.error, /STATION_SLUG/);
+    });
+  } finally {
+    config.platform = originalPlatform;
+    config.station.slug = originalSlug;
+    if (originalPapeUrl === undefined) delete process.env.PAPE_URL; else process.env.PAPE_URL = originalPapeUrl;
+  }
+});
+
 test('station searchability route enforces desktop and enable requirements', async () => {
   const db = freshDb();
   const { getSetting, setSetting } = require('../src/db/settings');

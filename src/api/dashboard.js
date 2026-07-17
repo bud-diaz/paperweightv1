@@ -745,6 +745,7 @@ router.get('/station', (req, res) => {
         publicUrlSet: false,
       },
       cloudflareApiConfigured,
+      telemetryConfigured: !!(process.env.PAPE_URL || '').trim(),
     });
   }
 
@@ -759,6 +760,7 @@ router.get('/station', (req, res) => {
       publicUrlSet: !!(row && row.url),
     },
     cloudflareApiConfigured,
+    telemetryConfigured: !!(process.env.PAPE_URL || '').trim(),
   });
 });
 
@@ -863,6 +865,78 @@ router.put('/station/searchable', requireDesktop, asyncHandler(async (req, res) 
   setSetting('station_searchable', '1');
   log('info', 'dashboard', 'Station directory searchability enabled');
   res.json({ ok: true, searchable: true, checks });
+}));
+
+// POST /api/dashboard/station/telemetry/register
+// Generates a fresh per-station telemetry secret, registers its hash with
+// system.pape for this station's slug (trust-on-first-use), and persists the
+// secret to .env as PAPE_TELEMETRY_SECRET. Replaces the shared-secret model
+// where every station's .env held the same secret that could forge ingest for
+// any slug. The running reporter keeps sending the old secret until the next
+// restart; system.pape accepts both during that transition.
+router.post('/station/telemetry/register', requireDesktop, asyncHandler(async (req, res) => {
+  const papeUrl = (process.env.PAPE_URL || '').trim();
+  if (!papeUrl) {
+    return res.status(409).json({ error: 'Telemetry is not configured. Set PAPE_URL in .env first.' });
+  }
+
+  const slug = (config.station.slug || '').trim();
+  if (!slug) {
+    return res.status(409).json({ error: 'Set STATION_SLUG in .env and restart before registering a telemetry secret.' });
+  }
+  const slugCheck = validateSlug(slug);
+  if (!slugCheck.valid) {
+    return res.status(400).json({ error: slugCheck.reason });
+  }
+
+  let endpoint;
+  try {
+    endpoint = new NodeURL('/api/modules/paperweight/register', papeUrl);
+  } catch {
+    return res.status(400).json({ error: 'PAPE_URL is not a valid URL' });
+  }
+  if (endpoint.protocol !== 'http:' && endpoint.protocol !== 'https:') {
+    return res.status(400).json({ error: 'PAPE_URL must be http(s)' });
+  }
+
+  // Same station key the telemetry reporter sends on ingest, so the registered
+  // hash is keyed to the identity system.pape will see reporting.
+  const { getStationKey } = require('../telemetry/reporter')._private;
+  const stationKey = getStationKey();
+  const secret = crypto.randomBytes(32).toString('hex');
+
+  let response;
+  try {
+    response = await fetch(endpoint.href, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, stationKey, secret }),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch (err) {
+    return res.status(502).json({ error: `Could not reach system.pape: ${err.message}` });
+  }
+
+  if (response.status === 409) {
+    const body = await response.json().catch(() => ({}));
+    return res.status(409).json({ error: body.error || 'Slug already registered by another station' });
+  }
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    return res.status(502).json({ error: body.error || `Registration failed (${response.status})` });
+  }
+
+  // Persist only after system.pape has accepted and stored the hash.
+  updateEnvKey('PAPE_TELEMETRY_SECRET', secret);
+  process.env.PAPE_TELEMETRY_SECRET = secret;
+
+  log('info', 'dashboard', `Telemetry secret registered with system.pape for slug "${slug}"`);
+  res.json({
+    ok: true,
+    slug,
+    restartRequired: true,
+    note: 'Registered. Restart Paperweight so telemetry starts using the new per-station secret.',
+  });
 }));
 
 // ─── Cloudflare API-token automation (optional) ───────────────────────────────
