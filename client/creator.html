@@ -10,6 +10,7 @@
   <meta name="mobile-web-app-capable" content="yes"/>
   <link rel="manifest" href="/manifest.json"/>
   <link rel="apple-touch-icon" href="/icon.png"/>
+  <link rel="icon" type="image/png" href="/favicon.png"/>
   <title>Paperweight Player</title>
   <!-- Fonts vendored locally (client/vendor/fonts/) — no runtime CDN dependency. -->
   <link rel="stylesheet" href="/vendor/fonts/fonts.css"/>
@@ -599,6 +600,22 @@
                 <div id="cf-tunnel-msg"></div>
                 <div id="cf-tunnel-result" hidden style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.5);padding:4px 0;word-break:break-all;"></div>
               </div>
+              <div class="dash-edit-label" style="margin-top:14px;">SYSTEM.PAPE TELEMETRY (OPTIONAL)</div>
+              <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;">
+                Required for your paperweighthq.com vanity URL and public directory listing to resolve.
+              </div>
+              <div class="station-update-row">
+                <button class="mgmt-btn" id="btn-register-pape">REGISTER</button>
+              </div>
+              <div id="pape-secret-status" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;"></div>
+              <div id="pape-secret-msg"></div>
+              <details style="margin-top:6px;">
+                <summary style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);cursor:pointer;">Already have a secret? Paste it manually.</summary>
+                <div class="station-update-row" style="margin-top:6px;">
+                  <input type="password" class="dash-input dash-input-sm" id="pape-secret-input" placeholder="Telemetry secret"/>
+                  <button class="mgmt-btn" id="btn-save-pape-secret">SAVE</button>
+                </div>
+              </details>
             </div>
             <div class="dash-edit-label" style="margin-top:14px;">EXPORTS &amp; BACKUP</div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">
