@@ -179,6 +179,10 @@ function start() {
 
 module.exports = {
   start,
+  // Reused by the dashboard's telemetry self-registration flow
+  // (src/api/dashboard.js) so the stationKey it sends to system.pape's
+  // /register endpoint always matches what report() will send later.
+  getStationKey,
   _private: {
     buildPayload,
     getStationKey,

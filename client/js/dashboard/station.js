@@ -34,6 +34,20 @@ function renderSearchableControls(data) {
   }
 }
 
+function renderTelemetryStatus(configured, hasSlug) {
+  const status = el('pape-secret-status');
+  const registerBtn = el('btn-register-pape');
+  if (!status) return;
+  if (configured) {
+    status.textContent = 'Configured — reporting to system.pape.';
+  } else if (!hasSlug) {
+    status.textContent = 'Claim a station slug first to register.';
+  } else {
+    status.textContent = 'Not configured — the paperweighthq.com vanity URL and directory listing will not work.';
+  }
+  if (registerBtn) registerBtn.disabled = !hasSlug;
+}
+
 function describeFailedChecks(checks = {}) {
   const failed = [];
   if (checks.cloudflareTunnel === false) failed.push('Cloudflare tunnel token missing');
@@ -46,6 +60,7 @@ export async function loadDashStation() {
   try {
     const data = await api.dashboard.station.get();
     renderSearchableControls(data);
+    renderTelemetryStatus(data.telemetryConfigured, !!data.slug);
     if (data.cloudflareApiConfigured) loadCloudflareZones();
     if (!data.slug) {
       el('station-unclaimed').hidden   = false;
@@ -173,6 +188,45 @@ export function initStationHandlers() {
     } else {
       msg.className   = 'dash-error-msg';
       msg.textContent = data.error || 'Could not verify token';
+    }
+  });
+
+  el('btn-register-pape').addEventListener('click', async () => {
+    const button = el('btn-register-pape');
+    const msg = el('pape-secret-msg');
+    msg.textContent = '';
+    msg.className = '';
+    button.disabled = true;
+    try {
+      const { res, data } = await api.dashboard.station.registerTelemetry();
+      if (res.ok) {
+        msg.className   = 'dash-success-msg';
+        msg.textContent = data.note || 'Registered. Restart Paperweight to start reporting.';
+        renderTelemetryStatus(true, true);
+      } else {
+        msg.className   = 'dash-error-msg';
+        msg.textContent = data.error || 'Could not register with system.pape';
+      }
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  el('btn-save-pape-secret').addEventListener('click', async () => {
+    const secret = el('pape-secret-input').value.trim();
+    const msg = el('pape-secret-msg');
+    if (!secret) return;
+    msg.textContent = '';
+    msg.className = '';
+    const { res, data } = await api.dashboard.station.saveTelemetrySecret(secret);
+    if (res.ok) {
+      msg.className   = 'dash-success-msg';
+      msg.textContent = data.note || 'Secret saved. Restart Paperweight to start reporting.';
+      el('pape-secret-input').value = '';
+      renderTelemetryStatus(true);
+    } else {
+      msg.className   = 'dash-error-msg';
+      msg.textContent = data.error || 'Could not save secret';
     }
   });
 

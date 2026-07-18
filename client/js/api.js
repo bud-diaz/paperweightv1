@@ -624,6 +624,24 @@ export const dashboard = {
     autoCreateTunnel(zoneId, hostname) {
       return _send('/api/dashboard/station/cloudflare/auto-tunnel', { zoneId, hostname }, 'POST');
     },
+
+    /**
+     * PUT /api/dashboard/station/telemetry/secret — save the system.pape telemetry shared secret.
+     * @param {string} secret
+     * @returns {{ res: Response, data: { error?: string, restartRequired?: boolean, note?: string } }}
+     */
+    saveTelemetrySecret(secret) {
+      return _send('/api/dashboard/station/telemetry/secret', { secret }, 'PUT');
+    },
+
+    /**
+     * POST /api/dashboard/station/telemetry/register — self-serve: generates a secret
+     * locally and registers it with system.pape for this station's slug.
+     * @returns {{ res: Response, data: { error?: string, restartRequired?: boolean, note?: string } }}
+     */
+    registerTelemetry() {
+      return _send('/api/dashboard/station/telemetry/register', {}, 'POST');
+    },
   },
 
   /**
