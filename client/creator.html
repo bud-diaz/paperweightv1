@@ -1313,9 +1313,28 @@
           <div class="dash-divider"></div>
 
           <!-- Payments -->
-          <div class="dash-section">
+          <div class="dash-section" id="dash-payment-section">
             <div class="dash-section-label">PAYMENTS</div>
             <div id="dash-payment-status"></div>
+
+            <div class="dash-edit-label" style="margin-top:14px;">STRIPE</div>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-stripe-secret-key" type="password" autocomplete="off" placeholder="sk_live_… or sk_test_…"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-stripe-webhook-secret" type="password" autocomplete="off" placeholder="whsec_…"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-stripe-price-subscriber" type="text" autocomplete="off" placeholder="Subscriber price ID — price_…"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-stripe-price-pro" type="text" autocomplete="off" placeholder="Pro price ID — price_…"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-stripe-price-all-access" type="text" autocomplete="off" placeholder="All-Access price ID — price_…"/>
+
+            <div class="dash-edit-label" style="margin-top:14px;">PAYPAL</div>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-paypal-client-id" type="text" autocomplete="off" placeholder="Client ID"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-paypal-client-secret" type="password" autocomplete="off" placeholder="Client secret"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-paypal-plan-pro" type="text" autocomplete="off" placeholder="Pro plan ID"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-paypal-plan-all-access" type="text" autocomplete="off" placeholder="All-Access plan ID"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-paypal-webhook-id" type="text" autocomplete="off" placeholder="Webhook ID"/>
+
+            <div class="dash-form-row">
+              <span id="pay-msg" class="dash-inline-msg"></span>
+              <button class="mgmt-btn" id="pay-save-btn">SAVE PAYMENT SETTINGS</button>
+            </div>
           </div>
 
           <div class="dash-divider"></div>
