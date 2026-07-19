@@ -1,0 +1,18 @@
+{
+  "name": "paperweight-ios",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Paperweight iOS discovery hub app (Capacitor wrapper around the public station directory)",
+  "scripts": {
+    "add:ios": "cap add ios",
+    "icons": "node scripts/generate-icons.js",
+    "sync": "cap sync ios",
+    "open": "cap open ios"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0",
+    "@capacitor/preferences": "^6.0.3"
+  }
+}

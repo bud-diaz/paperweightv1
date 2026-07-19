@@ -67,6 +67,22 @@
     playing = next;
     playBtn.innerHTML = playing ? '&#10074;&#10074;' : '&#9654;';
     playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+    }
+  }
+
+  function updateMediaSessionMetadata() {
+    if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: nowEl.textContent || (liveActive ? 'Live broadcast' : 'Off air'),
+      artist: stationEl.textContent || 'Paperweight',
+    });
+  }
+
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('play', function () { playBtn.click(); });
+    navigator.mediaSession.setActionHandler('pause', function () { playBtn.click(); });
   }
 
   playBtn.addEventListener('click', function () {
@@ -95,6 +111,7 @@
         nowEl.textContent = liveActive
           ? 'Live broadcast'
           : [np.artist, np.title].filter(Boolean).join(' — ') || 'Off air';
+        updateMediaSessionMetadata();
         if (playing && (wasLive !== liveActive || wasVideo !== isVideo)) {
           attach(currentUrl());
           currentMedia().play().catch(function () {});
@@ -105,7 +122,10 @@
 
   fetch('/api/health')
     .then(function (r) { return r.json(); })
-    .then(function (h) { if (h.station) stationEl.textContent = h.station; })
+    .then(function (h) {
+      if (h.station) stationEl.textContent = h.station;
+      updateMediaSessionMetadata();
+    })
     .catch(function () {});
 
   refreshStatus();

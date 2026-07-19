@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Paperweight</title>
+<style>
+  :root{color-scheme:dark;--bg:#0a0a0a;--panel:#111;--text:#f4f1e8;--t-mid:rgba(244,241,232,.68);--t-muted:rgba(244,241,232,.44);--border:rgba(244,241,232,.12);--accent:#39ff14;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+
+  header{padding:calc(env(safe-area-inset-top,0px) + 14px) 18px 10px;flex:0 0 auto}
+  header h1{font-size:22px;margin:0 0 12px;font-weight:700;letter-spacing:-.01em}
+  .search{width:100%;border:1px solid var(--border);background:#050505;color:var(--text);border-radius:10px;padding:12px 14px;font-size:15px;outline:none}
+  .search:focus{border-color:rgba(57,255,20,.5)}
+
+  main{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 18px 12px}
+  .section-heading{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--t-muted);margin:14px 0 8px}
+  .state{padding:40px 10px;text-align:center;color:var(--t-muted);font-size:14px;line-height:1.6}
+  .row{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;color:var(--text);font:inherit;cursor:pointer}
+  .row:active{border-color:rgba(57,255,20,.4)}
+  .row-top{display:flex;align-items:center;gap:8px}
+  .row-name{font-size:16px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .live-badge{font-size:9px;font-weight:700;letter-spacing:.08em;color:#000;background:var(--accent);border-radius:3px;padding:2px 6px;white-space:nowrap}
+  .offline-badge{font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--t-muted);border:1px solid var(--border);border-radius:3px;padding:2px 6px;white-space:nowrap}
+  .row-meta{font-size:12px;color:var(--t-mid);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  #dock{flex:0 0 auto;border-top:1px solid var(--border);background:#0d0d0d;padding-bottom:env(safe-area-inset-bottom,0px)}
+  #dock[hidden]{display:none}
+  #dock-head{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+  #dock-name{font-size:14px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #dock-slug{font-size:11px;color:var(--t-muted);margin-top:2px}
+  #dock-state{font-size:11px;color:#ff8080;padding:0 14px 8px}
+  #dock-state[hidden]{display:none}
+  #frame-wrap{overflow:hidden;max-height:0;transition:max-height .2s ease}
+  #dock.expanded #frame-wrap{max-height:140px}
+  #station-frame{display:block;width:100%;height:120px;border:0;margin:0 14px 12px;background:#050505;border-radius:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Paperweight</h1>
+  <input id="query" class="search" type="search" autocomplete="off" placeholder="Search stations" enterkeyhint="search">
+</header>
+<main id="results"></main>
+<div id="dock" hidden>
+  <div id="dock-head">
+    <div>
+      <div id="dock-name"></div>
+      <div id="dock-slug"></div>
+    </div>
+  </div>
+  <div id="dock-state" hidden></div>
+  <div id="frame-wrap"><iframe id="station-frame" title="Station player" allow="autoplay"></iframe></div>
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>

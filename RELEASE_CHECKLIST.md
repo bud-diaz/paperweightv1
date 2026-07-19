@@ -164,6 +164,28 @@ Manual QA before publishing:
    to the main window (no setup wizard) and the station configured in step 2/3
    persists.
 
+## iOS App Packaging
+
+The iOS app (`ios-app/`) is a native Capacitor wrapper around the public
+station directory — a discovery hub, not a per-station build. See
+`ios-app/README.md` for the full prerequisites, build/run process, the
+one-time manual Info.plist/AppDelegate edits for background audio, and the
+TestFlight/App Store archive steps. Building it requires a Mac with Xcode and
+CocoaPods; it cannot be built or verified from this repo's own CI or from a
+non-macOS machine.
+
+Manual QA before publishing, on a Mac:
+
+1. `cd ios-app && npm install && npx cap add ios && npm run icons` and copy
+   the generated icon into `Assets.xcassets` per the README.
+2. Apply the Info.plist/AppDelegate edits, `npx cap sync ios`, `npx cap open ios`.
+3. Run on Simulator: confirm the Browse view lists stations, search works,
+   selecting a station plays audio.
+4. Background the app and confirm audio keeps playing; lock the device/
+   Simulator and confirm Now Playing controls appear.
+5. Select an unreachable/offline station and confirm the app shows an
+   explicit "station offline" state rather than a blank player.
+
 ## Do Not Ship If
 
 - `npm run release:check` fails.
