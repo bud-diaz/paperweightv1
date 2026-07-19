@@ -5,7 +5,7 @@ the parts that hold up, cuts the parts that don't match what's actually shippabl
 12 months, and resolves the open risks the original draft left silent. Pair this with
 `Paperweight_ROADMAP.md` (feature sequencing) and `docs/PRODUCT_OVERVIEW.md` (what ships today).
 
-## Positioning (kept as-is)
+## Positioning
 
 "Own your server, get effortless discovery, keep built-in monetization" is a real gap versus
 the field:
