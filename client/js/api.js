@@ -1329,25 +1329,49 @@ export const dashboard = {
     },
   },
 
-  // ── Live video (paid-tier, RTMP-only) broadcast ────────────────────────────────
+  // ── Live video (paid-tier) broadcast — RTMP/OBS or browser capture ─────────────
 
   liveVideo: {
     /**
      * GET /api/dashboard/live-video/status
-     * @returns {{ state: 'idle'|'pending'|'live', startedAt, rtmp: { url, streamKey, host, port } }}
+     * @returns {{ state: 'idle'|'pending'|'live', source: 'browser'|'rtmp'|null, startedAt, rtmp: { url, streamKey, host, port } }}
      */
     status() {
       return _json('/api/dashboard/live-video/status');
     },
 
     /**
-     * POST /api/dashboard/live-video/start
+     * POST /api/dashboard/live-video/start (RTMP/OBS)
      * @returns {{ res: Response, data: object }}
      */
     async start() {
       const res = await _fetch('/api/dashboard/live-video/start', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       return { res, data };
+    },
+
+    /**
+     * POST /api/dashboard/live-video/start-browser
+     * @returns {{ res: Response, data: object }}
+     */
+    async startBrowser() {
+      const res = await _fetch('/api/dashboard/live-video/start-browser', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      return { res, data };
+    },
+
+    /**
+     * POST /api/dashboard/live-video/chunk — send a MediaRecorder WebM chunk (Blob).
+     * Content-Type is octet-stream; body is the Blob from ondataavailable.
+     * @param {Blob} blob
+     * @returns {Response}
+     */
+    sendChunk(blob) {
+      return _fetch('/api/dashboard/live-video/chunk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: blob,
+      });
     },
 
     /**

@@ -1,15 +1,29 @@
-// Live video broadcast manager — RTMP (external encoder, e.g. OBS) ingest only.
+// Live video broadcast manager — two ingest sources feeding the same HLS
+// output: RTMP (external encoder, e.g. OBS) and browser capture (the
+// creator's own camera/mic, streamed as chunks over HTTP from the studio
+// dashboard). Only one source can be on-air at a time, mirroring the
+// mic/RTMP split already used by src/broadcast/live.js for the audio-only
+// live feature.
 //
 // Independent of src/broadcast/live.js (the existing audio-only live feature):
 // separate HLS output directory, state file, stream key, and RTMP port, so the
 // two features never collide and the existing free live-audio path is never
 // touched by this module.
 //
-// FFmpeg itself listens for a single inbound RTMP publish (-listen 1) on a
-// local/LAN port and transcodes video+audio to hls_output/live-video/.
+// RTMP: FFmpeg itself listens for a single inbound RTMP publish (-listen 1)
+// on a local/LAN port and transcodes video+audio to hls_output/live-video/.
 // "Started" only means the listener is open; "live" means an encoder has
 // actually connected (detected by scanning FFmpeg's stderr for the FLV input
-// header). Access to the resulting HLS output is tier-gated at the HTTP layer
+// header).
+//
+// Browser: the dashboard captures camera+mic via MediaRecorder and POSTs
+// fragmented WebM chunks to the server, which pipes them into FFmpeg's
+// stdin. There is no "pending" phase for this source — the browser IS the
+// encoder, so "live" starts the instant FFmpeg is spawned. A short watchdog
+// ends the broadcast if chunks stop arriving (crashed tab, dropped network),
+// since there's nothing to auto-reconnect to.
+//
+// Access to the resulting HLS output is tier-gated at the HTTP layer
 // (src/index.js), not here — this module only manages the ffmpeg process.
 
 const net = require('net');
@@ -30,6 +44,7 @@ const RTMP_WAIT_TIMEOUT_MS = 10 * 60 * 1000;
 const RTMP_CONNECT_RE = /^Input #0, flv/;
 const RTMP_PORT_SCAN_RANGE = 10;
 const RTMP_MAX_RECONNECT_ATTEMPTS = 5;
+const BROWSER_CHUNK_TIMEOUT_MS = 15 * 1000;
 
 // Counts consecutive auto-reconnect attempts that never reached a connected
 // encoder — guards against a tight respawn loop if FFmpeg keeps failing
@@ -39,8 +54,12 @@ let reconnectAttempts = 0;
 
 let state = {
   isLive: false,
+  source: null, // 'browser' | 'rtmp' | null
   startedAt: null,
   ffmpegProc: null,
+  stdinBackpressured: false,
+  pendingDrain: null,
+  browserWatchdog: null,
 
   rtmpPending: false,
   rtmpHost: null,
@@ -52,6 +71,7 @@ function writeLiveState() {
   try {
     writeJsonAtomic(STATE_PATH, {
       isLive: state.isLive,
+      source: state.source,
       startedAt: state.startedAt,
       rtmpPending: state.rtmpPending,
       updatedAt: new Date().toISOString(),
@@ -68,14 +88,42 @@ function clearRtmpWaitTimer() {
   }
 }
 
+function clearBackpressure() {
+  state.stdinBackpressured = false;
+  state.pendingDrain = null;
+}
+
+function clearBrowserWatchdog() {
+  if (state.browserWatchdog) {
+    clearTimeout(state.browserWatchdog);
+    state.browserWatchdog = null;
+  }
+}
+
+function armBrowserWatchdog() {
+  clearBrowserWatchdog();
+  state.browserWatchdog = setTimeout(() => {
+    log('info', 'live-video', 'No browser video chunk received in time; ending broadcast');
+    stopLive();
+  }, BROWSER_CHUNK_TIMEOUT_MS);
+  state.browserWatchdog.unref?.();
+}
+
+function resetBrowserWatchdog() {
+  if (state.source === 'browser' && state.isLive) armBrowserWatchdog();
+}
+
 function resetState() {
   clearRtmpWaitTimer();
+  clearBrowserWatchdog();
   state.isLive = false;
+  state.source = null;
   state.startedAt = null;
   state.ffmpegProc = null;
   state.rtmpPending = false;
   state.rtmpHost = null;
   state.rtmpPort = null;
+  clearBackpressure();
   writeLiveState();
 }
 
@@ -124,6 +172,99 @@ function buildRtmpArgs({ host, port, streamKey }) {
 
 function isConnectSignal(line) {
   return RTMP_CONNECT_RE.test(line.trim());
+}
+
+// ─── Browser capture source ───────────────────────────────────────────────
+
+// Reads a live, unbounded, fragmented WebM/Matroska byte stream from stdin
+// (a MediaRecorder in the browser POSTing chunks over HTTP) and transcodes
+// to the same HLS output shape the RTMP path produces. No -re: the browser
+// already paces itself in realtime, so FFmpeg should consume stdin as fast
+// as chunks arrive rather than rate-limiting itself.
+function buildBrowserArgs() {
+  const { hlsPath, segPath } = hlsOutputPaths();
+  return [
+    '-fflags', '+nobuffer+igndts',
+    '-analyzeduration', '2000000',
+    '-probesize', '2000000',
+    '-f', 'webm',
+    '-i', 'pipe:0',
+    '-c:v', 'libx264',
+    '-preset', 'veryfast',
+    '-tune', 'zerolatency',
+    '-crf', '23',
+    '-pix_fmt', 'yuv420p',
+    '-g', '60',
+    '-c:a', 'aac',
+    '-b:a', '128k',
+    '-ac', '2',
+    '-ar', '44100',
+    '-f', 'hls',
+    '-hls_time', '3',
+    '-hls_list_size', '6',
+    '-hls_flags', 'delete_segments+append_list',
+    '-hls_segment_filename', segPath,
+    hlsPath,
+  ];
+}
+
+function startLiveVideoBrowser() {
+  if (state.isLive || state.rtmpPending) throw new Error('Already live');
+
+  prepareLiveDir();
+  const args = buildBrowserArgs();
+
+  const proc = spawn(ffmpegPath, args, {
+    stdio: ['pipe', 'ignore', 'pipe'],
+    windowsHide: true,
+  });
+
+  attachStderrLogger(proc);
+
+  proc.stdin.on('error', err => {
+    log('warn', 'live-video', `FFmpeg stdin error: ${err.message}`);
+  });
+
+  attachLifecycleHandlers(proc);
+
+  state.isLive = true;
+  state.source = 'browser';
+  state.startedAt = new Date().toISOString();
+  state.ffmpegProc = proc;
+  clearBackpressure();
+  armBrowserWatchdog();
+  writeLiveState();
+  log('info', 'live-video', 'Live video broadcast started (browser)');
+  try {
+    require('../notify').liveVideoStarted();
+  } catch (err) {
+    log('warn', 'live-video', `notify.liveVideoStarted failed: ${err.message}`);
+  }
+}
+
+function pushVideoChunk(buffer) {
+  const proc = state.ffmpegProc;
+  if (state.source !== 'browser') return { ok: false, wrongSource: true };
+  if (!state.isLive || !proc || proc.stdin.destroyed) return { ok: false, inactive: true };
+  if (state.stdinBackpressured) return { ok: false, busy: true };
+  resetBrowserWatchdog();
+  try {
+    const accepted = proc.stdin.write(buffer);
+    if (accepted) return { ok: true, backpressure: false };
+    state.stdinBackpressured = true;
+    state.pendingDrain = new Promise(resolve => {
+      const done = () => {
+        if (state.ffmpegProc === proc) clearBackpressure();
+        resolve({ ok: true, backpressure: true });
+      };
+      proc.stdin.once('drain', done);
+      proc.once('close', done);
+    });
+    return state.pendingDrain;
+  } catch (err) {
+    log('warn', 'live-video', `Video write error: ${err.message}`);
+    return { ok: false, error: err.message };
+  }
 }
 
 // Finds a free TCP port starting at startPort by probing bind/close cycles.
@@ -185,8 +326,9 @@ function attachLifecycleHandlers(proc) {
     log('info', 'live-video', `FFmpeg exited (code ${code})`);
     if (state.ffmpegProc !== proc) return;
 
+    const wasRtmp = state.source === 'rtmp';
     const intentional = proc.paperweightIntentionalExit === true;
-    if (!intentional) {
+    if (wasRtmp && !intentional) {
       if (reconnectAttempts >= RTMP_MAX_RECONNECT_ATTEMPTS) {
         log('error', 'live-video', 'RTMP listener failed repeatedly; giving up automatic reconnect');
         reconnectAttempts = 0;
@@ -204,6 +346,8 @@ function attachLifecycleHandlers(proc) {
       return;
     }
 
+    // Browser-sourced processes never auto-reconnect: there's no listener to
+    // resume, the client must call start-browser again for a fresh broadcast.
     resetState();
   });
 }
@@ -222,6 +366,7 @@ async function startLiveVideoRtmp({ host, port } = {}) {
   // start/stop request can't land in the gap while we probe for a port.
   const myToken = ++startToken;
   state.isLive = false;
+  state.source = 'rtmp';
   state.rtmpPending = true;
   state.rtmpHost = targetHost;
   state.rtmpPort = requestedPort;
@@ -318,8 +463,10 @@ function stopLive() {
   if (!state.isLive && !state.rtmpPending) return;
   const proc = state.ffmpegProc;
   clearRtmpWaitTimer();
+  clearBrowserWatchdog();
   if (proc) {
     proc.paperweightIntentionalExit = true;
+    try { proc.stdin?.end(); } catch {}
     try { proc.kill('SIGTERM'); } catch (err) {
       log('warn', 'live-video', `Could not terminate live-video FFmpeg: ${err.message}`);
     }
@@ -339,6 +486,7 @@ function stopLive() {
 function getLiveVideoState() {
   return {
     isLive: state.isLive,
+    source: state.source,
     startedAt: state.startedAt,
     rtmpPending: state.rtmpPending,
     rtmpPort: state.rtmpPort,
@@ -351,10 +499,12 @@ function isLiveVideo() {
 
 module.exports = {
   startLiveVideoRtmp,
+  startLiveVideoBrowser,
+  pushVideoChunk,
   stopLive,
   getLiveVideoState,
   isLiveVideo,
   getRtmpConnectionInfo,
   regenerateStreamKey,
-  _private: { buildRtmpArgs, isConnectSignal, findFreeRtmpPort },
+  _private: { buildRtmpArgs, buildBrowserArgs, isConnectSignal, findFreeRtmpPort },
 };

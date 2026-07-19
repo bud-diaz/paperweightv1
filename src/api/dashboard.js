@@ -1405,10 +1405,15 @@ router.post('/broadcast/external/regenerate-key', requireDesktop, (req, res) => 
 });
 
 // ─── Live video (paid-tier) broadcast ─────────────────────────────────────────
-// Desktop-only for the same reason as the external audio encoder above: the
-// RTMP listener binds to the local machine/LAN. The min-tier/notify settings
-// stay available on the hosted web platform, though, so a creator can
-// configure them ahead of ever running the desktop app.
+// Two ingest sources feed the same tier-gated HLS output: RTMP (OBS) and
+// browser capture (camera/mic streamed from the studio dashboard). RTMP
+// start/regenerate-key stay desktop-only for the same reason as the external
+// audio encoder above: the RTMP listener binds to the local machine/LAN,
+// which only makes sense for a station run from the desktop app. Browser
+// capture, status, and stop work identically on both platforms — chunks
+// arrive over the same authenticated dashboard session (requireDashboard,
+// applied to this whole router), no new port involved. The min-tier/notify
+// settings have always been available on the hosted web platform too.
 
 function liveVideoState() {
   const liveState = liveVideo.getLiveVideoState();
@@ -1417,16 +1422,17 @@ function liveVideoState() {
 }
 
 // GET /api/dashboard/live-video/status
-router.get('/live-video/status', requireDesktop, (req, res) => {
+router.get('/live-video/status', (req, res) => {
   const liveState = liveVideo.getLiveVideoState();
   res.json({
     state: liveVideoState(),
+    source: liveState.source,
     startedAt: liveState.startedAt,
     rtmp: liveVideo.getRtmpConnectionInfo(),
   });
 });
 
-// POST /api/dashboard/live-video/start
+// POST /api/dashboard/live-video/start (RTMP/OBS)
 router.post('/live-video/start', requireDesktop, asyncHandler(async (req, res) => {
   const liveState = liveVideo.getLiveVideoState();
   if (liveState.isLive || liveState.rtmpPending) {
@@ -1440,13 +1446,58 @@ router.post('/live-video/start', requireDesktop, asyncHandler(async (req, res) =
   }
 }));
 
-// POST /api/dashboard/live-video/stop
-router.post('/live-video/stop', requireDesktop, (req, res) => {
+// POST /api/dashboard/live-video/start-browser
+router.post('/live-video/start-browser', (req, res) => {
+  const liveState = liveVideo.getLiveVideoState();
+  if (liveState.isLive || liveState.rtmpPending) {
+    return res.status(409).json({ error: 'A video broadcast is already live or pending' });
+  }
+  try {
+    liveVideo.startLiveVideoBrowser();
+    res.json({ ok: true, state: liveVideoState() });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/dashboard/live-video/chunk
+// Content-Type: application/octet-stream — a MediaRecorder Blob chunk (WebM)
+router.post('/live-video/chunk',
+  express.raw({ type: 'application/octet-stream', limit: '10mb' }),
+  asyncHandler(async (req, res) => {
+    if (!req.body || !req.body.length) {
+      return res.status(400).json({ error: 'Empty chunk' });
+    }
+    try {
+      const result = await liveVideo.pushVideoChunk(req.body);
+      if (result?.busy) {
+        res.setHeader('Retry-After', '1');
+        return res.status(429).json({ error: 'Live encoder busy' });
+      }
+      if (result?.inactive) {
+        return res.status(409).json({ error: 'Live video broadcast is not active' });
+      }
+      if (result?.wrongSource) {
+        return res.status(409).json({ error: 'Broadcast is not in browser-capture mode' });
+      }
+      if (result?.error) {
+        return res.status(500).json({ error: 'Live video write failed' });
+      }
+      res.json({ ok: true, backpressure: !!result?.backpressure });
+    } catch (err) {
+      log('error', 'dashboard', `Live video chunk failed: ${err.message}`);
+      res.status(500).json({ error: 'Live video write failed' });
+    }
+  }),
+);
+
+// POST /api/dashboard/live-video/stop — shared by either source
+router.post('/live-video/stop', (req, res) => {
   liveVideo.stopLive();
   res.json({ ok: true });
 });
 
-// POST /api/dashboard/live-video/regenerate-key
+// POST /api/dashboard/live-video/regenerate-key (RTMP/OBS only)
 router.post('/live-video/regenerate-key', requireDesktop, (req, res) => {
   try {
     const streamKey = liveVideo.regenerateStreamKey();
