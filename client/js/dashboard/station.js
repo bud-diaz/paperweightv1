@@ -4,6 +4,7 @@
 
 import * as api from '../api.js';
 import { el, esc } from '../utils.js';
+import { applyTunnelState } from './desktop-controls.js';
 
 export function init() {}
 
@@ -61,6 +62,7 @@ export async function loadDashStation() {
     const data = await api.dashboard.station.get();
     renderSearchableControls(data);
     renderTelemetryStatus(data.telemetryConfigured, !!data.slug);
+    applyTunnelState(data);
     if (data.cloudflareApiConfigured) loadCloudflareZones();
     if (!data.slug) {
       el('station-unclaimed').hidden   = false;

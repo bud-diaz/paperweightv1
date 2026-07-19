@@ -223,6 +223,8 @@
   font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .06em; color: var(--t1);
 }
 .desktop-power-dropdown-item:hover { background: var(--inset); }
+.desktop-power-dropdown-item:disabled { opacity: .35; cursor: not-allowed; }
+.desktop-power-dropdown-item:disabled:hover { background: none; }
 #topbar-settings { grid-column: 3; grid-row: 1; justify-self: end; }
 #topbar-right {
   grid-column: 3; grid-row: 2; justify-self: end; flex-shrink: 0;

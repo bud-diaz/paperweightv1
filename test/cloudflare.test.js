@@ -136,3 +136,40 @@ test('createDnsRoute stops and surfaces the error if the ingress config call fai
     server.close();
   }
 });
+
+test('pauseIngress replaces ingress with a single 503 catch-all', async () => {
+  const calls = [];
+  const { server, baseUrl } = await startFakeApi((req, res, body) => {
+    calls.push({ method: req.method, url: req.url, body });
+    res.end(JSON.stringify({ success: true, result: {} }));
+  });
+  try {
+    const out = await cf.pauseIngress('tok', 'acct123', 'tunnel-abc', baseUrl);
+    assert.equal(out.ok, true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].method, 'PUT');
+    assert.equal(calls[0].url, '/accounts/acct123/cfd_tunnel/tunnel-abc/configurations');
+    assert.deepEqual(calls[0].body.config.ingress, [{ service: 'http_status:503' }]);
+  } finally {
+    server.close();
+  }
+});
+
+test('resumeIngress restores the working hostname ingress', async () => {
+  const calls = [];
+  const { server, baseUrl } = await startFakeApi((req, res, body) => {
+    calls.push({ method: req.method, url: req.url, body });
+    res.end(JSON.stringify({ success: true, result: {} }));
+  });
+  try {
+    const out = await cf.resumeIngress('tok', 'acct123', 'tunnel-abc', 'radio.example.com', 3000, baseUrl);
+    assert.equal(out.ok, true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, '/accounts/acct123/cfd_tunnel/tunnel-abc/configurations');
+    assert.equal(calls[0].body.config.ingress[0].hostname, 'radio.example.com');
+    assert.equal(calls[0].body.config.ingress[0].service, 'http://localhost:3000');
+    assert.equal(calls[0].body.config.ingress[1].service, 'http_status:404');
+  } finally {
+    server.close();
+  }
+});
