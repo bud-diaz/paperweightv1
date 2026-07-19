@@ -240,6 +240,7 @@ body.radio-host-mode #vault-panel-tokens { display: none !important; }
 body.radio-host-mode #new-proj-pricing-block { display: none !important; }
 body.radio-host-mode .dash-proj-pricing { display: none !important; }
 body:not(.radio-host-mode) #dash-ext-search-section { display: none !important; }
+body:not(.radio-host-mode) .dash-card[data-section-key="dash-ext-search-section"] { display: none !important; }
 
 /* ── Anonymous station: monetization disabled, same as Radio Host mode ── */
 body.anonymous-mode #vsb-tokens { display: none !important; }
