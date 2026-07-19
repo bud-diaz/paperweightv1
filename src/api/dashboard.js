@@ -734,6 +734,12 @@ router.get('/station', (req, res) => {
   // to offer the auto-tunnel flow at all.
   const cloudflareApiConfigured = cloudflareApi.isCloudflareApiConfigured(config.station.cloudflareApiToken);
 
+  // Whether the dashboard has this tunnel's account/tunnel IDs on file —
+  // only true when it was created via the auto-tunnel flow — which gates
+  // whether the power button's connect/disconnect toggle can work at all.
+  const cloudflareTunnelManaged = !!(getSetting('cloudflare_tunnel_id') && getSetting('cloudflare_account_id'));
+  const cloudflareTunnelPaused = getBoolSetting('cloudflare_tunnel_paused', false);
+
   if (!row) {
     return res.json({
       slug: null,
@@ -746,6 +752,8 @@ router.get('/station', (req, res) => {
         publicUrlSet: false,
       },
       cloudflareApiConfigured,
+      cloudflareTunnelManaged,
+      cloudflareTunnelPaused,
       telemetryConfigured: config.telemetry.secretConfigured,
     });
   }
@@ -761,6 +769,8 @@ router.get('/station', (req, res) => {
       publicUrlSet: !!(row && row.url),
     },
     cloudflareApiConfigured,
+    cloudflareTunnelManaged,
+    cloudflareTunnelPaused,
     telemetryConfigured: config.telemetry.secretConfigured,
   });
 });
@@ -971,6 +981,14 @@ router.post('/station/cloudflare/auto-tunnel', requireDesktop, asyncHandler(asyn
   config.station.cloudflareTunnel = true;
   config.station.publicUrl = publicUrl;
 
+  // Recorded (DB-backed, no restart needed to take effect) so the dashboard
+  // power button's connect/disconnect toggle below can later re-point this
+  // exact tunnel's ingress without the owner re-entering anything.
+  setSetting('cloudflare_account_id', accountId);
+  setSetting('cloudflare_tunnel_id', tunnelId);
+  setSetting('cloudflare_tunnel_hostname', cleanHostname);
+  setSetting('cloudflare_tunnel_paused', '0');
+
   const db = getDb();
   const row = db.prepare('SELECT id FROM station_registry WHERE id = 1').get();
   if (row) {
@@ -985,6 +1003,61 @@ router.post('/station/cloudflare/auto-tunnel', requireDesktop, asyncHandler(asyn
     restartRequired: true,
     note: 'Run `cloudflared service install <token>` with the tunnelToken above (see CLOUDFLARE_SETUP.md), then restart Paperweight.',
   });
+}));
+
+// ─── Cloudflare tunnel connect/disconnect (dashboard power button) ────────────
+// Toggles public routing through the tunnel created above, via the same
+// Cloudflare API used by auto-tunnel — cloudflared itself keeps running and
+// connected, only whether it forwards traffic to this station changes. Only
+// works for tunnels created through the auto-tunnel flow above, since that's
+// the only case Paperweight has the tunnel/account IDs on file for.
+
+function requireManagedTunnel(req, res) {
+  const token = config.station.cloudflareApiToken;
+  if (!cloudflareApi.isCloudflareApiConfigured(token)) {
+    res.status(409).json({ error: 'Save a Cloudflare API token first' });
+    return null;
+  }
+  const accountId = getSetting('cloudflare_account_id');
+  const tunnelId = getSetting('cloudflare_tunnel_id');
+  if (!accountId || !tunnelId) {
+    res.status(409).json({
+      error: "This tunnel wasn't created through this dashboard, so it can't be toggled automatically. Manage it directly in the Cloudflare dashboard.",
+    });
+    return null;
+  }
+  return { token, accountId, tunnelId };
+}
+
+// POST /api/dashboard/station/cloudflare/tunnel/disconnect
+router.post('/station/cloudflare/tunnel/disconnect', requireDesktop, asyncHandler(async (req, res) => {
+  const managed = requireManagedTunnel(req, res);
+  if (!managed) return;
+
+  const result = await cloudflareApi.pauseIngress(managed.token, managed.accountId, managed.tunnelId);
+  if (!result.ok) {
+    return res.status(502).json({ error: result.error || 'Could not disconnect the tunnel' });
+  }
+
+  setSetting('cloudflare_tunnel_paused', '1');
+  log('info', 'dashboard', 'Cloudflare tunnel disconnected (public routing paused)');
+  res.json({ ok: true, paused: true });
+}));
+
+// POST /api/dashboard/station/cloudflare/tunnel/connect
+router.post('/station/cloudflare/tunnel/connect', requireDesktop, asyncHandler(async (req, res) => {
+  const managed = requireManagedTunnel(req, res);
+  if (!managed) return;
+
+  const hostname = getSetting('cloudflare_tunnel_hostname');
+  const result = await cloudflareApi.resumeIngress(managed.token, managed.accountId, managed.tunnelId, hostname, config.port);
+  if (!result.ok) {
+    return res.status(502).json({ error: result.error || 'Could not reconnect the tunnel' });
+  }
+
+  setSetting('cloudflare_tunnel_paused', '0');
+  log('info', 'dashboard', 'Cloudflare tunnel reconnected (public routing restored)');
+  res.json({ ok: true, paused: false });
 }));
 
 // PUT /api/dashboard/station/telemetry/secret

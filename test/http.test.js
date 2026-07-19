@@ -444,6 +444,79 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
   }
 });
 
+test('Cloudflare tunnel connect/disconnect routes require a dashboard-managed tunnel and toggle routing', async () => {
+  freshDb();
+  const { setSetting, getSetting } = require('../src/db/settings');
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN, 'Content-Type': 'application/json' } };
+  const originalPlatform = config.platform;
+  const originalApiToken = config.station.cloudflareApiToken;
+  const originalBaseUrl = process.env.CLOUDFLARE_API_BASE_URL;
+
+  const putCalls = [];
+  const stub = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      if (req.method === 'PUT' && req.url === '/accounts/acct1/cfd_tunnel/tunnel1/configurations') {
+        putCalls.push(JSON.parse(body));
+        return res.end(JSON.stringify({ success: true, result: {} }));
+      }
+      res.statusCode = 404;
+      res.end(JSON.stringify({ success: false, errors: [{ message: 'not stubbed' }] }));
+    });
+  });
+  await new Promise(resolve => stub.listen(0, '127.0.0.1', resolve));
+
+  try {
+    config.platform = 'desktop';
+    process.env.CLOUDFLARE_API_BASE_URL = `http://127.0.0.1:${stub.address().port}`;
+    config.station.cloudflareApiToken = 'good-token';
+
+    await withServer(async baseUrl => {
+      // No tunnel/account ID on file yet — a hand-configured token can't be toggled.
+      const unmanaged = await request(baseUrl, '/api/dashboard/station/cloudflare/tunnel/disconnect', {
+        method: 'POST', headers: auth.headers, body: '{}',
+      });
+      assert.equal(unmanaged.res.status, 409);
+
+      const station1 = await request(baseUrl, '/api/dashboard/station', auth);
+      assert.equal(station1.body.cloudflareTunnelManaged, false);
+
+      setSetting('cloudflare_account_id', 'acct1');
+      setSetting('cloudflare_tunnel_id', 'tunnel1');
+      setSetting('cloudflare_tunnel_hostname', 'radio.example.com');
+      setSetting('cloudflare_tunnel_paused', '0');
+
+      const station2 = await request(baseUrl, '/api/dashboard/station', auth);
+      assert.equal(station2.body.cloudflareTunnelManaged, true);
+      assert.equal(station2.body.cloudflareTunnelPaused, false);
+
+      const disconnect = await request(baseUrl, '/api/dashboard/station/cloudflare/tunnel/disconnect', {
+        method: 'POST', headers: auth.headers, body: '{}',
+      });
+      assert.equal(disconnect.res.status, 200);
+      assert.equal(disconnect.body.paused, true);
+      assert.equal(getSetting('cloudflare_tunnel_paused'), '1');
+      assert.deepEqual(putCalls[0].config.ingress, [{ service: 'http_status:503' }]);
+
+      const connect = await request(baseUrl, '/api/dashboard/station/cloudflare/tunnel/connect', {
+        method: 'POST', headers: auth.headers, body: '{}',
+      });
+      assert.equal(connect.res.status, 200);
+      assert.equal(connect.body.paused, false);
+      assert.equal(getSetting('cloudflare_tunnel_paused'), '0');
+      assert.equal(putCalls[1].config.ingress[0].hostname, 'radio.example.com');
+      assert.equal(putCalls[1].config.ingress[0].service, `http://localhost:${config.port}`);
+    });
+  } finally {
+    stub.close();
+    config.platform = originalPlatform;
+    config.station.cloudflareApiToken = originalApiToken;
+    if (originalBaseUrl === undefined) delete process.env.CLOUDFLARE_API_BASE_URL;
+    else process.env.CLOUDFLARE_API_BASE_URL = originalBaseUrl;
+  }
+});
+
 test('listen landing page serves with directory CSP', async () => {
   freshDb();
   await withServer(async baseUrl => {

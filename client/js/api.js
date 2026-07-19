@@ -626,6 +626,22 @@ export const dashboard = {
     },
 
     /**
+     * POST /api/dashboard/station/cloudflare/tunnel/connect — resume public routing.
+     * @returns {{ res: Response, data: { error?: string, paused?: boolean } }}
+     */
+    tunnelConnect() {
+      return _send('/api/dashboard/station/cloudflare/tunnel/connect', {}, 'POST');
+    },
+
+    /**
+     * POST /api/dashboard/station/cloudflare/tunnel/disconnect — pause public routing.
+     * @returns {{ res: Response, data: { error?: string, paused?: boolean } }}
+     */
+    tunnelDisconnect() {
+      return _send('/api/dashboard/station/cloudflare/tunnel/disconnect', {}, 'POST');
+    },
+
+    /**
      * PUT /api/dashboard/station/telemetry/secret — save the system.pape telemetry shared secret.
      * @param {string} secret
      * @returns {{ res: Response, data: { error?: string, restartRequired?: boolean, note?: string } }}
