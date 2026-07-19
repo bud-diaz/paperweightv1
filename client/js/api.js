@@ -488,12 +488,27 @@ export const dashboard = {
     return _json('/api/dashboard/accounts');
   },
 
-  /**
-   * GET /api/dashboard/payment-config — Stripe + PayPal config status.
-   * @returns {{ stripe: object, paypal: object }}
-   */
-  paymentConfig() {
-    return _json('/api/dashboard/payment-config');
+  // ── Payment config (Stripe + PayPal) ──────────────────────────────────────────
+
+  paymentConfig: {
+    /**
+     * GET /api/dashboard/payment-config — Stripe + PayPal config status.
+     * @returns {{ stripe: object, paypal: object, tips: object }}
+     */
+    get() {
+      return _json('/api/dashboard/payment-config');
+    },
+
+    /**
+     * PUT /api/dashboard/payment-config
+     * @param {object} body  any subset of { stripeSecretKey, stripeWebhookSecret,
+     *   stripePriceSubscriber, stripePricePro, stripePriceAllAccess, paypalClientId,
+     *   paypalClientSecret, paypalPlanPro, paypalPlanAllAccess, paypalWebhookId }
+     * @returns {{ res: Response, data: { error?: string } }}
+     */
+    update(body) {
+      return _send('/api/dashboard/payment-config', body, 'PUT');
+    },
   },
 
   /**

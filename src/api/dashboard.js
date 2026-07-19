@@ -28,6 +28,7 @@ const { resolveSafeAddress } = require('../runtime/net-guard');
 const { isValidExternalHttpUrl } = require('../runtime/base-url');
 const { IMAGE_MIMES, IMAGE_EXTS, sniffImageFile } = require('../runtime/images');
 const { getSetting, getBoolSetting, setSetting } = require('../db/settings');
+const paymentConfig = require('../payment/config');
 const { toSqliteDatetime } = require('../runtime/datetime');
 const {
   SUBSCRIBER_HEADERS, LISTENER_HEADERS, DOWNLOAD_LEAD_HEADERS,
@@ -1247,30 +1248,53 @@ router.put('/settings', (req, res) => {
   res.json({ ok: true });
 });
 
+// Never return a full secret to the browser — just enough to recognize it.
+function maskSecret(value) {
+  if (!value) return null;
+  return `••••${value.slice(-4)}`;
+}
+
 // GET /api/dashboard/payment-config
-// Returns which payment env vars are configured (never exposes the values themselves).
+// Returns Stripe/PayPal configuration state for the dashboard's Payments section.
+// Secret fields (API keys, webhook secrets, client secret) are only ever exposed
+// as a masked last-4 preview; price/plan/webhook IDs and the PayPal client id are
+// safe to echo back in full so their fields can be prefilled.
 router.get('/payment-config', (req, res) => {
-  const has = key => !!(process.env[key] && process.env[key].trim());
   const tipRow = getDb().prepare('SELECT amounts, custom_enabled FROM tip_config WHERE id = 1').get();
   let tipAmounts = [300, 500, 1000];
   try { if (tipRow) tipAmounts = JSON.parse(tipRow.amounts); } catch {}
 
+  const stripeSecretKey     = paymentConfig.stripeSecretKey();
+  const stripeWebhookSecret = paymentConfig.stripeWebhookSecret();
+  const paypalClientId      = paymentConfig.paypalClientId();
+  const paypalClientSecret  = paymentConfig.paypalClientSecret();
+
   res.json({
     stripe: {
-      connected:        has('STRIPE_SECRET_KEY'),
-      webhookConfigured: has('STRIPE_WEBHOOK_SECRET'),
+      connected:           !!stripeSecretKey,
+      secretKeyMasked:     maskSecret(stripeSecretKey),
+      webhookConfigured:   !!stripeWebhookSecret,
+      webhookSecretMasked: maskSecret(stripeWebhookSecret),
       prices: {
-        subscriber:  has('STRIPE_PRICE_SUBSCRIBER'),
-        pro:         has('STRIPE_PRICE_PRO'),
-        allAccess:   has('STRIPE_PRICE_ALL_ACCESS'),
+        subscriber: !!paymentConfig.stripePriceSubscriber(),
+        pro:        !!paymentConfig.stripePricePro(),
+        allAccess:  !!paymentConfig.stripePriceAllAccess(),
       },
+      priceSubscriberValue: paymentConfig.stripePriceSubscriber(),
+      priceProValue:        paymentConfig.stripePricePro(),
+      priceAllAccessValue:  paymentConfig.stripePriceAllAccess(),
     },
     paypal: {
-      connected: has('PAYPAL_CLIENT_ID') && has('PAYPAL_CLIENT_SECRET'),
+      connected:          !!(paypalClientId && paypalClientSecret),
+      clientIdValue:      paypalClientId,
+      clientSecretMasked: maskSecret(paypalClientSecret),
       plans: {
-        pro:       has('PAYPAL_PLAN_PRO'),
-        allAccess: has('PAYPAL_PLAN_ALL_ACCESS'),
+        pro:       !!paymentConfig.paypalPlanPro(),
+        allAccess: !!paymentConfig.paypalPlanAllAccess(),
       },
+      planProValue:       paymentConfig.paypalPlanPro(),
+      planAllAccessValue: paymentConfig.paypalPlanAllAccess(),
+      webhookIdValue:     paymentConfig.paypalWebhookId(),
     },
     tips: {
       enabled:       !!(tipRow),
@@ -1279,6 +1303,73 @@ router.get('/payment-config', (req, res) => {
     },
   });
 });
+
+// PUT /api/dashboard/payment-config
+// Lets a creator configure Stripe/PayPal from the dashboard instead of editing
+// .env. Any subset of fields may be sent; omitted fields are left untouched,
+// an empty string clears that field (falling back to .env if still set there).
+// Secret-bearing fields (Stripe secret key, PayPal client id/secret) are
+// verified against the provider's API before being persisted, so a typo'd or
+// revoked credential is caught immediately instead of surfacing at checkout.
+const PAYMENT_CONFIG_FIELDS = {
+  stripeSecretKey:       'stripe_secret_key',
+  stripeWebhookSecret:   'stripe_webhook_secret',
+  stripePriceSubscriber: 'stripe_price_subscriber',
+  stripePricePro:        'stripe_price_pro',
+  stripePriceAllAccess:  'stripe_price_all_access',
+  paypalClientId:        'paypal_client_id',
+  paypalClientSecret:    'paypal_client_secret',
+  paypalPlanPro:         'paypal_plan_pro',
+  paypalPlanAllAccess:   'paypal_plan_all_access',
+  paypalWebhookId:       'paypal_webhook_id',
+};
+
+router.put('/payment-config', asyncHandler(async (req, res) => {
+  const body = req.body || {};
+  const clean = {};
+  for (const field of Object.keys(PAYMENT_CONFIG_FIELDS)) {
+    if (body[field] === undefined) continue;
+    const value = String(body[field] ?? '').trim();
+    if (/[\r\n]/.test(value)) {
+      return res.status(400).json({ error: `${field} cannot contain newlines` });
+    }
+    clean[field] = value;
+  }
+
+  // Verify a new/changed Stripe secret key against the Stripe API before saving.
+  if (clean.stripeSecretKey) {
+    try {
+      const stripe = require('stripe')(clean.stripeSecretKey);
+      await stripe.balance.retrieve();
+    } catch (err) {
+      return res.status(400).json({ error: 'Could not verify Stripe secret key — check it and try again' });
+    }
+  }
+
+  // Verify new/changed PayPal credentials via an OAuth token request. Only
+  // when both the id and secret end up non-empty after this update (a lone
+  // field change can't be verified against PayPal).
+  if (clean.paypalClientId !== undefined || clean.paypalClientSecret !== undefined) {
+    const effectiveClientId = clean.paypalClientId !== undefined ? clean.paypalClientId : paymentConfig.paypalClientId();
+    const effectiveClientSecret = clean.paypalClientSecret !== undefined ? clean.paypalClientSecret : paymentConfig.paypalClientSecret();
+    if (effectiveClientId && effectiveClientSecret) {
+      try {
+        const { getPayPalAccessToken } = require('./payment');
+        await getPayPalAccessToken(effectiveClientId, effectiveClientSecret);
+      } catch (err) {
+        return res.status(400).json({ error: 'Could not verify PayPal credentials — check them and try again' });
+      }
+    }
+  }
+
+  for (const [field, dbKey] of Object.entries(PAYMENT_CONFIG_FIELDS)) {
+    if (clean[field] === undefined) continue;
+    setSetting(dbKey, clean[field] || null);
+  }
+
+  log('info', 'dashboard', 'Payment configuration updated');
+  res.json({ ok: true });
+}));
 
 // GET /api/dashboard/webhook-log?limit=50&provider=stripe
 // Returns recent webhook events for production debugging.

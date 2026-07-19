@@ -258,6 +258,7 @@ payment.initFloatingTip();
 player.initShareHandlers();
 
 dashIndex.initDashGateHandlers();
+dashIndex.initPaymentConfigHandlers();
 station.initStationHandlers();
 bio.initBioHandlers();
 vault.initTokenHandlers();

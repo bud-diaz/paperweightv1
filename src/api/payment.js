@@ -9,6 +9,7 @@ const { cloudOnly } = require('../middleware/cloudGate');
 const asyncHandler = require('../middleware/asyncHandler');
 const { publicBaseUrl } = require('../runtime/base-url');
 const { isEmailConfigured, sendMail } = require('../email');
+const paymentConfig = require('../payment/config');
 
 const VALID_TIERS = new Set(['subscriber', 'pro', 'all_access']);
 
@@ -68,9 +69,9 @@ function tierFromStripeSubscription(sub) {
   const priceId = sub?.items?.data?.[0]?.price?.id;
   if (!priceId) return null;
   const byPrice = {
-    [process.env.STRIPE_PRICE_SUBSCRIBER]: 'subscriber',
-    [process.env.STRIPE_PRICE_PRO]:        'pro',
-    [process.env.STRIPE_PRICE_ALL_ACCESS]: 'all_access',
+    [paymentConfig.stripePriceSubscriber()]: 'subscriber',
+    [paymentConfig.stripePricePro()]:        'pro',
+    [paymentConfig.stripePriceAllAccess()]:  'all_access',
   };
   const tier = byPrice[priceId];
   return VALID_TIERS.has(tier) ? tier : null;
@@ -230,7 +231,7 @@ function cancelSubscription(db, { providerSubscriptionId }) {
 // future billing; its CANCELLED webhook performs the local downgrade.
 async function providerCancelSubscription(sub, { immediate = false } = {}) {
   if (sub.provider === 'stripe') {
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    const stripeKey = paymentConfig.stripeSecretKey();
     if (!stripeKey) throw new Error('Stripe is not configured on this server');
     const stripe = require('stripe')(stripeKey);
     if (immediate) {
@@ -242,8 +243,8 @@ async function providerCancelSubscription(sub, { immediate = false } = {}) {
   }
 
   if (sub.provider === 'paypal') {
-    const clientId = process.env.PAYPAL_CLIENT_ID;
-    const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+    const clientId = paymentConfig.paypalClientId();
+    const clientSecret = paymentConfig.paypalClientSecret();
     if (!clientId || !clientSecret) throw new Error('PayPal is not configured on this server');
     const accessToken = await getPayPalAccessToken(clientId, clientSecret);
     const cancelRes = await fetch(
@@ -305,7 +306,7 @@ router.post('/portal', paymentLimiter, asyncHandler(async (req, res) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const stripeKey = paymentConfig.stripeSecretKey();
   if (!stripeKey) return res.status(503).json({ error: 'Stripe is not configured on this server' });
 
   const db = getDb();
@@ -361,14 +362,14 @@ router.post('/checkout', cloudOnly, paymentLimiter, (req, res) => {
 });
 
 async function handleStripeCheckout(req, res, tier) {
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const stripeKey = paymentConfig.stripeSecretKey();
   if (!stripeKey) {
     return res.status(503).json({ error: 'Stripe is not configured on this server' });
   }
 
   const priceId = tier === 'pro'
-    ? process.env.STRIPE_PRICE_PRO
-    : process.env.STRIPE_PRICE_ALL_ACCESS;
+    ? paymentConfig.stripePricePro()
+    : paymentConfig.stripePriceAllAccess();
 
   if (!priceId) {
     return res.status(503).json({ error: `Stripe price ID for ${tier} is not configured` });
@@ -400,16 +401,16 @@ async function handleStripeCheckout(req, res, tier) {
 }
 
 async function handlePayPalCheckout(req, res, tier) {
-  const clientId = process.env.PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  const clientId = paymentConfig.paypalClientId();
+  const clientSecret = paymentConfig.paypalClientSecret();
 
   if (!clientId || !clientSecret) {
     return res.status(503).json({ error: 'PayPal is not configured on this server' });
   }
 
   const planId = tier === 'pro'
-    ? process.env.PAYPAL_PLAN_PRO
-    : process.env.PAYPAL_PLAN_ALL_ACCESS;
+    ? paymentConfig.paypalPlanPro()
+    : paymentConfig.paypalPlanAllAccess();
 
   if (!planId) {
     return res.status(503).json({ error: `PayPal plan ID for ${tier} is not configured` });
@@ -519,9 +520,9 @@ async function verifyPayPalWebhook({ clientId, clientSecret, webhookId, headers,
 router.get('/success', cloudOnly, asyncHandler(async (req, res) => {
   const { session_id, tier } = req.query;
 
-  if (session_id && process.env.STRIPE_SECRET_KEY) {
+  if (session_id && paymentConfig.stripeSecretKey()) {
     try {
-      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+      const stripe = require('stripe')(paymentConfig.stripeSecretKey());
       const session = await stripe.checkout.sessions.retrieve(session_id, {
         expand: ['subscription'],
       });
@@ -572,14 +573,14 @@ router.get('/status', (req, res) => {
 // Public — no auth required. Returns a Stripe checkout URL for the subscriber tier.
 // Used by the web player when a free listener hits a supporters_only item.
 router.get('/checkout-url', paymentLimiter, asyncHandler(async (req, res) => {
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const stripeKey = paymentConfig.stripeSecretKey();
   if (!stripeKey) {
     return res.status(503).json({ error: 'Stripe not configured on this server' });
   }
 
-  const priceId = process.env.STRIPE_PRICE_SUBSCRIBER;
+  const priceId = paymentConfig.stripePriceSubscriber();
   if (!priceId) {
-    return res.status(503).json({ error: 'Subscriber price not configured — set STRIPE_PRICE_SUBSCRIBER in .env' });
+    return res.status(503).json({ error: 'Subscriber price not configured — set it in the dashboard Payments section' });
   }
 
   try {
@@ -623,7 +624,7 @@ router.get('/checkout-url', paymentLimiter, asyncHandler(async (req, res) => {
 router.get('/web-success', asyncHandler(async (req, res) => {
   const { session_id, nonce } = req.query;
 
-  if (!session_id || !nonce || !process.env.STRIPE_SECRET_KEY) {
+  if (!session_id || !nonce || !paymentConfig.stripeSecretKey()) {
     return res.redirect('/creator.html#library');
   }
 
@@ -636,7 +637,7 @@ router.get('/web-success', asyncHandler(async (req, res) => {
       return res.redirect('/creator.html#library');
     }
 
-    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    const stripe = require('stripe')(paymentConfig.stripeSecretKey());
     const session = await stripe.checkout.sessions.retrieve(session_id, {
       expand: ['subscription'],
     });
@@ -687,7 +688,7 @@ router.get('/web-success', asyncHandler(async (req, res) => {
 // Public — no auth. Returns creator-configured tip amounts.
 // Returns { enabled: false } if Stripe is not configured.
 router.get('/tip-config', (req, res) => {
-  if (!process.env.STRIPE_SECRET_KEY) {
+  if (!paymentConfig.stripeSecretKey()) {
     return res.json({ enabled: false, amounts: [], customEnabled: false });
   }
   const row = getDb().prepare('SELECT amounts, custom_enabled FROM tip_config WHERE id = 1').get();
@@ -723,7 +724,7 @@ function cleanDonorEmail(raw) {
 // success redirect and webhook can grant a 7-day supporter account after
 // payment — this route itself still creates nothing.
 router.post('/tip', paymentLimiter, asyncHandler(async (req, res) => {
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const stripeKey = paymentConfig.stripeSecretKey();
   if (!stripeKey) return res.status(503).json({ error: 'Stripe not configured on this server' });
 
   const amountCents = parseInt(req.body.amountCents, 10);
@@ -839,9 +840,9 @@ function grantTipAccessAndSignIn(req, res, db, { donorEmail, paymentIntentId }) 
 router.get('/tip-success', asyncHandler(async (req, res) => {
   const { session_id } = req.query;
 
-  if (session_id && process.env.STRIPE_SECRET_KEY) {
+  if (session_id && paymentConfig.stripeSecretKey()) {
     try {
-      const stripe  = require('stripe')(process.env.STRIPE_SECRET_KEY);
+      const stripe  = require('stripe')(paymentConfig.stripeSecretKey());
       const session = await stripe.checkout.sessions.retrieve(session_id, {
         expand: ['payment_intent'],
       });
@@ -885,9 +886,9 @@ router.get('/tip-success', asyncHandler(async (req, res) => {
 // POST /api/payment/webhook/paypal
 // PayPal sends events here. Must be registered in the PayPal developer console.
 router.post('/webhook/paypal', asyncHandler(async (req, res) => {
-  const clientId = process.env.PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-  const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+  const clientId = paymentConfig.paypalClientId();
+  const clientSecret = paymentConfig.paypalClientSecret();
+  const webhookId = paymentConfig.paypalWebhookId();
 
   if (!clientId || !clientSecret || !webhookId) {
     return res.status(503).json({ error: 'PayPal webhook not configured' });
@@ -1020,13 +1021,13 @@ function hasWebhookEvent(db, provider, eventId) {
 // so the raw body buffer is available for Stripe signature verification.
 async function stripeWebhookHandler(req, res) {
   const sig = req.headers['stripe-signature'];
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const webhookSecret = paymentConfig.stripeWebhookSecret();
 
   if (!webhookSecret) {
     return res.status(503).json({ error: 'Stripe webhook not configured' });
   }
 
-  const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  const stripe = require('stripe')(paymentConfig.stripeSecretKey());
   let event;
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
@@ -1261,3 +1262,4 @@ module.exports.isStripeSubscriptionActive = isStripeSubscriptionActive;
 module.exports.refreshExistingStripeSubscription = refreshExistingStripeSubscription;
 module.exports.findOrCreateListenerByEmail = findOrCreateListenerByEmail;
 module.exports.grantTipSupporterAccess = grantTipSupporterAccess;
+module.exports.getPayPalAccessToken = getPayPalAccessToken;

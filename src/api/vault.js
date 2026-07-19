@@ -5,6 +5,7 @@ const { canAccessVaultContent } = require('../auth/vault');
 const { paymentLimiter } = require('../middleware/rateLimiter');
 const config = require('../config');
 const asyncHandler = require('../middleware/asyncHandler');
+const paymentConfig = require('../payment/config');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -471,7 +472,7 @@ router.post('/unlock', paymentLimiter, asyncHandler(async (req, res) => {
     return res.json({ unlocked: true });
   }
 
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const stripeKey = paymentConfig.stripeSecretKey();
   if (!stripeKey) {
     return res.status(503).json({ error: 'Stripe is not configured on this server' });
   }
@@ -552,9 +553,9 @@ router.post('/unlock', paymentLimiter, asyncHandler(async (req, res) => {
 router.get('/unlock-success', asyncHandler(async (req, res) => {
   const { session_id } = req.query;
 
-  if (session_id && process.env.STRIPE_SECRET_KEY) {
+  if (session_id && paymentConfig.stripeSecretKey()) {
     try {
-      const stripe  = require('stripe')(process.env.STRIPE_SECRET_KEY);
+      const stripe  = require('stripe')(paymentConfig.stripeSecretKey());
       const session = await stripe.checkout.sessions.retrieve(session_id, {
         expand: ['payment_intent', 'subscription'],
       });
