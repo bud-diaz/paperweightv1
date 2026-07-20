@@ -348,6 +348,8 @@ document.querySelectorAll('.view-tab').forEach(btn => {
       el('player-card').classList.add('dash-active');
       el('topbar-right-controls').style.opacity      = '0';
       el('topbar-right-controls').style.pointerEvents = 'none';
+      el('topbar-left-controls').style.opacity      = '0';
+      el('topbar-left-controls').style.pointerEvents = 'none';
       dashIndex.initDashboard();
     } else if (view === 'stack') {
       window._bioSessionPassed = true;
@@ -355,10 +357,14 @@ document.querySelectorAll('.view-tab').forEach(btn => {
       el('player-card').classList.add('stack-active');
       el('topbar-right-controls').style.opacity      = '1';
       el('topbar-right-controls').style.pointerEvents = '';
+      el('topbar-left-controls').style.opacity      = '1';
+      el('topbar-left-controls').style.pointerEvents = '';
       stack.initStackView();
     } else {
       el('topbar-right-controls').style.opacity      = '1';
       el('topbar-right-controls').style.pointerEvents = '';
+      el('topbar-left-controls').style.opacity      = '1';
+      el('topbar-left-controls').style.pointerEvents = '';
     }
   });
 });
@@ -374,6 +380,8 @@ function enterDashboard() {
   el('player-card').classList.add('dash-active');
   el('topbar-right-controls').style.opacity      = '0';
   el('topbar-right-controls').style.pointerEvents = 'none';
+  el('topbar-left-controls').style.opacity      = '0';
+  el('topbar-left-controls').style.pointerEvents = 'none';
   dashIndex.initDashboard();
 }
 

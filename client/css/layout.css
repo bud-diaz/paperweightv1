@@ -319,6 +319,10 @@
 .desktop-power-dropdown-item:disabled { opacity: .35; cursor: not-allowed; }
 .desktop-power-dropdown-item:disabled:hover { background: none; }
 #topbar-settings { grid-column: 3; grid-row: 1; justify-self: end; }
+#topbar-left-controls {
+  grid-column: 1; grid-row: 2; justify-self: start; flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px;
+}
 #topbar-right {
   grid-column: 3; grid-row: 2; justify-self: end; flex-shrink: 0;
   display: flex; flex-direction: row; align-items: center; gap: 8px;
@@ -400,8 +404,16 @@
 /* Creator previewing their own station never sees the listener-facing quota */
 body.creator-mode #quota-badge { display: none !important; }
 
+@media (max-width: 430px) {
+  .view-tab { padding: 5px 8px; font-size: 11px; }
+  #back-live-btn { padding: 4px 6px; font-size: 10px; }
+  .type-badge { padding: 3px 7px; font-size: 10px; }
+}
+
 @media (max-width: 380px) {
-  .view-tab { padding: 4px 7px; font-size: 11px; }
+  .view-tab { padding: 4px 6px; font-size: 10px; letter-spacing: .05em; }
+  #back-live-btn { padding: 3px 5px; font-size: 9px; letter-spacing: .05em; }
+  .type-badge { padding: 2px 5px; font-size: 9px; }
   .pw-wordmark { max-width: 100px; }
   .pw-station-search { width: 100px; }
   .pw-station-results { width: min(230px, 72vw); }
