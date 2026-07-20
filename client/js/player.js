@@ -573,6 +573,8 @@ async function handleOnDemandError({ nextUp = false } = {}) {
       if (!nextUp && failedTrack && !isPaidTier() && quota.nextUpAvailable !== false) {
         setNextUp(failedTrack);
         showToast(`${quota.limit} ON-DEMAND PLAYS USED. NEXT-UP ARMED.`);
+      } else if (quota.emailRequired) {
+        showToast('ADD YOUR EMAIL IN SETTINGS FOR 5 PLAYS/HOUR');
       } else {
         showToast(`${quota.limit} ON-DEMAND PLAYS USED THIS HOUR. RESET IN ${mins} ${mins === 1 ? 'MIN' : 'MINS'}`);
       }

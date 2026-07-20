@@ -689,6 +689,16 @@ test('library stream endpoint enforces access and on-demand quota', async () => 
   const subscriberToken = seedToken(db, { tier: 'subscriber' });
   const freeToken = seedToken(db, { tier: 'free' });
 
+  // Email-backed identities: a full account, and a legacy welcome profile
+  // that captured an email under the old optional flow.
+  const accountId = seedListener(db, 'quota-account@example.com');
+  const accountToken = seedToken(db, { tier: 'free', listenerId: accountId });
+  const emailProfileToken = seedToken(db, { tier: 'free' });
+  db.prepare(`
+    INSERT INTO listener_profiles (display_name, email, marketing_opt_in, token_id, last_seen_at)
+    VALUES ('Emailed', 'quota-profile@example.com', 0, ?, datetime('now'))
+  `).run(emailProfileToken.id);
+
   try {
     await withServer(async baseUrl => {
       const anonQuota = await request(baseUrl, '/api/library/stream-quota');
@@ -696,11 +706,27 @@ test('library stream endpoint enforces access and on-demand quota', async () => 
       assert.equal(anonQuota.body.remaining, 3);
       assert.equal(anonQuota.body.nextUpAvailable, true);
 
+      // A token without an email identity only gets the anonymous allowance,
+      // and the payload says an email would raise it.
       const freeQuota = await request(baseUrl, '/api/library/stream-quota', {
         headers: { Authorization: `Bearer ${freeToken.token}` },
       });
-      assert.equal(freeQuota.body.limit, 5);
-      assert.equal(freeQuota.body.remaining, 5);
+      assert.equal(freeQuota.body.limit, 3);
+      assert.equal(freeQuota.body.remaining, 3);
+      assert.equal(freeQuota.body.emailRequired, true);
+
+      const accountQuota = await request(baseUrl, '/api/library/stream-quota', {
+        headers: { Authorization: `Bearer ${accountToken.token}` },
+      });
+      assert.equal(accountQuota.body.limit, 5);
+      assert.equal(accountQuota.body.remaining, 5);
+      assert.equal(accountQuota.body.emailRequired, undefined);
+
+      const emailProfileQuota = await request(baseUrl, '/api/library/stream-quota', {
+        headers: { Authorization: `Bearer ${emailProfileToken.token}` },
+      });
+      assert.equal(emailProfileQuota.body.limit, 5);
+      assert.equal(emailProfileQuota.body.emailRequired, undefined);
 
       db.prepare("UPDATE media SET mime_type = 'audio/flac' WHERE id = ?").run(publicTracks[0].id);
       const publicStream = await request(baseUrl, `/api/library/${publicTracks[0].id}/stream`);
@@ -858,7 +884,7 @@ test('listener register, login, me, and password update flow works', async () =>
     const register = await request(baseUrl, '/api/listener/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: 'password123' }),
+      body: JSON.stringify({ email, password: 'password123', displayName: 'Listener One', marketingOptIn: true }),
     });
     assert.equal(register.res.status, 201);
     const cookie = register.res.headers.get('set-cookie');
@@ -867,6 +893,8 @@ test('listener register, login, me, and password update flow works', async () =>
     const me = await request(baseUrl, '/api/listener/me', { headers: { cookie } });
     assert.equal(me.res.status, 200);
     assert.equal(me.body.email, email);
+    assert.equal(me.body.displayName, 'Listener One');
+    assert.equal(me.body.marketingOptIn, true);
 
     const pw = await request(baseUrl, '/api/listener/password', {
       method: 'PATCH',

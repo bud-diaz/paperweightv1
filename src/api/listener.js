@@ -13,11 +13,27 @@ const { listenerCookieOpts, clearListenerCookie } = require('../auth/cookies');
 const { isHigherTier } = require('../auth/access');
 
 const BCRYPT_ROUNDS = 10;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_EMAIL_LENGTH = 254;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function generateToken() {
   return crypto.randomBytes(32).toString('hex');
+}
+
+// Lowercased, trimmed address or null when implausible.
+function normalizeEmail(email) {
+  if (typeof email !== 'string') return null;
+  const value = email.trim().toLowerCase();
+  return EMAIL_RE.test(value) && value.length <= MAX_EMAIL_LENGTH ? value : null;
+}
+
+// Trimmed, control-char-stripped display name or null when invalid.
+function cleanDisplayName(value) {
+  if (typeof value !== 'string') return null;
+  const name = value.trim().replace(/[\x00-\x1F\x7F]/g, '');
+  return name && name.length <= 50 ? name : null;
 }
 
 // Mints a fresh per-login token for the listener and stores only its hash.
@@ -143,77 +159,40 @@ function markEmailVerified(db, listenerId) {
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
 // POST /api/listener/start
-// Body: { displayName, email?, marketingOptIn? }
-// Welcome-page entry: only a display name is required. Creates a lightweight
-// listener profile and issues a free-tier pw_token so the listener is
-// recognized on return visits. Email is optional and is only ever used for
-// the creator's marketing list when marketingOptIn is explicitly true.
+// Retired: the welcome page used to create an account-less profile + token
+// here. Sign-up now requires an email and goes through /register; a stale
+// cached client that still POSTs here gets a loud failure instead of a fresh
+// email-less token.
 router.post('/start', authLimiter, (req, res) => {
-  const { displayName, email, marketingOptIn } = req.body || {};
-
-  const name = typeof displayName === 'string' ? displayName.trim().replace(/[\x00-\x1F\x7F]/g, '') : '';
-  if (!name || name.length > 50) {
-    return res.status(400).json({ error: 'Display name is required (50 characters max)' });
-  }
-
-  let cleanEmail = null;
-  if (email !== undefined && email !== null && email !== '') {
-    if (typeof email !== 'string' || !email.includes('@') || email.length > 254) {
-      return res.status(400).json({ error: 'Email must be a valid address' });
-    }
-    cleanEmail = email.toLowerCase().trim();
-  }
-
-  const db = getDb();
-
-  // A returning listener with a live token keeps their identity — refresh the
-  // profile instead of minting a duplicate.
-  const existing = getProfileForRequest(db, req.tokenRow);
-  if (existing) {
-    db.prepare(`
-      UPDATE listener_profiles SET
-        display_name     = ?,
-        email            = COALESCE(?, email),
-        marketing_opt_in = CASE WHEN ? IS NOT NULL THEN ? ELSE marketing_opt_in END,
-        last_seen_at     = datetime('now')
-      WHERE id = ?
-    `).run(
-      name,
-      cleanEmail,
-      marketingOptIn === undefined ? null : 1,
-      marketingOptIn === true ? 1 : 0,
-      existing.id
-    );
-    return res.json({ ok: true, displayName: name, tier: req.tier, returning: true });
-  }
-
-  const issued = issueToken(db, null, 'free');
-  db.prepare(`
-    INSERT INTO listener_profiles (display_name, email, marketing_opt_in, token_id, last_seen_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
-  `).run(name, cleanEmail, marketingOptIn === true ? 1 : 0, issued.tokenId);
-
-  res.cookie('pw_token', issued.token, listenerCookieOpts(req));
-  log('info', 'listener', 'Listener profile created from welcome page');
-  res.status(201).json({ ok: true, token: issued.token, tier: issued.tier, displayName: name });
+  res.status(410).json({ error: 'Signing up now requires an email — please reload the page' });
 });
 
 // POST /api/listener/register
-// Body: { email, password }
-// Sets pw_token cookie (web) and returns { token, tier } (mobile).
+// Body: { email, password, displayName?, marketingOptIn? }
+// Sets pw_token cookie (web) and returns { token, tier } (mobile). The welcome
+// page sends displayName/marketingOptIn so entry creates a full account plus
+// the listener profile that feeds the creator's audience list.
 router.post('/register', authLimiter, asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, displayName, marketingOptIn } = req.body;
 
-  if (!email || typeof email !== 'string' || !email.includes('@')) {
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail) {
     return res.status(400).json({ error: 'Valid email is required' });
   }
   if (!password || typeof password !== 'string' || password.length < 8) {
     return res.status(400).json({ error: 'Password must be at least 8 characters' });
   }
+  let name = null;
+  if (displayName !== undefined && displayName !== null && displayName !== '') {
+    name = cleanDisplayName(displayName);
+    if (!name) {
+      return res.status(400).json({ error: 'Display name must be 50 characters or fewer' });
+    }
+  }
 
   const db = getDb();
 
-  const existing = db.prepare('SELECT id FROM listener_accounts WHERE email = ?').get(email.toLowerCase().trim());
+  const existing = db.prepare('SELECT id FROM listener_accounts WHERE email = ?').get(cleanEmail);
   if (existing) {
     return res.status(409).json({ error: 'An account with this email already exists' });
   }
@@ -221,14 +200,46 @@ router.post('/register', authLimiter, asyncHandler(async (req, res) => {
   try {
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-    const info = db.prepare(
-      'INSERT INTO listener_accounts (email, password_hash) VALUES (?, ?)'
-    ).run(email.toLowerCase().trim(), passwordHash);
+    const listenerId = db.transaction(() => {
+      const info = db.prepare(
+        'INSERT INTO listener_accounts (email, password_hash) VALUES (?, ?)'
+      ).run(cleanEmail, passwordHash);
 
-    const listenerId = info.lastInsertRowid;
-    // Carry over a welcome-page profile (display name, marketing consent)
-    // when the listener upgrades to a full account on the same device.
-    linkProfileToAccount(db, req.tokenRow, listenerId);
+      const accountId = info.lastInsertRowid;
+      // Carry over a welcome-page profile (display name, marketing consent)
+      // when the listener upgrades to a full account on the same device.
+      linkProfileToAccount(db, req.tokenRow, accountId);
+
+      // Keep the profile (the creator's audience list) in step with the
+      // account: copy the account email in, and apply the sign-up's display
+      // name / consent when given.
+      const profile = db.prepare(
+        'SELECT id FROM listener_profiles WHERE account_id = ? ORDER BY created_at DESC LIMIT 1'
+      ).get(accountId);
+      if (profile) {
+        db.prepare(`
+          UPDATE listener_profiles SET
+            display_name     = COALESCE(?, display_name),
+            email            = ?,
+            marketing_opt_in = CASE WHEN ? IS NOT NULL THEN ? ELSE marketing_opt_in END,
+            last_seen_at     = datetime('now')
+          WHERE id = ?
+        `).run(
+          name,
+          cleanEmail,
+          marketingOptIn === undefined ? null : 1,
+          marketingOptIn === true ? 1 : 0,
+          profile.id
+        );
+      } else if (name) {
+        db.prepare(`
+          INSERT INTO listener_profiles (display_name, email, marketing_opt_in, account_id, last_seen_at)
+          VALUES (?, ?, ?, ?, datetime('now'))
+        `).run(name, cleanEmail, marketingOptIn === true ? 1 : 0, accountId);
+      }
+      return accountId;
+    })();
+
     const issued = issueToken(db, listenerId, 'free');
 
     res.cookie('pw_token', issued.token, listenerCookieOpts(req));

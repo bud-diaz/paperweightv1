@@ -154,7 +154,11 @@ function armNextUp(t) {
   // The hourly next-up bonus is single-use; once spent, arming another pick
   // would just 429 when it fires, so tell the listener when plays return.
   if (quota && quota.nextUpAvailable === false) {
-    showToast(`Hourly on-demand plays used — resets in ${quotaResetMins()} min`);
+    if (quota.emailRequired) {
+      showToast('Add your email in Settings for 5 plays/hour');
+    } else {
+      showToast(`Hourly on-demand plays used — resets in ${quotaResetMins()} min`);
+    }
     return;
   }
   _setNextUp(t);

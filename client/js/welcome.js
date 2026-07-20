@@ -1,14 +1,16 @@
 /**
  * welcome.js — First-visit welcome overlay (Papercut-style onboarding).
  *
- * Shown once to visitors with no listener identity: a display name is the only
- * required field. A collapsed optional email section (explicit marketing
- * consent) feeds the creator's audience list. "Just listen" dismisses without
- * creating anything so the public stream stays frictionless.
+ * Shown once to visitors with no listener identity. Entering the station
+ * creates a full listener account (display name + email + password) — email
+ * is what unlocks the higher free on-demand play allowance, and explicit
+ * marketing consent feeds the creator's audience list. "Just listen"
+ * dismisses without creating anything so the public stream stays
+ * frictionless (at the anonymous play limit).
  *
  * Callbacks injected via init() (callback-injection pattern, see main.js):
- *   onEntered — reload auth state + library after a profile is created
- *   openLogin — jump to the account panel's login form
+ *   onEntered — reload auth state + library after the account is created
+ *   openLogin — jump to the account panel's login form (optionally prefilled)
  */
 
 import { authState } from './state.js';
@@ -56,16 +58,16 @@ export function showWelcome(stationName) {
       <div class="welcome-label">CHOOSE A DISPLAY NAME</div>
       <input class="auth-input" id="welcome-name" type="text" maxlength="50" placeholder="e.g. Alex" autocomplete="nickname"/>
 
-      <button id="welcome-email-toggle" type="button">
-        <span id="welcome-email-chev">›</span> ADD YOUR EMAIL <span class="welcome-optional">(OPTIONAL)</span>
-      </button>
-      <div id="welcome-email-body" hidden>
-        <input class="auth-input" id="welcome-email" type="email" placeholder="you@example.com" autocomplete="email"/>
-        <label class="welcome-consent">
-          <input type="checkbox" id="welcome-optin"/>
-          <span>Send me updates and releases from this station</span>
-        </label>
-      </div>
+      <div class="welcome-label">YOUR EMAIL</div>
+      <input class="auth-input" id="welcome-email" type="email" placeholder="you@example.com" autocomplete="email"/>
+
+      <div class="welcome-label">CHOOSE A PASSWORD</div>
+      <input class="auth-input" id="welcome-password" type="password" minlength="8" placeholder="8+ characters" autocomplete="new-password"/>
+
+      <label class="welcome-consent">
+        <input type="checkbox" id="welcome-optin"/>
+        <span>Send me updates and releases from this station</span>
+      </label>
 
       <button class="auth-submit" id="welcome-enter" disabled>ENTER STATION →</button>
       <div class="auth-msg" id="welcome-msg"></div>
@@ -78,25 +80,30 @@ export function showWelcome(stationName) {
   document.body.appendChild(wrap);
 
   const nameInput  = wrap.querySelector('#welcome-name');
+  const emailInput = wrap.querySelector('#welcome-email');
+  const passInput  = wrap.querySelector('#welcome-password');
+  const loginBtn   = wrap.querySelector('#welcome-login');
   const enterBtn   = wrap.querySelector('#welcome-enter');
   const msg        = wrap.querySelector('#welcome-msg');
-  const emailBody  = wrap.querySelector('#welcome-email-body');
-  const emailChev  = wrap.querySelector('#welcome-email-chev');
 
-  nameInput.addEventListener('input', () => {
-    enterBtn.disabled = !nameInput.value.trim();
-  });
+  // Set after a 409 so LOG IN opens with the already-registered email filled in.
+  let _prefillEmail = '';
 
-  wrap.querySelector('#welcome-email-toggle').addEventListener('click', () => {
-    emailBody.hidden = !emailBody.hidden;
-    emailChev.style.transform = emailBody.hidden ? '' : 'rotate(90deg)';
-    if (!emailBody.hidden) wrap.querySelector('#welcome-email').focus();
-  });
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  function formValid() {
+    return !!nameInput.value.trim()
+      && EMAIL_RE.test(emailInput.value.trim())
+      && passInput.value.length >= 8;
+  }
+  for (const input of [nameInput, emailInput, passInput]) {
+    input.addEventListener('input', () => { enterBtn.disabled = !formValid(); });
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') enter(); });
+  }
 
   async function enter() {
+    if (!formValid()) return;
     const displayName = nameInput.value.trim();
-    if (!displayName) return;
-    const email = wrap.querySelector('#welcome-email').value.trim();
+    const email = emailInput.value.trim();
     const optIn = wrap.querySelector('#welcome-optin').checked;
 
     enterBtn.disabled = true;
@@ -104,10 +111,19 @@ export function showWelcome(stationName) {
     msg.className = 'auth-msg';
     msg.textContent = '';
     try {
-      const { res, data } = await api.auth.start(displayName, email || undefined, optIn);
+      const { res, data } = await api.auth.register(email, passInput.value, {
+        displayName,
+        marketingOptIn: optIn,
+      });
       if (!res.ok) {
         msg.className = 'auth-msg error';
-        msg.textContent = data.error || 'Something went wrong.';
+        if (res.status === 409) {
+          msg.textContent = 'An account with this email already exists — use LOG IN below.';
+          loginBtn.classList.add('welcome-login-hint');
+          _prefillEmail = email;
+        } else {
+          msg.textContent = data.error || 'Something went wrong.';
+        }
         enterBtn.disabled = false;
         enterBtn.textContent = 'ENTER STATION →';
         return;
@@ -124,17 +140,16 @@ export function showWelcome(stationName) {
   }
 
   enterBtn.addEventListener('click', enter);
-  nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') enter(); });
 
   wrap.querySelector('#welcome-skip').addEventListener('click', () => {
     markDismissed();
     wrap.remove();
   });
 
-  wrap.querySelector('#welcome-login').addEventListener('click', () => {
+  loginBtn.addEventListener('click', () => {
     markDismissed();
     wrap.remove();
-    _openLogin();
+    _openLogin(_prefillEmail);
   });
 
   setTimeout(() => nameInput.focus(), 120);
