@@ -290,12 +290,15 @@
 }
 
 #quota-badge {
-  /* Anchored to the bottom-right corner of the player card rather than the top
-     bar. #player-card is the positioned ancestor. */
-  position: absolute; right: 14px; bottom: 14px; z-index: 21;
+  /* Pinned flush to the very bottom-right of the player card rather than the top
+     bar. #player-card is the positioned ancestor. The bottom-right corner is
+     squared to the card radius so it nests into the rounded corner (the card
+     clips overflow) instead of leaving a gap. */
+  position: absolute; right: 14px; bottom: 0; z-index: 21;
   display: none; flex-direction: row; align-items: center; gap: 5px;
   width: auto; padding: 5px 10px;
-  background: rgba(0,0,0,.55); border: 1.5px solid #ff5566; border-radius: var(--radius-sm);
+  background: rgba(0,0,0,.55); border: 1.5px solid #ff5566;
+  border-radius: var(--radius-sm) var(--radius-sm) var(--radius-card) var(--radius-sm);
   color: #ff5566;
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
   box-shadow: var(--shadow-2);
