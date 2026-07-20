@@ -28,6 +28,7 @@ let _loadDashProjects       = () => {};
 let _loadDashLibrary        = () => {};
 let _loadDashAnalytics      = () => {};
 let _loadDash2FA            = () => {};
+let _loadDashDevices        = () => {};
 let _loadDashPaymentConfig  = () => {};
 let _loadDashTipConfig      = () => {};
 let _loadDashBio            = () => {};
@@ -57,6 +58,7 @@ export function init(callbacks = {}) {
   if (callbacks.loadDashLibrary)       _loadDashLibrary       = callbacks.loadDashLibrary;
   if (callbacks.loadDashAnalytics)     _loadDashAnalytics     = callbacks.loadDashAnalytics;
   if (callbacks.loadDash2FA)           _loadDash2FA           = callbacks.loadDash2FA;
+  if (callbacks.loadDashDevices)       _loadDashDevices       = callbacks.loadDashDevices;
   if (callbacks.loadDashPaymentConfig) _loadDashPaymentConfig = callbacks.loadDashPaymentConfig;
   if (callbacks.loadDashTipConfig)     _loadDashTipConfig     = callbacks.loadDashTipConfig;
   if (callbacks.loadDashBio)           _loadDashBio           = callbacks.loadDashBio;
@@ -365,6 +367,7 @@ export async function loadDashboard() {
   _loadDashSettings();
   _loadDashAnalytics();
   _loadDash2FA();
+  _loadDashDevices();
   loadDashPaymentConfig();
   _loadDashTipConfig();
   _loadDashBio();

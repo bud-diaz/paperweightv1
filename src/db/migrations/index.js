@@ -643,4 +643,25 @@ CREATE TABLE IF NOT EXISTS listener_email_tokens (
 CREATE INDEX IF NOT EXISTS idx_listener_email_tokens_listener ON listener_email_tokens(listener_id);
 `,
   },
+  {
+    filename: "028_dashboard_devices.sql",
+    sql: `-- Migration 028: Authorized dashboard devices
+-- Backs the mobile "Studio" pairing flow: a device paired via QR code gets its
+-- own long-lived, individually revocable credential, unlike the raw
+-- DASHBOARD_TOKEN + in-memory session used by the primary desktop login.
+-- Only a SHA-256 hash of the raw device token is stored, matching the
+-- password_resets (023) / listener_email_tokens (027) hash-only pattern.
+-- No expires_at — like vault unlocks/share links, these are long-lived until
+-- explicitly revoked (revoked_at set), not time-boxed.
+
+CREATE TABLE IF NOT EXISTS dashboard_devices (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  label        TEXT    NOT NULL,
+  token_hash   TEXT    NOT NULL UNIQUE,
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+  last_used_at TEXT,
+  revoked_at   TEXT
+);
+`,
+  },
 ];

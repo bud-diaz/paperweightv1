@@ -290,6 +290,23 @@ function createApp() {
     sendHtmlFile(res, path.join(config.paths.app, 'client', 'embed.html'));
   });
 
+  // Mobile Studio device-pairing confirmation page — a QR code generated from
+  // an already-authenticated Studio session links here. Not gated by
+  // requireDashboard (that's the point: this is how a new device signs in).
+  app.get('/pair', (req, res) => {
+    const override = path.join(config.paths.root, 'client', 'pair.html');
+    if (fs.existsSync(override)) return sendHtmlFile(res, override);
+    if (isBundledRuntime) {
+      const entry = require('./client-bundle')['/pair.html'];
+      if (entry) {
+        const html = devReload ? devReload.injectHtml(entry.data.toString('utf8')) : entry.data;
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.end(html);
+      }
+    }
+    sendHtmlFile(res, path.join(config.paths.app, 'client', 'pair.html'));
+  });
+
   app.get('/landing', (req, res) => {
     res.redirect('/creator.html');
   });

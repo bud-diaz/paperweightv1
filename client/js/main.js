@@ -55,6 +55,7 @@ import * as dashPosts   from './dashboard/posts.js';
 import * as upload      from './dashboard/upload.js';
 import * as analytics   from './dashboard/analytics.js';
 import * as twofa       from './dashboard/twofa.js';
+import * as devices     from './dashboard/devices.js';
 import * as sections    from './dashboard/sections.js';
 import * as search      from './dashboard/search.js';
 import * as tools       from './dashboard/tools.js';
@@ -167,6 +168,7 @@ dashIndex.init({
   loadDashLibrary:      vault.loadDashLibrary,
   loadDashAnalytics:    analytics.loadDashAnalytics,
   loadDash2FA:          twofa.loadDash2FA,
+  loadDashDevices:      devices.loadDashDevices,
   loadDashPaymentConfig: dashIndex.loadDashPaymentConfig,
   loadDashTipConfig:    analytics.loadDashTipConfig,
   loadDashBio:          bio.loadDashBio,
@@ -241,6 +243,7 @@ schedule.init();
 smartPlaylists.init();
 dashPosts.init();
 twofa.init();
+devices.init();
 sections.init();
 tools.init();
 desktopControls.init();
@@ -276,6 +279,7 @@ upload.initUploadHandlers();
 analytics.initAnalyticsHandlers();
 tools.initToolsHandlers();
 twofa.initTwoFAHandlers();
+devices.initDeviceHandlers();
 search.initRadioHostHandlers();
 desktopControls.initDesktopControlsHandlers();
 
