@@ -110,15 +110,12 @@ jobs:
             os: windows-latest
             dist-command: npm run dist:win
             artifact-glob: electron/dist/*.exe
-          # macOS builds temporarily disabled to conserve macOS runner minutes
-          # while Electron packaging is stabilized on Linux/Windows first.
-          # Re-enable by uncommenting this entry.
-          # - label: macOS
-          #   os: macos-latest
-          #   dist-command: npm run dist
-          #   artifact-glob: |
-          #     electron/dist/*.dmg
-          #     electron/dist/*.zip
+          - label: macOS
+            os: macos-latest
+            dist-command: npm run dist:mac-universal
+            artifact-glob: |
+              electron/dist/*.dmg
+              electron/dist/*.zip
           - label: Linux
             os: ubuntu-24.04
             dist-command: npm run dist:linux
