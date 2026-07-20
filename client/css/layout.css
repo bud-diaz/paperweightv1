@@ -707,9 +707,10 @@ body.creator-mode #quota-badge { display: none !important; }
 #bottom-accent { height: 3px; opacity: .9; transition: background .5s; flex-shrink: 0; }
 
 /* ── Slide panels ── */
-/* card-panels sizes to the in-flow player panel (below) so the card is reactive
-   to open drawers; the other panels overlay as absolute siblings. */
-#card-panels { flex: 0 1 auto; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+/* card-panels fills the card (its height is set by the in-flow player panel
+   below, so the card stays reactive to open drawers); the other panels overlay
+   as absolute siblings and fill the same height. */
+#card-panels { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; }
 #panel-player, #panel-stack, #panel-dashboard {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   transition: transform .35s cubic-bezier(.4,0,.2,1);
@@ -728,14 +729,10 @@ body.creator-mode #quota-badge { display: none !important; }
 #player-card.dash-active #panel-stack     { transform: translateX(-100%); }
 #player-card.dash-active #panel-dashboard { transform: translateX(0); }
 
-/* STACK / STUDIO / bio scroll internally and need the full card height rather
-   than the reactive player-content height. */
-#player-card.stack-active,
-#player-card.dash-active,
+/* Bio landing keeps the full card height. STACK/STUDIO match the PLAY card
+   height (driven by the in-flow player panel, which stays in flow in every tab)
+   so tab switches don't resize or reposition the card. They scroll internally. */
 #player-card.bio-landing { flex: 1; }
-#player-card.stack-active #card-panels,
-#player-card.dash-active #card-panels,
-#player-card.bio-landing #card-panels { flex: 1; }
 
 /* ── Credit ── */
 #credit {
@@ -1102,7 +1099,10 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 18px 16px 14px;
+  /* Extra bottom room reserves a clear strip for the on-demand plays badge
+     (#quota-badge, pinned to the card's bottom-right) so it never overlaps the
+     posts ticker when the play content fills the card (e.g. on mobile). */
+  padding: 18px 16px 46px;
 }
 
 #panel-player #art-wrap,
