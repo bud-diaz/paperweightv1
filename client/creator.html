@@ -25,6 +25,17 @@
 </head>
 <body>
 
+<!-- Mobile browser tabs cannot reliably lock orientation. This gate keeps the
+     app portrait-only without disturbing playback; video fullscreen exempts it. -->
+<div id="portrait-lock-overlay" aria-hidden="true">
+  <div class="portrait-lock-device" aria-hidden="true">
+    <span class="portrait-lock-screen"></span>
+  </div>
+  <div class="portrait-lock-kicker">PORTRAIT MODE</div>
+  <div class="portrait-lock-title">Rotate your device</div>
+  <div class="portrait-lock-copy">Playback will keep running.</div>
+</div>
+
 <!-- Public share page (rendered for /share/:token) -->
 <div id="public-share-view" hidden>
   <div id="public-share-shell">

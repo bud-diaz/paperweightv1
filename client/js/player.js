@@ -357,6 +357,15 @@ function fsElement() {
   return document.fullscreenElement || document.webkitFullscreenElement || null;
 }
 
+let nativeVideoFullscreen = false;
+
+function syncVideoFullscreenClass() {
+  document.body.classList.toggle(
+    'video-fullscreen',
+    fsElement() === el('art-box') || nativeVideoFullscreen,
+  );
+}
+
 export function toggleFullscreen() {
   const box = el('art-box');
   if (fsElement()) {
@@ -385,10 +394,26 @@ function syncFullscreenUI() {
   } else {
     screen.orientation?.unlock?.();
   }
+
+  syncVideoFullscreenClass();
 }
 
 document.addEventListener('fullscreenchange', syncFullscreenUI);
 document.addEventListener('webkitfullscreenchange', syncFullscreenUI);
+
+// iPhone Safari native video fullscreen does not set fullscreenElement.
+// Track its lifecycle without touching the media or playback state.
+for (const videoId of ['video-el', 'preview-video-el']) {
+  const video = el(videoId);
+  video.addEventListener('webkitbeginfullscreen', () => {
+    nativeVideoFullscreen = true;
+    syncVideoFullscreenClass();
+  });
+  video.addEventListener('webkitendfullscreen', () => {
+    nativeVideoFullscreen = false;
+    syncVideoFullscreenClass();
+  });
+}
 
 // ── Play / pause ──────────────────────────────────────────────────────────────────
 

@@ -1,4 +1,91 @@
 /* ── Layout ── */
+#portrait-lock-overlay { display: none; }
+
+/* Mobile browser tabs cannot consistently request an orientation lock. Keep
+   the app alive underneath this non-fullscreen landscape gate. */
+@media (orientation: landscape) and (pointer: coarse) {
+  body:not(.video-fullscreen) #portrait-lock-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+    color: var(--t1);
+    text-align: center;
+    background-color: #080809;
+    background-image: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--color, #39ff14) 10%, transparent), transparent 32%);
+  }
+  body:not(.video-fullscreen) #portrait-lock-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: .28;
+    background-image: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.025) 3px 4px);
+  }
+  .portrait-lock-device {
+    position: relative;
+    width: 48px;
+    height: 76px;
+    margin-bottom: 22px;
+    border: 2px solid var(--color, #39ff14);
+    border-radius: 9px;
+    box-shadow: 0 0 24px color-mix(in srgb, var(--color, #39ff14) 22%, transparent);
+    animation: portrait-lock-turn .9s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .portrait-lock-device::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--color, #39ff14);
+    transform: translateX(-50%);
+  }
+  .portrait-lock-screen {
+    position: absolute;
+    inset: 7px 5px 12px;
+    border: 1px solid color-mix(in srgb, var(--color, #39ff14) 40%, transparent);
+    background: color-mix(in srgb, var(--color, #39ff14) 7%, transparent);
+  }
+  .portrait-lock-kicker {
+    position: relative;
+    margin-bottom: 7px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: .22em;
+    color: var(--color, #39ff14);
+  }
+  .portrait-lock-title {
+    position: relative;
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(25px, 5vw, 38px);
+    line-height: 1;
+  }
+  .portrait-lock-copy {
+    position: relative;
+    margin-top: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .04em;
+    color: var(--t3);
+  }
+}
+
+@keyframes portrait-lock-turn {
+  from { opacity: 0; transform: rotate(90deg) scale(.88); }
+  to { opacity: 1; transform: rotate(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .portrait-lock-device { animation: none; }
+}
+
 #public-share-view {
   position: fixed; inset: 0; z-index: 1600;
   display: flex; align-items: center; justify-content: center;

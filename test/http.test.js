@@ -57,6 +57,14 @@ test('health and local player assets are served', async () => {
     const matter = await request(baseUrl, '/vendor/matter.min.js');
     assert.equal(matter.res.status, 200);
     assert.match(matter.text, /Matter/);
+
+    const manifest = await request(baseUrl, '/manifest.json');
+    assert.equal(manifest.res.status, 200);
+    assert.equal(manifest.body.orientation, 'portrait-primary');
+
+    const creator = await request(baseUrl, '/');
+    assert.equal(creator.res.status, 200);
+    assert.match(creator.text, /id="portrait-lock-overlay"/);
   });
 });
 
