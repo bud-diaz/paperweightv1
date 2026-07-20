@@ -290,15 +290,14 @@
 }
 
 #quota-badge {
-  /* Pinned flush to the very bottom-right of the player card rather than the top
-     bar. #player-card is the positioned ancestor. The bottom-right corner is
-     squared to the card radius so it nests into the rounded corner (the card
-     clips overflow) instead of leaving a gap. */
-  position: absolute; right: 14px; bottom: 0; z-index: 21;
+  /* Pinned to #card-panels so it sits in the panel's bottom-right corner,
+     separate from the top bar. */
+  position: absolute; right: 0; bottom: 0; z-index: 21;
   display: none; flex-direction: row; align-items: center; gap: 5px;
   width: auto; padding: 5px 10px;
   background: rgba(0,0,0,.55); border: 1.5px solid #ff5566;
-  border-radius: var(--radius-sm) var(--radius-sm) var(--radius-card) var(--radius-sm);
+  border-right: 0; border-bottom: 0;
+  border-radius: var(--radius-sm) 0 0 0;
   color: #ff5566;
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
   box-shadow: var(--shadow-2);
@@ -1100,7 +1099,7 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
   align-items: center;
   gap: 6px;
   /* Extra bottom room reserves a clear strip for the on-demand plays badge
-     (#quota-badge, pinned to the card's bottom-right) so it never overlaps the
+     (#quota-badge, pinned to the panel's bottom-right) so it never overlaps the
      posts ticker when the play content fills the card (e.g. on mobile). */
   padding: 18px 16px 46px;
 }

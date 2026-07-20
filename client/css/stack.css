@@ -73,18 +73,6 @@
   padding: 6px 20px 20px;
 }
 
-.stack-quota {
-  margin: 2px 0 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--inset);
-  padding: 9px 11px;
-  font-family: 'Space Mono', monospace;
-  font-size: 10px;
-  letter-spacing: .12em;
-  color: var(--t3);
-}
-
 .stack-folder {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

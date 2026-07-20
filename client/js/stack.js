@@ -275,23 +275,10 @@ function makeFolder(project) {
   return folder;
 }
 
-function renderQuotaBanner(host) {
-  if (isPaidTier() || !quota?.limit) return;
-  const banner = document.createElement('div');
-  banner.className = 'stack-quota';
-  banner.textContent = quota.remaining > 0
-    ? `${quota.remaining} ON-DEMAND PLAYS LEFT THIS HOUR`
-    : (quota.nextUpAvailable === false
-        ? `HOURLY PLAYS USED — RESETS IN ${quotaResetMins()} MIN`
-        : 'NEXT PICK ARMS AFTER THE CURRENT BROADCAST TRACK');
-  host.appendChild(banner);
-}
-
 function renderStack() {
   const card = el('stack-sections')?.querySelector('.stack-card[data-stack-key="stack"] .stack-card-content');
   if (!card) return;
   card.innerHTML = '';
-  renderQuotaBanner(card);
 
   const { projects = [], standalone = [] } = LIBRARY_STRUCTURE;
   if (!projects.length && !standalone.length) {
