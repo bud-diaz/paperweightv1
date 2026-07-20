@@ -26,6 +26,7 @@ export let state = {
   nowPlaying:    null,   // { title, artist } from stream status
   listenerCount: 0,
   isPreview:     false,
+  quota:         null,   // latest on-demand play quota snapshot (free/anon tiers)
 };
 
 export let currentIsVideo    = false;

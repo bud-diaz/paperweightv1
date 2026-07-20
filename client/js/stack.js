@@ -6,7 +6,7 @@
  * callbacks from main.js to avoid sibling imports.
  */
 
-import { LIBRARY_STRUCTURE, authState } from './state.js';
+import { state, LIBRARY_STRUCTURE, authState } from './state.js';
 import { el, esc, fmt, showToast, trackColor, generateWaveform } from './utils.js';
 import * as api from './api.js';
 import * as offline from './offline.js';
@@ -382,10 +382,12 @@ async function refreshStash() {
 async function loadQuota() {
   if (isPaidTier()) {
     quota = { limit: null, remaining: null, resetSec: 0 };
+    state.quota = null;
     return;
   }
   try { quota = await api.library.streamQuota(); }
   catch { quota = null; }
+  state.quota = quota;
 }
 
 export async function refresh() {
