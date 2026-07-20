@@ -812,6 +812,14 @@ body.creator-mode #quota-badge { display: none !important; }
 #panel-player, #panel-stack, #panel-dashboard {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   transition: transform .35s cubic-bezier(.4,0,.2,1);
+  touch-action: pan-y;
+}
+/* Swipe-drag in progress (client/js/swipe.js): inline transform tracks the
+   finger, so the CSS transition must step aside until the gesture ends. */
+#card-panels.swiping #panel-player,
+#card-panels.swiping #panel-stack,
+#card-panels.swiping #panel-dashboard {
+  transition: none;
 }
 /* Only the player panel participates in flow, so its content height drives the
    card height. STACK/STUDIO/bio stay absolute overlays and rely on the

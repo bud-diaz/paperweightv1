@@ -37,6 +37,7 @@ import * as collection   from './collection.js';
 import * as settings     from './settings.js';
 import * as tour         from './tour.js';
 import * as tilt         from './tilt.js';
+import * as swipe        from './swipe.js';
 
 import * as dashIndex   from './dashboard/index.js';
 import * as station     from './dashboard/station.js';
@@ -310,6 +311,7 @@ postsModule.initPostsModalHandlers();
 // desktop uses the mouse. Kept in sync via a body class so CSS can gate the toggle.
 document.body.classList.toggle('is-touch', ('ontouchstart' in window) || navigator.maxTouchPoints > 0);
 tilt.initTilt();
+swipe.initSwipeHandlers();
 
 // art-flip toggles a CSS class and renders the back face; the "artFlipped"
 // flag itself is owned by player.js and not exposed, so the DOM class is used
