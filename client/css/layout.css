@@ -108,10 +108,13 @@
   border-radius: var(--radius-card); overflow: hidden;
   box-shadow: var(--shadow-4), var(--shadow-edge-top), 0 0 0 1px rgba(0,0,0,.4), 0 0 70px -15px rgba(255,255,255,.08);
   display: flex; flex-direction: column;
-  /* Player view hugs its content so the card grows/shrinks as drawers open.
-     Scrolling panels (STACK/STUDIO/bio) take the full height instead — see the
-     .stack-active/.dash-active/.bio-landing overrides in the slide-panel block. */
-  flex: 0 1 auto; min-height: 0; max-height: 100%; position: relative;
+  /* Default size matches the /img/bg-pape-logo.jpg backdrop (--panel-w × --panel-h),
+     so the resting card sits exactly over the background image. Open drawers still
+     grow the card past that floor (reactive height); the dvh cap keeps it from
+     overflowing on short viewports. Scrolling panels (STACK/STUDIO/bio) take the
+     full height instead — see the active-class overrides in the slide-panel block. */
+  flex: 0 1 auto; min-height: min(var(--panel-h), calc(100dvh - 96px));
+  max-height: 100%; position: relative;
 }
 #player-card::after {
   content: ''; position: absolute; inset: 0; z-index: 20;

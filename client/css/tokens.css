@@ -35,6 +35,11 @@
   --dur-fast: .12s;
   --dur-med:  .2s;
   --dur-slow: .35s;
+
+  /* Rendered footprint of the /img/bg-pape-logo.jpg backdrop (intrinsic 1086×1448,
+     a 3:4 ratio). The player card's default size is pinned to match it. */
+  --panel-w: min(560px, calc(100vw - 32px));
+  --panel-h: calc(var(--panel-w) * 4 / 3);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -51,7 +56,7 @@ body {
   background-repeat: no-repeat;
   background-position: center center;
   background-attachment: fixed;
-  background-size: min(560px, calc(100vw - 32px)) auto;
+  background-size: var(--panel-w) auto;
   display: flex; flex-direction: column;
   align-items: stretch;
   font-family: 'Space Mono', monospace;
