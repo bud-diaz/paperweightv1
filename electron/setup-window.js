@@ -7,12 +7,13 @@ const { registerSetupHandlers } = require('./ipc/setup-handlers');
 
 // Creates the first-run wizard window. No server/port exists yet at this
 // point — the wizard only writes .env + creates directories via provisionEnv().
-function openSetupWindow({ dataRoot, onComplete }) {
+function openSetupWindow({ dataRoot, onComplete, icon }) {
   const win = new BrowserWindow({
     width: 720,
     height: 760,
     resizable: false,
     title: 'Paperweight Setup',
+    icon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

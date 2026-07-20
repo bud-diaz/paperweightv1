@@ -17,6 +17,13 @@ if (app.isPackaged) {
 
 const dataRoot = process.env.PAPERWEIGHT_DATA_ROOT;
 const envPath = path.join(dataRoot, '.env');
+const windowIcon = path.join(__dirname, 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png');
+
+// Keep Windows notifications, taskbar grouping, and development builds under
+// Paperweight's identity instead of Electron's default application identity.
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.paperweight.desktop');
+}
 
 // better-sqlite3's native binary in the shared ../node_modules is built
 // against the host Node's ABI (used by `npm test`/`node src/index.js`/pkg),
@@ -94,6 +101,7 @@ async function openMainWindow() {
     width: 1280,
     height: 860,
     title: config.station.name || 'Paperweight',
+    icon: windowIcon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -249,7 +257,7 @@ function boot() {
       app.quit();
     });
   } else {
-    openSetupWindow({ dataRoot, onComplete: onSetupComplete });
+    openSetupWindow({ dataRoot, onComplete: onSetupComplete, icon: windowIcon });
   }
 }
 
