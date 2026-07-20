@@ -47,7 +47,15 @@
     },
     "win": {
       "target": ["nsis"],
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "executableName": "Paperweight"
+    },
+    "nsis": {
+      "artifactName": "Paperweight-Setup-${version}.${ext}",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "shortcutName": "Paperweight"
     },
     "linux": {
       "target": ["AppImage", "deb"],
