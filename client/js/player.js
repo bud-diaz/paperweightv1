@@ -148,9 +148,10 @@ function isPaidTier() {
 }
 
 export async function loadQuota() {
-  if (isPaidTier()) { quota = null; return; }
+  if (isPaidTier()) { quota = null; state.quota = null; return; }
   try { quota = await api.library.streamQuota(); }
   catch { quota = null; }
+  state.quota = quota;
 }
 
 function isPlayableTrack(t) {
@@ -538,6 +539,7 @@ async function handleOnDemandError({ nextUp = false } = {}) {
   const failedTrack = state.track ? { ...state.track } : null;
   try {
     quota = await api.library.streamQuota();
+    state.quota = quota;
     if (quota.limit && quota.remaining === 0) {
       const mins = quota.resetSec ? Math.ceil(quota.resetSec / 60) : 60;
       // Only convert the failed press into the next-up slot while the hourly

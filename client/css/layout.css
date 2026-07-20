@@ -94,7 +94,7 @@
 }
 #player-wrap {
   width: 100%; max-width: 560px;
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: column; justify-content: center;
   flex: 1; min-height: 0;
 }
 
@@ -108,7 +108,13 @@
   border-radius: var(--radius-card); overflow: hidden;
   box-shadow: var(--shadow-4), var(--shadow-edge-top), 0 0 0 1px rgba(0,0,0,.4), 0 0 70px -15px rgba(255,255,255,.08);
   display: flex; flex-direction: column;
-  flex: 1; min-height: 0; position: relative;
+  /* Default size matches the /img/bg-pape-logo.jpg backdrop (--panel-w × --panel-h),
+     so the resting card sits exactly over the background image. Open drawers still
+     grow the card past that floor (reactive height); the dvh cap keeps it from
+     overflowing on short viewports. Scrolling panels (STACK/STUDIO/bio) take the
+     full height instead — see the active-class overrides in the slide-panel block. */
+  flex: 0 1 auto; min-height: min(var(--panel-h), calc(100dvh - 96px));
+  max-height: 100%; position: relative;
 }
 #player-card::after {
   content: ''; position: absolute; inset: 0; z-index: 20;
@@ -284,10 +290,18 @@
 }
 
 #quota-badge {
+  /* Pinned flush to the very bottom-right of the player card rather than the top
+     bar. #player-card is the positioned ancestor. The bottom-right corner is
+     squared to the card radius so it nests into the rounded corner (the card
+     clips overflow) instead of leaving a gap. */
+  position: absolute; right: 14px; bottom: 0; z-index: 21;
   display: none; flex-direction: row; align-items: center; gap: 5px;
   width: auto; padding: 5px 10px;
-  background: rgba(0,0,0,.4); border: 1.5px solid #ff5566; border-radius: var(--radius-sm);
+  background: rgba(0,0,0,.55); border: 1.5px solid #ff5566;
+  border-radius: var(--radius-sm) var(--radius-sm) var(--radius-card) var(--radius-sm);
   color: #ff5566;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-2);
 }
 #quota-badge-count {
   font-family: 'DM Serif Display', serif; font-size: 14px; line-height: 1;
@@ -693,11 +707,17 @@ body.creator-mode #quota-badge { display: none !important; }
 #bottom-accent { height: 3px; opacity: .9; transition: background .5s; flex-shrink: 0; }
 
 /* ── Slide panels ── */
-#card-panels { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+/* card-panels sizes to the in-flow player panel (below) so the card is reactive
+   to open drawers; the other panels overlay as absolute siblings. */
+#card-panels { flex: 0 1 auto; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; }
 #panel-player, #panel-stack, #panel-dashboard {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   transition: transform .35s cubic-bezier(.4,0,.2,1);
 }
+/* Only the player panel participates in flow, so its content height drives the
+   card height. STACK/STUDIO/bio stay absolute overlays and rely on the
+   full-height overrides below. */
+#panel-player { position: relative; inset: auto; flex: 1 1 auto; min-height: 0; }
 #panel-player    { transform: translateX(0); }
 #panel-stack     { transform: translateX(100%); overflow-y: auto; }
 #panel-dashboard { transform: translateX(100%); overflow-y: auto; }
@@ -707,6 +727,15 @@ body.creator-mode #quota-badge { display: none !important; }
 #player-card.dash-active #panel-player    { transform: translateX(-100%); }
 #player-card.dash-active #panel-stack     { transform: translateX(-100%); }
 #player-card.dash-active #panel-dashboard { transform: translateX(0); }
+
+/* STACK / STUDIO / bio scroll internally and need the full card height rather
+   than the reactive player-content height. */
+#player-card.stack-active,
+#player-card.dash-active,
+#player-card.bio-landing { flex: 1; }
+#player-card.stack-active #card-panels,
+#player-card.dash-active #card-panels,
+#player-card.bio-landing #card-panels { flex: 1; }
 
 /* ── Credit ── */
 #credit {
