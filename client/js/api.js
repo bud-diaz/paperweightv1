@@ -187,17 +187,6 @@ export const auth = {
   },
 
   /**
-   * POST /api/listener/start — welcome-page entry: display name only.
-   * @param {string} displayName
-   * @param {string} [email]
-   * @param {boolean} [marketingOptIn]
-   * @returns {{ res: Response, data: { ok?: boolean, displayName?: string, error?: string } }}
-   */
-  start(displayName, email, marketingOptIn) {
-    return _send('/api/listener/start', { displayName, email: email || undefined, marketingOptIn: !!marketingOptIn });
-  },
-
-  /**
    * DELETE /api/listener/profile — remove a welcome-page profile (no account).
    * @returns {{ res: Response, data: { ok?: boolean, error?: string } }}
    */
@@ -232,13 +221,19 @@ export const auth = {
   },
 
   /**
-   * POST /api/listener/register
+   * POST /api/listener/register — welcome-page entry sends the extras.
    * @param {string} email
    * @param {string} password
+   * @param {{ displayName?: string, marketingOptIn?: boolean }} [opts]
    * @returns {{ res: Response, data: { error?: string } }}
    */
-  register(email, password) {
-    return _send('/api/listener/register', { email, password });
+  register(email, password, { displayName, marketingOptIn } = {}) {
+    return _send('/api/listener/register', {
+      email,
+      password,
+      displayName: displayName || undefined,
+      marketingOptIn: typeof marketingOptIn === 'boolean' ? marketingOptIn : undefined,
+    });
   },
 
   /**

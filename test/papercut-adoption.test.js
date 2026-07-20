@@ -74,72 +74,90 @@ function seedUnlock(db, listenerId, { type = 'track', targetId = null, amount = 
 
 // ─── Welcome onboarding ───────────────────────────────────────────────────────
 
-test('listener start creates a profile with display name only', async () => {
+// Legacy welcome identity: a profile-only token minted by the retired /start
+// endpoint. Seeded directly now that the endpoint is gone.
+function seedProfile(db, { displayName = 'Legacy', email = null, marketingOptIn = 0 } = {}) {
+  const tokenRow = seedToken(db);
+  db.prepare(`
+    INSERT INTO listener_profiles (display_name, email, marketing_opt_in, token_id, last_seen_at)
+    VALUES (?, ?, ?, ?, datetime('now'))
+  `).run(displayName, email, marketingOptIn, tokenRow.id);
+  return { token: tokenRow.token, tokenId: tokenRow.id };
+}
+
+test('listener start is retired and mints nothing', async () => {
   const db = freshDb();
   resetAuthLimiter();
   await withServer(async baseUrl => {
-    const { res, body } = await post(baseUrl, '/api/listener/start', { displayName: '  Alex  ' });
+    const { res } = await post(baseUrl, '/api/listener/start', { displayName: 'Alex' });
+    assert.equal(res.status, 410);
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM listener_profiles').get().n, 0);
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM tokens').get().n, 0);
+  });
+});
+
+test('welcome register creates an account plus profile with consent', async () => {
+  const db = freshDb();
+  resetAuthLimiter();
+  await withServer(async baseUrl => {
+    const { res, body } = await post(baseUrl, '/api/listener/register', {
+      email: 'Fan@Example.com', password: 'password123',
+      displayName: '  Alex  ', marketingOptIn: true,
+    });
     assert.equal(res.status, 201);
-    assert.equal(body.displayName, 'Alex');
     assert.equal(body.tier, 'free');
     assert.ok(body.token);
     assert.match(res.headers.get('set-cookie') || '', /pw_token=/);
 
+    const account = db.prepare('SELECT * FROM listener_accounts').get();
+    assert.equal(account.email, 'fan@example.com');
     const profile = db.prepare('SELECT * FROM listener_profiles').get();
     assert.equal(profile.display_name, 'Alex');
-    assert.equal(profile.email, null);
-    assert.equal(profile.marketing_opt_in, 0);
-    assert.equal(profile.account_id, null);
-    assert.ok(profile.token_id);
+    assert.equal(profile.email, 'fan@example.com');
+    assert.equal(profile.marketing_opt_in, 1);
+    assert.equal(profile.account_id, account.id);
   });
 });
 
-test('listener start rejects a missing or oversized display name', async () => {
+test('welcome register without consent leaves marketing opt-in off', async () => {
+  const db = freshDb();
+  resetAuthLimiter();
+  await withServer(async baseUrl => {
+    const { res } = await post(baseUrl, '/api/listener/register', {
+      email: 'quiet@example.com', password: 'password123', displayName: 'NoConsent',
+    });
+    assert.equal(res.status, 201);
+    const profile = db.prepare('SELECT * FROM listener_profiles').get();
+    assert.equal(profile.marketing_opt_in, 0);
+  });
+});
+
+test('register validates email, password, and display name', async () => {
   freshDb();
   resetAuthLimiter();
   await withServer(async baseUrl => {
-    const missing = await post(baseUrl, '/api/listener/start', { displayName: '   ' });
-    assert.equal(missing.res.status, 400);
-
-    const oversized = await post(baseUrl, '/api/listener/start', { displayName: 'x'.repeat(51) });
-    assert.equal(oversized.res.status, 400);
-
-    const badEmail = await post(baseUrl, '/api/listener/start', { displayName: 'Alex', email: 'not-an-email' });
+    const badEmail = await post(baseUrl, '/api/listener/register',
+      { email: 'not-an-email', password: 'password123' });
     assert.equal(badEmail.res.status, 400);
+
+    const shortPass = await post(baseUrl, '/api/listener/register',
+      { email: 'ok@example.com', password: 'short' });
+    assert.equal(shortPass.res.status, 400);
+
+    const oversized = await post(baseUrl, '/api/listener/register',
+      { email: 'ok@example.com', password: 'password123', displayName: 'x'.repeat(51) });
+    assert.equal(oversized.res.status, 400);
   });
 });
 
-test('listener start stores email but consent only when the box was ticked', async () => {
+test('me answers for a legacy profile token and refreshes last_seen_at', async () => {
   const db = freshDb();
   resetAuthLimiter();
+  const seeded = seedProfile(db, { displayName: 'Repeat', email: 'repeat@example.com' });
   await withServer(async baseUrl => {
-    const noConsent = await post(baseUrl, '/api/listener/start', {
-      displayName: 'NoConsent', email: 'Quiet@Example.com',
-    });
-    assert.equal(noConsent.res.status, 201);
-    const consented = await post(baseUrl, '/api/listener/start', {
-      displayName: 'Consented', email: 'Fan@Example.com', marketingOptIn: true,
-    });
-    assert.equal(consented.res.status, 201);
-
-    const rows = db.prepare('SELECT display_name, email, marketing_opt_in FROM listener_profiles ORDER BY id').all();
-    assert.deepEqual(rows, [
-      { display_name: 'NoConsent', email: 'quiet@example.com', marketing_opt_in: 0 },
-      { display_name: 'Consented', email: 'fan@example.com', marketing_opt_in: 1 },
-    ]);
-  });
-});
-
-test('me answers for a profile token and refreshes last_seen_at', async () => {
-  const db = freshDb();
-  resetAuthLimiter();
-  await withServer(async baseUrl => {
-    const start = await post(baseUrl, '/api/listener/start', { displayName: 'Repeat', email: 'Repeat@Example.com' });
-    const token = start.body.token;
-
     db.prepare("UPDATE listener_profiles SET last_seen_at = '2020-01-01 00:00:00'").run();
 
-    const me = await request(baseUrl, '/api/listener/me', { headers: bearer(token) });
+    const me = await request(baseUrl, '/api/listener/me', { headers: bearer(seeded.token) });
     assert.equal(me.res.status, 200);
     assert.equal(me.body.displayName, 'Repeat');
     assert.equal(me.body.email, 'repeat@example.com');
@@ -154,18 +172,18 @@ test('me answers for a profile token and refreshes last_seen_at', async () => {
 test('registering links an unclaimed profile to the new account', async () => {
   const db = freshDb();
   resetAuthLimiter();
+  const seeded = seedProfile(db, { displayName: 'Upgrader' });
   await withServer(async baseUrl => {
-    const start = await post(baseUrl, '/api/listener/start', { displayName: 'Upgrader' });
-    const profileToken = start.body.token;
-
     const reg = await post(baseUrl, '/api/listener/register',
       { email: 'up@example.com', password: 'password123' },
-      { Cookie: `pw_token=${profileToken}` });
+      { Cookie: `pw_token=${seeded.token}` });
     assert.equal(reg.res.status, 201);
 
     const profile = db.prepare('SELECT * FROM listener_profiles').get();
     const account = db.prepare('SELECT id FROM listener_accounts WHERE email = ?').get('up@example.com');
     assert.equal(profile.account_id, account.id);
+    // The account email is copied onto the profile for the audience export.
+    assert.equal(profile.email, 'up@example.com');
 
     // The account's /me now carries the profile display name.
     const me = await request(baseUrl, '/api/listener/me', { headers: bearer(reg.body.token) });
@@ -177,10 +195,10 @@ test('registering links an unclaimed profile to the new account', async () => {
 test('profile deletion removes the profile row and its token', async () => {
   const db = freshDb();
   resetAuthLimiter();
+  const seeded = seedProfile(db, { displayName: 'Gone', email: 'gone@example.com', marketingOptIn: 1 });
   await withServer(async baseUrl => {
-    const start = await post(baseUrl, '/api/listener/start', { displayName: 'Gone', email: 'gone@example.com', marketingOptIn: true });
     const del = await request(baseUrl, '/api/listener/profile', {
-      method: 'DELETE', headers: bearer(start.body.token),
+      method: 'DELETE', headers: bearer(seeded.token),
     });
     assert.equal(del.res.status, 200);
     assert.equal(db.prepare('SELECT COUNT(*) AS n FROM listener_profiles').get().n, 0);

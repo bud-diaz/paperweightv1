@@ -81,19 +81,12 @@
 .welcome-station { font-size: 26px; font-weight: 700; letter-spacing: -.01em; color: var(--t1); line-height: 1.15; }
 .welcome-sub { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t2); line-height: 1.5; margin-bottom: 10px; }
 .welcome-label { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .14em; color: var(--t3); }
-#welcome-email-toggle {
-  background: none; border: none; text-align: left; padding: 6px 0 0; cursor: pointer;
-  font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em; color: var(--t3);
-}
-#welcome-email-toggle:hover { color: var(--t2); }
-#welcome-email-chev { display: inline-block; transition: transform var(--dur-fast) var(--ease-out-macos); }
-.welcome-optional { color: var(--t4); }
-#welcome-email-body { display: flex; flex-direction: column; gap: 8px; padding: 4px 0 2px; }
 .welcome-consent {
-  display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
+  display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding-top: 4px;
   font-family: 'Space Mono', monospace; font-size: 10px; color: var(--t2); line-height: 1.45;
 }
 .welcome-consent input { margin-top: 1px; }
+.welcome-foot button.welcome-login-hint { color: var(--t1); text-decoration: underline; }
 #welcome-enter { margin-top: 8px; }
 .welcome-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; }
 .welcome-foot button {

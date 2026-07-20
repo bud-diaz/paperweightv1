@@ -112,11 +112,17 @@ welcome.init({
     await auth.loadAuthState();
     library.loadLibrary();
     collection.loadCollection();
+    await player.loadQuota(); // the email-backed account raises the play allowance
+    player.render();
   },
-  openLogin: () => {
+  openLogin: (prefillEmail) => {
     auth.setAuthTab('login');
     auth.toggleAuthSection(true); // reveals the Settings modal that hosts the auth form
-    setTimeout(() => el('auth-email').focus(), 120);
+    setTimeout(() => {
+      const emailInput = el('auth-email');
+      if (prefillEmail) emailInput.value = prefillEmail;
+      emailInput.focus();
+    }, 120);
   },
 });
 
