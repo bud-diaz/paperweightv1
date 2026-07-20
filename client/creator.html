@@ -15,6 +15,8 @@
   <!-- Fonts vendored locally (client/vendor/fonts/) — no runtime CDN dependency. -->
   <link rel="stylesheet" href="/vendor/fonts/fonts.css"/>
   <script src="/vendor/hls.min.js"></script>
+  <!-- Dependency-free QR encoder (client/vendor/README.md) — renders the mobile Studio pairing link as a scannable code. -->
+  <script src="/vendor/qrcode.js"></script>
   <link rel="stylesheet" href="/css/tokens.css"/>
   <link rel="stylesheet" href="/css/layout.css"/>
   <link rel="stylesheet" href="/css/auth.css"/>
@@ -1308,6 +1310,19 @@
               </div>
               <div id="dash-2fa-disable-msg" class="twofa-msg"></div>
             </div>
+          </div>
+
+          <div class="dash-divider"></div>
+
+          <!-- Authorized devices (mobile Studio pairing) -->
+          <div class="dash-section" id="dash-devices-section">
+            <div class="dash-section-label">AUTHORIZED DEVICES</div>
+            <div class="twofa-copy">Sign a phone into Studio by scanning a QR code — no need to type your dashboard token.</div>
+            <button class="mgmt-btn" id="btn-pair-device">PAIR A NEW DEVICE</button>
+            <div id="dash-pair-qr" style="margin-top:10px;"></div>
+            <div id="dash-pair-url" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);word-break:break-all;margin-top:6px;"></div>
+            <div id="dash-pair-msg" class="twofa-msg"></div>
+            <div id="dash-devices-list" style="margin-top:12px;"></div>
           </div>
 
           <div class="dash-divider"></div>

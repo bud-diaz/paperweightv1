@@ -25,7 +25,9 @@ const { clearArtworkCache, ARTWORK_DIR } = require('./library');
 const { isBroadcastPlayableTrack } = require('../broadcast/playlist');
 const { validateSlug } = require('../auth/reserved-slugs');
 const { resolveSafeAddress } = require('../runtime/net-guard');
-const { isValidExternalHttpUrl } = require('../runtime/base-url');
+const { isValidExternalHttpUrl, publicBaseUrl } = require('../runtime/base-url');
+const { listDevices, revokeDevice, renameDevice } = require('../auth/devices');
+const { createPairing, getPairingStatus } = require('../auth/device-pairing');
 const { IMAGE_MIMES, IMAGE_EXTS, sniffImageFile } = require('../runtime/images');
 const { getSetting, getBoolSetting, setSetting } = require('../db/settings');
 const paymentConfig = require('../payment/config');
@@ -1460,6 +1462,53 @@ router.delete('/2fa', (req, res) => {
 
   getDb().prepare('UPDATE dashboard_2fa SET enabled = 0 WHERE id = 1').run();
   log('info', 'dashboard', '2FA disabled');
+  res.json({ ok: true });
+});
+
+// ─── Authorized devices (mobile Studio pairing) ──────────────────────────────
+// Lets a second device (typically a phone) sign into Studio by scanning a QR
+// code generated from this already-authenticated session, instead of typing
+// the raw DASHBOARD_TOKEN. See src/auth/device-pairing.js (short-lived pairing
+// token) and src/auth/devices.js (the resulting persistent device credential).
+
+// POST /api/dashboard/devices/pair
+// Generates a pairing token and the URL to encode as a QR code.
+router.post('/devices/pair', (req, res) => {
+  const { pairToken, expiresAt } = createPairing();
+  const pairUrl = `${publicBaseUrl()}/pair?pt=${pairToken}`;
+  res.json({ pairToken, pairUrl, expiresAt });
+});
+
+// GET /api/dashboard/devices/pair/status?pt=<pairToken>
+// Polled by the desktop while waiting for the phone to scan and confirm.
+router.get('/devices/pair/status', (req, res) => {
+  const pairToken = req.query.pt;
+  if (!pairToken || typeof pairToken !== 'string') {
+    return res.status(400).json({ error: 'pt is required' });
+  }
+  const status = getPairingStatus(pairToken);
+  if (!status) return res.status(404).json({ error: 'Pairing not found or expired' });
+  res.json(status);
+});
+
+// GET /api/dashboard/devices
+router.get('/devices', (req, res) => {
+  res.json({ devices: listDevices() });
+});
+
+// PATCH /api/dashboard/devices/:id — Body: { label }
+router.patch('/devices/:id', (req, res) => {
+  const { label } = req.body || {};
+  if (!label || typeof label !== 'string' || !label.trim()) {
+    return res.status(400).json({ error: 'label is required' });
+  }
+  renameDevice(req.params.id, label.trim());
+  res.json({ ok: true });
+});
+
+// DELETE /api/dashboard/devices/:id — revokes the device's session immediately.
+router.delete('/devices/:id', (req, res) => {
+  revokeDevice(req.params.id);
   res.json({ ok: true });
 });
 

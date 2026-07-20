@@ -4,6 +4,7 @@ const config = require('../config');
 const crypto = require('crypto');
 const { isSubscriberTier, isHigherTier } = require('./access');
 const { validateSession } = require('./sessions');
+const { validateDeviceSession } = require('./devices');
 
 // Constant-time string compare that does not early-return on length mismatch.
 // timingSafeEqual requires equal-length buffers, so hash both sides first.
@@ -138,6 +139,11 @@ function requireDashboard(req, res, next) {
   // also works when 2FA is disabled to avoid replaying the token on every request).
   const sessionId = req.cookies?.pw_dashboard_session;
   if (sessionId && validateSession(sessionId)) return next();
+
+  // Persistent, individually-revocable session for a paired mobile device
+  // (see src/auth/devices.js). Survives a server restart, unlike the
+  // in-memory session above.
+  if (sessionId && validateDeviceSession(sessionId)) return next();
 
   // Direct token header, accepted only when 2FA is disabled.
   const headerToken = req.headers['x-dashboard-token'];

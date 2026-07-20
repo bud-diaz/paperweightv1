@@ -1255,6 +1255,52 @@ export const dashboard = {
     },
   },
 
+  // ── Authorized devices (mobile Studio pairing) ────────────────────────────────
+
+  devices: {
+    /**
+     * POST /api/dashboard/devices/pair — start a new pairing, to render as a QR code.
+     * @returns {{ pairToken: string, pairUrl: string, expiresAt: number }}
+     */
+    pair() {
+      return _fetch('/api/dashboard/devices/pair', { method: 'POST' }).then(r => r.json());
+    },
+
+    /**
+     * GET /api/dashboard/devices/pair/status?pt={pairToken} — poll while waiting for a scan.
+     * @param {string} pairToken
+     * @returns {{ status: 'pending'|'claimed' }}
+     */
+    pairStatus(pairToken) {
+      return _json(`/api/dashboard/devices/pair/status?pt=${encodeURIComponent(pairToken)}`);
+    },
+
+    /**
+     * GET /api/dashboard/devices
+     * @returns {{ devices: Array<{ id, label, created_at, last_used_at, revoked_at }> }}
+     */
+    list() {
+      return _json('/api/dashboard/devices');
+    },
+
+    /**
+     * PATCH /api/dashboard/devices/:id — rename a device.
+     * @param {number} id
+     * @param {string} label
+     */
+    rename(id, label) {
+      return _send(`/api/dashboard/devices/${id}`, { label }, 'PATCH');
+    },
+
+    /**
+     * DELETE /api/dashboard/devices/:id — revoke a device's session immediately.
+     * @param {number} id
+     */
+    revoke(id) {
+      return _del(`/api/dashboard/devices/${id}`);
+    },
+  },
+
   // ── Tip config ─────────────────────────────────────────────────────────────────
 
   tipConfig: {

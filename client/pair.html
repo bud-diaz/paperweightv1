@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="/favicon.png">
+<title>Sign in to Studio</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #0a0a0a;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .pair-card {
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+  }
+  .pair-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .pair-copy {
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgba(255,255,255,.6);
+    margin-bottom: 24px;
+  }
+  .pair-btn {
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid rgba(57,255,20,.4);
+    background: rgba(57,255,20,.08);
+    color: #39ff14;
+    cursor: pointer;
+  }
+  .pair-btn:disabled { opacity: .5; cursor: default; }
+  .pair-msg {
+    margin-top: 16px;
+    font-size: 13px;
+    color: rgba(255,255,255,.6);
+  }
+  .pair-msg.error { color: #ff5c5c; }
+  .pair-msg.ok { color: #39ff14; }
+</style>
+</head>
+<body>
+  <div class="pair-card">
+    <div class="pair-title">Sign in to Studio</div>
+    <div class="pair-copy">This will sign this device into the Studio dashboard. Only do this on a device you trust.</div>
+    <button class="pair-btn" id="pair-confirm-btn">Finish signing in</button>
+    <div class="pair-msg" id="pair-msg"></div>
+  </div>
+  <script src="/js/pair.js"></script>
+</body>
+</html>

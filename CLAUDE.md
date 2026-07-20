@@ -31,7 +31,7 @@ Paperweight is a single-process Express server with four boot-time subsystems:
 - Broadcast engine (`src/broadcast/`): spawns FFmpeg, reads a concat manifest, writes HLS output to `hls_output/stream/`, and writes now-playing state to `hls_output/state.json`.
 - Vault scanner (`src/scanner/`): watches `vault/` with chokidar, probes files with ffprobe, and upserts media rows.
 - Release scheduler (`src/release/scheduler.js`): a 30s `setInterval` poll that flips scheduled `media.visibility` to `public` once `release_at` passes and fires the deferred notify for creator posts scheduled via `published_at`. Unrelated to `src/broadcast/scheduler.js` (weekly dayparting for the live broadcast, checked by `npm run check:scheduler`) — different subsystem, same name coincidence.
-- HTTP server (`src/index.js` -> `src/api/router.js`): all API routes live under `/api`; the single-file frontend is `client/creator.html`. Three public non-API routes are mounted directly in `src/index.js`: `/feed.xml` + `/feed/enclosure/:id` (creator-enabled RSS feed, `src/api/feed.js`) and `/embed` (frameable mini player, `client/embed.html` + `client/js/embed.js`).
+- HTTP server (`src/index.js` -> `src/api/router.js`): all API routes live under `/api`; the single-file frontend is `client/creator.html`. Four public non-API routes are mounted directly in `src/index.js`: `/feed.xml` + `/feed/enclosure/:id` (creator-enabled RSS feed, `src/api/feed.js`), `/embed` (frameable mini player, `client/embed.html` + `client/js/embed.js`), and `/pair` (mobile Studio device-pairing confirmation page, `client/pair.html` + `client/js/pair.js`).
 
 Supporting modules:
 
@@ -52,7 +52,7 @@ Schema files live in `src/db/migrations/`. Applied SQL migrations are tracked in
 
 Current migration sequence:
 
-`001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments -> `010` webhook idempotency -> `011` payment idempotency -> `012` dashboard 2FA -> `013` creator profile -> `014` launch acceptance -> `015` download leads -> `016` highlight -> `017` share links -> `018` smart playlists -> `019` creator posts -> `020` download lead opt-in -> `021` pending checkouts -> `022` download events -> `023` password resets -> `024` app settings -> `025` genre + offline saves -> `026` listener profiles -> `027` listener email tokens.
+`001` initial schema -> `002` analytics -> `003` monetization -> `004` slug registry -> `005` tips -> `006` webhook log -> `007` vault pricing -> `008` private-to-vault rename -> `009` token assignments -> `010` webhook idempotency -> `011` payment idempotency -> `012` dashboard 2FA -> `013` creator profile -> `014` launch acceptance -> `015` download leads -> `016` highlight -> `017` share links -> `018` smart playlists -> `019` creator posts -> `020` download lead opt-in -> `021` pending checkouts -> `022` download events -> `023` password resets -> `024` app settings -> `025` genre + offline saves -> `026` listener profiles -> `027` listener email tokens -> `028` dashboard devices.
 
 The source of truth for migrations is the inline SQL in `src/db/migrations/index.js`; the standalone `.sql` files are documentation copies. Small creator-configurable flags (notify webhook URL, feed enablement, `station_searchable`) live in the `app_settings` key/value table via `src/db/settings.js`.
 
@@ -77,6 +77,7 @@ Dashboard auth:
 - `requireDashboard` middleware checks `pw_dashboard_session` cookie first, then falls back to `X-Dashboard-Token` header only when 2FA is disabled.
 - Token comes from `.env` as `DASHBOARD_TOKEN`. Listener cookies never grant dashboard access.
 - 2FA TOTP secret and recovery codes stored in `dashboard_2fa` table (migration 012). Pure Node crypto — no new deps.
+- Authorized devices (mobile Studio pairing, `src/auth/devices.js` + `src/auth/device-pairing.js`, migration 028 `dashboard_devices`): a device already signed into Studio generates a short-lived pairing token (`POST /api/dashboard/devices/pair`, in-memory, 10-minute TTL) rendered as a QR code; scanning it hits the public `/pair` confirmation page, which redeems the token (`POST /api/auth/dashboard/device/redeem`) for a persistent, individually revocable `pw_dashboard_session` cookie value stored hashed in `dashboard_devices`. `requireDashboard` checks this table as a second fallback after the in-memory session map. Unlike the primary login's session, a paired device's credential survives a server restart — that's the point of pairing a phone — and is revoked per-device from the "Authorized Devices" panel, not by rotating `DASHBOARD_TOKEN`.
 
 Access policy lives in `src/auth/access.js`. Use it for new media/library/download gates instead of duplicating tier checks.
 
