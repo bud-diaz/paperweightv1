@@ -134,16 +134,15 @@ function requireAllAccess(req, res, next) {
   next();
 }
 
+function hasDashboardSession(req) {
+  const sessionId = req.cookies?.pw_dashboard_session;
+  return !!sessionId && (validateSession(sessionId) || validateDeviceSession(sessionId));
+}
+
 function requireDashboard(req, res, next) {
   // Session cookie set after successful login (required when 2FA is enabled;
   // also works when 2FA is disabled to avoid replaying the token on every request).
-  const sessionId = req.cookies?.pw_dashboard_session;
-  if (sessionId && validateSession(sessionId)) return next();
-
-  // Persistent, individually-revocable session for a paired mobile device
-  // (see src/auth/devices.js). Survives a server restart, unlike the
-  // in-memory session above.
-  if (sessionId && validateDeviceSession(sessionId)) return next();
+  if (hasDashboardSession(req)) return next();
 
   // Direct token header, accepted only when 2FA is disabled.
   const headerToken = req.headers['x-dashboard-token'];
@@ -170,5 +169,6 @@ module.exports = {
   requireSubscriber,
   requireAllAccess,
   requireDashboard,
+  hasDashboardSession,
   activeSubscriptionTierForListener,
 };

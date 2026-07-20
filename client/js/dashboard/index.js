@@ -44,6 +44,7 @@ let _loadDashSmartPlaylists = () => {};
 let _loadDashSchedulePreview = () => {};
 let _loadDashPosts          = () => {};
 let _loadDashSettings       = () => {};
+let _loadLibrary            = () => {};
 
 export function init(callbacks = {}) {
   if (callbacks.loadDashStation)       _loadDashStation       = callbacks.loadDashStation;
@@ -74,6 +75,7 @@ export function init(callbacks = {}) {
   if (callbacks.loadDashSchedulePreview) _loadDashSchedulePreview = callbacks.loadDashSchedulePreview;
   if (callbacks.loadDashPosts)          _loadDashPosts          = callbacks.loadDashPosts;
   if (callbacks.loadDashSettings)       _loadDashSettings       = callbacks.loadDashSettings;
+  if (callbacks.loadLibrary)            _loadLibrary            = callbacks.loadLibrary;
 }
 
 // ── Auth probe ─────────────────────────────────────────────────────────────────
@@ -109,6 +111,7 @@ function showDashContent() {
   el('dash-auth-msg').textContent = '';
   setDashGate('content');
   document.body.classList.add('creator-mode');
+  _loadLibrary();
   if (!dashboardLoaded) { dashboardLoaded = true; loadDashboard(); }
   checkLaunchAcceptance();
 }

@@ -46,7 +46,8 @@ export function init({
 }
 
 function isPaidTier() {
-  return authState.loggedIn && authState.tier !== 'free';
+  return document.body.classList.contains('creator-mode')
+    || (authState.loggedIn && authState.tier !== 'free');
 }
 
 function isPlayable(t) {
@@ -245,8 +246,8 @@ function makeTrackRow(raw) {
   return row;
 }
 
-function makeFolder(project) {
-  const key = String(project.id || project.name);
+function makeFolder(project, { keyPrefix = 'collection' } = {}) {
+  const key = `${keyPrefix}:${String(project.id || project.name)}`;
   const tracks = project.tracks || [];
   if (!seenProjects.has(key)) {
     seenProjects.add(key);
@@ -257,7 +258,7 @@ function makeFolder(project) {
   folder.className = 'stack-folder';
   folder.classList.toggle('open', openProjects.has(key));
   folder.innerHTML = `
-    <button class="stack-folder-head" type="button">
+    <button class="stack-folder-head" type="button" aria-expanded="${openProjects.has(key) ? 'true' : 'false'}">
       <span class="stack-folder-chevron" aria-hidden="true">&#9662;</span>
       <span class="stack-folder-glyph" aria-hidden="true"></span>
       <span class="stack-folder-name">${esc(project.name)}</span>
@@ -268,7 +269,9 @@ function makeFolder(project) {
   folder.querySelector('.stack-folder-head').addEventListener('click', () => {
     if (openProjects.has(key)) openProjects.delete(key);
     else openProjects.add(key);
-    folder.classList.toggle('open', openProjects.has(key));
+    const isOpen = openProjects.has(key);
+    folder.classList.toggle('open', isOpen);
+    folder.querySelector('.stack-folder-head').setAttribute('aria-expanded', isOpen ? 'true' : 'false');
   });
   const body = folder.querySelector('.stack-tree');
   tracks.forEach(track => body.appendChild(makeTrackRow(track)));
@@ -288,14 +291,7 @@ function renderStack() {
 
   projects.forEach(project => card.appendChild(makeFolder(project)));
   if (standalone.length) {
-    const sep = document.createElement('div');
-    sep.className = 'stack-sep';
-    sep.textContent = 'SINGLES';
-    card.appendChild(sep);
-    const tree = document.createElement('div');
-    tree.className = 'stack-tree';
-    card.appendChild(tree);
-    standalone.forEach(track => tree.appendChild(makeTrackRow(track)));
+    card.appendChild(makeFolder({ id: 'singles', name: 'SINGLES', tracks: standalone }, { keyPrefix: 'release-type' }));
   }
 }
 

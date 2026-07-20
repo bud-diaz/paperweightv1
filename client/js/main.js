@@ -166,6 +166,7 @@ dashIndex.init({
   loadDashSchedule:     schedule.loadDashSchedule,
   loadDashProjects:     projects.loadDashProjects,
   loadDashLibrary:      vault.loadDashLibrary,
+  loadLibrary:          library.loadLibrary,
   loadDashAnalytics:    analytics.loadDashAnalytics,
   loadDash2FA:          twofa.loadDash2FA,
   loadDashDevices:      devices.loadDashDevices,

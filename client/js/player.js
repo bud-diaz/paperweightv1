@@ -144,7 +144,8 @@ export function activeTrack() {
 function duration() { return state.track ? (state.track.duration || 0) : 0; }
 
 function isPaidTier() {
-  return authState.loggedIn && authState.tier !== 'free';
+  return document.body.classList.contains('creator-mode')
+    || (authState.loggedIn && authState.tier !== 'free');
 }
 
 export async function loadQuota() {

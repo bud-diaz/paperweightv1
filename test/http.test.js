@@ -715,6 +715,18 @@ test('library stream endpoint enforces access and on-demand quota', async () => 
       assert.equal(lockedVault.res.status, 403);
       assert.equal(lockedVault.body.unlockOptions.track.minimumPrice, 300);
 
+      const creatorLogin = await request(baseUrl, '/api/auth/dashboard/login', {
+        method: 'POST',
+        headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+      });
+      const creatorCookie = creatorLogin.res.headers.get('set-cookie').split(';', 1)[0];
+      assert.equal((await request(baseUrl, `/api/library/${supporter.id}/stream`, {
+        headers: { Cookie: creatorCookie },
+      })).res.status, 200);
+      assert.equal((await request(baseUrl, `/api/library/${vault.id}/stream`, {
+        headers: { Cookie: creatorCookie },
+      })).res.status, 200);
+
       const subscriberStream = await request(baseUrl, `/api/library/${supporter.id}/stream`, {
         headers: { Authorization: `Bearer ${subscriberToken.token}` },
       });
@@ -897,6 +909,16 @@ test('library visibility and gated downloads are enforced', async () => {
     const unlockedSupporter = subscriberStructure.body.standalone.find(item => item.id === supporterMedia.id);
     assert.ok(unlockedSupporter);
     assert.equal(unlockedSupporter.unlocked, true);
+
+    const creatorLogin = await request(baseUrl, '/api/auth/dashboard/login', {
+      method: 'POST',
+      headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+    });
+    const creatorCookie = creatorLogin.res.headers.get('set-cookie').split(';', 1)[0];
+    const creatorStructure = await request(baseUrl, '/api/library/structure', {
+      headers: { Cookie: creatorCookie },
+    });
+    assert.equal(creatorStructure.body.standalone.find(item => item.id === supporterMedia.id).unlocked, true);
 
     const denied = await request(baseUrl, `/api/library/${publicMedia.id}/download`);
     assert.equal(denied.res.status, 401);

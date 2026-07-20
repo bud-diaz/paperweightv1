@@ -740,6 +740,11 @@ body.creator-mode #quota-badge { display: none !important; }
   font-size: 10px; color: var(--t4); letter-spacing: .12em; flex-shrink: 0;
 }
 
+@media (max-width: 430px) {
+  #credit { justify-content: flex-end; padding-right: 20px; }
+  #credit-text { text-align: right; }
+}
+
 /* ── Ambient ── */
 #ambient {
   position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%);
