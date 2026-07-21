@@ -107,6 +107,7 @@ library.init({
 collection.init({
   selectVOD:      player.selectVOD,
   normalizeTrack: library.normalizeTrack,
+  onSavedChanged: stack.refresh,
 });
 
 welcome.init({
@@ -153,6 +154,15 @@ stack.init({
   checkVaultGate: payment.checkVaultGate,
   addToQueue:     library.addToQueue,
   setNextUp:      player.setNextUp,
+  onStashChanged: collection.loadCollection,
+  editTrack: async trackId => {
+    enterDashboard();
+    const vaultCard = document.querySelector('#dash-sections > .dash-card[data-section-key="vault"]');
+    if (vaultCard && !vaultCard.classList.contains('open')) {
+      vaultCard.querySelector('.dash-card-head')?.click();
+    }
+    await vault.openTrackEditor(trackId);
+  },
 });
 
 payment.init({
