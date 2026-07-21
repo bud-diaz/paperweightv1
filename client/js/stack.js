@@ -133,6 +133,8 @@ function ensureCards() {
   const container = el('stack-sections');
   if (!container || initialized) return;
   initialized = true;
+  // Keep the inactive drawers anchored like app-shell rails: STACK at the top,
+  // STASH at the bottom, with the active drawer scrolling between them.
   container.appendChild(makeCard('stack', 'STACK'));
   container.appendChild(makeCard('stash', 'STASH'));
   applyAccordion();

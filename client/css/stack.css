@@ -1,15 +1,24 @@
 #panel-stack {
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 #stack-sections {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
 .stack-card {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  min-height: 0;
   border-bottom: 1px solid var(--border);
+}
+
+.stack-card.open {
+  flex: 1 1 auto;
 }
 
 .stack-card:last-child {
@@ -17,6 +26,7 @@
 }
 
 .stack-card-head {
+  flex: 0 0 auto;
   width: 100%;
   display: flex;
   align-items: center;
@@ -67,6 +77,12 @@
   height: 0;
   overflow: hidden;
   transition: height .28s var(--ease-out-macos);
+}
+
+.stack-card.open .stack-card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .stack-card-content {
