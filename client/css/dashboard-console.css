@@ -41,6 +41,7 @@
 .console-status-button:hover,
 .console-status-button:focus-visible { background: color-mix(in srgb, var(--raised) 88%, transparent); outline: none; }
 .console-status-button::after { content: 'TAP TO CHANGE'; font-size: 7px; letter-spacing: .1em; color: var(--t4); }
+[data-console-status-cell="broadcast"].console-status-button::after { content: 'TAP TO GO LIVE'; }
 
 .console-status-label {
   font-size: 8px;

@@ -17,6 +17,7 @@
 import * as api from '../api.js';
 import { el, fmt } from '../utils.js';
 import { isDesktopPlatform } from './index.js';
+import { startOnAirWaveform, stopOnAirWaveform } from './live.js';
 
 const POLL_MS = 2000;
 
@@ -74,6 +75,10 @@ function showOnAir(startedAt) {
   timerInt = setInterval(() => {
     el('live-timer').textContent = fmt(Math.floor((Date.now() - startedAtMs) / 1000));
   }, 1000);
+  // RTMP/OBS has no local browser capture to tap, so drive the waveform from
+  // the actual produced HLS stream instead — the only visual feedback
+  // available for this source.
+  startOnAirWaveform();
 }
 
 function stopPolling() {
@@ -104,11 +109,12 @@ function syncState(data) {
   if (state === 'live') {
     if (lastState !== 'live') showOnAir(data.startedAt);
   } else if (state === 'pending') {
-    if (lastState === 'live') stopOnAirTimer();
+    if (lastState === 'live') { stopOnAirTimer(); stopOnAirWaveform(); }
     showPendingPanel(data.rtmp);
     if (lastState === 'live') el('live-external-status').textContent = 'OBS disconnected — waiting for reconnect…';
   } else {
     stopOnAirTimer();
+    stopOnAirWaveform();
     stopPolling();
     showIdlePanel();
     renderRtmpFields(data.rtmp);
