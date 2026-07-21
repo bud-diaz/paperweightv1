@@ -9,6 +9,7 @@
 
 import { el, esc } from '../utils.js';
 import * as api from '../api.js';
+import * as dashConsole from './console.js';
 
 let loaded = false;
 
@@ -43,6 +44,7 @@ export async function loadDashEarnings() {
           <span class="earnings-amount">${dollars(u.revenueCents)}</span>
         </div>`).join('');
     }
+    dashConsole.updateEarnings(d);
   } catch {
     el('dash-earnings-totals').innerHTML = '<div class="earnings-empty">Could not load earnings.</div>';
   }

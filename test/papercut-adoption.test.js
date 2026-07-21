@@ -331,7 +331,9 @@ test('earnings requires dashboard auth and aggregates unlocks and tips', async (
   const l2 = seedListener(db);
   seedUnlock(db, l1, { targetId: track.id, amount: 500 });
   seedUnlock(db, l2, { targetId: track.id, amount: 700 });
+  db.prepare("UPDATE vault_unlocks SET created_at = datetime('now', '-2 days') WHERE listener_id = ?").run(l1);
   db.prepare('INSERT INTO tips (amount_cents) VALUES (300)').run();
+  db.prepare("INSERT INTO tips (amount_cents, created_at) VALUES (200, datetime('now', '-2 days'))").run();
 
   await withServer(async baseUrl => {
     const denied = await request(baseUrl, '/api/dashboard/earnings');
@@ -341,10 +343,17 @@ test('earnings requires dashboard auth and aggregates unlocks and tips', async (
     assert.equal(res.status, 200);
     assert.equal(body.totals.unitsSold, 2);
     assert.equal(body.totals.unlockRevenueCents, 1200);
-    assert.equal(body.totals.tipRevenueCents, 300);
-    assert.equal(body.totals.revenueCents, 1500);
+    assert.equal(body.totals.tipRevenueCents, 500);
+    assert.equal(body.totals.revenueCents, 1700);
+    assert.equal(body.totals.todayUnitsSold, 1);
+    assert.equal(body.totals.todayUnlockRevenueCents, 700);
+    assert.equal(body.totals.todayTipRevenueCents, 300);
+    assert.equal(body.totals.todayTipCount, 1);
+    assert.equal(body.totals.todayRevenueCents, 1000);
     assert.equal(body.unlocks[0].title, 'Seller');
     assert.equal(body.unlocks[0].unitsSold, 2);
+    assert.equal(body.todayUnlocks[0].title, 'Seller');
+    assert.equal(body.todayUnlocks[0].unitsSold, 1);
   });
 });
 
