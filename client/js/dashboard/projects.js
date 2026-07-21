@@ -17,6 +17,13 @@ export function init(callbacks = {}) {
   if (callbacks.loadDashVaultStats) _loadDashVaultStats = callbacks.loadDashVaultStats;
 }
 
+// Pricing UI is CSS-hidden for radio-host/anonymous stations (dashboard.css); treat
+// collections as free in that case instead of enforcing now-unreachable price fields.
+function monetizationHidden() {
+  return document.body.classList.contains('radio-host-mode') ||
+         document.body.classList.contains('anonymous-mode');
+}
+
 // ── Project list ───────────────────────────────────────────────────────────────
 export async function loadDashProjects() {
   try {
@@ -219,13 +226,14 @@ export function buildDashProjectCard(proj, allItems, unassigned, highlight = nul
     }
     const suggRaw = parseFloat(suggInput) || 0;
     const minRaw  = parseFloat(minInput)  || 0;
-    if (!allowFree && minRaw < 0.01) { msgEl.style.color='#ff6b6b'; msgEl.textContent='Minimum must be ≥ $0.01 when free is disabled'; return; }
+    const hidePricing = monetizationHidden();
+    if (!hidePricing && !allowFree && minRaw < 0.01) { msgEl.style.color='#ff6b6b'; msgEl.textContent='Minimum must be ≥ $0.01 when free is disabled'; return; }
     const { res } = await api.dashboard.vault.updateCollection(proj.id, {
       name,
       description:     desc || null,
-      suggested_price: Math.round(suggRaw * 100),
-      minimum_price:   Math.round(minRaw  * 100),
-      allow_free:      allowFree,
+      suggested_price: hidePricing ? 0 : Math.round(suggRaw * 100),
+      minimum_price:   hidePricing ? 0 : Math.round(minRaw  * 100),
+      allow_free:      hidePricing ? true : allowFree,
       payment_type:    'one_time',
     });
     if (res.ok) {
@@ -283,16 +291,17 @@ export function initProjectHandlers() {
     }
     const suggRaw = parseFloat(suggInput) || 0;
     const minRaw  = parseFloat(minInput)  || 0;
-    if (!allowFree && minRaw < 0.01) { msgEl.style.color='#ff6b6b'; msgEl.textContent='Minimum must be ≥ $0.01 when free is disabled'; return; }
+    const hidePricing = monetizationHidden();
+    if (!hidePricing && !allowFree && minRaw < 0.01) { msgEl.style.color='#ff6b6b'; msgEl.textContent='Minimum must be ≥ $0.01 when free is disabled'; return; }
     msgEl.style.color = 'rgba(255,255,255,.4)';
     msgEl.textContent = 'Creating…';
     const { res } = await api.dashboard.vault.createCollection({
       name,
       description:     desc || null,
       cover_art_path:  el('new-proj-art').value.trim() || null,
-      suggested_price: Math.round(suggRaw * 100),
-      minimum_price:   Math.round(minRaw  * 100),
-      allow_free:      allowFree,
+      suggested_price: hidePricing ? 0 : Math.round(suggRaw * 100),
+      minimum_price:   hidePricing ? 0 : Math.round(minRaw  * 100),
+      allow_free:      hidePricing ? true : allowFree,
       payment_type:    'one_time',
     });
     if (res.ok) {
