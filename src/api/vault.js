@@ -292,6 +292,13 @@ dashRouter.post('/projects/:id/items', (req, res) => {
   const media = db.prepare('SELECT id FROM media WHERE id = ? AND is_active = 1').get(contentId);
   if (!media) return res.status(404).json({ error: 'Media not found' });
 
+  // Anonymous/radio-host stations have no pricing UI, so tracks added to a
+  // collection go straight to public visibility instead of sitting behind
+  // vault/supporters_only gating the creator has no way to price or unlock.
+  if (config.station.creatorType === 'radio_host' || config.station.identity === 'anonymous') {
+    db.prepare("UPDATE media SET visibility = 'public', updated_at = ? WHERE id = ?").run(now(), contentId);
+  }
+
   const sortOrder = parseInt(req.body.sort_order, 10) || 0;
 
   try {
