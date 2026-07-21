@@ -6,10 +6,13 @@
 
 const fs = require('fs');
 const path = require('path');
+const { parseOptions } = require('./lib/binary-target');
 
-const ROOT = path.resolve(__dirname, '..');
+const OPTIONS = parseOptions(process.argv.slice(2));
+const ROOT = path.resolve(process.env.PAPERWEIGHT_ARTIFACT_ROOT || path.resolve(__dirname, '..'));
 const ELECTRON_DIR = path.join(ROOT, 'electron');
 const STAGE = path.join(ELECTRON_DIR, 'stage');
+const EXPECTED_PLATFORM = OPTIONS.platform || null;
 
 let ok = true;
 
@@ -163,8 +166,17 @@ function checkStage() {
   checkNoSourceMaps(path.join(STAGE, 'src'), 'staged first-party runtime');
 }
 
-function resourceDirsFromDist() {
-  const dist = path.join(ELECTRON_DIR, 'dist');
+function matchesPlatformDir(name, platform) {
+  if (!platform) return true;
+  const normalized = name.toLowerCase();
+  if (platform === 'win32') return normalized.startsWith('win');
+  if (platform === 'linux') return normalized.startsWith('linux');
+  if (platform === 'darwin') return normalized.startsWith('mac') || normalized.startsWith('darwin');
+  throw new Error(`Unsupported artifact platform: ${platform}`);
+}
+
+function resourceDirsFromDist(expectedPlatform = EXPECTED_PLATFORM, electronDir = ELECTRON_DIR) {
+  const dist = path.join(electronDir, 'dist');
   const resources = [];
   if (!fs.existsSync(dist)) return resources;
 
@@ -178,6 +190,7 @@ function resourceDirsFromDist() {
   // so this only ever looks at those two known, fixed-depth locations.
   for (const entry of fs.readdirSync(dist, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
+    if (!matchesPlatformDir(entry.name, expectedPlatform)) continue;
     const platformDir = path.join(dist, entry.name);
 
     const unpackedResources = path.join(platformDir, 'resources');
@@ -193,44 +206,57 @@ function resourceDirsFromDist() {
   return resources;
 }
 
-function checkBuiltResources() {
-  const resources = resourceDirsFromDist();
+function resourceIssues(dir) {
+  const forbidden = [
+    'client',
+    'landing',
+    path.join('node_modules', '.bin'),
+    path.join('node_modules', '@yao-pkg'),
+    path.join('node_modules', 'nodemon'),
+    path.join('node_modules', 'prebuild-install'),
+    path.join('node_modules', 'terser'),
+    path.join('node_modules', 'commander'),
+    path.join('node_modules', 'source-map-support'),
+    path.join('src', 'native-bundle.js'),
+    path.join('src', 'ffmpeg-bundle.js'),
+  ];
+  const issues = forbidden
+    .filter(name => fs.existsSync(path.join(dir, name)))
+    .map(name => `contains forbidden runtime path ${name}`);
+  if (!fs.existsSync(path.join(dir, 'src', 'client-bundle.js'))) issues.push('missing src/client-bundle.js');
+  walk(path.join(dir, 'src'), full => {
+    if (full.endsWith('.map')) issues.push(`contains source map: ${full}`);
+    if (/\.(js|css|html)$/i.test(full) && /sourceMappingURL=/.test(fs.readFileSync(full, 'utf8'))) {
+      issues.push(`contains source map reference: ${full}`);
+    }
+  });
+  return issues;
+}
+
+function checkBuiltResources(expectedPlatform = EXPECTED_PLATFORM) {
+  const resources = resourceDirsFromDist(expectedPlatform);
   if (!resources.length) {
-    pass('no unpacked Electron resources found to inspect');
+    if (expectedPlatform) fail(`no unpacked Electron resources found for ${expectedPlatform}`);
+    else pass('no unpacked Electron resources found to inspect');
     return;
   }
 
   for (const dir of resources) {
     const rel = path.relative(ROOT, dir);
-    const forbidden = [
-      'client',
-      'landing',
-      path.join('node_modules', '.bin'),
-      path.join('node_modules', '@yao-pkg'),
-      path.join('node_modules', 'nodemon'),
-      path.join('node_modules', 'prebuild-install'),
-      path.join('node_modules', 'terser'),
-      path.join('node_modules', 'commander'),
-      path.join('node_modules', 'source-map-support'),
-      path.join('src', 'native-bundle.js'),
-      path.join('src', 'ffmpeg-bundle.js'),
-    ];
-
-    for (const name of forbidden) {
-      const target = path.join(dir, name);
-      if (fs.existsSync(target)) fail(`${rel} contains forbidden runtime path ${name}`);
-    }
-
-    if (!fs.existsSync(path.join(dir, 'src', 'client-bundle.js'))) {
-      fail(`${rel} missing src/client-bundle.js`);
-    }
-    checkNoSourceMaps(path.join(dir, 'src'), rel);
+    const issues = resourceIssues(dir);
+    if (issues.length) issues.forEach(issue => fail(`${rel} ${issue}`));
+    else pass(`${rel} runtime resources validated`);
   }
 }
 
-checkIconAssets();
-checkStage();
-checkBuiltResources();
+function main() {
+  checkIconAssets();
+  checkStage();
+  checkBuiltResources();
+  if (!ok) process.exitCode = 1;
+  else console.log('Desktop artifact hardening check passed.');
+}
 
-if (!ok) process.exitCode = 1;
-else console.log('Desktop artifact hardening check passed.');
+if (require.main === module) main();
+
+module.exports = { main, matchesPlatformDir, resourceDirsFromDist, resourceIssues };
