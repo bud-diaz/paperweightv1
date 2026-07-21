@@ -57,6 +57,7 @@ import * as upload      from './dashboard/upload.js';
 import * as analytics   from './dashboard/analytics.js';
 import * as twofa       from './dashboard/twofa.js';
 import * as devices     from './dashboard/devices.js';
+import * as dashConsole from './dashboard/console.js';
 import * as sections    from './dashboard/sections.js';
 import * as search      from './dashboard/search.js';
 import * as tools       from './dashboard/tools.js';
@@ -177,6 +178,7 @@ dashIndex.init({
   loadDashAnalytics:    analytics.loadDashAnalytics,
   loadDash2FA:          twofa.loadDash2FA,
   loadDashDevices:      devices.loadDashDevices,
+  loadDashEarnings:     earnings.loadDashEarnings,
   loadDashPaymentConfig: dashIndex.loadDashPaymentConfig,
   loadDashTipConfig:    analytics.loadDashTipConfig,
   loadDashBio:          bio.loadDashBio,
@@ -252,6 +254,7 @@ smartPlaylists.init();
 dashPosts.init();
 twofa.init();
 devices.init();
+dashConsole.init();
 sections.init();
 tools.init();
 desktopControls.init();

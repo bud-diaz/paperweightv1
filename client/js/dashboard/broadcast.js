@@ -4,6 +4,7 @@
 
 import * as api from '../api.js';
 import { el, esc, showToast } from '../utils.js';
+import * as dashConsole from './console.js';
 
 export function init() {}
 
@@ -51,6 +52,7 @@ export async function loadDashBroadcast() {
 export async function loadDashBroadcastQueue() {
   try {
     const { queue: q } = await api.dashboard.broadcast.getQueue();
+    dashConsole.updateQueue(q || []);
     queuedIds = (q || []).map(item => item.id);
     refreshQueueButtons();
 
