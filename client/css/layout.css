@@ -1,4 +1,91 @@
 /* ── Layout ── */
+#portrait-lock-overlay { display: none; }
+
+/* Mobile browser tabs cannot consistently request an orientation lock. Keep
+   the app alive underneath this non-fullscreen landscape gate. */
+@media (orientation: landscape) and (pointer: coarse) {
+  body:not(.video-fullscreen) #portrait-lock-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+    color: var(--t1);
+    text-align: center;
+    background-color: #080809;
+    background-image: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--color, #39ff14) 10%, transparent), transparent 32%);
+  }
+  body:not(.video-fullscreen) #portrait-lock-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: .28;
+    background-image: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.025) 3px 4px);
+  }
+  .portrait-lock-device {
+    position: relative;
+    width: 48px;
+    height: 76px;
+    margin-bottom: 22px;
+    border: 2px solid var(--color, #39ff14);
+    border-radius: 9px;
+    box-shadow: 0 0 24px color-mix(in srgb, var(--color, #39ff14) 22%, transparent);
+    animation: portrait-lock-turn .9s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .portrait-lock-device::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--color, #39ff14);
+    transform: translateX(-50%);
+  }
+  .portrait-lock-screen {
+    position: absolute;
+    inset: 7px 5px 12px;
+    border: 1px solid color-mix(in srgb, var(--color, #39ff14) 40%, transparent);
+    background: color-mix(in srgb, var(--color, #39ff14) 7%, transparent);
+  }
+  .portrait-lock-kicker {
+    position: relative;
+    margin-bottom: 7px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: .22em;
+    color: var(--color, #39ff14);
+  }
+  .portrait-lock-title {
+    position: relative;
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(25px, 5vw, 38px);
+    line-height: 1;
+  }
+  .portrait-lock-copy {
+    position: relative;
+    margin-top: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .04em;
+    color: var(--t3);
+  }
+}
+
+@keyframes portrait-lock-turn {
+  from { opacity: 0; transform: rotate(90deg) scale(.88); }
+  to { opacity: 1; transform: rotate(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .portrait-lock-device { animation: none; }
+}
+
 #public-share-view {
   position: fixed; inset: 0; z-index: 1600;
   display: flex; align-items: center; justify-content: center;
@@ -94,7 +181,7 @@
 }
 #player-wrap {
   width: 100%; max-width: 560px;
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: column; justify-content: center;
   flex: 1; min-height: 0;
 }
 
@@ -108,7 +195,13 @@
   border-radius: var(--radius-card); overflow: hidden;
   box-shadow: var(--shadow-4), var(--shadow-edge-top), 0 0 0 1px rgba(0,0,0,.4), 0 0 70px -15px rgba(255,255,255,.08);
   display: flex; flex-direction: column;
-  flex: 1; min-height: 0; position: relative;
+  /* Default size matches the /img/bg-pape-logo.jpg backdrop (--panel-w × --panel-h),
+     so the resting card sits exactly over the background image. Open drawers still
+     grow the card past that floor (reactive height); the dvh cap keeps it from
+     overflowing on short viewports. Scrolling panels (STACK/STUDIO/bio) take the
+     full height instead — see the active-class overrides in the slide-panel block. */
+  flex: 0 1 auto; min-height: min(var(--panel-h), calc(100dvh - 96px));
+  max-height: 100%; position: relative;
 }
 #player-card::after {
   content: ''; position: absolute; inset: 0; z-index: 20;
@@ -223,7 +316,13 @@
   font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .06em; color: var(--t1);
 }
 .desktop-power-dropdown-item:hover { background: var(--inset); }
+.desktop-power-dropdown-item:disabled { opacity: .35; cursor: not-allowed; }
+.desktop-power-dropdown-item:disabled:hover { background: none; }
 #topbar-settings { grid-column: 3; grid-row: 1; justify-self: end; }
+#topbar-left-controls {
+  grid-column: 1; grid-row: 2; justify-self: start; flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px;
+}
 #topbar-right {
   grid-column: 3; grid-row: 2; justify-self: end; flex-shrink: 0;
   display: flex; flex-direction: row; align-items: center; gap: 8px;
@@ -282,10 +381,17 @@
 }
 
 #quota-badge {
+  /* Pinned to #card-panels so it sits in the panel's bottom-right corner,
+     separate from the top bar. */
+  position: absolute; right: 0; bottom: 0; z-index: 21;
   display: none; flex-direction: row; align-items: center; gap: 5px;
   width: auto; padding: 5px 10px;
-  background: rgba(0,0,0,.4); border: 1.5px solid #ff5566; border-radius: var(--radius-sm);
+  background: rgba(0,0,0,.55); border: 1.5px solid #ff5566;
+  border-right: 0; border-bottom: 0;
+  border-radius: var(--radius-sm) 0 0 0;
   color: #ff5566;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-2);
 }
 #quota-badge-count {
   font-family: 'DM Serif Display', serif; font-size: 14px; line-height: 1;
@@ -298,8 +404,16 @@
 /* Creator previewing their own station never sees the listener-facing quota */
 body.creator-mode #quota-badge { display: none !important; }
 
+@media (max-width: 430px) {
+  .view-tab { padding: 5px 8px; font-size: 11px; }
+  #back-live-btn { padding: 4px 6px; font-size: 10px; }
+  .type-badge { padding: 3px 7px; font-size: 10px; }
+}
+
 @media (max-width: 380px) {
-  .view-tab { padding: 4px 7px; font-size: 11px; }
+  .view-tab { padding: 4px 6px; font-size: 10px; letter-spacing: .05em; }
+  #back-live-btn { padding: 3px 5px; font-size: 9px; letter-spacing: .05em; }
+  .type-badge { padding: 2px 5px; font-size: 9px; }
   .pw-wordmark { max-width: 100px; }
   .pw-station-search { width: 100px; }
   .pw-station-results { width: min(230px, 72vw); }
@@ -691,11 +805,26 @@ body.creator-mode #quota-badge { display: none !important; }
 #bottom-accent { height: 3px; opacity: .9; transition: background .5s; flex-shrink: 0; }
 
 /* ── Slide panels ── */
-#card-panels { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+/* card-panels fills the card (its height is set by the in-flow player panel
+   below, so the card stays reactive to open drawers); the other panels overlay
+   as absolute siblings and fill the same height. */
+#card-panels { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; }
 #panel-player, #panel-stack, #panel-dashboard {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   transition: transform .35s cubic-bezier(.4,0,.2,1);
+  touch-action: pan-y;
 }
+/* Swipe-drag in progress (client/js/swipe.js): inline transform tracks the
+   finger, so the CSS transition must step aside until the gesture ends. */
+#card-panels.swiping #panel-player,
+#card-panels.swiping #panel-stack,
+#card-panels.swiping #panel-dashboard {
+  transition: none;
+}
+/* Only the player panel participates in flow, so its content height drives the
+   card height. STACK/STUDIO/bio stay absolute overlays and rely on the
+   full-height overrides below. */
+#panel-player { position: relative; inset: auto; flex: 1 1 auto; min-height: 0; }
 #panel-player    { transform: translateX(0); }
 #panel-stack     { transform: translateX(100%); overflow-y: auto; }
 #panel-dashboard { transform: translateX(100%); overflow-y: auto; }
@@ -706,11 +835,21 @@ body.creator-mode #quota-badge { display: none !important; }
 #player-card.dash-active #panel-stack     { transform: translateX(-100%); }
 #player-card.dash-active #panel-dashboard { transform: translateX(0); }
 
+/* Bio landing keeps the full card height. STACK/STUDIO match the PLAY card
+   height (driven by the in-flow player panel, which stays in flow in every tab)
+   so tab switches don't resize or reposition the card. They scroll internally. */
+#player-card.bio-landing { flex: 1; }
+
 /* ── Credit ── */
 #credit {
   position: relative; display: flex; align-items: center; justify-content: center;
   padding: 10px 0 13px;
   font-size: 10px; color: var(--t4); letter-spacing: .12em; flex-shrink: 0;
+}
+
+@media (max-width: 430px) {
+  #credit { justify-content: flex-end; padding-right: 20px; }
+  #credit-text { text-align: right; }
 }
 
 /* ── Ambient ── */
@@ -1071,7 +1210,10 @@ body.creator-mode #floating-tip { display: none !important; pointer-events: none
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 18px 16px 14px;
+  /* Extra bottom room reserves a clear strip for the on-demand plays badge
+     (#quota-badge, pinned to the panel's bottom-right) so it never overlaps the
+     posts ticker when the play content fills the card (e.g. on mobile). */
+  padding: 18px 16px 46px;
 }
 
 #panel-player #art-wrap,

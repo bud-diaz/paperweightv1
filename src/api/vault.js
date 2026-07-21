@@ -5,6 +5,7 @@ const { canAccessVaultContent } = require('../auth/vault');
 const { paymentLimiter } = require('../middleware/rateLimiter');
 const config = require('../config');
 const asyncHandler = require('../middleware/asyncHandler');
+const paymentConfig = require('../payment/config');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -291,6 +292,13 @@ dashRouter.post('/projects/:id/items', (req, res) => {
   const media = db.prepare('SELECT id FROM media WHERE id = ? AND is_active = 1').get(contentId);
   if (!media) return res.status(404).json({ error: 'Media not found' });
 
+  // Anonymous/radio-host stations have no pricing UI, so tracks added to a
+  // collection go straight to public visibility instead of sitting behind
+  // vault/supporters_only gating the creator has no way to price or unlock.
+  if (config.station.creatorType === 'radio_host' || config.station.identity === 'anonymous') {
+    db.prepare("UPDATE media SET visibility = 'public', updated_at = ? WHERE id = ?").run(now(), contentId);
+  }
+
   const sortOrder = parseInt(req.body.sort_order, 10) || 0;
 
   try {
@@ -471,7 +479,7 @@ router.post('/unlock', paymentLimiter, asyncHandler(async (req, res) => {
     return res.json({ unlocked: true });
   }
 
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const stripeKey = paymentConfig.stripeSecretKey();
   if (!stripeKey) {
     return res.status(503).json({ error: 'Stripe is not configured on this server' });
   }
@@ -552,9 +560,9 @@ router.post('/unlock', paymentLimiter, asyncHandler(async (req, res) => {
 router.get('/unlock-success', asyncHandler(async (req, res) => {
   const { session_id } = req.query;
 
-  if (session_id && process.env.STRIPE_SECRET_KEY) {
+  if (session_id && paymentConfig.stripeSecretKey()) {
     try {
-      const stripe  = require('stripe')(process.env.STRIPE_SECRET_KEY);
+      const stripe  = require('stripe')(paymentConfig.stripeSecretKey());
       const session = await stripe.checkout.sessions.retrieve(session_id, {
         expand: ['payment_intent', 'subscription'],
       });

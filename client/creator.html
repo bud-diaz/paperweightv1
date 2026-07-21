@@ -15,6 +15,8 @@
   <!-- Fonts vendored locally (client/vendor/fonts/) — no runtime CDN dependency. -->
   <link rel="stylesheet" href="/vendor/fonts/fonts.css"/>
   <script src="/vendor/hls.min.js"></script>
+  <!-- Dependency-free QR encoder (client/vendor/README.md) — renders the mobile Studio pairing link as a scannable code. -->
+  <script src="/vendor/qrcode.js"></script>
   <link rel="stylesheet" href="/css/tokens.css"/>
   <link rel="stylesheet" href="/css/layout.css"/>
   <link rel="stylesheet" href="/css/auth.css"/>
@@ -22,6 +24,17 @@
   <link rel="stylesheet" href="/css/stack.css"/>
 </head>
 <body>
+
+<!-- Mobile browser tabs cannot reliably lock orientation. This gate keeps the
+     app portrait-only without disturbing playback; video fullscreen exempts it. -->
+<div id="portrait-lock-overlay" aria-hidden="true">
+  <div class="portrait-lock-device" aria-hidden="true">
+    <span class="portrait-lock-screen"></span>
+  </div>
+  <div class="portrait-lock-kicker">PORTRAIT MODE</div>
+  <div class="portrait-lock-title">Rotate your device</div>
+  <div class="portrait-lock-copy">Playback will keep running.</div>
+</div>
 
 <!-- Public share page (rendered for /share/:token) -->
 <div id="public-share-view" hidden>
@@ -266,6 +279,9 @@
         <div id="pw-station-results" class="pw-station-results" hidden></div>
         <span id="live-tab-dot" class="live-tab-dot"></span>
       </div>
+      <div id="topbar-left-controls" class="topbar-view-controls">
+        <button id="back-live-btn">↩ LIVE</button>
+      </div>
       <div class="pw-settings-wrap" id="topbar-settings">
         <button id="pw-settings-btn" class="pw-settings-btn" aria-label="Account settings" title="Account">⚙</button>
         <div id="pw-settings-dropdown" class="pw-settings-dropdown" hidden>
@@ -279,13 +295,8 @@
         <button class="view-tab" data-view="dashboard">STUDIO</button>
       </div>
       <div id="topbar-right">
-        <div id="topbar-right-controls">
-          <button id="back-live-btn">↩ LIVE</button>
+        <div id="topbar-right-controls" class="topbar-view-controls">
           <span id="type-badge" class="type-badge"></span>
-        </div>
-        <div id="quota-badge" title="On-demand plays remaining">
-          <span id="quota-badge-count"></span>
-          <span id="quota-badge-period">PLAYS LEFT</span>
         </div>
       </div>
     </div>
@@ -1075,7 +1086,7 @@
           <div class="dash-section" id="dash-live-video-section">
             <div class="dash-section-label">LIVE VIDEO</div>
             <div class="live-idle-copy">
-              Broadcast video from OBS (or another RTMP-capable encoder). Only listeners at or above the tier below can watch — everyone else sees a subscribe prompt.
+              Broadcast video from your camera or from OBS (or another RTMP-capable encoder). Only listeners at or above the tier below can watch — everyone else sees a subscribe prompt.
             </div>
             <div class="station-url-row">
               <span class="ext-field-label">Minimum tier</span>
@@ -1090,41 +1101,54 @@
               <input type="checkbox" id="live-video-notify-toggle">
             </div>
 
-            <div data-desktop-only>
-              <div id="live-video-idle">
-                <button id="btn-go-live-video">● GO LIVE (VIDEO)</button>
-                <div id="live-video-msg"></div>
+            <div class="live-source-toggle" id="live-video-source-toggle" data-desktop-only>
+              <button class="live-source-btn active" id="btn-lv-source-browser" data-source="browser">BROWSER (CAMERA)</button>
+              <button class="live-source-btn" id="btn-lv-source-rtmp" data-source="rtmp">OBS / EXTERNAL ENCODER</button>
+            </div>
+
+            <div id="live-video-browser-idle">
+              <video id="lv-preview" class="lv-preview-video" muted playsinline autoplay></video>
+              <div class="live-idle-copy">
+                Go live from your camera and mic. Listeners at or above the tier above switch to your feed in real time.
               </div>
-              <div id="live-video-pending" hidden>
-                <div class="live-idle-copy">Paste these into OBS → Settings → Stream → Custom:</div>
-                <div class="station-url-row">
-                  <span class="ext-field-label">Server</span>
-                  <span id="lv-rtmp-url"></span>
-                  <button class="mgmt-btn" id="btn-copy-lv-rtmp-url">COPY</button>
+              <button id="btn-go-live-video-browser">● GO LIVE (VIDEO)</button>
+              <div id="live-video-browser-msg"></div>
+            </div>
+
+            <div id="live-video-idle" hidden>
+              <button id="btn-go-live-video">● GO LIVE (VIDEO)</button>
+              <div id="live-video-msg"></div>
+            </div>
+            <div id="live-video-pending" hidden>
+              <div class="live-idle-copy">Paste these into OBS → Settings → Stream → Custom:</div>
+              <div class="station-url-row">
+                <span class="ext-field-label">Server</span>
+                <span id="lv-rtmp-url"></span>
+                <button class="mgmt-btn" id="btn-copy-lv-rtmp-url">COPY</button>
+              </div>
+              <div class="station-url-row">
+                <span class="ext-field-label">Key</span>
+                <span id="lv-rtmp-key"></span>
+                <button class="mgmt-btn" id="btn-copy-lv-rtmp-key">COPY</button>
+              </div>
+              <div id="live-video-status" class="live-idle-copy">Waiting for OBS to connect…</div>
+              <div class="broadcast-actions">
+                <button class="mgmt-btn" id="btn-regen-lv-rtmp-key">REGENERATE KEY</button>
+                <button class="mgmt-btn danger" id="btn-cancel-live-video">CANCEL</button>
+              </div>
+              <div class="ext-key-warning">This key personalizes your setup but isn't a strong secret — anyone who can reach this port while it's open can push video. Keep the ingest port on your local machine or LAN.</div>
+            </div>
+            <div id="live-video-onair" hidden>
+              <div class="broadcast-row live-broadcast-row">
+                <div class="broadcast-info">
+                  <div class="broadcast-np" id="live-video-timer">0:00</div>
+                  <div class="broadcast-mode-badge onair-badge">● ON AIR</div>
                 </div>
-                <div class="station-url-row">
-                  <span class="ext-field-label">Key</span>
-                  <span id="lv-rtmp-key"></span>
-                  <button class="mgmt-btn" id="btn-copy-lv-rtmp-key">COPY</button>
-                </div>
-                <div id="live-video-status" class="live-idle-copy">Waiting for OBS to connect…</div>
                 <div class="broadcast-actions">
-                  <button class="mgmt-btn" id="btn-regen-lv-rtmp-key">REGENERATE KEY</button>
-                  <button class="mgmt-btn danger" id="btn-cancel-live-video">CANCEL</button>
-                </div>
-                <div class="ext-key-warning">This key personalizes your setup but isn't a strong secret — anyone who can reach this port while it's open can push video. Keep the ingest port on your local machine or LAN.</div>
-              </div>
-              <div id="live-video-onair" hidden>
-                <div class="broadcast-row live-broadcast-row">
-                  <div class="broadcast-info">
-                    <div class="broadcast-np" id="live-video-timer">0:00</div>
-                    <div class="broadcast-mode-badge onair-badge">● ON AIR</div>
-                  </div>
-                  <div class="broadcast-actions">
-                    <button class="mgmt-btn danger" id="btn-end-live-video">END BROADCAST</button>
-                  </div>
+                  <button class="mgmt-btn danger" id="btn-end-live-video">END BROADCAST</button>
                 </div>
               </div>
+              <video id="lv-onair-preview" class="lv-preview-video" muted playsinline autoplay></video>
             </div>
           </div>
 
@@ -1299,10 +1323,42 @@
 
           <div class="dash-divider"></div>
 
+          <!-- Authorized devices (mobile Studio pairing) -->
+          <div class="dash-section" id="dash-devices-section">
+            <div class="dash-section-label">AUTHORIZED DEVICES</div>
+            <div class="twofa-copy">Sign a phone into Studio by scanning a QR code — no need to type your dashboard token.</div>
+            <button class="mgmt-btn" id="btn-pair-device">PAIR A NEW DEVICE</button>
+            <div id="dash-pair-qr" style="margin-top:10px;"></div>
+            <div id="dash-pair-url" style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);word-break:break-all;margin-top:6px;"></div>
+            <div id="dash-pair-msg" class="twofa-msg"></div>
+            <div id="dash-devices-list" style="margin-top:12px;"></div>
+          </div>
+
+          <div class="dash-divider"></div>
+
           <!-- Payments -->
-          <div class="dash-section">
+          <div class="dash-section" id="dash-payment-section">
             <div class="dash-section-label">PAYMENTS</div>
             <div id="dash-payment-status"></div>
+
+            <div class="dash-edit-label" style="margin-top:14px;">STRIPE</div>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-stripe-secret-key" type="password" autocomplete="off" placeholder="sk_live_… or sk_test_…"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-stripe-webhook-secret" type="password" autocomplete="off" placeholder="whsec_…"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-stripe-price-subscriber" type="text" autocomplete="off" placeholder="Subscriber price ID — price_…"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-stripe-price-pro" type="text" autocomplete="off" placeholder="Pro price ID — price_…"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-stripe-price-all-access" type="text" autocomplete="off" placeholder="All-Access price ID — price_…"/>
+
+            <div class="dash-edit-label" style="margin-top:14px;">PAYPAL</div>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-paypal-client-id" type="text" autocomplete="off" placeholder="Client ID"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-paypal-client-secret" type="password" autocomplete="off" placeholder="Client secret"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-paypal-plan-pro" type="text" autocomplete="off" placeholder="Pro plan ID"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-paypal-plan-all-access" type="text" autocomplete="off" placeholder="All-Access plan ID"/>
+            <input class="dash-input dash-input-sm dash-input-gap" id="pay-paypal-webhook-id" type="text" autocomplete="off" placeholder="Webhook ID"/>
+
+            <div class="dash-form-row">
+              <span id="pay-msg" class="dash-inline-msg"></span>
+              <button class="mgmt-btn" id="pay-save-btn">SAVE PAYMENT SETTINGS</button>
+            </div>
           </div>
 
           <div class="dash-divider"></div>
@@ -1356,6 +1412,11 @@
         </div><!-- /dash-content -->
       </div><!-- /panel-dashboard -->
 
+      <div id="quota-badge" title="On-demand plays remaining">
+        <span id="quota-badge-count"></span>
+        <span id="quota-badge-period">PLAYS LEFT</span>
+      </div>
+
     </div><!-- /card-panels -->
 
   </div><!-- /player-card -->
@@ -1368,6 +1429,7 @@
   <div id="desktop-power-dropdown" class="desktop-power-dropdown" hidden>
     <button id="dp-stop-broadcast" class="desktop-power-dropdown-item">STOP BROADCAST</button>
     <button id="dp-restart-broadcast" class="desktop-power-dropdown-item">RESTART BROADCAST</button>
+    <button id="dp-toggle-tunnel" class="desktop-power-dropdown-item" title="Set up a Cloudflare tunnel in the Station panel first" disabled>DISCONNECT TUNNEL</button>
     <button id="dp-stop-server" class="desktop-power-dropdown-item">STOP SERVER (QUITS APP)</button>
     <button id="dp-restart-server" class="desktop-power-dropdown-item">RESTART SERVER</button>
     <button id="dp-stop-both" class="desktop-power-dropdown-item">STOP BOTH</button>

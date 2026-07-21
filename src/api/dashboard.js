@@ -25,9 +25,12 @@ const { clearArtworkCache, ARTWORK_DIR } = require('./library');
 const { isBroadcastPlayableTrack } = require('../broadcast/playlist');
 const { validateSlug } = require('../auth/reserved-slugs');
 const { resolveSafeAddress } = require('../runtime/net-guard');
-const { isValidExternalHttpUrl } = require('../runtime/base-url');
+const { isValidExternalHttpUrl, publicBaseUrl } = require('../runtime/base-url');
+const { listDevices, revokeDevice, renameDevice } = require('../auth/devices');
+const { createPairing, getPairingStatus } = require('../auth/device-pairing');
 const { IMAGE_MIMES, IMAGE_EXTS, sniffImageFile } = require('../runtime/images');
 const { getSetting, getBoolSetting, setSetting } = require('../db/settings');
+const paymentConfig = require('../payment/config');
 const { toSqliteDatetime } = require('../runtime/datetime');
 const {
   SUBSCRIBER_HEADERS, LISTENER_HEADERS, DOWNLOAD_LEAD_HEADERS,
@@ -734,6 +737,12 @@ router.get('/station', (req, res) => {
   // to offer the auto-tunnel flow at all.
   const cloudflareApiConfigured = cloudflareApi.isCloudflareApiConfigured(config.station.cloudflareApiToken);
 
+  // Whether the dashboard has this tunnel's account/tunnel IDs on file —
+  // only true when it was created via the auto-tunnel flow — which gates
+  // whether the power button's connect/disconnect toggle can work at all.
+  const cloudflareTunnelManaged = !!(getSetting('cloudflare_tunnel_id') && getSetting('cloudflare_account_id'));
+  const cloudflareTunnelPaused = getBoolSetting('cloudflare_tunnel_paused', false);
+
   if (!row) {
     return res.json({
       slug: null,
@@ -746,6 +755,8 @@ router.get('/station', (req, res) => {
         publicUrlSet: false,
       },
       cloudflareApiConfigured,
+      cloudflareTunnelManaged,
+      cloudflareTunnelPaused,
       telemetryConfigured: config.telemetry.secretConfigured,
     });
   }
@@ -761,6 +772,8 @@ router.get('/station', (req, res) => {
       publicUrlSet: !!(row && row.url),
     },
     cloudflareApiConfigured,
+    cloudflareTunnelManaged,
+    cloudflareTunnelPaused,
     telemetryConfigured: config.telemetry.secretConfigured,
   });
 });
@@ -971,6 +984,14 @@ router.post('/station/cloudflare/auto-tunnel', requireDesktop, asyncHandler(asyn
   config.station.cloudflareTunnel = true;
   config.station.publicUrl = publicUrl;
 
+  // Recorded (DB-backed, no restart needed to take effect) so the dashboard
+  // power button's connect/disconnect toggle below can later re-point this
+  // exact tunnel's ingress without the owner re-entering anything.
+  setSetting('cloudflare_account_id', accountId);
+  setSetting('cloudflare_tunnel_id', tunnelId);
+  setSetting('cloudflare_tunnel_hostname', cleanHostname);
+  setSetting('cloudflare_tunnel_paused', '0');
+
   const db = getDb();
   const row = db.prepare('SELECT id FROM station_registry WHERE id = 1').get();
   if (row) {
@@ -985,6 +1006,61 @@ router.post('/station/cloudflare/auto-tunnel', requireDesktop, asyncHandler(asyn
     restartRequired: true,
     note: 'Run `cloudflared service install <token>` with the tunnelToken above (see CLOUDFLARE_SETUP.md), then restart Paperweight.',
   });
+}));
+
+// ─── Cloudflare tunnel connect/disconnect (dashboard power button) ────────────
+// Toggles public routing through the tunnel created above, via the same
+// Cloudflare API used by auto-tunnel — cloudflared itself keeps running and
+// connected, only whether it forwards traffic to this station changes. Only
+// works for tunnels created through the auto-tunnel flow above, since that's
+// the only case Paperweight has the tunnel/account IDs on file for.
+
+function requireManagedTunnel(req, res) {
+  const token = config.station.cloudflareApiToken;
+  if (!cloudflareApi.isCloudflareApiConfigured(token)) {
+    res.status(409).json({ error: 'Save a Cloudflare API token first' });
+    return null;
+  }
+  const accountId = getSetting('cloudflare_account_id');
+  const tunnelId = getSetting('cloudflare_tunnel_id');
+  if (!accountId || !tunnelId) {
+    res.status(409).json({
+      error: "This tunnel wasn't created through this dashboard, so it can't be toggled automatically. Manage it directly in the Cloudflare dashboard.",
+    });
+    return null;
+  }
+  return { token, accountId, tunnelId };
+}
+
+// POST /api/dashboard/station/cloudflare/tunnel/disconnect
+router.post('/station/cloudflare/tunnel/disconnect', requireDesktop, asyncHandler(async (req, res) => {
+  const managed = requireManagedTunnel(req, res);
+  if (!managed) return;
+
+  const result = await cloudflareApi.pauseIngress(managed.token, managed.accountId, managed.tunnelId);
+  if (!result.ok) {
+    return res.status(502).json({ error: result.error || 'Could not disconnect the tunnel' });
+  }
+
+  setSetting('cloudflare_tunnel_paused', '1');
+  log('info', 'dashboard', 'Cloudflare tunnel disconnected (public routing paused)');
+  res.json({ ok: true, paused: true });
+}));
+
+// POST /api/dashboard/station/cloudflare/tunnel/connect
+router.post('/station/cloudflare/tunnel/connect', requireDesktop, asyncHandler(async (req, res) => {
+  const managed = requireManagedTunnel(req, res);
+  if (!managed) return;
+
+  const hostname = getSetting('cloudflare_tunnel_hostname');
+  const result = await cloudflareApi.resumeIngress(managed.token, managed.accountId, managed.tunnelId, hostname, config.port);
+  if (!result.ok) {
+    return res.status(502).json({ error: result.error || 'Could not reconnect the tunnel' });
+  }
+
+  setSetting('cloudflare_tunnel_paused', '0');
+  log('info', 'dashboard', 'Cloudflare tunnel reconnected (public routing restored)');
+  res.json({ ok: true, paused: false });
 }));
 
 // PUT /api/dashboard/station/telemetry/secret
@@ -1174,30 +1250,53 @@ router.put('/settings', (req, res) => {
   res.json({ ok: true });
 });
 
+// Never return a full secret to the browser — just enough to recognize it.
+function maskSecret(value) {
+  if (!value) return null;
+  return `••••${value.slice(-4)}`;
+}
+
 // GET /api/dashboard/payment-config
-// Returns which payment env vars are configured (never exposes the values themselves).
+// Returns Stripe/PayPal configuration state for the dashboard's Payments section.
+// Secret fields (API keys, webhook secrets, client secret) are only ever exposed
+// as a masked last-4 preview; price/plan/webhook IDs and the PayPal client id are
+// safe to echo back in full so their fields can be prefilled.
 router.get('/payment-config', (req, res) => {
-  const has = key => !!(process.env[key] && process.env[key].trim());
   const tipRow = getDb().prepare('SELECT amounts, custom_enabled FROM tip_config WHERE id = 1').get();
   let tipAmounts = [300, 500, 1000];
   try { if (tipRow) tipAmounts = JSON.parse(tipRow.amounts); } catch {}
 
+  const stripeSecretKey     = paymentConfig.stripeSecretKey();
+  const stripeWebhookSecret = paymentConfig.stripeWebhookSecret();
+  const paypalClientId      = paymentConfig.paypalClientId();
+  const paypalClientSecret  = paymentConfig.paypalClientSecret();
+
   res.json({
     stripe: {
-      connected:        has('STRIPE_SECRET_KEY'),
-      webhookConfigured: has('STRIPE_WEBHOOK_SECRET'),
+      connected:           !!stripeSecretKey,
+      secretKeyMasked:     maskSecret(stripeSecretKey),
+      webhookConfigured:   !!stripeWebhookSecret,
+      webhookSecretMasked: maskSecret(stripeWebhookSecret),
       prices: {
-        subscriber:  has('STRIPE_PRICE_SUBSCRIBER'),
-        pro:         has('STRIPE_PRICE_PRO'),
-        allAccess:   has('STRIPE_PRICE_ALL_ACCESS'),
+        subscriber: !!paymentConfig.stripePriceSubscriber(),
+        pro:        !!paymentConfig.stripePricePro(),
+        allAccess:  !!paymentConfig.stripePriceAllAccess(),
       },
+      priceSubscriberValue: paymentConfig.stripePriceSubscriber(),
+      priceProValue:        paymentConfig.stripePricePro(),
+      priceAllAccessValue:  paymentConfig.stripePriceAllAccess(),
     },
     paypal: {
-      connected: has('PAYPAL_CLIENT_ID') && has('PAYPAL_CLIENT_SECRET'),
+      connected:          !!(paypalClientId && paypalClientSecret),
+      clientIdValue:      paypalClientId,
+      clientSecretMasked: maskSecret(paypalClientSecret),
       plans: {
-        pro:       has('PAYPAL_PLAN_PRO'),
-        allAccess: has('PAYPAL_PLAN_ALL_ACCESS'),
+        pro:       !!paymentConfig.paypalPlanPro(),
+        allAccess: !!paymentConfig.paypalPlanAllAccess(),
       },
+      planProValue:       paymentConfig.paypalPlanPro(),
+      planAllAccessValue: paymentConfig.paypalPlanAllAccess(),
+      webhookIdValue:     paymentConfig.paypalWebhookId(),
     },
     tips: {
       enabled:       !!(tipRow),
@@ -1206,6 +1305,73 @@ router.get('/payment-config', (req, res) => {
     },
   });
 });
+
+// PUT /api/dashboard/payment-config
+// Lets a creator configure Stripe/PayPal from the dashboard instead of editing
+// .env. Any subset of fields may be sent; omitted fields are left untouched,
+// an empty string clears that field (falling back to .env if still set there).
+// Secret-bearing fields (Stripe secret key, PayPal client id/secret) are
+// verified against the provider's API before being persisted, so a typo'd or
+// revoked credential is caught immediately instead of surfacing at checkout.
+const PAYMENT_CONFIG_FIELDS = {
+  stripeSecretKey:       'stripe_secret_key',
+  stripeWebhookSecret:   'stripe_webhook_secret',
+  stripePriceSubscriber: 'stripe_price_subscriber',
+  stripePricePro:        'stripe_price_pro',
+  stripePriceAllAccess:  'stripe_price_all_access',
+  paypalClientId:        'paypal_client_id',
+  paypalClientSecret:    'paypal_client_secret',
+  paypalPlanPro:         'paypal_plan_pro',
+  paypalPlanAllAccess:   'paypal_plan_all_access',
+  paypalWebhookId:       'paypal_webhook_id',
+};
+
+router.put('/payment-config', asyncHandler(async (req, res) => {
+  const body = req.body || {};
+  const clean = {};
+  for (const field of Object.keys(PAYMENT_CONFIG_FIELDS)) {
+    if (body[field] === undefined) continue;
+    const value = String(body[field] ?? '').trim();
+    if (/[\r\n]/.test(value)) {
+      return res.status(400).json({ error: `${field} cannot contain newlines` });
+    }
+    clean[field] = value;
+  }
+
+  // Verify a new/changed Stripe secret key against the Stripe API before saving.
+  if (clean.stripeSecretKey) {
+    try {
+      const stripe = require('stripe')(clean.stripeSecretKey);
+      await stripe.balance.retrieve();
+    } catch (err) {
+      return res.status(400).json({ error: 'Could not verify Stripe secret key — check it and try again' });
+    }
+  }
+
+  // Verify new/changed PayPal credentials via an OAuth token request. Only
+  // when both the id and secret end up non-empty after this update (a lone
+  // field change can't be verified against PayPal).
+  if (clean.paypalClientId !== undefined || clean.paypalClientSecret !== undefined) {
+    const effectiveClientId = clean.paypalClientId !== undefined ? clean.paypalClientId : paymentConfig.paypalClientId();
+    const effectiveClientSecret = clean.paypalClientSecret !== undefined ? clean.paypalClientSecret : paymentConfig.paypalClientSecret();
+    if (effectiveClientId && effectiveClientSecret) {
+      try {
+        const { getPayPalAccessToken } = require('./payment');
+        await getPayPalAccessToken(effectiveClientId, effectiveClientSecret);
+      } catch (err) {
+        return res.status(400).json({ error: 'Could not verify PayPal credentials — check them and try again' });
+      }
+    }
+  }
+
+  for (const [field, dbKey] of Object.entries(PAYMENT_CONFIG_FIELDS)) {
+    if (clean[field] === undefined) continue;
+    setSetting(dbKey, clean[field] || null);
+  }
+
+  log('info', 'dashboard', 'Payment configuration updated');
+  res.json({ ok: true });
+}));
 
 // GET /api/dashboard/webhook-log?limit=50&provider=stripe
 // Returns recent webhook events for production debugging.
@@ -1296,6 +1462,53 @@ router.delete('/2fa', (req, res) => {
 
   getDb().prepare('UPDATE dashboard_2fa SET enabled = 0 WHERE id = 1').run();
   log('info', 'dashboard', '2FA disabled');
+  res.json({ ok: true });
+});
+
+// ─── Authorized devices (mobile Studio pairing) ──────────────────────────────
+// Lets a second device (typically a phone) sign into Studio by scanning a QR
+// code generated from this already-authenticated session, instead of typing
+// the raw DASHBOARD_TOKEN. See src/auth/device-pairing.js (short-lived pairing
+// token) and src/auth/devices.js (the resulting persistent device credential).
+
+// POST /api/dashboard/devices/pair
+// Generates a pairing token and the URL to encode as a QR code.
+router.post('/devices/pair', (req, res) => {
+  const { pairToken, expiresAt } = createPairing();
+  const pairUrl = `${publicBaseUrl()}/pair?pt=${pairToken}`;
+  res.json({ pairToken, pairUrl, expiresAt });
+});
+
+// GET /api/dashboard/devices/pair/status?pt=<pairToken>
+// Polled by the desktop while waiting for the phone to scan and confirm.
+router.get('/devices/pair/status', (req, res) => {
+  const pairToken = req.query.pt;
+  if (!pairToken || typeof pairToken !== 'string') {
+    return res.status(400).json({ error: 'pt is required' });
+  }
+  const status = getPairingStatus(pairToken);
+  if (!status) return res.status(404).json({ error: 'Pairing not found or expired' });
+  res.json(status);
+});
+
+// GET /api/dashboard/devices
+router.get('/devices', (req, res) => {
+  res.json({ devices: listDevices() });
+});
+
+// PATCH /api/dashboard/devices/:id — Body: { label }
+router.patch('/devices/:id', (req, res) => {
+  const { label } = req.body || {};
+  if (!label || typeof label !== 'string' || !label.trim()) {
+    return res.status(400).json({ error: 'label is required' });
+  }
+  renameDevice(req.params.id, label.trim());
+  res.json({ ok: true });
+});
+
+// DELETE /api/dashboard/devices/:id — revokes the device's session immediately.
+router.delete('/devices/:id', (req, res) => {
+  revokeDevice(req.params.id);
   res.json({ ok: true });
 });
 
@@ -1405,10 +1618,15 @@ router.post('/broadcast/external/regenerate-key', requireDesktop, (req, res) => 
 });
 
 // ─── Live video (paid-tier) broadcast ─────────────────────────────────────────
-// Desktop-only for the same reason as the external audio encoder above: the
-// RTMP listener binds to the local machine/LAN. The min-tier/notify settings
-// stay available on the hosted web platform, though, so a creator can
-// configure them ahead of ever running the desktop app.
+// Two ingest sources feed the same tier-gated HLS output: RTMP (OBS) and
+// browser capture (camera/mic streamed from the studio dashboard). RTMP
+// start/regenerate-key stay desktop-only for the same reason as the external
+// audio encoder above: the RTMP listener binds to the local machine/LAN,
+// which only makes sense for a station run from the desktop app. Browser
+// capture, status, and stop work identically on both platforms — chunks
+// arrive over the same authenticated dashboard session (requireDashboard,
+// applied to this whole router), no new port involved. The min-tier/notify
+// settings have always been available on the hosted web platform too.
 
 function liveVideoState() {
   const liveState = liveVideo.getLiveVideoState();
@@ -1417,16 +1635,17 @@ function liveVideoState() {
 }
 
 // GET /api/dashboard/live-video/status
-router.get('/live-video/status', requireDesktop, (req, res) => {
+router.get('/live-video/status', (req, res) => {
   const liveState = liveVideo.getLiveVideoState();
   res.json({
     state: liveVideoState(),
+    source: liveState.source,
     startedAt: liveState.startedAt,
     rtmp: liveVideo.getRtmpConnectionInfo(),
   });
 });
 
-// POST /api/dashboard/live-video/start
+// POST /api/dashboard/live-video/start (RTMP/OBS)
 router.post('/live-video/start', requireDesktop, asyncHandler(async (req, res) => {
   const liveState = liveVideo.getLiveVideoState();
   if (liveState.isLive || liveState.rtmpPending) {
@@ -1440,13 +1659,58 @@ router.post('/live-video/start', requireDesktop, asyncHandler(async (req, res) =
   }
 }));
 
-// POST /api/dashboard/live-video/stop
-router.post('/live-video/stop', requireDesktop, (req, res) => {
+// POST /api/dashboard/live-video/start-browser
+router.post('/live-video/start-browser', (req, res) => {
+  const liveState = liveVideo.getLiveVideoState();
+  if (liveState.isLive || liveState.rtmpPending) {
+    return res.status(409).json({ error: 'A video broadcast is already live or pending' });
+  }
+  try {
+    liveVideo.startLiveVideoBrowser();
+    res.json({ ok: true, state: liveVideoState() });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/dashboard/live-video/chunk
+// Content-Type: application/octet-stream — a MediaRecorder Blob chunk (WebM)
+router.post('/live-video/chunk',
+  express.raw({ type: 'application/octet-stream', limit: '10mb' }),
+  asyncHandler(async (req, res) => {
+    if (!req.body || !req.body.length) {
+      return res.status(400).json({ error: 'Empty chunk' });
+    }
+    try {
+      const result = await liveVideo.pushVideoChunk(req.body);
+      if (result?.busy) {
+        res.setHeader('Retry-After', '1');
+        return res.status(429).json({ error: 'Live encoder busy' });
+      }
+      if (result?.inactive) {
+        return res.status(409).json({ error: 'Live video broadcast is not active' });
+      }
+      if (result?.wrongSource) {
+        return res.status(409).json({ error: 'Broadcast is not in browser-capture mode' });
+      }
+      if (result?.error) {
+        return res.status(500).json({ error: 'Live video write failed' });
+      }
+      res.json({ ok: true, backpressure: !!result?.backpressure });
+    } catch (err) {
+      log('error', 'dashboard', `Live video chunk failed: ${err.message}`);
+      res.status(500).json({ error: 'Live video write failed' });
+    }
+  }),
+);
+
+// POST /api/dashboard/live-video/stop — shared by either source
+router.post('/live-video/stop', (req, res) => {
   liveVideo.stopLive();
   res.json({ ok: true });
 });
 
-// POST /api/dashboard/live-video/regenerate-key
+// POST /api/dashboard/live-video/regenerate-key (RTMP/OBS only)
 router.post('/live-video/regenerate-key', requireDesktop, (req, res) => {
   try {
     const streamKey = liveVideo.regenerateStreamKey();

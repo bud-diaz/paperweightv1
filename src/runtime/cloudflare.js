@@ -108,19 +108,24 @@ async function getTunnelToken(token, accountId, tunnelId, baseUrl) {
   return request(resolvedBaseUrl(baseUrl), 'GET', `/accounts/${accountId}/cfd_tunnel/${tunnelId}/token`, token);
 }
 
+// Replaces the tunnel's ingress rules wholesale. Shared by createDnsRoute
+// (initial setup) and pauseIngress/resumeIngress (the dashboard power
+// button's connect/disconnect toggle) — same endpoint, different rule sets.
+async function setIngress(token, accountId, tunnelId, ingress, baseUrl) {
+  return request(resolvedBaseUrl(baseUrl), 'PUT', `/accounts/${accountId}/cfd_tunnel/${tunnelId}/configurations`, token, {
+    config: { ingress },
+  });
+}
+
 // Points the tunnel's ingress at the local Paperweight server and creates the
 // public CNAME. `localPort` is the Paperweight port the tunnel should route
 // requests to on this machine.
 async function createDnsRoute(token, accountId, tunnelId, zoneId, hostname, localPort, baseUrl) {
   baseUrl = resolvedBaseUrl(baseUrl);
-  const configResult = await request(baseUrl, 'PUT', `/accounts/${accountId}/cfd_tunnel/${tunnelId}/configurations`, token, {
-    config: {
-      ingress: [
-        { hostname, service: `http://localhost:${localPort}` },
-        { service: 'http_status:404' },
-      ],
-    },
-  });
+  const configResult = await setIngress(token, accountId, tunnelId, [
+    { hostname, service: `http://localhost:${localPort}` },
+    { service: 'http_status:404' },
+  ], baseUrl);
   if (!configResult.ok) return configResult;
 
   return request(baseUrl, 'POST', `/zones/${zoneId}/dns_records`, token, {
@@ -129,6 +134,23 @@ async function createDnsRoute(token, accountId, tunnelId, zoneId, hostname, loca
     content: `${tunnelId}.cfargotunnel.com`,
     proxied: true,
   });
+}
+
+// Blackholes every request behind the tunnel with a 503, without touching
+// the DNS record or the cloudflared connector itself — the connector stays
+// up and connected, it just has nothing to route to. Used by the dashboard
+// power button's "disconnect tunnel" action.
+async function pauseIngress(token, accountId, tunnelId, baseUrl) {
+  return setIngress(token, accountId, tunnelId, [{ service: 'http_status:503' }], baseUrl);
+}
+
+// Restores the working ingress rules pauseIngress replaced. Used by the
+// dashboard power button's "reconnect tunnel" action.
+async function resumeIngress(token, accountId, tunnelId, hostname, localPort, baseUrl) {
+  return setIngress(token, accountId, tunnelId, [
+    { hostname, service: `http://localhost:${localPort}` },
+    { service: 'http_status:404' },
+  ], baseUrl);
 }
 
 module.exports = {
@@ -140,4 +162,6 @@ module.exports = {
   createTunnel,
   getTunnelToken,
   createDnsRoute,
+  pauseIngress,
+  resumeIngress,
 };

@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { getDb } = require('../db');
 const { isSubscriberTier, canAccessMedia, canDownloadMedia, allAccessTierIncludesVault, hasScopedVaultAccess, isEmailVerificationOk } = require('../auth/access');
-const { effectiveTierForTokenRow } = require('../auth/middleware');
+const { effectiveTierForTokenRow, hasDashboardSession } = require('../auth/middleware');
 const config = require('../config');
 const { ffmpegPath, installHint } = require('../runtime/ffmpeg');
 const { normalizeUnlockOptions } = require('./vault');
@@ -159,6 +159,7 @@ function buildOwnershipContext(req) {
   const listenerId = req.tokenRow?.listener_id || null;
 
   const ctx = {
+    creator: hasDashboardSession(req),
     tier: req.tier,
     tokenRow: req.tokenRow || null,
     subscriberVault: isSubscriberTier(req.tier) && allAccessTierIncludesVault() && isEmailVerificationOk(req),
@@ -193,6 +194,7 @@ function buildOwnershipContext(req) {
 }
 
 function isUnlockedInContext(row, ctx) {
+  if (ctx.creator) return true;
   if (row.visibility === 'public') return true;
   if (row.visibility === 'supporters_only') {
     return isSubscriberTier(ctx.tier)
@@ -521,13 +523,14 @@ router.get('/:id/stream', streamLimiter, (req, res) => {
   }
 
   const projectId = getProjectId(row.id);
-  const access = canAccessMedia(req, row, projectId);
+  const creatorAccess = hasDashboardSession(req);
+  const access = creatorAccess ? { allowed: true } : canAccessMedia(req, row, projectId);
   if (!access.allowed) {
     return res.status(403).json({ error: access.error, unlockOptions: normalizeUnlockOptions(access.unlockOptions) });
   }
 
   const ctx = buildOwnershipContext(req);
-  const quotaExempt = isSubscriberTier(req.tier)
+  const quotaExempt = creatorAccess || isSubscriberTier(req.tier)
     || (row.visibility === 'vault' && isUnlockedInContext(row, ctx));
 
   if (!quotaExempt) {
@@ -564,7 +567,9 @@ router.get('/:id', (req, res) => {
 
   if (!row) return res.status(404).json({ error: 'Not found' });
 
-  const access = canAccessMedia(req, row, getProjectId(row.id));
+  const access = hasDashboardSession(req)
+    ? { allowed: true }
+    : canAccessMedia(req, row, getProjectId(row.id));
   if (!access.allowed) {
     return res.status(403).json({ error: access.error, unlockOptions: normalizeUnlockOptions(access.unlockOptions) });
   }
@@ -640,7 +645,9 @@ router.get('/:id/artwork', (req, res) => {
   ).get(req.params.id);
   if (!row) return res.status(404).end();
 
-  const access = canAccessMedia(req, row, getProjectId(row.id));
+  const access = hasDashboardSession(req)
+    ? { allowed: true }
+    : canAccessMedia(req, row, getProjectId(row.id));
   if (!access.allowed) return res.status(403).end();
 
   const id = String(row.id);

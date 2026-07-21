@@ -37,6 +37,7 @@ import * as collection   from './collection.js';
 import * as settings     from './settings.js';
 import * as tour         from './tour.js';
 import * as tilt         from './tilt.js';
+import * as swipe        from './swipe.js';
 
 import * as dashIndex   from './dashboard/index.js';
 import * as station     from './dashboard/station.js';
@@ -55,6 +56,7 @@ import * as dashPosts   from './dashboard/posts.js';
 import * as upload      from './dashboard/upload.js';
 import * as analytics   from './dashboard/analytics.js';
 import * as twofa       from './dashboard/twofa.js';
+import * as devices     from './dashboard/devices.js';
 import * as sections    from './dashboard/sections.js';
 import * as search      from './dashboard/search.js';
 import * as tools       from './dashboard/tools.js';
@@ -111,11 +113,17 @@ welcome.init({
     await auth.loadAuthState();
     library.loadLibrary();
     collection.loadCollection();
+    await player.loadQuota(); // the email-backed account raises the play allowance
+    player.render();
   },
-  openLogin: () => {
+  openLogin: (prefillEmail) => {
     auth.setAuthTab('login');
     auth.toggleAuthSection(true); // reveals the Settings modal that hosts the auth form
-    setTimeout(() => el('auth-email').focus(), 120);
+    setTimeout(() => {
+      const emailInput = el('auth-email');
+      if (prefillEmail) emailInput.value = prefillEmail;
+      emailInput.focus();
+    }, 120);
   },
 });
 
@@ -165,8 +173,10 @@ dashIndex.init({
   loadDashSchedule:     schedule.loadDashSchedule,
   loadDashProjects:     projects.loadDashProjects,
   loadDashLibrary:      vault.loadDashLibrary,
+  loadLibrary:          library.loadLibrary,
   loadDashAnalytics:    analytics.loadDashAnalytics,
   loadDash2FA:          twofa.loadDash2FA,
+  loadDashDevices:      devices.loadDashDevices,
   loadDashPaymentConfig: dashIndex.loadDashPaymentConfig,
   loadDashTipConfig:    analytics.loadDashTipConfig,
   loadDashBio:          bio.loadDashBio,
@@ -241,6 +251,7 @@ schedule.init();
 smartPlaylists.init();
 dashPosts.init();
 twofa.init();
+devices.init();
 sections.init();
 tools.init();
 desktopControls.init();
@@ -256,8 +267,10 @@ libraryModal.initLibraryModalHandlers();
 payment.initPaymentHandlers();
 payment.initFloatingTip();
 player.initShareHandlers();
+player.initMediaSessionHandlers();
 
 dashIndex.initDashGateHandlers();
+dashIndex.initPaymentConfigHandlers();
 station.initStationHandlers();
 bio.initBioHandlers();
 vault.initTokenHandlers();
@@ -275,6 +288,7 @@ upload.initUploadHandlers();
 analytics.initAnalyticsHandlers();
 tools.initToolsHandlers();
 twofa.initTwoFAHandlers();
+devices.initDeviceHandlers();
 search.initRadioHostHandlers();
 desktopControls.initDesktopControlsHandlers();
 
@@ -298,6 +312,7 @@ postsModule.initPostsModalHandlers();
 // desktop uses the mouse. Kept in sync via a body class so CSS can gate the toggle.
 document.body.classList.toggle('is-touch', ('ontouchstart' in window) || navigator.maxTouchPoints > 0);
 tilt.initTilt();
+swipe.initSwipeHandlers();
 
 // art-flip toggles a CSS class and renders the back face; the "artFlipped"
 // flag itself is owned by player.js and not exposed, so the DOM class is used
@@ -342,6 +357,8 @@ document.querySelectorAll('.view-tab').forEach(btn => {
       el('player-card').classList.add('dash-active');
       el('topbar-right-controls').style.opacity      = '0';
       el('topbar-right-controls').style.pointerEvents = 'none';
+      el('topbar-left-controls').style.opacity      = '0';
+      el('topbar-left-controls').style.pointerEvents = 'none';
       dashIndex.initDashboard();
     } else if (view === 'stack') {
       window._bioSessionPassed = true;
@@ -349,10 +366,14 @@ document.querySelectorAll('.view-tab').forEach(btn => {
       el('player-card').classList.add('stack-active');
       el('topbar-right-controls').style.opacity      = '1';
       el('topbar-right-controls').style.pointerEvents = '';
+      el('topbar-left-controls').style.opacity      = '1';
+      el('topbar-left-controls').style.pointerEvents = '';
       stack.initStackView();
     } else {
       el('topbar-right-controls').style.opacity      = '1';
       el('topbar-right-controls').style.pointerEvents = '';
+      el('topbar-left-controls').style.opacity      = '1';
+      el('topbar-left-controls').style.pointerEvents = '';
     }
   });
 });
@@ -368,6 +389,8 @@ function enterDashboard() {
   el('player-card').classList.add('dash-active');
   el('topbar-right-controls').style.opacity      = '0';
   el('topbar-right-controls').style.pointerEvents = 'none';
+  el('topbar-left-controls').style.opacity      = '0';
+  el('topbar-left-controls').style.pointerEvents = 'none';
   dashIndex.initDashboard();
 }
 

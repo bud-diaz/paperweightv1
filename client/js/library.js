@@ -430,6 +430,20 @@ export function addToQueue(track) {
   }
 
   if (!isPaidTier()) {
+    // Free/anon listeners: on-demand plays fire immediately while the hourly
+    // allowance lasts. Only once it's spent does a pick get deferred into the
+    // single next-up slot (the free-tier "queue").
+    const q = state.quota;
+    const exhausted = !!(q && q.limit && q.remaining === 0);
+    if (!exhausted) {
+      _selectVOD(t);
+      return true;
+    }
+    if (q && q.nextUpAvailable === false) {
+      const mins = Math.max(1, Math.ceil((q.resetSec || 3600) / 60));
+      showToast(`Hourly on-demand plays used — resets in ${mins} min`);
+      return false;
+    }
     _setNextUp(t);
     showToast('Next-up armed. This pick will play after the current broadcast track ends.');
     return true;

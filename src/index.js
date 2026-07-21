@@ -14,6 +14,7 @@ const apiRouter = require('./api/router');
 const { attachTier } = require('./auth/middleware');
 const { meetsMinTier } = require('./auth/access');
 const { getSetting } = require('./db/settings');
+const { validateSession } = require('./auth/sessions');
 const { csrfCheck } = require('./middleware/csrfCheck');
 const asyncHandler = require('./middleware/asyncHandler');
 const { getFFmpegStatus } = require('./runtime/ffmpeg');
@@ -137,7 +138,17 @@ function relaxCspForListen(req, res, next) {
 // Gate for the paid-tier live video HLS output. This — not the frontend CTA —
 // is the actual access boundary: every .m3u8 and .ts segment request under
 // /hls/live-video is tier-checked here before express.static ever serves it.
+//
+// The creator's own authenticated dashboard session bypasses the tier check
+// so they can monitor their own live video output from the studio dashboard
+// (on-air preview player) without also needing a qualifying listener token —
+// the dashboard session cookie and the listener tier system are otherwise
+// completely separate. This only recognizes the station owner's own session,
+// not any listener credential, so listener-side tier gating is unaffected.
 function requireLiveVideoAccess(req, res, next) {
+  const sessionId = req.cookies?.pw_dashboard_session;
+  if (sessionId && validateSession(sessionId)) return next();
+
   const minTier = getSetting('live_video_min_tier') || 'subscriber';
   if (meetsMinTier(req.tier, minTier)) return next();
   res.status(403).json({ error: 'Subscriber access required to watch live video' });
@@ -277,6 +288,23 @@ function createApp() {
       }
     }
     sendHtmlFile(res, path.join(config.paths.app, 'client', 'embed.html'));
+  });
+
+  // Mobile Studio device-pairing confirmation page — a QR code generated from
+  // an already-authenticated Studio session links here. Not gated by
+  // requireDashboard (that's the point: this is how a new device signs in).
+  app.get('/pair', (req, res) => {
+    const override = path.join(config.paths.root, 'client', 'pair.html');
+    if (fs.existsSync(override)) return sendHtmlFile(res, override);
+    if (isBundledRuntime) {
+      const entry = require('./client-bundle')['/pair.html'];
+      if (entry) {
+        const html = devReload ? devReload.injectHtml(entry.data.toString('utf8')) : entry.data;
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.end(html);
+      }
+    }
+    sendHtmlFile(res, path.join(config.paths.app, 'client', 'pair.html'));
   });
 
   app.get('/landing', (req, res) => {

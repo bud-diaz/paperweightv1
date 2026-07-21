@@ -57,6 +57,14 @@ test('health and local player assets are served', async () => {
     const matter = await request(baseUrl, '/vendor/matter.min.js');
     assert.equal(matter.res.status, 200);
     assert.match(matter.text, /Matter/);
+
+    const manifest = await request(baseUrl, '/manifest.json');
+    assert.equal(manifest.res.status, 200);
+    assert.equal(manifest.body.orientation, 'portrait-primary');
+
+    const creator = await request(baseUrl, '/');
+    assert.equal(creator.res.status, 200);
+    assert.match(creator.text, /id="portrait-lock-overlay"/);
   });
 });
 
@@ -444,6 +452,79 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
   }
 });
 
+test('Cloudflare tunnel connect/disconnect routes require a dashboard-managed tunnel and toggle routing', async () => {
+  freshDb();
+  const { setSetting, getSetting } = require('../src/db/settings');
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN, 'Content-Type': 'application/json' } };
+  const originalPlatform = config.platform;
+  const originalApiToken = config.station.cloudflareApiToken;
+  const originalBaseUrl = process.env.CLOUDFLARE_API_BASE_URL;
+
+  const putCalls = [];
+  const stub = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      if (req.method === 'PUT' && req.url === '/accounts/acct1/cfd_tunnel/tunnel1/configurations') {
+        putCalls.push(JSON.parse(body));
+        return res.end(JSON.stringify({ success: true, result: {} }));
+      }
+      res.statusCode = 404;
+      res.end(JSON.stringify({ success: false, errors: [{ message: 'not stubbed' }] }));
+    });
+  });
+  await new Promise(resolve => stub.listen(0, '127.0.0.1', resolve));
+
+  try {
+    config.platform = 'desktop';
+    process.env.CLOUDFLARE_API_BASE_URL = `http://127.0.0.1:${stub.address().port}`;
+    config.station.cloudflareApiToken = 'good-token';
+
+    await withServer(async baseUrl => {
+      // No tunnel/account ID on file yet — a hand-configured token can't be toggled.
+      const unmanaged = await request(baseUrl, '/api/dashboard/station/cloudflare/tunnel/disconnect', {
+        method: 'POST', headers: auth.headers, body: '{}',
+      });
+      assert.equal(unmanaged.res.status, 409);
+
+      const station1 = await request(baseUrl, '/api/dashboard/station', auth);
+      assert.equal(station1.body.cloudflareTunnelManaged, false);
+
+      setSetting('cloudflare_account_id', 'acct1');
+      setSetting('cloudflare_tunnel_id', 'tunnel1');
+      setSetting('cloudflare_tunnel_hostname', 'radio.example.com');
+      setSetting('cloudflare_tunnel_paused', '0');
+
+      const station2 = await request(baseUrl, '/api/dashboard/station', auth);
+      assert.equal(station2.body.cloudflareTunnelManaged, true);
+      assert.equal(station2.body.cloudflareTunnelPaused, false);
+
+      const disconnect = await request(baseUrl, '/api/dashboard/station/cloudflare/tunnel/disconnect', {
+        method: 'POST', headers: auth.headers, body: '{}',
+      });
+      assert.equal(disconnect.res.status, 200);
+      assert.equal(disconnect.body.paused, true);
+      assert.equal(getSetting('cloudflare_tunnel_paused'), '1');
+      assert.deepEqual(putCalls[0].config.ingress, [{ service: 'http_status:503' }]);
+
+      const connect = await request(baseUrl, '/api/dashboard/station/cloudflare/tunnel/connect', {
+        method: 'POST', headers: auth.headers, body: '{}',
+      });
+      assert.equal(connect.res.status, 200);
+      assert.equal(connect.body.paused, false);
+      assert.equal(getSetting('cloudflare_tunnel_paused'), '0');
+      assert.equal(putCalls[1].config.ingress[0].hostname, 'radio.example.com');
+      assert.equal(putCalls[1].config.ingress[0].service, `http://localhost:${config.port}`);
+    });
+  } finally {
+    stub.close();
+    config.platform = originalPlatform;
+    config.station.cloudflareApiToken = originalApiToken;
+    if (originalBaseUrl === undefined) delete process.env.CLOUDFLARE_API_BASE_URL;
+    else process.env.CLOUDFLARE_API_BASE_URL = originalBaseUrl;
+  }
+});
+
 test('listen landing page serves with directory CSP', async () => {
   freshDb();
   await withServer(async baseUrl => {
@@ -608,6 +689,16 @@ test('library stream endpoint enforces access and on-demand quota', async () => 
   const subscriberToken = seedToken(db, { tier: 'subscriber' });
   const freeToken = seedToken(db, { tier: 'free' });
 
+  // Email-backed identities: a full account, and a legacy welcome profile
+  // that captured an email under the old optional flow.
+  const accountId = seedListener(db, 'quota-account@example.com');
+  const accountToken = seedToken(db, { tier: 'free', listenerId: accountId });
+  const emailProfileToken = seedToken(db, { tier: 'free' });
+  db.prepare(`
+    INSERT INTO listener_profiles (display_name, email, marketing_opt_in, token_id, last_seen_at)
+    VALUES ('Emailed', 'quota-profile@example.com', 0, ?, datetime('now'))
+  `).run(emailProfileToken.id);
+
   try {
     await withServer(async baseUrl => {
       const anonQuota = await request(baseUrl, '/api/library/stream-quota');
@@ -615,11 +706,27 @@ test('library stream endpoint enforces access and on-demand quota', async () => 
       assert.equal(anonQuota.body.remaining, 3);
       assert.equal(anonQuota.body.nextUpAvailable, true);
 
+      // A token without an email identity only gets the anonymous allowance,
+      // and the payload says an email would raise it.
       const freeQuota = await request(baseUrl, '/api/library/stream-quota', {
         headers: { Authorization: `Bearer ${freeToken.token}` },
       });
-      assert.equal(freeQuota.body.limit, 5);
-      assert.equal(freeQuota.body.remaining, 5);
+      assert.equal(freeQuota.body.limit, 3);
+      assert.equal(freeQuota.body.remaining, 3);
+      assert.equal(freeQuota.body.emailRequired, true);
+
+      const accountQuota = await request(baseUrl, '/api/library/stream-quota', {
+        headers: { Authorization: `Bearer ${accountToken.token}` },
+      });
+      assert.equal(accountQuota.body.limit, 5);
+      assert.equal(accountQuota.body.remaining, 5);
+      assert.equal(accountQuota.body.emailRequired, undefined);
+
+      const emailProfileQuota = await request(baseUrl, '/api/library/stream-quota', {
+        headers: { Authorization: `Bearer ${emailProfileToken.token}` },
+      });
+      assert.equal(emailProfileQuota.body.limit, 5);
+      assert.equal(emailProfileQuota.body.emailRequired, undefined);
 
       db.prepare("UPDATE media SET mime_type = 'audio/flac' WHERE id = ?").run(publicTracks[0].id);
       const publicStream = await request(baseUrl, `/api/library/${publicTracks[0].id}/stream`);
@@ -641,6 +748,18 @@ test('library stream endpoint enforces access and on-demand quota', async () => 
       const lockedVault = await request(baseUrl, `/api/library/${vault.id}/stream`);
       assert.equal(lockedVault.res.status, 403);
       assert.equal(lockedVault.body.unlockOptions.track.minimumPrice, 300);
+
+      const creatorLogin = await request(baseUrl, '/api/auth/dashboard/login', {
+        method: 'POST',
+        headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+      });
+      const creatorCookie = creatorLogin.res.headers.get('set-cookie').split(';', 1)[0];
+      assert.equal((await request(baseUrl, `/api/library/${supporter.id}/stream`, {
+        headers: { Cookie: creatorCookie },
+      })).res.status, 200);
+      assert.equal((await request(baseUrl, `/api/library/${vault.id}/stream`, {
+        headers: { Cookie: creatorCookie },
+      })).res.status, 200);
 
       const subscriberStream = await request(baseUrl, `/api/library/${supporter.id}/stream`, {
         headers: { Authorization: `Bearer ${subscriberToken.token}` },
@@ -765,7 +884,7 @@ test('listener register, login, me, and password update flow works', async () =>
     const register = await request(baseUrl, '/api/listener/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: 'password123' }),
+      body: JSON.stringify({ email, password: 'password123', displayName: 'Listener One', marketingOptIn: true }),
     });
     assert.equal(register.res.status, 201);
     const cookie = register.res.headers.get('set-cookie');
@@ -774,6 +893,8 @@ test('listener register, login, me, and password update flow works', async () =>
     const me = await request(baseUrl, '/api/listener/me', { headers: { cookie } });
     assert.equal(me.res.status, 200);
     assert.equal(me.body.email, email);
+    assert.equal(me.body.displayName, 'Listener One');
+    assert.equal(me.body.marketingOptIn, true);
 
     const pw = await request(baseUrl, '/api/listener/password', {
       method: 'PATCH',
@@ -824,6 +945,16 @@ test('library visibility and gated downloads are enforced', async () => {
     const unlockedSupporter = subscriberStructure.body.standalone.find(item => item.id === supporterMedia.id);
     assert.ok(unlockedSupporter);
     assert.equal(unlockedSupporter.unlocked, true);
+
+    const creatorLogin = await request(baseUrl, '/api/auth/dashboard/login', {
+      method: 'POST',
+      headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+    });
+    const creatorCookie = creatorLogin.res.headers.get('set-cookie').split(';', 1)[0];
+    const creatorStructure = await request(baseUrl, '/api/library/structure', {
+      headers: { Cookie: creatorCookie },
+    });
+    assert.equal(creatorStructure.body.standalone.find(item => item.id === supporterMedia.id).unlocked, true);
 
     const denied = await request(baseUrl, `/api/library/${publicMedia.id}/download`);
     assert.equal(denied.res.status, 401);

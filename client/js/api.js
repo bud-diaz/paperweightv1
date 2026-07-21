@@ -187,17 +187,6 @@ export const auth = {
   },
 
   /**
-   * POST /api/listener/start — welcome-page entry: display name only.
-   * @param {string} displayName
-   * @param {string} [email]
-   * @param {boolean} [marketingOptIn]
-   * @returns {{ res: Response, data: { ok?: boolean, displayName?: string, error?: string } }}
-   */
-  start(displayName, email, marketingOptIn) {
-    return _send('/api/listener/start', { displayName, email: email || undefined, marketingOptIn: !!marketingOptIn });
-  },
-
-  /**
    * DELETE /api/listener/profile — remove a welcome-page profile (no account).
    * @returns {{ res: Response, data: { ok?: boolean, error?: string } }}
    */
@@ -232,13 +221,19 @@ export const auth = {
   },
 
   /**
-   * POST /api/listener/register
+   * POST /api/listener/register — welcome-page entry sends the extras.
    * @param {string} email
    * @param {string} password
+   * @param {{ displayName?: string, marketingOptIn?: boolean }} [opts]
    * @returns {{ res: Response, data: { error?: string } }}
    */
-  register(email, password) {
-    return _send('/api/listener/register', { email, password });
+  register(email, password, { displayName, marketingOptIn } = {}) {
+    return _send('/api/listener/register', {
+      email,
+      password,
+      displayName: displayName || undefined,
+      marketingOptIn: typeof marketingOptIn === 'boolean' ? marketingOptIn : undefined,
+    });
   },
 
   /**
@@ -488,12 +483,27 @@ export const dashboard = {
     return _json('/api/dashboard/accounts');
   },
 
-  /**
-   * GET /api/dashboard/payment-config — Stripe + PayPal config status.
-   * @returns {{ stripe: object, paypal: object }}
-   */
-  paymentConfig() {
-    return _json('/api/dashboard/payment-config');
+  // ── Payment config (Stripe + PayPal) ──────────────────────────────────────────
+
+  paymentConfig: {
+    /**
+     * GET /api/dashboard/payment-config — Stripe + PayPal config status.
+     * @returns {{ stripe: object, paypal: object, tips: object }}
+     */
+    get() {
+      return _json('/api/dashboard/payment-config');
+    },
+
+    /**
+     * PUT /api/dashboard/payment-config
+     * @param {object} body  any subset of { stripeSecretKey, stripeWebhookSecret,
+     *   stripePriceSubscriber, stripePricePro, stripePriceAllAccess, paypalClientId,
+     *   paypalClientSecret, paypalPlanPro, paypalPlanAllAccess, paypalWebhookId }
+     * @returns {{ res: Response, data: { error?: string } }}
+     */
+    update(body) {
+      return _send('/api/dashboard/payment-config', body, 'PUT');
+    },
   },
 
   /**
@@ -623,6 +633,22 @@ export const dashboard = {
      */
     autoCreateTunnel(zoneId, hostname) {
       return _send('/api/dashboard/station/cloudflare/auto-tunnel', { zoneId, hostname }, 'POST');
+    },
+
+    /**
+     * POST /api/dashboard/station/cloudflare/tunnel/connect — resume public routing.
+     * @returns {{ res: Response, data: { error?: string, paused?: boolean } }}
+     */
+    tunnelConnect() {
+      return _send('/api/dashboard/station/cloudflare/tunnel/connect', {}, 'POST');
+    },
+
+    /**
+     * POST /api/dashboard/station/cloudflare/tunnel/disconnect — pause public routing.
+     * @returns {{ res: Response, data: { error?: string, paused?: boolean } }}
+     */
+    tunnelDisconnect() {
+      return _send('/api/dashboard/station/cloudflare/tunnel/disconnect', {}, 'POST');
     },
 
     /**
@@ -1224,6 +1250,52 @@ export const dashboard = {
     },
   },
 
+  // ── Authorized devices (mobile Studio pairing) ────────────────────────────────
+
+  devices: {
+    /**
+     * POST /api/dashboard/devices/pair — start a new pairing, to render as a QR code.
+     * @returns {{ pairToken: string, pairUrl: string, expiresAt: number }}
+     */
+    pair() {
+      return _fetch('/api/dashboard/devices/pair', { method: 'POST' }).then(r => r.json());
+    },
+
+    /**
+     * GET /api/dashboard/devices/pair/status?pt={pairToken} — poll while waiting for a scan.
+     * @param {string} pairToken
+     * @returns {{ status: 'pending'|'claimed' }}
+     */
+    pairStatus(pairToken) {
+      return _json(`/api/dashboard/devices/pair/status?pt=${encodeURIComponent(pairToken)}`);
+    },
+
+    /**
+     * GET /api/dashboard/devices
+     * @returns {{ devices: Array<{ id, label, created_at, last_used_at, revoked_at }> }}
+     */
+    list() {
+      return _json('/api/dashboard/devices');
+    },
+
+    /**
+     * PATCH /api/dashboard/devices/:id — rename a device.
+     * @param {number} id
+     * @param {string} label
+     */
+    rename(id, label) {
+      return _send(`/api/dashboard/devices/${id}`, { label }, 'PATCH');
+    },
+
+    /**
+     * DELETE /api/dashboard/devices/:id — revoke a device's session immediately.
+     * @param {number} id
+     */
+    revoke(id) {
+      return _del(`/api/dashboard/devices/${id}`);
+    },
+  },
+
   // ── Tip config ─────────────────────────────────────────────────────────────────
 
   tipConfig: {
@@ -1329,25 +1401,49 @@ export const dashboard = {
     },
   },
 
-  // ── Live video (paid-tier, RTMP-only) broadcast ────────────────────────────────
+  // ── Live video (paid-tier) broadcast — RTMP/OBS or browser capture ─────────────
 
   liveVideo: {
     /**
      * GET /api/dashboard/live-video/status
-     * @returns {{ state: 'idle'|'pending'|'live', startedAt, rtmp: { url, streamKey, host, port } }}
+     * @returns {{ state: 'idle'|'pending'|'live', source: 'browser'|'rtmp'|null, startedAt, rtmp: { url, streamKey, host, port } }}
      */
     status() {
       return _json('/api/dashboard/live-video/status');
     },
 
     /**
-     * POST /api/dashboard/live-video/start
+     * POST /api/dashboard/live-video/start (RTMP/OBS)
      * @returns {{ res: Response, data: object }}
      */
     async start() {
       const res = await _fetch('/api/dashboard/live-video/start', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       return { res, data };
+    },
+
+    /**
+     * POST /api/dashboard/live-video/start-browser
+     * @returns {{ res: Response, data: object }}
+     */
+    async startBrowser() {
+      const res = await _fetch('/api/dashboard/live-video/start-browser', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      return { res, data };
+    },
+
+    /**
+     * POST /api/dashboard/live-video/chunk — send a MediaRecorder WebM chunk (Blob).
+     * Content-Type is octet-stream; body is the Blob from ondataavailable.
+     * @param {Blob} blob
+     * @returns {Response}
+     */
+    sendChunk(blob) {
+      return _fetch('/api/dashboard/live-video/chunk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: blob,
+      });
     },
 
     /**

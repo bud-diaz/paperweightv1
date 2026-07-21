@@ -6,7 +6,7 @@
  * callbacks from main.js to avoid sibling imports.
  */
 
-import { LIBRARY_STRUCTURE, authState } from './state.js';
+import { state, LIBRARY_STRUCTURE, authState } from './state.js';
 import { el, esc, fmt, showToast, trackColor, generateWaveform } from './utils.js';
 import * as api from './api.js';
 import * as offline from './offline.js';
@@ -46,7 +46,8 @@ export function init({
 }
 
 function isPaidTier() {
-  return authState.loggedIn && authState.tier !== 'free';
+  return document.body.classList.contains('creator-mode')
+    || (authState.loggedIn && authState.tier !== 'free');
 }
 
 function isPlayable(t) {
@@ -153,7 +154,11 @@ function armNextUp(t) {
   // The hourly next-up bonus is single-use; once spent, arming another pick
   // would just 429 when it fires, so tell the listener when plays return.
   if (quota && quota.nextUpAvailable === false) {
-    showToast(`Hourly on-demand plays used — resets in ${quotaResetMins()} min`);
+    if (quota.emailRequired) {
+      showToast('Add your email in Settings for 5 plays/hour');
+    } else {
+      showToast(`Hourly on-demand plays used — resets in ${quotaResetMins()} min`);
+    }
     return;
   }
   _setNextUp(t);
@@ -245,8 +250,8 @@ function makeTrackRow(raw) {
   return row;
 }
 
-function makeFolder(project) {
-  const key = String(project.id || project.name);
+function makeFolder(project, { keyPrefix = 'collection' } = {}) {
+  const key = `${keyPrefix}:${String(project.id || project.name)}`;
   const tracks = project.tracks || [];
   if (!seenProjects.has(key)) {
     seenProjects.add(key);
@@ -257,7 +262,7 @@ function makeFolder(project) {
   folder.className = 'stack-folder';
   folder.classList.toggle('open', openProjects.has(key));
   folder.innerHTML = `
-    <button class="stack-folder-head" type="button">
+    <button class="stack-folder-head" type="button" aria-expanded="${openProjects.has(key) ? 'true' : 'false'}">
       <span class="stack-folder-chevron" aria-hidden="true">&#9662;</span>
       <span class="stack-folder-glyph" aria-hidden="true"></span>
       <span class="stack-folder-name">${esc(project.name)}</span>
@@ -268,30 +273,19 @@ function makeFolder(project) {
   folder.querySelector('.stack-folder-head').addEventListener('click', () => {
     if (openProjects.has(key)) openProjects.delete(key);
     else openProjects.add(key);
-    folder.classList.toggle('open', openProjects.has(key));
+    const isOpen = openProjects.has(key);
+    folder.classList.toggle('open', isOpen);
+    folder.querySelector('.stack-folder-head').setAttribute('aria-expanded', isOpen ? 'true' : 'false');
   });
   const body = folder.querySelector('.stack-tree');
   tracks.forEach(track => body.appendChild(makeTrackRow(track)));
   return folder;
 }
 
-function renderQuotaBanner(host) {
-  if (isPaidTier() || !quota?.limit) return;
-  const banner = document.createElement('div');
-  banner.className = 'stack-quota';
-  banner.textContent = quota.remaining > 0
-    ? `${quota.remaining} ON-DEMAND PLAYS LEFT THIS HOUR`
-    : (quota.nextUpAvailable === false
-        ? `HOURLY PLAYS USED — RESETS IN ${quotaResetMins()} MIN`
-        : 'NEXT PICK ARMS AFTER THE CURRENT BROADCAST TRACK');
-  host.appendChild(banner);
-}
-
 function renderStack() {
   const card = el('stack-sections')?.querySelector('.stack-card[data-stack-key="stack"] .stack-card-content');
   if (!card) return;
   card.innerHTML = '';
-  renderQuotaBanner(card);
 
   const { projects = [], standalone = [] } = LIBRARY_STRUCTURE;
   if (!projects.length && !standalone.length) {
@@ -301,14 +295,7 @@ function renderStack() {
 
   projects.forEach(project => card.appendChild(makeFolder(project)));
   if (standalone.length) {
-    const sep = document.createElement('div');
-    sep.className = 'stack-sep';
-    sep.textContent = 'SINGLES';
-    card.appendChild(sep);
-    const tree = document.createElement('div');
-    tree.className = 'stack-tree';
-    card.appendChild(tree);
-    standalone.forEach(track => tree.appendChild(makeTrackRow(track)));
+    card.appendChild(makeFolder({ id: 'singles', name: 'SINGLES', tracks: standalone }, { keyPrefix: 'release-type' }));
   }
 }
 
@@ -382,10 +369,12 @@ async function refreshStash() {
 async function loadQuota() {
   if (isPaidTier()) {
     quota = { limit: null, remaining: null, resetSec: 0 };
+    state.quota = null;
     return;
   }
   try { quota = await api.library.streamQuota(); }
   catch { quota = null; }
+  state.quota = quota;
 }
 
 export async function refresh() {

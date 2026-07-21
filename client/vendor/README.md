@@ -15,6 +15,17 @@ Matter.js is served at `/vendor/matter.min.js` from `node_modules` when
 available, with the generated client bundle and `matter.min.js` here as local
 fallbacks.
 
+## qrcode.js
+
+Vendored verbatim from `qrcode-generator` (MIT, Kazuhiko Arase),
+`dist/qrcode.js` — a single dependency-free file with no further deps of its
+own. Used only by the "Authorized Devices" mobile Studio pairing panel to
+render the pairing link as a scannable QR code client-side; not installed via
+npm (kept out of `package.json` entirely, same rationale as the rest of this
+directory). To refresh: `npm install --no-save qrcode-generator`, copy
+`node_modules/qrcode-generator/dist/qrcode.js` here, then
+`npm uninstall --no-save qrcode-generator`.
+
 ## Fonts (`fonts/`)
 
 Latin `woff2` files sourced from the `@fontsource` packages (Google Fonts):

@@ -28,6 +28,7 @@ let _loadDashProjects       = () => {};
 let _loadDashLibrary        = () => {};
 let _loadDashAnalytics      = () => {};
 let _loadDash2FA            = () => {};
+let _loadDashDevices        = () => {};
 let _loadDashPaymentConfig  = () => {};
 let _loadDashTipConfig      = () => {};
 let _loadDashBio            = () => {};
@@ -43,6 +44,7 @@ let _loadDashSmartPlaylists = () => {};
 let _loadDashSchedulePreview = () => {};
 let _loadDashPosts          = () => {};
 let _loadDashSettings       = () => {};
+let _loadLibrary            = () => {};
 
 export function init(callbacks = {}) {
   if (callbacks.loadDashStation)       _loadDashStation       = callbacks.loadDashStation;
@@ -57,6 +59,7 @@ export function init(callbacks = {}) {
   if (callbacks.loadDashLibrary)       _loadDashLibrary       = callbacks.loadDashLibrary;
   if (callbacks.loadDashAnalytics)     _loadDashAnalytics     = callbacks.loadDashAnalytics;
   if (callbacks.loadDash2FA)           _loadDash2FA           = callbacks.loadDash2FA;
+  if (callbacks.loadDashDevices)       _loadDashDevices       = callbacks.loadDashDevices;
   if (callbacks.loadDashPaymentConfig) _loadDashPaymentConfig = callbacks.loadDashPaymentConfig;
   if (callbacks.loadDashTipConfig)     _loadDashTipConfig     = callbacks.loadDashTipConfig;
   if (callbacks.loadDashBio)           _loadDashBio           = callbacks.loadDashBio;
@@ -72,6 +75,7 @@ export function init(callbacks = {}) {
   if (callbacks.loadDashSchedulePreview) _loadDashSchedulePreview = callbacks.loadDashSchedulePreview;
   if (callbacks.loadDashPosts)          _loadDashPosts          = callbacks.loadDashPosts;
   if (callbacks.loadDashSettings)       _loadDashSettings       = callbacks.loadDashSettings;
+  if (callbacks.loadLibrary)            _loadLibrary            = callbacks.loadLibrary;
 }
 
 // ── Auth probe ─────────────────────────────────────────────────────────────────
@@ -107,6 +111,7 @@ function showDashContent() {
   el('dash-auth-msg').textContent = '';
   setDashGate('content');
   document.body.classList.add('creator-mode');
+  _loadLibrary();
   if (!dashboardLoaded) { dashboardLoaded = true; loadDashboard(); }
   checkLaunchAcceptance();
 }
@@ -203,21 +208,11 @@ export async function loadDashRuntime() {
 // ── Payment config ─────────────────────────────────────────────────────────────
 export async function loadDashPaymentConfig() {
   try {
-    const d = await api.dashboard.paymentConfig();
+    const d = await api.dashboard.paymentConfig.get();
 
     const check = ok => ok
       ? '<span style="color:#39ff14;">✓</span>'
       : '<span style="color:#ff4466;">✗</span>';
-
-    const stripeNotice = !d.stripe.connected ? `
-      <div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.1);border-radius:8px;font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);line-height:1.9;letter-spacing:.03em;">
-        Add to <strong style="color:rgba(255,255,255,.5);">.env</strong> to enable payments:<br>
-        STRIPE_SECRET_KEY=sk_live_…<br>
-        STRIPE_WEBHOOK_SECRET=whsec_…<br>
-        STRIPE_PRICE_SUBSCRIBER=price_…<br>
-        STRIPE_PRICE_PRO=price_…<br>
-        STRIPE_PRICE_ALL_ACCESS=price_…
-      </div>` : '';
 
     el('dash-payment-status').innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px;">
@@ -239,9 +234,89 @@ export async function loadDashPaymentConfig() {
             All-Access plan ${check(d.paypal.plans.allAccess)}
           </div>
         </div>
-      </div>
-      ${stripeNotice}`;
+      </div>`;
+
+    // Secret fields are never prefilled with the real value — just a
+    // "leave blank to keep" placeholder when one is already saved.
+    el('pay-stripe-secret-key').placeholder = d.stripe.secretKeyMasked
+      ? `${d.stripe.secretKeyMasked} — leave blank to keep`
+      : 'sk_live_… or sk_test_…';
+    el('pay-stripe-webhook-secret').placeholder = d.stripe.webhookSecretMasked
+      ? `${d.stripe.webhookSecretMasked} — leave blank to keep`
+      : 'whsec_…';
+    el('pay-paypal-client-secret').placeholder = d.paypal.clientSecretMasked
+      ? `${d.paypal.clientSecretMasked} — leave blank to keep`
+      : 'Client secret';
+
+    el('pay-stripe-price-subscriber').value = d.stripe.priceSubscriberValue || '';
+    el('pay-stripe-price-pro').value        = d.stripe.priceProValue || '';
+    el('pay-stripe-price-all-access').value = d.stripe.priceAllAccessValue || '';
+    el('pay-paypal-client-id').value        = d.paypal.clientIdValue || '';
+    el('pay-paypal-plan-pro').value         = d.paypal.planProValue || '';
+    el('pay-paypal-plan-all-access').value  = d.paypal.planAllAccessValue || '';
+    el('pay-paypal-webhook-id').value       = d.paypal.webhookIdValue || '';
   } catch {}
+}
+
+// Only sends fields the creator actually typed something into — a blank
+// secret field means "keep what's already saved", not "clear it".
+export function initPaymentConfigHandlers() {
+  const saveBtn = el('pay-save-btn');
+  if (!saveBtn) return;
+
+  saveBtn.addEventListener('click', async () => {
+    const msg = el('pay-msg');
+    saveBtn.disabled = true;
+    saveBtn.textContent = '…';
+    try {
+      const body = {};
+      // Secret fields are never prefilled, so a blank one always means "no
+      // change" — only send it when the creator typed something.
+      const secretFields = {
+        stripeSecretKey:     'pay-stripe-secret-key',
+        stripeWebhookSecret: 'pay-stripe-webhook-secret',
+        paypalClientSecret:  'pay-paypal-client-secret',
+      };
+      for (const [field, id] of Object.entries(secretFields)) {
+        const value = el(id).value.trim();
+        if (value) body[field] = value;
+      }
+      // Non-secret fields are prefilled with the saved value, so an empty
+      // field here means the creator deliberately cleared it — send it
+      // through so the server can clear the setting too.
+      const plainFields = {
+        stripePriceSubscriber: 'pay-stripe-price-subscriber',
+        stripePricePro:        'pay-stripe-price-pro',
+        stripePriceAllAccess:  'pay-stripe-price-all-access',
+        paypalClientId:        'pay-paypal-client-id',
+        paypalPlanPro:         'pay-paypal-plan-pro',
+        paypalPlanAllAccess:   'pay-paypal-plan-all-access',
+        paypalWebhookId:       'pay-paypal-webhook-id',
+      };
+      for (const [field, id] of Object.entries(plainFields)) {
+        body[field] = el(id).value.trim();
+      }
+
+      const { res, data } = await api.dashboard.paymentConfig.update(body);
+      if (res.ok) {
+        msg.textContent = 'Saved ✓';
+        msg.style.color = '#39ff14';
+        el('pay-stripe-secret-key').value = '';
+        el('pay-stripe-webhook-secret').value = '';
+        el('pay-paypal-client-secret').value = '';
+        loadDashPaymentConfig();
+      } else {
+        msg.textContent = data.error || 'Save failed';
+        msg.style.color = '#ff6b6b';
+      }
+    } catch {
+      msg.textContent = 'Connection error';
+      msg.style.color = '#ff6b6b';
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'SAVE PAYMENT SETTINGS';
+    }
+  });
 }
 
 // ── Launch acceptance ──────────────────────────────────────────────────────────
@@ -295,6 +370,7 @@ export async function loadDashboard() {
   _loadDashSettings();
   _loadDashAnalytics();
   _loadDash2FA();
+  _loadDashDevices();
   loadDashPaymentConfig();
   _loadDashTipConfig();
   _loadDashBio();

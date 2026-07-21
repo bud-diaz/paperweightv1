@@ -1,16 +1,21 @@
 /**
- * dashboard/liveVideo.js — Live video (paid-tier) broadcast via RTMP/OBS.
+ * dashboard/liveVideo.js — Live video (paid-tier) broadcast via browser
+ * capture or RTMP/OBS.
  *
- * Independent of dashboard/live-external.js (the existing audio-only external
- * encoder), which this module otherwise mirrors closely: the server owns the
- * whole capture pipeline, FFmpeg listens for a single inbound RTMP connection,
- * and the dashboard only ever polls /api/dashboard/live-video/status to learn
- * whether it's idle, waiting for an encoder ("pending"), or on air.
+ * Two ingest sources feed the same on-air panel and status poll:
+ *  - Browser: getUserMedia + MediaRecorder capture the creator's camera/mic
+ *    in-browser and POST WebM chunks to /api/dashboard/live-video/chunk,
+ *    mirroring dashboard/live.js's mic-capture pattern for audio. Works on
+ *    both web and desktop — no new port, chunks ride the same authenticated
+ *    dashboard session.
+ *  - RTMP (OBS, mirrors dashboard/live-external.js): the server owns the
+ *    whole capture pipeline, FFmpeg listens for a single inbound RTMP
+ *    connection, and the dashboard polls /api/dashboard/live-video/status to
+ *    learn whether it's idle, waiting for an encoder ("pending"), or on air.
+ *    Desktop-only — the RTMP listener binds to the local machine/LAN.
  *
- * Desktop-only for the start/stop/RTMP-details controls: the RTMP listener
- * binds to the local machine/LAN, same constraint as the audio external
- * encoder. The minimum-tier and notify settings stay usable on the hosted web
- * platform since they're just creator preferences.
+ * The minimum-tier and notify settings stay usable on the hosted web
+ * platform regardless of source, since they're just creator preferences.
  */
 
 import * as api from '../api.js';
@@ -24,6 +29,15 @@ let timerInt = null;
 let startedAtMs = 0;
 let lastState = 'idle';
 
+// Browser-capture state
+let lvMediaStream = null;
+let lvRecorder = null;
+let lvOnAirHls = null;
+
+// Which idle panel the desktop-only toggle currently shows ('browser' is the
+// default and the only option on web, since the toggle itself is hidden there).
+let toggleSource = 'browser';
+
 export function init() {}
 
 function renderRtmpFields(rtmp) {
@@ -32,15 +46,48 @@ function renderRtmpFields(rtmp) {
   el('lv-rtmp-key').textContent = rtmp.streamKey || '';
 }
 
+function setLvSourceToggle(source) {
+  toggleSource = source;
+  el('btn-lv-source-browser').classList.toggle('active', source === 'browser');
+  el('btn-lv-source-rtmp').classList.toggle('active', source === 'rtmp');
+  el('live-video-browser-idle').hidden = source !== 'browser';
+  el('live-video-idle').hidden = source !== 'rtmp';
+}
+
+function stopOnAirPreview() {
+  const videoEl = el('lv-onair-preview');
+  if (lvOnAirHls) { try { lvOnAirHls.destroy(); } catch {} lvOnAirHls = null; }
+  videoEl.removeAttribute('src');
+  try { videoEl.load(); } catch {}
+}
+
+function startOnAirPreview() {
+  const videoEl = el('lv-onair-preview');
+  const url = '/hls/live-video/index.m3u8';
+  stopOnAirPreview();
+  if (window.Hls && Hls.isSupported()) {
+    lvOnAirHls = new Hls({ lowLatencyMode: false });
+    lvOnAirHls.loadSource(url);
+    lvOnAirHls.attachMedia(videoEl);
+  } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+    videoEl.src = url;
+  }
+}
+
 function showIdlePanel() {
   el('live-video-onair').hidden = true;
-  el('live-video-idle').hidden = false;
+  el('live-video-source-toggle').hidden = false;
+  setLvSourceToggle(toggleSource);
   el('live-video-pending').hidden = true;
   el('btn-go-live-video').disabled = false;
+  el('btn-go-live-video-browser').disabled = false;
+  stopOnAirPreview();
 }
 
 function showPendingPanel(rtmp) {
   el('live-video-onair').hidden = true;
+  el('live-video-source-toggle').hidden = true;
+  el('live-video-browser-idle').hidden = true;
   el('live-video-idle').hidden = true;
   el('live-video-pending').hidden = false;
   renderRtmpFields(rtmp);
@@ -51,10 +98,13 @@ function stopOnAirTimer() {
   if (timerInt) { clearInterval(timerInt); timerInt = null; }
 }
 
-function showOnAir(startedAt) {
+function showOnAir(startedAt, source) {
+  el('live-video-source-toggle').hidden = true;
+  el('live-video-browser-idle').hidden = true;
   el('live-video-idle').hidden = true;
   el('live-video-pending').hidden = true;
   el('live-video-onair').hidden = false;
+  if (source) el('live-video-onair').dataset.source = source;
 
   startedAtMs = startedAt ? new Date(startedAt).getTime() : Date.now();
   stopOnAirTimer();
@@ -62,6 +112,7 @@ function showOnAir(startedAt) {
   timerInt = setInterval(() => {
     el('live-video-timer').textContent = fmt(Math.floor((Date.now() - startedAtMs) / 1000));
   }, 1000);
+  startOnAirPreview();
 }
 
 function stopPolling() {
@@ -90,7 +141,7 @@ function syncState(data) {
   const state = data.state;
 
   if (state === 'live') {
-    if (lastState !== 'live') showOnAir(data.startedAt);
+    if (lastState !== 'live') showOnAir(data.startedAt, data.source);
   } else if (state === 'pending') {
     if (lastState === 'live') stopOnAirTimer();
     showPendingPanel(data.rtmp);
@@ -107,14 +158,15 @@ function syncState(data) {
 
 export function loadDashLiveVideo() {
   loadLiveVideoSettings();
-  if (!isDesktopPlatform()) return;
   api.dashboard.liveVideo.status().then(data => {
     renderRtmpFields(data.rtmp);
     lastState = data.state;
     if (data.state === 'live') {
-      showOnAir(data.startedAt);
+      if (data.source === 'rtmp') setLvSourceToggle('rtmp');
+      showOnAir(data.startedAt, data.source);
       startPolling();
     } else if (data.state === 'pending') {
+      setLvSourceToggle('rtmp');
       showPendingPanel(data.rtmp);
       startPolling();
     }
@@ -142,9 +194,91 @@ async function startGoLiveVideo() {
   }
 }
 
+// ── Browser capture (camera + mic) ──────────────────────────────────────────
+
+function pickSupportedMimeType() {
+  const candidates = [
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+  ];
+  return candidates.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || null;
+}
+
+function stopBrowserCapture() {
+  if (lvRecorder && lvRecorder.state !== 'inactive') { try { lvRecorder.stop(); } catch {} }
+  lvRecorder = null;
+  if (lvMediaStream) { lvMediaStream.getTracks().forEach(t => t.stop()); lvMediaStream = null; }
+  const preview = el('lv-preview');
+  if (preview) preview.srcObject = null;
+}
+
+async function startGoLiveVideoBrowser() {
+  const msgEl = el('live-video-browser-msg');
+  msgEl.textContent = 'Requesting camera and microphone…';
+  el('btn-go-live-video-browser').disabled = true;
+
+  try {
+    lvMediaStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+      audio: { echoCancellation: true, noiseSuppression: true },
+    });
+  } catch (err) {
+    msgEl.textContent = `Camera/mic access denied: ${err.message}`;
+    el('btn-go-live-video-browser').disabled = false;
+    return;
+  }
+
+  el('lv-preview').srcObject = lvMediaStream;
+
+  const mimeType = pickSupportedMimeType();
+  if (!mimeType) {
+    msgEl.textContent = 'Your browser cannot record video in a supported format.';
+    stopBrowserCapture();
+    el('btn-go-live-video-browser').disabled = false;
+    return;
+  }
+
+  try {
+    const { res, data } = await api.dashboard.liveVideo.startBrowser();
+    if (!res.ok) {
+      msgEl.textContent = data.error || 'Could not start live video broadcast';
+      stopBrowserCapture();
+      el('btn-go-live-video-browser').disabled = false;
+      return;
+    }
+  } catch {
+    msgEl.textContent = 'Server error — try again';
+    stopBrowserCapture();
+    el('btn-go-live-video-browser').disabled = false;
+    return;
+  }
+
+  lvRecorder = new MediaRecorder(lvMediaStream, {
+    mimeType,
+    videoBitsPerSecond: 2_000_000,
+    audioBitsPerSecond: 128_000,
+  });
+  lvRecorder.ondataavailable = e => {
+    if (!e.data || !e.data.size) return;
+    api.dashboard.liveVideo.sendChunk(e.data).catch(() => {});
+  };
+  lvRecorder.onerror = () => {
+    msgEl.textContent = 'Recording error — ending broadcast';
+    endLiveVideo();
+  };
+  lvMediaStream.getVideoTracks()[0].onended = () => endLiveVideo();
+  lvRecorder.start(1000);
+
+  lastState = 'live';
+  showOnAir(new Date().toISOString(), 'browser');
+  startPolling();
+}
+
 async function endLiveVideo() {
   stopPolling();
   stopOnAirTimer();
+  if (el('live-video-onair').dataset.source === 'browser') stopBrowserCapture();
   try { await api.dashboard.liveVideo.stop(); } catch {}
   lastState = 'idle';
   showIdlePanel();
@@ -187,6 +321,9 @@ async function saveLiveVideoSettings() {
 }
 
 export function initLiveVideoHandlers() {
+  el('btn-lv-source-browser').addEventListener('click', () => setLvSourceToggle('browser'));
+  el('btn-lv-source-rtmp').addEventListener('click', () => setLvSourceToggle('rtmp'));
+  el('btn-go-live-video-browser').addEventListener('click', startGoLiveVideoBrowser);
   el('btn-go-live-video').addEventListener('click', startGoLiveVideo);
   el('btn-end-live-video').addEventListener('click', endLiveVideo);
   el('btn-cancel-live-video').addEventListener('click', endLiveVideo);

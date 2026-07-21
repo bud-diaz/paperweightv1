@@ -240,6 +240,7 @@ body.radio-host-mode #vault-panel-tokens { display: none !important; }
 body.radio-host-mode #new-proj-pricing-block { display: none !important; }
 body.radio-host-mode .dash-proj-pricing { display: none !important; }
 body:not(.radio-host-mode) #dash-ext-search-section { display: none !important; }
+body:not(.radio-host-mode) .dash-card[data-section-key="dash-ext-search-section"] { display: none !important; }
 
 /* ── Anonymous station: monetization disabled, same as Radio Host mode ── */
 body.anonymous-mode #vsb-tokens { display: none !important; }
@@ -647,6 +648,7 @@ textarea.dash-input { resize: vertical; min-height: 46px; line-height: 1.4; }
 .analytics-section-label { margin: 12px 0 4px; letter-spacing: .12em; }
 .analytics-top-heading { margin: 10px 0 4px; }
 #live-idle, #live-onair, #live-external { padding: 0 0 8px; }
+#live-video-browser-idle, #live-video-idle, #live-video-onair { padding: 0 0 8px; }
 .live-idle-copy {
   font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t3);
   margin-bottom: 10px; line-height: 1.7;
@@ -672,6 +674,10 @@ textarea.dash-input { resize: vertical; min-height: 46px; line-height: 1.4; }
   line-height: 1.6; margin-top: 8px;
 }
 .live-broadcast-row { margin: 0; }
+.lv-preview-video {
+  display: block; max-width: 280px; width: 100%; aspect-ratio: 16/9;
+  border-radius: 8px; background: #000; margin-bottom: 10px; object-fit: cover;
+}
 .onair-badge {
   color: #ff5555; border: 1px solid rgba(255,60,60,.2); border-radius: 4px;
   padding: 1px 6px; display: inline-block; background: rgba(255,40,40,.08);

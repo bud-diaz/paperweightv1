@@ -104,6 +104,20 @@ function checkNoSourceMaps(dir, label) {
 
 function checkIconAssets() {
   const electronPkg = JSON.parse(fs.readFileSync(path.join(ELECTRON_DIR, 'package.json'), 'utf8'));
+  if (electronPkg.build?.win?.icon === 'build/icon.ico') {
+    pass('Windows executable icon config uses Paperweight ICO');
+  } else {
+    fail('Windows executable icon config should use build/icon.ico');
+  }
+
+  for (const field of ['installerIcon', 'uninstallerIcon', 'installerHeaderIcon']) {
+    if (electronPkg.build?.nsis?.[field] === 'build/icon.ico') {
+      pass(`Windows NSIS ${field} uses Paperweight ICO`);
+    } else {
+      fail(`Windows NSIS ${field} should use build/icon.ico`);
+    }
+  }
+
   if (electronPkg.build?.linux?.icon === 'build/icons') {
     pass('Linux Electron icon config uses build/icons icon set');
   } else {

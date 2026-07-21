@@ -23,6 +23,48 @@ function closeDropdown() {
   toggleDropdown(false);
 }
 
+// Tunnel connect/disconnect — dulled until CLOUDFLARE_TUNNEL_TOKEN is set,
+// fed by station.js's loadDashStation() (same GET /api/dashboard/station
+// response the Station panel already fetches, no extra round trip).
+let tunnelConfigured = false;
+let tunnelPaused = false;
+
+export function applyTunnelState(data) {
+  tunnelConfigured = !!(data.requirements && data.requirements.cloudflareTunnel);
+  tunnelPaused = !!data.cloudflareTunnelPaused;
+  updateTunnelButton();
+}
+
+function updateTunnelButton() {
+  const btn = el('dp-toggle-tunnel');
+  if (!btn) return;
+  btn.disabled = !tunnelConfigured;
+  btn.textContent = tunnelPaused ? 'RECONNECT TUNNEL' : 'DISCONNECT TUNNEL';
+  btn.title = tunnelConfigured ? '' : 'Set up a Cloudflare tunnel in the Station panel first';
+}
+
+async function toggleTunnel() {
+  if (!tunnelConfigured) return;
+  const disconnecting = !tunnelPaused;
+  const msg = disconnecting
+    ? "Disconnect the public tunnel? Your station will be unreachable from outside until you reconnect it."
+    : 'Reconnect the public tunnel?';
+  if (!confirm(msg)) return;
+  closeDropdown();
+
+  const { res, data } = disconnecting
+    ? await api.dashboard.station.tunnelDisconnect()
+    : await api.dashboard.station.tunnelConnect();
+
+  if (!res.ok) {
+    showToast(data.error || 'Could not update the tunnel');
+    return;
+  }
+  tunnelPaused = !!data.paused;
+  updateTunnelButton();
+  showToast(tunnelPaused ? 'Tunnel disconnected — station is local-only' : 'Tunnel reconnected — station is public again');
+}
+
 async function stopBroadcast() {
   if (!confirm('Stop the broadcast?')) return;
   closeDropdown();
@@ -108,6 +150,7 @@ export function initDesktopControlsHandlers() {
 
   el('dp-stop-broadcast').addEventListener('click', stopBroadcast);
   el('dp-restart-broadcast').addEventListener('click', restartBroadcast);
+  el('dp-toggle-tunnel').addEventListener('click', toggleTunnel);
   el('dp-stop-server').addEventListener('click', stopServer);
   el('dp-restart-server').addEventListener('click', restartServer);
   el('dp-stop-both').addEventListener('click', stopBoth);
