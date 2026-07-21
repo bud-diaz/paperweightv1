@@ -2,6 +2,30 @@
 
 Use this before publishing Paperweight for public distribution.
 
+## Known Issues
+
+- **macOS Electron desktop build is currently broken.** `npm run
+  dist:mac-universal` (and the `Electron (macOS)` job in the `Build
+  Executables` workflow) fails during the universal-build merge step —
+  `@electron/universal`'s `makeUniversalApp` — with:
+
+  ```
+  Expected all non-binary files to have identical SHAs when creating a
+  universal build but "Contents/Resources/node_modules/better-sqlite3/
+  build/Release/.forge-meta" did not
+  ```
+
+  The x64 and arm64 arch-specific `rebuild-native.js` passes each produce
+  their own `better-sqlite3/build/Release/.forge-meta`, and its contents
+  differ between architectures; a universal build requires every non-binary
+  resource file to be byte-identical across both arch builds before it will
+  merge them. Not yet fixed.
+
+  **Do not ship the macOS `.dmg`/`.zip` from an affected build.** Windows
+  (Electron), Linux desktop (Electron AppImage/deb), Linux x64
+  (`build:exe`), and Raspberry Pi ARM64 (`build:exe`) are unaffected and
+  safe to ship independently.
+
 ## Required Environment
 
 - Node.js 20 or newer is installed.
