@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="/css/layout.css"/>
   <link rel="stylesheet" href="/css/auth.css"/>
   <link rel="stylesheet" href="/css/dashboard.css"/>
+  <link rel="stylesheet" href="/css/dashboard-console.css"/>
   <link rel="stylesheet" href="/css/stack.css"/>
 </head>
 <body>
@@ -262,6 +263,148 @@
         </label>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- Go Live modal (creator dashboard — audio & video broadcast controls) -->
+<div id="golive-modal-backdrop">
+  <div id="golive-modal">
+    <div id="golive-modal-header">
+      <span id="golive-modal-title">GO LIVE</span>
+      <button id="golive-modal-close">×</button>
+    </div>
+    <div id="golive-modal-body">
+      <div class="golive-tabs">
+        <button class="golive-tab active" data-golive-tab="audio">AUDIO</button>
+        <button class="golive-tab" data-golive-tab="video">VIDEO</button>
+      </div>
+
+      <!-- Audio pane -->
+      <div class="golive-pane active" data-golive-pane="audio">
+        <div class="live-source-toggle" id="live-source-toggle" data-desktop-only>
+          <button class="live-source-btn active" id="btn-source-mic" data-source="mic">MIC</button>
+          <button class="live-source-btn" id="btn-source-external" data-source="external">EXTERNAL ENCODER (OBS)</button>
+        </div>
+        <canvas id="live-waveform" width="600" height="120"></canvas>
+        <audio id="live-onair-audio" hidden></audio>
+        <div id="live-idle">
+          <div class="live-idle-copy">
+            Go live from your mic. Listeners switch to your feed in real time.
+          </div>
+          <button id="btn-go-live">● GO LIVE</button>
+          <div id="live-idle-msg"></div>
+        </div>
+        <div id="live-external" hidden>
+          <div id="live-external-idle">
+            <div class="live-idle-copy">
+              Connect OBS (or another RTMP-capable encoder) directly to your station. Listeners switch to your feed in real time.
+            </div>
+            <button id="btn-go-live-external">● GO LIVE</button>
+            <div id="live-external-msg"></div>
+          </div>
+          <div id="live-external-pending" hidden>
+            <div class="live-idle-copy">Paste these into OBS → Settings → Stream → Custom:</div>
+            <div class="station-url-row">
+              <span class="ext-field-label">Server</span>
+              <span id="ext-rtmp-url"></span>
+              <button class="mgmt-btn" id="btn-copy-rtmp-url">COPY</button>
+            </div>
+            <div class="station-url-row">
+              <span class="ext-field-label">Key</span>
+              <span id="ext-rtmp-key"></span>
+              <button class="mgmt-btn" id="btn-copy-rtmp-key">COPY</button>
+            </div>
+            <div id="live-external-status" class="live-idle-copy">Waiting for OBS to connect…</div>
+            <div class="broadcast-actions">
+              <button class="mgmt-btn" id="btn-regen-rtmp-key">REGENERATE KEY</button>
+              <button class="mgmt-btn danger" id="btn-cancel-external">CANCEL</button>
+            </div>
+            <div class="ext-key-warning">This key personalizes your setup but isn't a strong secret — anyone who can reach this port while it's open can push audio. Keep the ingest port on your local machine or LAN.</div>
+          </div>
+        </div>
+        <div id="live-onair" hidden>
+          <div class="broadcast-row live-broadcast-row">
+            <div class="broadcast-info">
+              <div class="broadcast-np" id="live-timer">0:00</div>
+              <div class="broadcast-mode-badge onair-badge" id="live-onair-badge">● ON AIR</div>
+            </div>
+            <div class="broadcast-actions">
+              <button class="mgmt-btn danger" id="btn-end-live">END BROADCAST</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Video pane -->
+      <div class="golive-pane" data-golive-pane="video">
+        <div class="live-idle-copy">
+          Broadcast video from your camera or from OBS (or another RTMP-capable encoder). Only listeners at or above the tier below can watch — everyone else sees a subscribe prompt.
+        </div>
+        <div class="station-url-row">
+          <span class="ext-field-label">Minimum tier</span>
+          <select id="live-video-min-tier">
+            <option value="subscriber">Subscriber</option>
+            <option value="pro">Pro</option>
+            <option value="all_access">All-Access</option>
+          </select>
+        </div>
+        <label class="toggle-sw">
+          <input type="checkbox" id="live-video-notify-toggle">
+          <span class="toggle-track"></span>
+          <span class="toggle-label">ANNOUNCE GO-LIVE</span>
+        </label>
+
+        <div class="live-source-toggle" id="live-video-source-toggle" data-desktop-only>
+          <button class="live-source-btn active" id="btn-lv-source-browser" data-source="browser">BROWSER (CAMERA)</button>
+          <button class="live-source-btn" id="btn-lv-source-rtmp" data-source="rtmp">OBS / EXTERNAL ENCODER</button>
+        </div>
+
+        <div id="live-video-browser-idle">
+          <video id="lv-preview" class="lv-preview-video" muted playsinline autoplay></video>
+          <div class="live-idle-copy">
+            Go live from your camera and mic. Listeners at or above the tier above switch to your feed in real time.
+          </div>
+          <button id="btn-go-live-video-browser">● GO LIVE (VIDEO)</button>
+          <div id="live-video-browser-msg"></div>
+        </div>
+
+        <div id="live-video-idle" hidden>
+          <button id="btn-go-live-video">● GO LIVE (VIDEO)</button>
+          <div id="live-video-msg"></div>
+        </div>
+        <div id="live-video-pending" hidden>
+          <div class="live-idle-copy">Paste these into OBS → Settings → Stream → Custom:</div>
+          <div class="station-url-row">
+            <span class="ext-field-label">Server</span>
+            <span id="lv-rtmp-url"></span>
+            <button class="mgmt-btn" id="btn-copy-lv-rtmp-url">COPY</button>
+          </div>
+          <div class="station-url-row">
+            <span class="ext-field-label">Key</span>
+            <span id="lv-rtmp-key"></span>
+            <button class="mgmt-btn" id="btn-copy-lv-rtmp-key">COPY</button>
+          </div>
+          <div id="live-video-status" class="live-idle-copy">Waiting for OBS to connect…</div>
+          <div class="broadcast-actions">
+            <button class="mgmt-btn" id="btn-regen-lv-rtmp-key">REGENERATE KEY</button>
+            <button class="mgmt-btn danger" id="btn-cancel-live-video">CANCEL</button>
+          </div>
+          <div class="ext-key-warning">This key personalizes your setup but isn't a strong secret — anyone who can reach this port while it's open can push video. Keep the ingest port on your local machine or LAN.</div>
+        </div>
+        <div id="live-video-onair" hidden>
+          <div class="broadcast-row live-broadcast-row">
+            <div class="broadcast-info">
+              <div class="broadcast-np" id="live-video-timer">0:00</div>
+              <div class="broadcast-mode-badge onair-badge">● ON AIR</div>
+            </div>
+            <div class="broadcast-actions">
+              <button class="mgmt-btn danger" id="btn-end-live-video">END BROADCAST</button>
+            </div>
+          </div>
+          <video id="lv-onair-preview" class="lv-preview-video" muted playsinline autoplay></video>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1015,140 +1158,17 @@
               <div id="sq-list"><div class="sq-empty">Queue is empty — add tracks from the library below.</div></div>
             </div>
 
-            <!-- Advanced collapse: Radio Host toggle + live controls -->
+            <!-- Advanced collapse: Radio Host toggle -->
             <div id="broadcast-header-toggle">
               <span class="bh-chev">›</span>
-              <span>GO LIVE / RADIO HOST</span>
+              <span>RADIO HOST</span>
             </div>
             <div id="broadcast-advanced">
-              <div class="live-source-toggle" id="live-source-toggle" data-desktop-only>
-                <button class="live-source-btn active" id="btn-source-mic" data-source="mic">MIC</button>
-                <button class="live-source-btn" id="btn-source-external" data-source="external">EXTERNAL ENCODER (OBS)</button>
-              </div>
-              <div id="live-idle">
-                <div class="live-idle-copy">
-                  Go live from your mic. Listeners switch to your feed in real time.
-                </div>
-                <button id="btn-go-live">● GO LIVE</button>
-                <div id="live-idle-msg"></div>
-              </div>
-              <div id="live-external" hidden>
-                <div id="live-external-idle">
-                  <div class="live-idle-copy">
-                    Connect OBS (or another RTMP-capable encoder) directly to your station. Listeners switch to your feed in real time.
-                  </div>
-                  <button id="btn-go-live-external">● GO LIVE</button>
-                  <div id="live-external-msg"></div>
-                </div>
-                <div id="live-external-pending" hidden>
-                  <div class="live-idle-copy">Paste these into OBS → Settings → Stream → Custom:</div>
-                  <div class="station-url-row">
-                    <span class="ext-field-label">Server</span>
-                    <span id="ext-rtmp-url"></span>
-                    <button class="mgmt-btn" id="btn-copy-rtmp-url">COPY</button>
-                  </div>
-                  <div class="station-url-row">
-                    <span class="ext-field-label">Key</span>
-                    <span id="ext-rtmp-key"></span>
-                    <button class="mgmt-btn" id="btn-copy-rtmp-key">COPY</button>
-                  </div>
-                  <div id="live-external-status" class="live-idle-copy">Waiting for OBS to connect…</div>
-                  <div class="broadcast-actions">
-                    <button class="mgmt-btn" id="btn-regen-rtmp-key">REGENERATE KEY</button>
-                    <button class="mgmt-btn danger" id="btn-cancel-external">CANCEL</button>
-                  </div>
-                  <div class="ext-key-warning">This key personalizes your setup but isn't a strong secret — anyone who can reach this port while it's open can push audio. Keep the ingest port on your local machine or LAN.</div>
-                </div>
-              </div>
-              <div id="live-onair" hidden>
-                <div class="broadcast-row live-broadcast-row">
-                  <div class="broadcast-info">
-                    <div class="broadcast-np" id="live-timer">0:00</div>
-                    <div class="broadcast-mode-badge onair-badge" id="live-onair-badge">● ON AIR</div>
-                  </div>
-                  <div class="broadcast-actions">
-                    <button class="mgmt-btn danger" id="btn-end-live">END BROADCAST</button>
-                  </div>
-                </div>
-                <div id="live-meter"></div>
-              </div>
               <div class="rh-toggle-row" data-desktop-only>
                 <span class="rh-toggle-label">RADIO HOST MODE</span>
                 <button id="rh-switch" class="rh-switch" title="Toggle Radio Host mode"></button>
               </div>
               <div id="rh-switches-info" class="rh-switches-used" data-desktop-only></div>
-            </div>
-          </div>
-
-          <div class="dash-divider"></div>
-
-          <!-- Live Video (paid-tier gated) -->
-          <div class="dash-section" id="dash-live-video-section">
-            <div class="dash-section-label">LIVE VIDEO</div>
-            <div class="live-idle-copy">
-              Broadcast video from your camera or from OBS (or another RTMP-capable encoder). Only listeners at or above the tier below can watch — everyone else sees a subscribe prompt.
-            </div>
-            <div class="station-url-row">
-              <span class="ext-field-label">Minimum tier</span>
-              <select id="live-video-min-tier">
-                <option value="subscriber">Subscriber</option>
-                <option value="pro">Pro</option>
-                <option value="all_access">All-Access</option>
-              </select>
-            </div>
-            <div class="station-url-row">
-              <span class="ext-field-label">Announce go-live</span>
-              <input type="checkbox" id="live-video-notify-toggle">
-            </div>
-
-            <div class="live-source-toggle" id="live-video-source-toggle" data-desktop-only>
-              <button class="live-source-btn active" id="btn-lv-source-browser" data-source="browser">BROWSER (CAMERA)</button>
-              <button class="live-source-btn" id="btn-lv-source-rtmp" data-source="rtmp">OBS / EXTERNAL ENCODER</button>
-            </div>
-
-            <div id="live-video-browser-idle">
-              <video id="lv-preview" class="lv-preview-video" muted playsinline autoplay></video>
-              <div class="live-idle-copy">
-                Go live from your camera and mic. Listeners at or above the tier above switch to your feed in real time.
-              </div>
-              <button id="btn-go-live-video-browser">● GO LIVE (VIDEO)</button>
-              <div id="live-video-browser-msg"></div>
-            </div>
-
-            <div id="live-video-idle" hidden>
-              <button id="btn-go-live-video">● GO LIVE (VIDEO)</button>
-              <div id="live-video-msg"></div>
-            </div>
-            <div id="live-video-pending" hidden>
-              <div class="live-idle-copy">Paste these into OBS → Settings → Stream → Custom:</div>
-              <div class="station-url-row">
-                <span class="ext-field-label">Server</span>
-                <span id="lv-rtmp-url"></span>
-                <button class="mgmt-btn" id="btn-copy-lv-rtmp-url">COPY</button>
-              </div>
-              <div class="station-url-row">
-                <span class="ext-field-label">Key</span>
-                <span id="lv-rtmp-key"></span>
-                <button class="mgmt-btn" id="btn-copy-lv-rtmp-key">COPY</button>
-              </div>
-              <div id="live-video-status" class="live-idle-copy">Waiting for OBS to connect…</div>
-              <div class="broadcast-actions">
-                <button class="mgmt-btn" id="btn-regen-lv-rtmp-key">REGENERATE KEY</button>
-                <button class="mgmt-btn danger" id="btn-cancel-live-video">CANCEL</button>
-              </div>
-              <div class="ext-key-warning">This key personalizes your setup but isn't a strong secret — anyone who can reach this port while it's open can push video. Keep the ingest port on your local machine or LAN.</div>
-            </div>
-            <div id="live-video-onair" hidden>
-              <div class="broadcast-row live-broadcast-row">
-                <div class="broadcast-info">
-                  <div class="broadcast-np" id="live-video-timer">0:00</div>
-                  <div class="broadcast-mode-badge onair-badge">● ON AIR</div>
-                </div>
-                <div class="broadcast-actions">
-                  <button class="mgmt-btn danger" id="btn-end-live-video">END BROADCAST</button>
-                </div>
-              </div>
-              <video id="lv-onair-preview" class="lv-preview-video" muted playsinline autoplay></video>
             </div>
           </div>
 

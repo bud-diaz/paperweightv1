@@ -573,7 +573,7 @@ router.get('/earnings', (req, res) => {
     ORDER BY gross_cents DESC
   `).all();
 
-  const unlocks = unlockRows.map(r => ({
+  const mapUnlockRows = rows => rows.map(r => ({
     unlockType: r.unlock_type,
     targetId: r.target_id,
     title: r.unlock_type === 'all_access'
@@ -582,9 +582,26 @@ router.get('/earnings', (req, res) => {
     unitsSold: r.units,
     revenueCents: r.gross_cents,
   }));
+  const unlocks = mapUnlockRows(unlockRows);
+
+  const todayUnlocks = mapUnlockRows(db.prepare(`
+    SELECT vu.unlock_type, vu.target_id,
+           COUNT(*) AS units, COALESCE(SUM(vu.amount_paid), 0) AS gross_cents,
+           m.title AS media_title, m.filename AS media_filename,
+           vp.name AS project_name
+    FROM vault_unlocks vu
+    LEFT JOIN media m ON vu.unlock_type = 'track' AND m.id = vu.target_id
+    LEFT JOIN vault_projects vp ON vu.unlock_type = 'project' AND vp.id = vu.target_id
+    WHERE date(vu.created_at) = date('now')
+    GROUP BY vu.unlock_type, vu.target_id
+    ORDER BY gross_cents DESC
+  `).all());
 
   const tipStats = db.prepare(
     'SELECT COUNT(*) AS count, COALESCE(SUM(amount_cents), 0) AS gross_cents FROM tips'
+  ).get();
+  const todayTipStats = db.prepare(
+    "SELECT COUNT(*) AS count, COALESCE(SUM(amount_cents), 0) AS gross_cents FROM tips WHERE date(created_at) = date('now')"
   ).get();
   const recentTips = db.prepare(
     'SELECT amount_cents, created_at FROM tips ORDER BY created_at DESC LIMIT 10'
@@ -598,6 +615,8 @@ router.get('/earnings', (req, res) => {
 
   const unlockRevenueCents = unlocks.reduce((sum, u) => sum + u.revenueCents, 0);
   const unlockUnits = unlocks.reduce((sum, u) => sum + u.unitsSold, 0);
+  const todayUnlockRevenueCents = todayUnlocks.reduce((sum, u) => sum + u.revenueCents, 0);
+  const todayUnlockUnits = todayUnlocks.reduce((sum, u) => sum + u.unitsSold, 0);
 
   res.json({
     totals: {
@@ -606,9 +625,15 @@ router.get('/earnings', (req, res) => {
       tipRevenueCents: tipStats.gross_cents,
       unitsSold: unlockUnits,
       tipCount: tipStats.count,
+      todayRevenueCents: todayUnlockRevenueCents + todayTipStats.gross_cents,
+      todayUnlockRevenueCents,
+      todayTipRevenueCents: todayTipStats.gross_cents,
+      todayUnitsSold: todayUnlockUnits,
+      todayTipCount: todayTipStats.count,
       activeSubscriptions: subStats.reduce((sum, s) => sum + s.count, 0),
     },
     unlocks,
+    todayUnlocks,
     tips: { count: tipStats.count, grossCents: tipStats.gross_cents, recent: recentTips },
     subscriptions: subStats.map(s => ({ tier: s.tier, count: s.count })),
   });

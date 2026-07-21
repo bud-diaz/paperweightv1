@@ -28,6 +28,8 @@ let _setModalTab = () => {};
 let _checkVaultGate = async () => false;
 let _addToQueue = () => false;
 let _setNextUp = () => {};
+let _onStashChanged = () => {};
+let _editTrack = () => {};
 
 export function init({
   selectVOD,
@@ -36,6 +38,8 @@ export function init({
   checkVaultGate,
   addToQueue,
   setNextUp,
+  onStashChanged,
+  editTrack,
 } = {}) {
   if (selectVOD)      _selectVOD      = selectVOD;
   if (openModal)      _openModal      = openModal;
@@ -43,6 +47,8 @@ export function init({
   if (checkVaultGate) _checkVaultGate = checkVaultGate;
   if (addToQueue)     _addToQueue     = addToQueue;
   if (setNextUp)      _setNextUp      = setNextUp;
+  if (onStashChanged) _onStashChanged = onStashChanged;
+  if (editTrack)      _editTrack      = editTrack;
 }
 
 function isPaidTier() {
@@ -67,52 +73,37 @@ function maskTitle(title) {
   return '*'.repeat(len);
 }
 
-function bodyFor(card) {
-  return card.querySelector('.stack-card-body');
+function isCreatorMode() {
+  return document.body.classList.contains('creator-mode');
 }
 
-function setCardOpen(card, isOpen, { animate = true } = {}) {
-  const body = bodyFor(card);
+function setCardOpen(card, isOpen) {
   card.classList.toggle('open', isOpen);
   card.querySelector('.stack-card-head')
     .setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-
-  if (!animate) {
-    body.style.height = isOpen ? 'auto' : '0px';
-    return;
-  }
-
-  if (isOpen) {
-    const target = body.scrollHeight;
-    body.style.height = '0px';
-    requestAnimationFrame(() => { body.style.height = `${target}px`; });
-    body.addEventListener('transitionend', function onEnd(e) {
-      if (e.propertyName !== 'height') return;
-      body.removeEventListener('transitionend', onEnd);
-      if (card.classList.contains('open')) body.style.height = 'auto';
-    });
-  } else {
-    body.style.height = `${body.scrollHeight}px`;
-    requestAnimationFrame(() => { body.style.height = '0px'; });
-  }
 }
 
 function applyAccordion() {
   const container = el('stack-sections');
   if (!container) return;
   container.querySelectorAll('.stack-card').forEach(card => {
-    setCardOpen(card, card.dataset.stackKey === openKey, { animate: false });
+    setCardOpen(card, card.dataset.stackKey === openKey);
   });
 }
 
 function makeCard(key, title) {
   const card = document.createElement('section');
   card.className = 'stack-card';
+  card.id = `stack-card-${key}`;
   card.dataset.stackKey = key;
   card.innerHTML = `
     <button class="stack-card-head" type="button" aria-expanded="false">
+      <span class="stack-card-title">
+        <span>${esc(title)}</span>
+        <span class="stack-card-badge${key === 'stash' ? ' stash-count' : ''}">0 ${key === 'stash' ? 'SAVED' : 'TRACKS'}</span>
+        <span class="stack-card-peek">0 ${key === 'stash' ? 'SAVED' : 'TRACKS'}</span>
+      </span>
       <span class="stack-card-chevron" aria-hidden="true">&#9662;</span>
-      <span class="stack-card-title">${esc(title)}</span>
     </button>
     <div class="stack-card-body"><div class="stack-card-content"></div></div>
   `;
@@ -133,13 +124,38 @@ function ensureCards() {
   const container = el('stack-sections');
   if (!container || initialized) return;
   initialized = true;
+  // Keep the inactive drawers anchored like app-shell rails: STACK at the top,
+  // STASH at the bottom, with the active drawer scrolling between them.
   container.appendChild(makeCard('stack', 'STACK'));
   container.appendChild(makeCard('stash', 'STASH'));
   applyAccordion();
 }
 
+function updateCardCount(key, count) {
+  const card = el(`stack-card-${key}`);
+  if (!card) return;
+  const label = `${count} ${key === 'stash' ? 'SAVED' : 'TRACKS'}`;
+  const badge = card.querySelector('.stack-card-badge');
+  const peek = card.querySelector('.stack-card-peek');
+  if (badge) badge.textContent = label;
+  if (peek) peek.textContent = label;
+}
+
 function trackMeta(t) {
   return [t.creator, t.duration ? fmt(t.duration) : '', t.genre].filter(Boolean).join(' / ');
+}
+
+function savedAge(savedAt) {
+  const savedMs = Date.parse(savedAt || '');
+  if (!Number.isFinite(savedMs)) return 'SAVED LOCALLY';
+  const elapsed = Math.max(0, Date.now() - savedMs);
+  const days = Math.floor(elapsed / 86400000);
+  if (days < 1) return 'SAVED TODAY';
+  if (days < 7) return `SAVED ${days}D AGO`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `SAVED ${weeks}W AGO`;
+  const months = Math.floor(days / 30);
+  return `SAVED ${Math.max(1, months)}MO AGO`;
 }
 
 function quotaExhausted() {
@@ -188,21 +204,25 @@ function handlePlay(t) {
 
 function makeTrackRow(raw) {
   const t = normalizeTrack(raw);
+  const creatorMode = isCreatorMode();
   const playable = isPlayable(t);
   const lockedSupporter = t.visibility === 'supporters_only' && !playable;
   const lockedVault = t.visibility === 'vault' && !playable;
   const title = lockedVault ? maskTitle(t.title) : t.title;
+  const meta = lockedVault
+    ? '<span class="tier-chip vault">VAULT</span>'
+    : `${esc(t.isExternal ? 'EXTERNAL IMPORT' : trackMeta(t))}${lockedSupporter ? ' <span class="tier-chip supporter">SUPPORTERS</span>' : ''}`;
   const row = document.createElement('div');
   row.className = [
     'stack-row',
-    playable ? 'stack-row-playable' : '',
+    playable ? 'stack-row-public stack-row-playable' : '',
     lockedSupporter || t.isExternal ? 'stack-row-locked' : '',
     lockedVault ? 'stack-row-redacted' : '',
   ].filter(Boolean).join(' ');
   row.innerHTML = `
     <div class="stack-row-main">
       <div class="stack-row-title">${esc(title)}</div>
-      <div class="stack-row-meta">${esc(t.isExternal ? 'EXTERNAL IMPORT' : trackMeta(t))}</div>
+      <div class="stack-row-meta">${meta}</div>
     </div>
     <div class="stack-row-actions"></div>
   `;
@@ -223,28 +243,56 @@ function makeTrackRow(raw) {
     actions.appendChild(add);
   }
 
-  if (canStash(t)) {
+  if (!creatorMode && canStash(t)) {
     const stash = document.createElement('button');
     stash.type = 'button';
     const saved = savedSet.has(t.id);
     stash.className = 'stack-btn stack-btn-stash' + (saved ? ' saved' : '');
-    stash.textContent = saved ? '✓ STASHED' : 'STASH';
-    stash.title = saved ? 'In your offline stash' : 'Save to your offline stash';
+    stash.textContent = 'STASH';
+    stash.title = saved ? 'Remove from Stash' : 'Add to Stash';
     stash.addEventListener('click', async e => {
       e.stopPropagation();
-      if (savedSet.has(t.id)) return;
       stash.disabled = true;
-      const ok = await offline.saveTrack(t);
+      const wasSaved = savedSet.has(t.id);
+      const ok = wasSaved
+        ? await offline.removeSaved(t.id)
+        : await offline.saveTrack(t);
       stash.disabled = false;
       if (ok) {
-        savedSet.add(t.id);
-        stash.classList.add('saved');
-        stash.textContent = '✓ STASHED';
-        stash.title = 'In your offline stash';
-        refreshStash();
+        if (wasSaved) savedSet.delete(t.id);
+        else savedSet.add(t.id);
+        renderStack();
+        await refreshStash();
+        await _onStashChanged();
       }
     });
     actions.appendChild(stash);
+  }
+
+  if (creatorMode) {
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'stack-btn stack-btn-edit';
+    edit.textContent = 'EDIT';
+    edit.title = 'Edit in Studio Vault';
+    edit.addEventListener('click', e => {
+      e.stopPropagation();
+      _editTrack(t.id);
+    });
+    actions.appendChild(edit);
+  }
+
+  if (!creatorMode && lockedVault) {
+    const unlock = document.createElement('button');
+    unlock.type = 'button';
+    unlock.className = 'stack-btn stack-btn-unlock';
+    unlock.textContent = 'UNLOCK';
+    unlock.title = 'Unlock this track';
+    unlock.addEventListener('click', e => {
+      e.stopPropagation();
+      _checkVaultGate(t);
+    });
+    actions.appendChild(unlock);
   }
 
   return row;
@@ -288,6 +336,8 @@ function renderStack() {
   card.innerHTML = '';
 
   const { projects = [], standalone = [] } = LIBRARY_STRUCTURE;
+  const trackCount = projects.reduce((total, project) => total + (project.tracks || []).length, 0) + standalone.length;
+  updateCardCount('stack', trackCount);
   if (!projects.length && !standalone.length) {
     card.innerHTML += '<div class="stack-empty">NO UPLOADS YET</div>';
     return;
@@ -299,12 +349,16 @@ function renderStack() {
   }
 }
 
-function fallbackTrack(saved) {
+function findLibraryTrack(id) {
   const all = [
     ...(LIBRARY_STRUCTURE.projects || []).flatMap(project => project.tracks || []),
     ...(LIBRARY_STRUCTURE.standalone || []),
   ];
-  const raw = all.find(track => Number(track.id) === Number(saved.id));
+  return all.find(track => Number(track.id) === Number(id)) || null;
+}
+
+function fallbackTrack(saved) {
+  const raw = findLibraryTrack(saved.id);
   if (raw) return normalizeTrack(raw);
   return {
     id: saved.id,
@@ -323,7 +377,9 @@ async function refreshStash() {
   const card = el('stack-sections')?.querySelector('.stack-card[data-stack-key="stash"] .stack-card-content');
   if (!card) return;
   const saved = await offline.listSaved();
+  savedSet = new Set(saved.map(item => item.id));
   card.innerHTML = '';
+  updateCardCount('stash', saved.length);
 
   if (!saved.length) {
     card.innerHTML = '<div class="stack-empty">NO STASHED TRACKS</div>';
@@ -331,36 +387,70 @@ async function refreshStash() {
   }
 
   saved.sort((a, b) => String(b.savedAt || '').localeCompare(String(a.savedAt || '')));
+  const recent = document.createElement('div');
+  recent.className = 'stash-recent-strip';
+  recent.setAttribute('aria-label', 'Recently saved');
+  saved.slice(0, 6).forEach(item => {
+    const recentItem = document.createElement('div');
+    recentItem.className = 'stash-recent-item';
+    recentItem.innerHTML = `
+      <div class="stash-recent-art" aria-hidden="true"></div>
+      <div class="stash-recent-title">${esc(item.title || `Track #${item.id}`)}</div>
+    `;
+    recent.appendChild(recentItem);
+  });
+  card.appendChild(recent);
+
+  const separator = document.createElement('div');
+  separator.className = 'stack-sep';
+  separator.textContent = `ALL SAVED / ${saved.length}`;
+  card.appendChild(separator);
+
   for (const item of saved) {
+    const currentLibraryTrack = findLibraryTrack(item.id);
     const track = fallbackTrack(item);
+    const creatorMode = isCreatorMode();
     const row = document.createElement('div');
-    row.className = 'stack-row stack-row-playable stack-stash-row';
+    row.className = 'stack-row stack-row-public stack-row-playable stack-stash-row';
+    const meta = [track.duration ? fmt(track.duration) : '', savedAge(item.savedAt)].filter(Boolean).join(' / ');
     row.innerHTML = `
       <div class="stack-row-main">
         <div class="stack-row-title">${esc(track.title)}</div>
-        <div class="stack-row-meta">${esc(item.size ? `${Math.round(item.size / 1024)} KB` : 'SAVED LOCALLY')}</div>
+        <div class="stack-row-meta">${esc(meta)}</div>
       </div>
       <div class="stack-row-actions">
-        <button class="stack-btn stack-btn-play" type="button">PLAY</button>
-        <button class="stack-btn stack-btn-queue" type="button">+</button>
-        <button class="stack-btn stack-btn-remove" type="button">X</button>
+        <button class="stack-btn stack-btn-queue" type="button" title="Add to queue">+</button>
+        ${creatorMode && currentLibraryTrack
+          ? '<button class="stack-btn stack-btn-edit" type="button" title="Edit in Studio Vault">EDIT</button>'
+          : !creatorMode
+            ? '<button class="stack-btn stack-btn-stash saved" type="button" title="Remove from Stash">STASH</button>'
+            : ''}
       </div>
     `;
-    row.querySelector('.stack-btn-play').addEventListener('click', e => {
-      e.stopPropagation();
-      offline.playSaved(item.id);
-    });
+    row.addEventListener('click', () => offline.playSaved(item.id));
     row.querySelector('.stack-btn-queue').addEventListener('click', e => {
       e.stopPropagation();
       if (quotaExhausted()) armNextUp(track);
       else _addToQueue(track);
     });
-    row.querySelector('.stack-btn-remove').addEventListener('click', async e => {
+    const stashButton = row.querySelector('.stack-btn-stash');
+    if (stashButton) {
+      stashButton.addEventListener('click', async e => {
+        e.stopPropagation();
+        const button = e.currentTarget;
+        button.disabled = true;
+        const removed = await offline.removeSaved(item.id);
+        button.disabled = false;
+        if (!removed) return;
+        savedSet.delete(item.id);
+        renderStack();
+        await refreshStash();
+        await _onStashChanged();
+      });
+    }
+    row.querySelector('.stack-btn-edit')?.addEventListener('click', e => {
       e.stopPropagation();
-      await offline.removeSaved(item.id);
-      savedSet.delete(item.id);
-      refreshStash();
-      renderStack();
+      _editTrack(track.id);
     });
     card.appendChild(row);
   }

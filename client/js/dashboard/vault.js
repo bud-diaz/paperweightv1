@@ -82,6 +82,21 @@ export function openVaultPanel(name) {
   else if (name === 'tokens') loadDashTokens();
 }
 
+export async function openTrackEditor(trackId) {
+  if (_activeVaultPanel !== 'tracks') openVaultPanel('tracks');
+  await loadDashLibrary();
+
+  const list = el('dash-lib-list');
+  const actionsPanel = list?.querySelector(`#more-panel-${trackId}`);
+  const editPanel = list?.querySelector(`#edit-panel-${trackId}`);
+  if (!actionsPanel || !editPanel) return false;
+
+  actionsPanel.hidden = false;
+  editPanel.hidden = false;
+  editPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  return true;
+}
+
 // ── Locked tracks ──────────────────────────────────────────────────────────────
 export async function loadDashLockedTracks() {
   try {

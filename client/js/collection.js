@@ -16,10 +16,12 @@ import * as offline from './offline.js';
 
 let _selectVOD = () => {};
 let _normalizeTrack = t => t;
+let _onSavedChanged = () => {};
 
-export function init({ selectVOD, normalizeTrack } = {}) {
+export function init({ selectVOD, normalizeTrack, onSavedChanged } = {}) {
   if (selectVOD)      _selectVOD      = selectVOD;
   if (normalizeTrack) _normalizeTrack = normalizeTrack;
+  if (onSavedChanged) _onSavedChanged = onSavedChanged;
 }
 
 /**
@@ -97,9 +99,11 @@ function buildCollectionRow(item, isSaved) {
   if (saveBtn) {
     saveBtn.addEventListener('click', async () => {
       if (isSaved) {
-        await offline.removeSaved(item.id);
+        const removed = await offline.removeSaved(item.id);
+        if (!removed) return;
         isSaved = false;
         saveBtn.textContent = '↓ SAVE';
+        await _onSavedChanged();
         return;
       }
       saveBtn.disabled = true;
@@ -108,6 +112,7 @@ function buildCollectionRow(item, isSaved) {
       isSaved = ok;
       saveBtn.disabled = false;
       saveBtn.textContent = ok ? '✓ SAVED' : '↓ SAVE';
+      if (ok) await _onSavedChanged();
     });
   }
 

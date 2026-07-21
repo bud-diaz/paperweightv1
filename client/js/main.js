@@ -50,6 +50,7 @@ import * as broadcast   from './dashboard/broadcast.js';
 import * as live        from './dashboard/live.js';
 import * as liveExternal from './dashboard/live-external.js';
 import * as liveVideo    from './dashboard/liveVideo.js';
+import * as golive      from './dashboard/golive.js';
 import * as schedule    from './dashboard/schedule.js';
 import * as smartPlaylists from './dashboard/smartplaylists.js';
 import * as dashPosts   from './dashboard/posts.js';
@@ -57,6 +58,7 @@ import * as upload      from './dashboard/upload.js';
 import * as analytics   from './dashboard/analytics.js';
 import * as twofa       from './dashboard/twofa.js';
 import * as devices     from './dashboard/devices.js';
+import * as dashConsole from './dashboard/console.js';
 import * as sections    from './dashboard/sections.js';
 import * as search      from './dashboard/search.js';
 import * as tools       from './dashboard/tools.js';
@@ -106,6 +108,7 @@ library.init({
 collection.init({
   selectVOD:      player.selectVOD,
   normalizeTrack: library.normalizeTrack,
+  onSavedChanged: stack.refresh,
 });
 
 welcome.init({
@@ -152,6 +155,12 @@ stack.init({
   checkVaultGate: payment.checkVaultGate,
   addToQueue:     library.addToQueue,
   setNextUp:      player.setNextUp,
+  onStashChanged: collection.loadCollection,
+  editTrack: async trackId => {
+    enterDashboard();
+    sections.openSection('vault', { animate: false });
+    await vault.openTrackEditor(trackId);
+  },
 });
 
 payment.init({
@@ -177,6 +186,7 @@ dashIndex.init({
   loadDashAnalytics:    analytics.loadDashAnalytics,
   loadDash2FA:          twofa.loadDash2FA,
   loadDashDevices:      devices.loadDashDevices,
+  loadDashEarnings:     earnings.loadDashEarnings,
   loadDashPaymentConfig: dashIndex.loadDashPaymentConfig,
   loadDashTipConfig:    analytics.loadDashTipConfig,
   loadDashBio:          bio.loadDashBio,
@@ -252,6 +262,7 @@ smartPlaylists.init();
 dashPosts.init();
 twofa.init();
 devices.init();
+dashConsole.init();
 sections.init();
 tools.init();
 desktopControls.init();
@@ -281,6 +292,7 @@ broadcast.initBroadcastHandlers();
 live.initLiveHandlers();
 liveExternal.initLiveExternalHandlers();
 liveVideo.initLiveVideoHandlers();
+golive.initGoLiveModalHandlers();
 schedule.initScheduleHandlers();
 smartPlaylists.initSmartPlaylistHandlers();
 dashPosts.initPostHandlers();
