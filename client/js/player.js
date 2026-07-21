@@ -76,6 +76,7 @@ import {
   setupHls, activeMediaEl, getHls, isVideoMode, getStationName,
   startPingInterval, stopPingInterval, isPingActive,
 } from './hls-client.js';
+import * as mediaSession from './media-session.js';
 
 // ── Module-local state (player owns these exclusively) ────────────────────────────
 
@@ -90,6 +91,11 @@ let quota          = null;  // on-demand play quota status for free/anon listene
 let artFlipped      = false;
 let artBackCache    = {};
 let artLastTrackKey = null;
+
+// Set once playback has actually started, so lock-screen/OS media controls
+// only appear after the user's first play (matches autoplay-gesture UX)
+// instead of showing a "paused" session before anything has ever played.
+let mediaSessionEngaged = false;
 
 // ── Injected callbacks for ASCII module (Phase 5) and modal (Phase 6) ────────────
 // Defaults are no-ops; registered by their owning modules in Phase 8.
@@ -349,6 +355,29 @@ export function render() {
   el('share-drawer').classList.toggle('open', shareOpen);
 
   setColor(t.color);
+  updateMediaSessionState(t);
+}
+
+// ── Media Session (lock-screen / OS transport controls) ───────────────────────────
+
+function updateMediaSessionState(t) {
+  if (state.playing) mediaSessionEngaged = true;
+  if (!mediaSessionEngaged) return;
+
+  const artworkId = state.track?.id ?? state.nowPlaying?.id ?? null;
+  mediaSession.updateMetadata({
+    title:      t.title,
+    artist:     t.creator || getStationName() || '',
+    album:      getStationName() || '',
+    artworkUrl: artworkId ? `/api/library/${artworkId}/artwork` : null,
+  });
+  mediaSession.setPlaying(state.playing);
+
+  if (state.track && !state.isPreview && duration() > 0) {
+    mediaSession.setPositionState({ duration: duration(), position: state.elapsed });
+  } else {
+    mediaSession.clearPositionState();
+  }
 }
 
 // ── Fullscreen ──────────────────────────────────────────────────────────────────────
@@ -417,48 +446,79 @@ for (const videoId of ['video-el', 'preview-video-el']) {
 
 // ── Play / pause ──────────────────────────────────────────────────────────────────
 
-export function togglePlay() {
+// resumePlayback/pausePlayback are directed (not toggling) so they can be
+// reused as-is for Media Session 'play'/'pause' actions, where the OS tells
+// us the intended direction rather than asking us to flip a switch.
+
+function resumePlayback() {
   if (previewMedia) { stopPreview(); goLive(); return; }
   if (onDemandMedia) {
-    if (onDemandMedia.paused) {
-      onDemandMedia.play().then(() => {
-        state.playing = true;
-        render();
-      }).catch(() => {
-        state.playing = false;
-        render();
-      });
-    } else {
-      onDemandMedia.pause();
-      state.playing = false;
-      render();
-    }
-    return;
-  }
-  const media = activeMediaEl();
-  if (media.paused) {
-    if (!getHls() && !media.src) {
-      setupHls(media);
-      if (isVideoMode()) {
-        media.hidden = false;
-        el('audio-el').hidden = true;
-      }
-    }
-    media.play().then(() => {
+    if (!onDemandMedia.paused) return;
+    onDemandMedia.play().then(() => {
       state.playing = true;
-      _asciiInitAudio();
       render();
-      startPingInterval();
     }).catch(() => {
       state.playing = false;
       render();
     });
-  } else {
-    media.pause();
-    state.playing = false;
-    stopPingInterval();
-    render();
+    return;
   }
+  const media = activeMediaEl();
+  if (!media.paused) return;
+  if (!getHls() && !media.src) {
+    setupHls(media);
+    if (isVideoMode()) {
+      media.hidden = false;
+      el('audio-el').hidden = true;
+    }
+  }
+  media.play().then(() => {
+    state.playing = true;
+    _asciiInitAudio();
+    render();
+    startPingInterval();
+  }).catch(() => {
+    state.playing = false;
+    render();
+  });
+}
+
+function pausePlayback() {
+  if (previewMedia) { stopPreview(); goLive(); return; }
+  if (onDemandMedia) {
+    if (onDemandMedia.paused) return;
+    onDemandMedia.pause();
+    state.playing = false;
+    render();
+    return;
+  }
+  const media = activeMediaEl();
+  if (media.paused) return;
+  media.pause();
+  state.playing = false;
+  stopPingInterval();
+  render();
+}
+
+export function togglePlay() {
+  if (previewMedia) { stopPreview(); goLive(); return; }
+  if (onDemandMedia) {
+    if (onDemandMedia.paused) resumePlayback(); else pausePlayback();
+    return;
+  }
+  const media = activeMediaEl();
+  if (media.paused) resumePlayback(); else pausePlayback();
+}
+
+/** Wire lock-screen / OS media-transport controls to the player's own actions. */
+export function initMediaSessionHandlers() {
+  mediaSession.initActionHandlers({
+    onPlay:     resumePlayback,
+    onPause:    pausePlayback,
+    onNext:     () => skipTrack(1),
+    onPrevious: () => skipTrack(-1),
+    onSeekTo:   (seconds) => seekTo(seconds),
+  });
 }
 
 // ── Preview ───────────────────────────────────────────────────────────────────────
@@ -713,15 +773,23 @@ export function skipTrack(dir) {
   selectVOD(playable[(idx + dir + playable.length) % playable.length]);
 }
 
-export function seekWaveform(e) {
+export function seekTo(seconds) {
   if (!state.track || state.isPreview || !duration()) return;
-  const rect     = el('waveform').getBoundingClientRect();
-  state.progress = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-  state.elapsed  = Math.floor(state.progress * duration());
-  if (onDemandMedia) onDemandMedia.currentTime = state.elapsed;
+  const clamped  = Math.max(0, Math.min(seconds, duration()));
+  state.elapsed  = Math.floor(clamped);
+  state.progress = clamped / duration();
+  if (onDemandMedia) onDemandMedia.currentTime = clamped;
   renderWaveform();
   el('time-elapsed').textContent = fmt(state.elapsed);
   el('time-remain').textContent  = `-${fmt(duration() - state.elapsed)}`;
+  mediaSession.setPositionState({ duration: duration(), position: state.elapsed });
+}
+
+export function seekWaveform(e) {
+  if (!state.track || state.isPreview || !duration()) return;
+  const rect = el('waveform').getBoundingClientRect();
+  const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  seekTo(pct * duration());
 }
 
 // ── Drawers / share ───────────────────────────────────────────────────────────────

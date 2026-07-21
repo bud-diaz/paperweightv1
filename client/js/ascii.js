@@ -106,8 +106,26 @@ export function asciiStop() {
   if (vidEl) vidEl.hidden = !_isVideoMode();
 }
 
+// Once #audio-el is routed through createMediaElementSource() below, its
+// sound only reaches the speakers while asciiAudioCtx is 'running' — mobile
+// browsers (iOS Safari in particular) suspend that context when the app is
+// backgrounded or the app is switched away from, which silences live
+// playback even though the underlying <audio> element is still "playing".
+// Resume on every path that can bring the page back to the foreground.
+function resumeAsciiAudioCtx() {
+  if (asciiAudioCtx && asciiAudioCtx.state === 'suspended') {
+    asciiAudioCtx.resume().catch(() => {});
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) resumeAsciiAudioCtx();
+});
+window.addEventListener('pageshow', resumeAsciiAudioCtx);
+window.addEventListener('focus', resumeAsciiAudioCtx);
+
 export function asciiInitAudio() {
-  if (asciiAudioSrc) return;
+  if (asciiAudioSrc) { resumeAsciiAudioCtx(); return; }
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
