@@ -22,6 +22,17 @@ This document is an exhaustive tour of the product from both sides of the glass:
 
 ## Core Concepts
 
+### The four surfaces
+
+The single-page app is organized around four named views the listener/creator switches between:
+
+| Surface | What it is |
+|---|---|
+| **PLAY** | The live player — the 24/7 radio stream, now-playing, and going-live takeovers. |
+| **STACK** | The on-demand catalog — browse projects and standalone tracks, play them on demand, and unlock vault items. |
+| **STASH** | The listener's saved-for-offline tracks (a card inside STACK), stored in the browser for playback with no connection. |
+| **STUDIO** | The creator dashboard — everything in [Creator-Side Features](#creator-side-features), gated by dashboard auth (and pairable to a phone as a mobile Studio). |
+
 ### The vault
 
 The **vault** is a folder on the creator's machine (`vault/`) that holds all station media. A file watcher (chokidar) monitors it continuously; anything dropped in is probed with `ffprobe` and indexed into SQLite automatically — no "import" step. Files are categorized as `music`, `beats`, `podcasts`, `videos`, `drafts`, or `live_sessions`, either by top-level folder name, by file metadata, or a hybrid of both (the default: folder name wins when it matches a known category, metadata otherwise). Audio and video are both first-class.
@@ -70,7 +81,8 @@ Access tokens are the universal credential. They are stored hashed, delivered as
 - **Now-playing display.** The player shows the current track (title/artist/artwork), pulled from live broadcast state, and updates as the station moves through its playlist.
 - **Up-next visibility.** The next few queued tracks (from the current batch plus anything the creator hand-queued) are exposed to the player.
 - **Live listener count.** The player pings every 30 seconds; the station shows how many people are listening right now (anonymous, IP-hashed sessions that expire after 60 s of silence).
-- **Live broadcasts interrupt the radio.** When the creator goes live (mic or external encoder), the player automatically switches to the live HLS source and shows a live indicator; when the broadcast ends it falls back to the station stream.
+- **Live broadcasts interrupt the radio.** When the creator goes live (mic, webcam, or external encoder), the player automatically switches to the live HLS source and shows a live indicator; when the broadcast ends it falls back to the station stream.
+- **Paid-tier live video.** Audio go-lives are open to everyone; **live video** is a paywalled feature — the player only reveals the video feed to listeners at or above the creator-set minimum tier (`subscriber` by default), gating everyone else back to the audio experience.
 
 ### 2. Library browsing & discovery
 
@@ -83,20 +95,21 @@ Access tokens are the universal credential. They are stored hashed, delivered as
 ### 3. On-demand playback
 
 - **Play any track on demand**, not just what the radio is playing — subject to access checks and a fair-use quota.
-- **Free-tier play quota.** Anonymous visitors get **3 on-demand plays/hour**, identified free listeners get **5/hour**; subscribers and unlocked-vault plays are unlimited. Replays of the same track within 5 minutes don't double-count.
+- **Free-tier play quota.** Anonymous visitors get **3 on-demand plays/hour**, free listeners with an email account get **5/hour**; subscribers and unlocked-vault plays are unlimited. Replays of the same track within 5 minutes don't double-count.
 - **"Next up" bonus slot.** A listener who has spent their hourly quota can still arm **one** track to play automatically after the current broadcast track ends — a deliberate escape valve that converts a hard limit into an engagement moment. The player checks slot availability before offering it.
 - **60-second previews.** Every public and supporters-only track has a free preview: the server cuts a 60 s AAC (audio) or H.264 MP4 (video) excerpt on first request and caches it. Vault items intentionally have **no** preview until unlocked.
 - **Artwork everywhere.** Artwork is served from (in priority order) a creator-uploaded image, the file's embedded cover art (extracted by FFmpeg and cached), or a creator-supplied external URL.
 
-### 4. Listener identity — three levels of commitment
+### 4. Listener identity — two levels of commitment
 
 Paperweight deliberately keeps the entry gradient shallow:
 
-1. **Just listen.** No account, no name, nothing. The public stream and public library work anonymously.
-2. **Welcome profile.** On first visit an overlay asks only for a **display name** (email optional, and used for the creator's marketing list *only* with an explicit opt-in checkbox). This mints a lightweight free-tier identity so the listener is recognized on return visits, can save offline tracks, and counts toward audience insights. It can be deleted by the listener at any time.
-3. **Full account.** Email + password (bcrypt, 8-char minimum). A welcome profile automatically links into the account created on the same device, carrying over the display name and consent. Full accounts are required for purchases.
+1. **Just listen.** No account, no name, nothing. The public stream and public library work anonymously (at the anonymous on-demand play limit).
+2. **Full account.** The first-visit welcome overlay creates a real account in one step — **display name + email + password** (bcrypt, 8-char minimum), with an explicit marketing opt-in checkbox that feeds the creator's audience list. Providing an email is what lifts the free on-demand allowance from 3 to 5 plays/hour, lets the listener save offline (STASH) and be recognized on return, and is required for purchases. The overlay's "Just listen" option dismisses without creating anything.
 
-Account self-service includes:
+**Email verification.** A newly paid account has a **24-hour grace window** to click its verification link; after that, supporters-only and vault content re-check that the email is verified before playing (unverified accounts that were already paid before this shipped are grandfathered). The listener's **Settings** modal shows verification status and a resend button. A verify or tip auto-login link marks the account verified.
+
+Account self-service (in the **Settings** modal, which also hosts the Account panel) includes:
 
 - **Login/logout** with per-login token minting (multiple concurrent devices, each with its own revocable credential).
 - **Password reset** two ways: self-service email (when the creator configured SMTP; responses never reveal whether an account exists) or a **creator-generated reset link** handed over any channel — the no-SMTP fallback. Reset links live 60 minutes and consume all outstanding resets for the account when used.
@@ -111,7 +124,8 @@ Account self-service includes:
 - **Self-service cancellation** from the player. Stripe cancels at period end (access continues until paid time lapses); PayPal cancels future billing and downgrades when the provider confirms.
 - **Stripe billing portal.** One click opens Stripe's hosted portal to manage cards, view invoices, and cancel.
 - **Subscription status** is always visible in the account panel: tier, provider, renewal date.
-- **Tips.** Anyone — no account required — can tip the station through Stripe Checkout, choosing from three creator-configured amounts or a custom amount (when the creator allows it, $1–$1,000 bounds).
+- **Tips.** Anyone — no account required — can tip the station through Stripe Checkout, choosing from three creator-configured amounts or a custom amount (when the creator allows it, $1–$1,000 bounds). The tip form optionally captures a donor name and email; leaving both blank is anonymous.
+- **Tip-driven supporter access.** A tip that includes a donor email grants **7 days of subscriber-tier access**, creating (or linking to) an account and issuing an auto-login link — the same subscriptions table every other grant uses, so it expires on its own. A tip becomes a soft on-ramp to supporter status without a recurring commitment.
 
 ### 6. The vault: pay-what-you-want unlocks
 
@@ -127,7 +141,7 @@ The vault is Paperweight's Bandcamp-style storefront layer:
 ### 7. Downloads & offline saves
 
 - **Subscriber downloads.** Subscriber-tier listeners (and up) can download any track they can access, via short-lived HMAC-signed URLs (1 h expiry) that re-verify entitlement at redemption time — a leaked link dies with the entitlement.
-- **Creator-flagged offline saves.** The creator can mark any track `offline_allowed`, letting **any listener who can access it** (including free-tier) save the full file for offline playback in the browser — stored in IndexedDB, played through an object URL so it works with no connection. Saving requires at least a welcome-profile identity (the signed URL is token-bound).
+- **Creator-flagged offline saves (STASH).** The creator can mark any track `offline_allowed`, letting **any listener who can access it** (including free-tier) save the full file for offline playback in the browser — stored in IndexedDB, played through an object URL so it works with no connection. Saved tracks live in the **STASH** card. Saving requires at least an email account (the signed URL is token-bound).
 - **Single-use legacy download tokens** (48 h TTL) also exist for older clients, consumed on redemption and re-authorized at download time.
 
 ### 8. Creator posts (updates feed)
@@ -157,6 +171,10 @@ When the creator enables it, `/feed.xml` is a standard RSS 2.0 + iTunes-tags fee
 
 A standalone public page (`/landing/listen`, served as `/listen` on the hosted landing) where listeners can search for public Paperweight stations by name/slug, see live listener counts and now-playing, and play any station inline. Stations appear only when their creator has explicitly opted in (see creator side). In the cloud/native-app phase, logged-in listeners can also **save stations** to a personal list.
 
+### 14. Mobile web experience
+
+The player is tuned for phones: the layout **locks to portrait**, listeners **swipe left/right to switch between the PLAY / STACK / STUDIO views**, and audio **keeps playing when the tab is backgrounded or the listener switches apps** (media-session integration keeps lock-screen controls live).
+
 ---
 
 ## Creator-Side Features
@@ -168,6 +186,7 @@ Everything below lives in the dashboard, a tab of the same single-page app (`/#d
 - **Token login.** The creator logs in with a dashboard token (generated at setup, stored in `.env`), exchanged for a 24 h `httpOnly` session cookie. Listener cookies can never grant dashboard access.
 - **Optional TOTP 2FA.** Setup generates a QR-compatible otpauth secret; confirmation requires a live code and returns **one-time recovery codes** (hashed at rest, single-use, constant-time compared). TOTP counters are tracked to block replay of a just-used code. When 2FA is on, the header-token fallback is disabled — sessions are the only way in.
 - **First-launch acceptance.** A content-responsibility acceptance is recorded (with app version) before the dashboard unlocks.
+- **Mobile Studio pairing.** A device already signed into Studio can generate a short-lived (10-minute) pairing token shown as a QR code; scanning it opens the public `/pair` confirmation page, which redeems the token for a **persistent, individually revocable** dashboard session on the phone. Unlike the primary login's session, a paired device survives a server restart and is revoked per-device from the "Authorized Devices" panel — not by rotating the dashboard token.
 
 ### 2. Media & vault management
 
@@ -196,15 +215,17 @@ Everything below lives in the dashboard, a tab of the same single-page app (`/#d
 Two ways to interrupt the radio with a live broadcast — only one can be on-air at a time, and listeners are switched over automatically:
 
 - **Browser mic broadcast.** Go live straight from the dashboard: the browser captures mic audio and streams 2-second PCM chunks to the server, which encodes to the live HLS output. Built-in backpressure signaling keeps the pipe healthy.
+- **Browser webcam broadcast.** Go live on video straight from the browser — capture the webcam and stream it to the live HLS output. Because it's browser-based, it works on the hosted web app, not just desktop.
 - **External encoder / RTMP (desktop).** One click opens a local RTMP listener with a generated **stream key** for OBS or any encoder. The dashboard shows pending → live state (detected when the encoder actually connects), supports stream-key regeneration, guards the port with reconnect limits, and times out an unclaimed listener after 10 minutes.
-- **Go-live announcements.** Starting a live broadcast fires the station's Discord-compatible webhook (toggleable).
+- **Live video as a paid tier.** Live video is a monetizable feature: the creator sets a **minimum tier** (`subscriber` by default) that gates who can watch the video feed, while the audio stays open. Video go-lives have their own separately toggleable webhook announcement.
+- **Go-live announcements.** Starting a live broadcast fires the station's Discord-compatible webhook (toggleable), with an independent toggle for the video-live announcement.
 
 ### 5. Monetization
 
-- **Provider config at a glance.** The dashboard shows exactly which Stripe/PayPal keys, price IDs, and webhook secrets are configured (never the values), so the creator can see what's wired without touching `.env`.
+- **Provider config from the dashboard.** The creator sets up Stripe/PayPal directly in the Payments section — keys, price/plan IDs, and webhook secrets — and Paperweight persists them to `.env` so they survive a restart, no manual file editing. Secrets are never echoed back (Stripe's secret key shows only a masked last-4 preview); the panel reports connected/not-connected state at a glance.
 - **Vault pricing.**
   - Per-**track** pricing: suggested price, minimum, allow-free, one-time or monthly/annual recurring. Setting a price auto-flips the item to `vault`; removing pricing flips it back to public.
-  - **Projects**: create named collections (name, description, cover), attach tracks with sort order, and price the bundle as a unit. A track belongs to at most one project.
+  - **Projects**: create named collections (name, description, cover), attach tracks with sort order, and price the bundle as a unit. A track belongs to at most one project. On desktop, a whole folder can be **imported as a collection** in one action.
   - **All-access pass**: a single global product — enable/disable, price floor/suggestion, one-time or recurring, and an independent switch for whether *paid subscription tiers* also include the vault.
 - **Highlight.** Pin any track or project into the player's curated drawer.
 - **Tip jar configuration.** Exactly three preset amounts (each ≥ $1) plus a custom-amount toggle.
@@ -242,7 +263,7 @@ Two ways to interrupt the radio with a live broadcast — only one can be on-air
 - **Password reset links** minted per account for out-of-band delivery — the recovery path that requires zero email infrastructure.
 - **Download leads.** The public download page captures emails (deduped, opt-in tracked) and per-download analytics events (platform, artifact, version, UTM source/medium/campaign, referrer, salted IP hash).
 - **CSV exports** (all formula-injection-escaped): active subscribers, all listener accounts, download leads, and the consolidated **audience list**.
-- **Audience list.** A strictly consent-gated marketing list: welcome-profile emails with `marketing_opt_in` plus download leads with `updates_opt_in`, deduplicated by email and labeled by source — the bridge to any external mailing tool, with no built-in bulk mailer to get the creator in deliverability trouble.
+- **Audience list.** A strictly consent-gated marketing list: listener-account emails with `marketing_opt_in` plus download leads with `updates_opt_in`, deduplicated by email and labeled by source — the bridge to any external mailing tool, with no built-in bulk mailer to get the creator in deliverability trouble.
 
 ### 11. Analytics
 
@@ -258,6 +279,7 @@ All computed from real listen events (anonymous IP-hashed sessions, seconds-list
 
 - **Station registry:** the station's slug and public URL (auto-claimed from `.env`, updatable from the dashboard with strict URL validation, persisted back to `.env`).
 - **Reachability health check:** the server pings its own public URL from the outside (SSRF-guarded — private/reserved addresses are refused) and reports latency.
+- **Cloudflare tunnel automation (desktop):** with a Cloudflare API token, the dashboard can **auto-create a Named Tunnel + DNS route** and persist the resulting tunnel token and public URL — no hand-editing Cloudflare's config. The station **power button** then toggles the public routing on and off (connect/disconnect) against the Cloudflare API while `cloudflared` keeps running.
 - **Directory searchability (desktop):** opting into the public "Paperweight Listen" directory requires three verified conditions — Cloudflare tunnel configured, public URL registered, and the station actually reachable externally. One toggle, honestly enforced.
 
 ### 13. Station settings
@@ -274,6 +296,8 @@ All computed from real listen events (anonymous IP-hashed sessions, seconds-list
 - **Runtime diagnostics:** app version, bind host, proxy trust, and FFmpeg/ffprobe status.
 - **Radio Host mode (desktop):** flips the station identity between `creator` and `radio_host` presets, with a 3-switch lock to prevent identity thrash.
 - **Broadcast mode & restart controls** (see §3).
+- **Desktop lifecycle controls (desktop):** in-app power (tunnel connect/disconnect), update, and uninstall controls for the packaged app.
+- **Telemetry registration (desktop):** an optional shared secret that opts the station into anonymized phone-home reporting to a self-hosted "Paperweight System" directory (`system.pape`), configured from the dashboard.
 - **Legal/launch acceptance state.**
 
 ---
@@ -284,12 +308,16 @@ All outbound messaging is **best-effort and fire-and-forget** — a dead webhook
 
 | Event | Webhook (Discord-compatible) | Supporter email |
 |---|---|---|
-| Creator goes live | ✅ (toggleable) | — |
+| Creator goes live (audio) | ✅ (toggleable) | — |
+| Creator goes live on video | ✅ (separately toggleable) | — |
 | New post published (immediate or scheduled) | ✅ (title only) | ✅ optional, per post |
 | Scheduled media release goes public | ✅ | — |
 | Listener password reset | — | ✅ (or creator-generated link) |
+| Tip received with donor email | — | ✅ auto-login link (7-day supporter grant) |
 
 The webhook URL is SSRF-guarded (URLs resolving to private/reserved addresses are refused), and the email subsystem is a dependency-free pure-Node SMTP client that degrades gracefully when unconfigured.
+
+Separately, an optional **telemetry phone-home** (opt-in via a shared secret) posts anonymized station stats to a self-hosted Paperweight System directory; it is silently disabled when unconfigured.
 
 ---
 
@@ -297,11 +325,12 @@ The webhook URL is SSRF-guarded (URLs resolving to private/reserved addresses ar
 
 | Surface | URL | Purpose |
 |---|---|---|
-| Main player + dashboard | `/` | The whole app (single-file SPA, overridable next to the executable) |
+| Main player + dashboard | `/` | The whole app (single-page app, overridable next to the executable) |
 | Live HLS streams | `/hls/stream/`, `/hls/live/` | Station and live-broadcast segments |
 | Podcast feed | `/feed.xml`, `/feed/enclosure/:id` | RSS for podcast apps (opt-in) |
 | Embed player | `/embed` | Frameable mini player for external sites |
 | Share links | `/share/:token` | No-account access to shared tracks/projects |
+| Device pairing | `/pair` | Mobile Studio pairing confirmation (redeems a QR pairing token) |
 | Landing pages | `/landing`, `/landing/download`, `/landing/listen`, `/landing/license`, `/landing/content-responsibility` | Marketing site, downloads with lead capture, station directory |
 | Health | `/api/health` | Status + station name (used by the directory and reachability checks) |
 
@@ -314,7 +343,7 @@ The webhook URL is SSRF-guarded (URLs resolving to private/reserved addresses ar
 - **FFmpeg/ffprobe** are the only external dependencies; installers verify or install them.
 - **Public exposure** is designed around a Cloudflare Tunnel (documented setup), which is also a hard requirement for directory listing.
 
-Some features are **desktop-only** (token management, schedule-block CRUD, smart playlists, RTMP broadcasting, external search/import, directory searchability, radio-host mode, webhook log) — they assume the creator is at their own machine. A small set of routes is **cloud-gated** (`PAPERWEIGHT_CLOUD`) for the future hosted/native-app phase: saved multi-station lists and native-app checkout with deep-link returns. These are inert in self-hosted builds.
+Some features are **desktop-only** (token management, schedule-block CRUD, smart playlists, RTMP broadcasting, external search/import, directory searchability, radio-host mode, webhook log, Cloudflare tunnel automation, telemetry registration, and the app lifecycle controls) — they assume the creator is at their own machine. Note that **browser webcam live video** is deliberately *not* desktop-only: because capture happens in the browser, creators can go live on video from the hosted web app too. A small set of routes is **cloud-gated** (`PAPERWEIGHT_CLOUD`) for the future hosted/native-app phase: saved multi-station lists and native-app checkout with deep-link returns. These are inert in self-hosted builds.
 
 ---
 
@@ -324,9 +353,10 @@ A condensed inventory of the protections that shape the product experience:
 
 - **Listener privacy by default:** anonymous listening needs no identity; analytics use salted IP hashes, not IPs; marketing lists are strictly opt-in; full data export and self-service deletion are built in; password-reset responses never reveal account existence.
 - **Payment integrity:** webhooks are signature-verified (Stripe raw-body verification, PayPal verification API), idempotent via a claim-and-run transaction (an event can never double-apply), and tiers are derived from the provider's own price IDs — never from client-influenced metadata.
-- **Access enforcement:** every stream/download/artwork route re-checks entitlement server-side; signed download URLs are context-bound and re-authorized at redemption; download tokens are single-use.
+- **Access enforcement:** every stream/download/artwork route re-checks entitlement server-side; signed download URLs are context-bound and re-authorized at redemption; download tokens are single-use; paid content re-checks email verification after the 24-hour grace window.
+- **Anonymized telemetry:** the optional phone-home is opt-in (requires a shared secret), sends only anonymized station stats, and is silently off when unconfigured.
 - **Filesystem safety:** all file serving is confined to the vault (`safeVaultPath`), upload names are sanitized, uploads are ffprobe-validated before entering the vault, and images are content-sniffed.
 - **SSRF guards** on every creator-configured outbound URL (webhook, health ping).
-- **Dashboard hardening:** hashed tokens, session cookies (`SameSite=Strict`), optional TOTP 2FA with replay-proof counters and hashed single-use recovery codes, rate limiting on all auth and payment routes, and CSRF checking.
+- **Dashboard hardening:** hashed tokens, session cookies (`SameSite=Strict`), optional TOTP 2FA with replay-proof counters and hashed single-use recovery codes, per-device paired credentials stored hashed and individually revocable, rate limiting on all auth and payment routes, and CSRF checking.
 - **CSV exports** escape spreadsheet formula injection.
 - **Operational honesty:** best-effort subsystems (notify, release scheduler) are isolated so their failures never take down streaming or publishing.
