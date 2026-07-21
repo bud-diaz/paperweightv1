@@ -267,6 +267,7 @@ libraryModal.initLibraryModalHandlers();
 payment.initPaymentHandlers();
 payment.initFloatingTip();
 player.initShareHandlers();
+player.initMediaSessionHandlers();
 
 dashIndex.initDashGateHandlers();
 dashIndex.initPaymentConfigHandlers();
