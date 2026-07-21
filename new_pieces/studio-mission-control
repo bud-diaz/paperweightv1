@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Studio — Mission Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TOKENS — lifted verbatim from tokens.css, extended for console
+   ============================================================ */
+:root{
+  --bg:#0a0a0c; --card:#111116; --inset:#0d0d11; --raised:#1c1c22;
+  --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.14);
+  --t1:#f0f0f4; --t2:rgba(240,240,244,.55); --t3:rgba(240,240,244,.28); --t4:rgba(240,240,244,.12);
+  --radius-card:20px; --radius-md:10px; --radius-sm:8px; --radius-xs:4px;
+  --shadow-1:0 1px 2px rgba(0,0,0,.3),0 1px 1px rgba(0,0,0,.2);
+  --shadow-2:0 8px 24px rgba(0,0,0,.45);
+  --shadow-3:0 16px 40px rgba(0,0,0,.55);
+  --ease-out-macos:cubic-bezier(.16,1,.3,1);
+  --dur-fast:.12s; --dur-med:.2s;
+  --acid:#39ff14; --acid-soft:rgba(57,255,20,.14); --acid-line:rgba(57,255,20,.35);
+  --amber:#ffa040; --red:#ff5566;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--t1);
+  font-family:'Space Mono',monospace;
+  min-height:100vh;
+  padding:20px;
+  background-image:
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(57,255,20,.05), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 0%, rgba(255,255,255,.03), transparent 55%);
+}
+.serif{font-family:'DM Serif Display',serif}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:2px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ============================================================
+SHELL
+============================================================ */
+#console{
+max-width:1240px; margin:0 auto;
+border:1px solid var(–border);
+border-radius:var(–radius-card);
+background:var(–card);
+box-shadow:var(–shadow-3);
+overflow:hidden;
+}
+
+/* ── Status strip: the “instrument panel” header ── */
+#status-strip{
+display:flex; align-items:stretch;
+background:var(–inset);
+border-bottom:1px solid var(–border);
+}
+.status-cell{
+flex:1; min-width:0;
+padding:14px 18px;
+border-right:1px solid var(–border);
+display:flex; flex-direction:column; gap:4px;
+position:relative;
+}
+.status-cell:last-child{border-right:none}
+.status-label{
+font-size:9px; letter-spacing:.16em; color:var(–t4); text-transform:uppercase;
+}
+.status-value{
+font-size:15px; color:var(–t1); display:flex; align-items:center; gap:7px;
+white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.status-value.serif{font-size:19px}
+.status-sub{font-size:9px; color:var(–t3); letter-spacing:.04em}
+
+.blip{
+width:6px; height:6px; border-radius:50%; flex-shrink:0;
+background:var(–t4);
+}
+.blip.live{background:var(–red); box-shadow:0 0 0 0 rgba(255,85,102,.5); animation:blip-pulse 1.8s infinite;}
+.blip.ok{background:var(–acid); box-shadow:0 0 8px rgba(57,255,20,.6);}
+.blip.idle{background:var(–t3);}
+@keyframes blip-pulse{
+0%{box-shadow:0 0 0 0 rgba(255,85,102,.55)}
+70%{box-shadow:0 0 0 8px rgba(255,85,102,0)}
+100%{box-shadow:0 0 0 0 rgba(255,85,102,0)}
+}
+
+/* live signal sparkline in the header */
+#sig-cell .status-value{gap:0}
+#sig-spark{display:flex; align-items:flex-end; gap:1.5px; height:20px; margin-left:8px}
+#sig-spark span{width:2.5px; background:var(–acid-line); border-radius:1px; opacity:.8}
+
+/* ============================================================
+GRID — the console surface itself
+============================================================ */
+#grid{
+display:grid;
+grid-template-columns:repeat(12, 1fr);
+gap:1px;
+background:var(–border);
+}
+.panel{
+background:var(–card);
+padding:16px 18px 18px;
+display:flex; flex-direction:column; gap:10px;
+min-width:0;
+}
+/* span helpers */
+.c4{grid-column:span 4}
+.c5{grid-column:span 5}
+.c6{grid-column:span 6}
+.c7{grid-column:span 7}
+.c8{grid-column:span 8}
+.c12{grid-column:span 12}
+
+.panel-head{
+display:flex; align-items:center; justify-content:space-between; gap:10px;
+padding-bottom:9px; border-bottom:1px solid var(–border);
+}
+.panel-title{
+font-size:11px; letter-spacing:.14em; color:var(–t2); font-weight:700;
+display:flex; align-items:center; gap:8px;
+}
+.panel-title .dot{width:5px;height:5px;border-radius:50%;background:var(–t4)}
+.panel-title .dot.on{background:var(–acid); box-shadow:0 0 6px rgba(57,255,20,.7)}
+.panel-tag{
+font-size:9px; letter-spacing:.08em; color:var(–t4);
+border:1px solid var(–border); border-radius:20px; padding:2px 8px;
+}
+.panel-tag.live{color:var(–red); border-color:rgba(255,85,102,.3); background:rgba(255,85,102,.08)}
+.panel-tag.on{color:var(–acid); border-color:var(–acid-line); background:var(–acid-soft)}
+
+/* generic readout rows inside panels */
+.readout-row{
+display:flex; align-items:center; justify-content:space-between; gap:10px;
+font-size:11px; color:var(–t3); padding:5px 0;
+border-bottom:1px solid rgba(255,255,255,.04);
+}
+.readout-row:last-of-type{border-bottom:none}
+.readout-row .k{color:var(–t4); letter-spacing:.04em}
+.readout-row .v{color:var(–t2); text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.readout-row .v.num{color:var(–t1); font-size:13px}
+.readout-row .v.good{color:var(–acid)}
+.readout-row .v.warn{color:var(–amber)}
+
+/* big metric */
+.metric-row{display:flex; gap:8px}
+.metric{
+flex:1; background:var(–raised); border:1px solid var(–border);
+border-radius:var(–radius-sm); padding:10px 8px; text-align:center;
+box-shadow:var(–shadow-1);
+}
+.metric .num{font-family:‘DM Serif Display’,serif; font-size:22px; color:var(–t1); line-height:1}
+.metric .lbl{font-size:9px; color:var(–t4); letter-spacing:.08em; margin-top:4px}
+
+/* button spec — matches mgmt-btn */
+.btn{
+background:var(–raised); border:1px solid var(–border);
+border-radius:var(–radius-xs); color:var(–t2); cursor:pointer;
+font-family:‘Space Mono’,monospace; font-size:10px; letter-spacing:.06em;
+padding:6px 12px; white-space:nowrap;
+transition:border-color var(–dur-fast) var(–ease-out-macos), color var(–dur-fast) var(–ease-out-macos), transform var(–dur-fast) var(–ease-out-macos);
+}
+.btn:hover{border-color:var(–border-strong); color:var(–t1); transform:translateY(-1px)}
+.btn.danger{background:rgba(255,50,50,.08); border-color:rgba(255,60,60,.22); color:rgba(255,100,100,.75)}
+.btn.danger:hover{background:rgba(255,50,50,.16); color:#ff6666}
+.btn.primary{
+border-color:var(–acid-line); color:var(–acid); background:var(–acid-soft);
+}
+.btn.primary:hover{background:rgba(57,255,20,.22)}
+.btn.wide{width:100%; text-align:center; padding:9px 12px}
+.btn-row{display:flex; gap:6px; flex-wrap:wrap}
+
+/* mini bar meter — audio / signal */
+.meter{display:flex; gap:2px; align-items:flex-end; height:22px}
+.meter span{flex:1; background:var(–acid-line); border-radius:1px; min-width:2px}
+
+/* input pieces reused */
+.field{
+background:var(–inset); border:1px solid var(–border); border-radius:var(–radius-sm);
+color:var(–t1); font-family:‘Space Mono’,monospace; font-size:11px; padding:7px 10px; width:100%;
+}
+.field:focus{outline:none; border-color:var(–border-strong)}
+
+/* queue list */
+.q-list{display:flex; flex-direction:column; gap:1px; max-height:210px; overflow-y:auto}
+.q-row{
+display:flex; align-items:center; gap:8px; padding:6px 4px;
+border-bottom:1px solid rgba(255,255,255,.04);
+}
+.q-idx{font-size:9px; color:var(–t4); width:14px; flex-shrink:0}
+.q-title{font-family:‘DM Serif Display’,serif; font-size:13px; color:var(–t2); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.q-dur{font-size:9px; color:var(–t4); flex-shrink:0}
+
+/* schedule strip — 24h horizontal timeline */
+.timeline{position:relative; height:34px; background:var(–inset); border:1px solid var(–border); border-radius:var(–radius-sm); overflow:hidden}
+.tl-block{
+position:absolute; top:2px; bottom:2px; border-radius:3px;
+background:rgba(255,255,255,.06); border:1px solid var(–border);
+font-size:8px; color:var(–t3); display:flex; align-items:center; justify-content:center; overflow:hidden;
+}
+.tl-block.now{background:var(–acid-soft); border-color:var(–acid-line); color:var(–acid)}
+.tl-now-marker{position:absolute; top:0; bottom:0; width:1px; background:var(–red); z-index:2}
+.tl-labels{display:flex; justify-content:space-between; font-size:8px; color:var(–t4); margin-top:4px}
+
+/* health grid — payment/telemetry/tunnel status chips */
+.chip-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+.chip{
+display:flex; align-items:center; gap:6px;
+background:var(–raised); border:1px solid var(–border); border-radius:var(–radius-sm);
+padding:7px 9px; font-size:10px; color:var(–t3);
+}
+.chip .blip{width:5px;height:5px}
+
+/* analytics bars */
+.bars{display:flex; align-items:flex-end; gap:3px; height:44px}
+.bars span{flex:1; background:rgba(57,255,20,.28); border-radius:2px; min-width:2px}
+.bars span:hover{background:rgba(57,255,20,.6)}
+
+.top-tracks{display:flex; flex-direction:column; gap:5px}
+.tt-row{display:flex; align-items:center; gap:8px; font-size:11px}
+.tt-rank{width:14px; color:var(–t4); font-size:10px; flex-shrink:0}
+.tt-name{flex:1; color:var(–t2); font-family:‘DM Serif Display’,serif; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.tt-bar-wrap{width:60px; height:4px; background:var(–raised); border-radius:2px; overflow:hidden; flex-shrink:0}
+.tt-bar{height:100%; background:var(–acid-line)}
+.tt-count{width:32px; text-align:right; color:var(–t4); font-size:10px; flex-shrink:0}
+
+.footnote{font-size:9px; color:var(–t4); letter-spacing:.03em; line-height:1.6}
+
+/* section footer strip for panels with an expand affordance */
+.expand-link{
+font-size:9px; color:var(–t4); letter-spacing:.08em; cursor:pointer;
+display:flex; align-items:center; gap:4px; padding-top:4px;
+}
+.expand-link:hover{color:var(–t2)}
+
+@media (max-width: 980px){
+.c4,.c5,.c6,.c7,.c8{grid-column:span 12}
+#status-strip{flex-wrap:wrap}
+.status-cell{flex:1 1 50%; border-bottom:1px solid var(–border)}
+}
+</style>
+
+</head>
+<body>
+
+<div id="console">
+
+  <!-- ============================================================
+       STATUS STRIP — always-visible instrument readouts
+       ============================================================ -->
+
+  <div id="status-strip">
+    <div class="status-cell" id="sig-cell">
+      <div class="status-label">Broadcast</div>
+      <div class="status-value serif"><span class="blip live"></span>ON AIR</div>
+      <div id="sig-spark"></div>
+    </div>
+    <div class="status-cell">
+      <div class="status-label">Listeners</div>
+      <div class="status-value serif">142</div>
+      <div class="status-sub">↑ 12 in last hour</div>
+    </div>
+    <div class="status-cell">
+      <div class="status-label">Station Health</div>
+      <div class="status-value"><span class="blip ok"></span>Reachable</div>
+      <div class="status-sub">radio.paperweighthq.com</div>
+    </div>
+    <div class="status-cell">
+      <div class="status-label">Mode</div>
+      <div class="status-value">Sequential</div>
+      <div class="status-sub">Block: Morning Beats · 08:00–12:00</div>
+    </div>
+    <div class="status-cell">
+      <div class="status-label">Queue</div>
+      <div class="status-value">6 <span style="font-size:10px;color:var(--t4);font-weight:400;">tracks</span></div>
+      <div class="status-sub">next: Slow Static — Emryn</div>
+    </div>
+    <div class="status-cell">
+      <div class="status-label">Today</div>
+      <div class="status-value serif">$86<span style="font-size:11px;color:var(--t4)">.40</span></div>
+      <div class="status-sub">3 tips · 1 new sub</div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       GRID — command deck
+       ============================================================ -->
+
+  <div id="grid">
+
+```
+<!-- BROADCAST CONTROL — primary, wide -->
+<div class="panel c7">
+  <div class="panel-head">
+    <div class="panel-title"><span class="dot on"></span>BROADCAST CONTROL</div>
+    <span class="panel-tag live">● LIVE · 00:42:18</span>
+  </div>
+  <div class="readout-row">
+    <span class="k">Now playing</span>
+    <span class="v num">Slow Static — Emryn Jordan</span>
+  </div>
+  <div class="meter" id="live-meter"></div>
+  <div class="btn-row">
+    <button class="btn danger">■ END BROADCAST</button>
+    <button class="btn">SWITCH MODE</button>
+    <button class="btn">RESTART</button>
+    <button class="btn" style="margin-left:auto">MIC</button>
+    <button class="btn">OBS / RTMP</button>
+  </div>
+  <div class="panel-head" style="margin-top:4px;">
+    <div class="panel-title" style="font-size:10px;color:var(--t3)">STATION QUEUE</div>
+    <span class="expand-link">VIEW ALL ▸</span>
+  </div>
+  <div class="q-list">
+    <div class="q-row"><span class="q-idx">01</span><span class="q-title">Slow Static</span><span class="q-dur">3:41</span></div>
+    <div class="q-row"><span class="q-idx">02</span><span class="q-title">Bois Roulant (interlude)</span><span class="q-dur">1:12</span></div>
+    <div class="q-row"><span class="q-idx">03</span><span class="q-title">Ledger, Pt. II</span><span class="q-dur">4:05</span></div>
+    <div class="q-row"><span class="q-idx">04</span><span class="q-title">Villain Origin (demo)</span><span class="q-dur">2:58</span></div>
+  </div>
+</div>
+
+<!-- LIVE VIDEO -->
+<div class="panel c5">
+  <div class="panel-head">
+    <div class="panel-title"><span class="dot"></span>LIVE VIDEO</div>
+    <span class="panel-tag">OFFLINE</span>
+  </div>
+  <div class="readout-row"><span class="k">Min. tier</span><span class="v">Pro</span></div>
+  <div class="readout-row"><span class="k">Source</span><span class="v">Browser camera</span></div>
+  <div class="readout-row"><span class="k">Announce go-live</span><span class="v good">Enabled</span></div>
+  <button class="btn primary wide">● GO LIVE (VIDEO)</button>
+  <div class="footnote">Listeners below Pro tier see a subscribe prompt instead of the feed.</div>
+</div>
+
+<!-- SCHEDULE TIMELINE -->
+<div class="panel c8">
+  <div class="panel-head">
+    <div class="panel-title"><span class="dot on"></span>SCHEDULE</div>
+    <span class="expand-link">EDIT BLOCKS ▸</span>
+  </div>
+  <div class="timeline" id="timeline">
+    <div class="tl-block" style="left:0%; width:16.6%;">OVERNIGHT</div>
+    <div class="tl-block now" style="left:16.6%; width:16.6%;">MORNING BEATS</div>
+    <div class="tl-block" style="left:33.3%; width:12.5%;">PODCASTS</div>
+    <div class="tl-block" style="left:45.8%; width:20.8%;">SHUFFLE</div>
+    <div class="tl-block" style="left:66.6%; width:12.5%;">DRIVE HOME</div>
+    <div class="tl-block" style="left:79.1%; width:20.9%;">LATE VAULT</div>
+    <div class="tl-now-marker" style="left:29%;"></div>
+  </div>
+  <div class="tl-labels"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+</div>
+
+<!-- SYSTEM HEALTH -->
+<div class="panel c4">
+  <div class="panel-head">
+    <div class="panel-title"><span class="dot on"></span>SYSTEM</div>
+  </div>
+  <div class="chip-grid">
+    <div class="chip"><span class="blip ok"></span>Origin server</div>
+    <div class="chip"><span class="blip ok"></span>Stripe</div>
+    <div class="chip"><span class="blip idle"></span>PayPal</div>
+    <div class="chip"><span class="blip ok"></span>Tunnel</div>
+    <div class="chip"><span class="blip ok"></span>Telemetry</div>
+    <div class="chip"><span class="blip idle"></span>Webhook</div>
+  </div>
+  <div class="footnote">6 services monitored · last check 4s ago</div>
+</div>
+
+<!-- VAULT -->
+<div class="panel c4">
+  <div class="panel-head">
+    <div class="panel-title"><span class="dot"></span>VAULT</div>
+  </div>
+  <div class="metric-row">
+    <div class="metric"><div class="num">248</div><div class="lbl">TRACKS</div></div>
+    <div class="metric"><div class="num" style="color:var(--acid)">37</div><div class="lbl">LOCKED</div></div>
+    <div class="metric"><div class="num">12</div><div class="lbl">TOKENS</div></div>
+  </div>
+  <button class="btn wide">BROWSE LIBRARY</button>
+</div>
+
+<!-- EARNINGS -->
+<div class="panel c4">
+  <div class="panel-head">
+    <div class="panel-title"><span class="dot on"></span>EARNINGS</div>
+    <span class="panel-tag on">30D</span>
+  </div>
+  <div class="readout-row"><span class="k">Tips</span><span class="v num">$412.00</span></div>
+  <div class="readout-row"><span class="k">Subscribers</span><span class="v num">$1,240.00</span></div>
+  <div class="readout-row"><span class="k">All-Access</span><span class="v num">$860.00</span></div>
+  <div class="readout-row" style="border-top:1px solid var(--border); padding-top:8px; margin-top:2px;">
+    <span class="k" style="color:var(--t2)">TOTAL</span><span class="v num" style="font-size:15px;color:var(--acid)">$2,512.00</span>
+  </div>
+</div>
+
+<!-- ANALYTICS -->
+<div class="panel c6">
+  <div class="panel-head">
+    <div class="panel-title"><span class="dot on"></span>ANALYTICS · 7-DAY LISTENERS</div>
+  </div>
+  <div class="bars">
+    <span style="height:40%"></span><span style="height:55%"></span><span style="height:35%"></span>
+    <span style="height:70%"></span><span style="height:60%"></span><span style="height:85%"></span>
+    <span style="height:100%"></span>
+  </div>
+  <div class="readout-row" style="border-top:none; padding-top:8px;">
+    <span class="k">Peak</span><span class="v num">204 listeners · Sat</span>
+  </div>
+</div>
+
+<!-- TOP TRACKS -->
+<div class="panel c6">
+  <div class="panel-head">
+    <div class="panel-title"><span class="dot"></span>TOP TRACKS</div>
+  </div>
+  <div class="top-tracks">
+    <div class="tt-row"><span class="tt-rank">01</span><span class="tt-name">Slow Static</span><div class="tt-bar-wrap"><div class="tt-bar" style="width:92%"></div></div><span class="tt-count">1.2k</span></div>
+    <div class="tt-row"><span class="tt-rank">02</span><span class="tt-name">Ledger, Pt. II</span><div class="tt-bar-wrap"><div class="tt-bar" style="width:71%"></div></div><span class="tt-count">890</span></div>
+    <div class="tt-row"><span class="tt-rank">03</span><span class="tt-name">Bois Roulant</span><div class="tt-bar-wrap"><div class="tt-bar" style="width:54%"></div></div><span class="tt-count">640</span></div>
+    <div class="tt-row"><span class="tt-rank">04</span><span class="tt-name">Open Letter (draft)</span><div class="tt-bar-wrap"><div class="tt-bar" style="width:31%"></div></div><span class="tt-count">280</span></div>
+  </div>
+</div>
+
+<!-- UPLOAD -->
+<div class="panel c4">
+  <div class="panel-head">
+    <div class="panel-title"><span class="dot"></span>UPLOAD</div>
+  </div>
+  <div style="border:1px dashed var(--border); border-radius:var(--radius-md); padding:16px; text-align:center; font-size:10px; color:var(--t3); letter-spacing:.06em;">
+    DROP FILES OR CLICK TO BROWSE
+  </div>
+</div>
+
+<!-- POSTS -->
+<div class="panel c4">
+  <div class="panel-head">
+    <div class="panel-title"><span class="dot"></span>POSTS</div>
+    <span class="expand-link">+ NEW ▸</span>
+  </div>
+  <div class="readout-row"><span class="v" style="text-align:left; color:var(--t2)">New track dropping Friday</span></div>
+  <div class="readout-row"><span class="k">2h ago · Supporters only</span></div>
+  <div class="readout-row"><span class="v" style="text-align:left; color:var(--t2)">Studio update: video tier live</span></div>
+  <div class="readout-row"><span class="k">1d ago · Public</span></div>
+</div>
+
+<!-- SECURITY / DEVICES -->
+<div class="panel c4">
+  <div class="panel-head">
+    <div class="panel-title"><span class="dot on"></span>SECURITY</div>
+  </div>
+  <div class="readout-row"><span class="k">2FA</span><span class="v good">Enabled</span></div>
+  <div class="readout-row"><span class="k">Paired devices</span><span class="v">2 active</span></div>
+  <button class="btn wide">PAIR A NEW DEVICE</button>
+</div>
+```
+
+  </div><!-- /grid -->
+</div><!-- /console -->
+
+<script>
+// Decorative sparkline + meter bars — visual only, replace with real values on wire-up.
+function bars(container, count, min, max){
+  const el = document.getElementById(container);
+  for(let i=0;i<count;i++){
+    const s = document.createElement('span');
+    const h = Math.round(min + Math.random()*(max-min));
+    s.style.height = h+'px';
+    el.appendChild(s);
+  }
+}
+bars('sig-spark', 24, 4, 20);
+bars('live-meter', 40, 3, 22);
+</script>
+
+</body>
+</html>
