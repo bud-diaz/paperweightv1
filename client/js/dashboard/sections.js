@@ -11,6 +11,8 @@ const STORAGE_ORDER = 'pw_dash_section_order';
 const STORAGE_OPEN  = 'pw_dash_section_open';
 const MAX_OPEN = 3;
 const DEFAULT_OPEN = ['vault'];
+let sectionContainer = null;
+let sectionOpenOrder = null;
 
 function readJSON(key, fallback) {
   try {
@@ -131,6 +133,34 @@ function applyStoredOpen(container, openOrder) {
   });
 }
 
+function openCard(container, openOrder, card, { animate = true } = {}) {
+  const key = card.dataset.sectionKey;
+  const existingIndex = openOrder.indexOf(key);
+  if (existingIndex !== -1) openOrder.splice(existingIndex, 1);
+  while (openOrder.length >= MAX_OPEN) {
+    const oldestKey = openOrder.shift();
+    const oldestCard = container.querySelector(`:scope > .dash-card[data-section-key="${oldestKey}"]`);
+    if (oldestCard) setCardOpen(oldestCard, false);
+  }
+  setCardOpen(card, true, { animate });
+  openOrder.push(key);
+  saveOpen(openOrder);
+}
+
+export function openSection(key, { animate = false } = {}) {
+  if (!sectionContainer || !sectionOpenOrder) return false;
+  const card = sectionContainer.querySelector(`:scope > .dash-card[data-section-key="${key}"]`);
+  if (!card) return false;
+
+  if (card.classList.contains('open')) {
+    if (!animate) setCardOpen(card, true, { animate: false });
+    return true;
+  }
+
+  openCard(sectionContainer, sectionOpenOrder, card, { animate });
+  return true;
+}
+
 function wireToggleButtons(container, openOrder) {
   function toggle(card) {
     const key = card.dataset.sectionKey;
@@ -141,13 +171,8 @@ function wireToggleButtons(container, openOrder) {
       const idx = openOrder.indexOf(key);
       if (idx !== -1) openOrder.splice(idx, 1);
     } else {
-      while (openOrder.length >= MAX_OPEN) {
-        const oldestKey = openOrder.shift();
-        const oldestCard = container.querySelector(`:scope > .dash-card[data-section-key="${oldestKey}"]`);
-        if (oldestCard) setCardOpen(oldestCard, false);
-      }
-      setCardOpen(card, true);
-      openOrder.push(key);
+      openCard(container, openOrder, card);
+      return;
     }
 
     saveOpen(openOrder);
@@ -252,6 +277,8 @@ export function init() {
 
   const defaultOrder = cards.map(c => c.dataset.sectionKey);
   const openOrder = readJSON(STORAGE_OPEN, DEFAULT_OPEN).slice(0, MAX_OPEN);
+  sectionContainer = container;
+  sectionOpenOrder = openOrder;
   container.parentNode.insertBefore(buildToolbar(container, defaultOrder, openOrder), container);
 
   applyStoredOrder(container);

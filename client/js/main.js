@@ -157,10 +157,7 @@ stack.init({
   onStashChanged: collection.loadCollection,
   editTrack: async trackId => {
     enterDashboard();
-    const vaultCard = document.querySelector('#dash-sections > .dash-card[data-section-key="vault"]');
-    if (vaultCard && !vaultCard.classList.contains('open')) {
-      vaultCard.querySelector('.dash-card-head')?.click();
-    }
+    sections.openSection('vault', { animate: false });
     await vault.openTrackEditor(trackId);
   },
 });
