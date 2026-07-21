@@ -4,6 +4,7 @@
  */
 
 import { el, esc } from '../utils.js';
+import { openGoLiveModal } from './golive.js';
 
 const OPEN_STORAGE = 'pw_dash_section_open';
 const ORDER_STORAGE = 'pw_dash_card_order';
@@ -65,13 +66,16 @@ function createStatusStrip() {
   strip.className = 'console-status-strip';
   strip.setAttribute('aria-label', 'Station status');
   strip.append(
-    statusCell('Broadcast', 'broadcast'),
+    statusCell('Broadcast', 'broadcast', { button: true }),
     statusCell('Listeners', 'listeners'),
     statusCell('Station Health', 'health'),
     statusCell('Schedule', 'schedule'),
     statusCell('Queue', 'queue'),
     statusCell('Today', 'earnings', { button: true }),
   );
+  const broadcastButton = strip.querySelector('[data-console-status-cell="broadcast"]');
+  broadcastButton.setAttribute('aria-label', 'Open Go Live');
+  broadcastButton.addEventListener('click', () => openGoLiveModal());
   const earningsButton = strip.querySelector('[data-console-status-cell="earnings"]');
   earningsButton.setAttribute('aria-label', 'Show lifetime earnings');
   earningsButton.addEventListener('click', toggleEarningsPeriod);
