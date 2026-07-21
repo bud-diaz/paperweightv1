@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - make_it
+      - master
 
 permissions:
   contents: read
@@ -109,16 +109,19 @@ jobs:
           - label: Windows
             os: windows-latest
             dist-command: npm run dist:win
+            artifact-platform: win32
             artifact-glob: electron/dist/*.exe
           - label: macOS
             os: macos-latest
             dist-command: npm run dist:mac-universal
+            artifact-platform: darwin
             artifact-glob: |
               electron/dist/*.dmg
               electron/dist/*.zip
           - label: Linux
             os: ubuntu-24.04
             dist-command: npm run dist:linux
+            artifact-platform: linux
             artifact-glob: |
               electron/dist/*.AppImage
               electron/dist/*.deb
@@ -145,7 +148,7 @@ jobs:
         working-directory: electron
 
       - name: Inspect Electron runtime artifact
-        run: npm run check:desktop-artifact
+        run: npm run check:desktop-artifact -- --platform ${{ matrix.artifact-platform }}
 
       - name: Upload Electron installer
         uses: actions/upload-artifact@v4
