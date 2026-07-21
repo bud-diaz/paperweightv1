@@ -30,8 +30,23 @@ function run(command, args, cwd = ELECTRON_DIR) {
   if (result.status !== 0) throw new Error(`${command} failed (exit ${result.status ?? 'unknown'})`);
 }
 
+function resolveBuilderCli() {
+  // Resolved lazily (and tolerant of a missing module) so commandsFor() stays
+  // callable for its command-shape metadata — e.g. from
+  // test/build-scripts.test.js — on hosts that only installed root
+  // node_modules and never ran `npm ci` inside electron/. A real desktop
+  // build always has electron/node_modules present, so this still resolves
+  // to the real CLI when it matters; spawnSync surfaces a clear ENOENT if it
+  // somehow doesn't.
+  try {
+    return require.resolve('electron-builder/cli.js', { paths: [ELECTRON_DIR] });
+  } catch {
+    return path.join(ELECTRON_DIR, 'node_modules', 'electron-builder', 'cli.js');
+  }
+}
+
 function commandsFor(platform) {
-  const builderCli = require.resolve('electron-builder/cli.js', { paths: [ELECTRON_DIR] });
+  const builderCli = resolveBuilderCli();
   const rebuildScript = path.join(ELECTRON_DIR, 'scripts', 'rebuild-native.js');
   const commands = [
     [process.execPath, [path.join(ELECTRON_DIR, 'scripts', 'generate-icons.js')]],

@@ -26,6 +26,7 @@ const { rebuild } = require('@electron/rebuild');
 const rootDir = path.resolve(__dirname, '..', '..');
 const electronDir = path.resolve(__dirname, '..');
 const srcModule = path.join(rootDir, 'node_modules', 'better-sqlite3');
+const nativePackageJson = path.join(electronDir, 'native', 'package.json');
 
 function parseArch(argv) {
   const idx = argv.indexOf('--arch');
@@ -43,10 +44,22 @@ function copyFresh(src, dest) {
   fs.cpSync(src, dest, { recursive: true });
 }
 
+// @electron/rebuild requires a package.json at buildPath/projectRootPath.
+// electron/native/ has one checked into git; the arch-suffixed dirs
+// (native-arm64/, native-x64/) are generated fresh each build, so seed them
+// from the same template here.
+function ensureNativeDirPackageJson(nativeDir) {
+  const dest = path.join(nativeDir, 'package.json');
+  if (fs.existsSync(dest)) return;
+  fs.mkdirSync(nativeDir, { recursive: true });
+  fs.copyFileSync(nativePackageJson, dest);
+}
+
 async function rebuildFor(arch, nativeDir) {
   const electronVersion = require(path.join(electronDir, 'node_modules', 'electron', 'package.json')).version;
   const destModule = path.join(nativeDir, 'node_modules', 'better-sqlite3');
 
+  ensureNativeDirPackageJson(nativeDir);
   fs.mkdirSync(path.dirname(destModule), { recursive: true });
   copyFresh(srcModule, destModule);
 
