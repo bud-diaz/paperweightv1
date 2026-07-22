@@ -2,11 +2,45 @@ process.env.PAPERWEIGHT_ALLOW_MISSING_ENV = 'true';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
 const { buildEnv, provisionEnv, slugify, cleanEnvValue } = require('../src/setup/provision');
+
+test('desktop IPC modules do not load config before first-run setup', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-electron-first-run-'));
+  const script = `
+    const configPath = require.resolve('./src/config');
+    require('./electron/ipc/app-handlers');
+    require('./electron/ipc/vault-handlers');
+    if (require.cache[configPath]) {
+      throw new Error('Desktop IPC imports loaded src/config before setup');
+    }
+  `;
+
+  try {
+    const result = spawnSync(process.execPath, ['-e', script], {
+      cwd: path.resolve(__dirname, '..'),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PAPERWEIGHT_ELECTRON: 'true',
+        PAPERWEIGHT_DATA_ROOT: tmpDir,
+        PAPERWEIGHT_ALLOW_MISSING_ENV: '',
+      },
+    });
+
+    assert.equal(
+      result.status,
+      0,
+      `desktop IPC import failed during first-run boot:\n${result.stderr || result.stdout}`
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
 
 test('slugify mirrors scripts/setup.sh rules', () => {
   assert.equal(slugify('My Cool Station!!'), 'my-cool-station');
