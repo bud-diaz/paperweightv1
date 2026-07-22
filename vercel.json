@@ -10,18 +10,6 @@
     {
       "source": "/download",
       "destination": "/landing/download.html"
-    },
-    {
-      "source": "/listen",
-      "destination": "/landing/listen.html"
-    },
-    {
-      "source": "/license",
-      "destination": "/landing/license.html"
-    },
-    {
-      "source": "/content-responsibility",
-      "destination": "/landing/content-responsibility.html"
     }
   ]
 }
