@@ -33,6 +33,9 @@ electron/dist/
 electron/stage/
 electron/.stage-work/
 
+# Vercel static output (scripts/vercel-build.js copies landing/ here at build time)
+/public/
+
 # Electron native-module rebuild staging area (electron/scripts/rebuild-native.js) —
 # an isolated, regeneratable copy of better-sqlite3 built for Electron's ABI.
 electron/native/node_modules/
