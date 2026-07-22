@@ -3,7 +3,6 @@
 const { ipcMain, shell } = require('electron');
 
 const { checkForUpdates } = require('../../src/updates/checkForUpdates');
-const { runUninstall } = require('../../src/uninstall/runUninstall');
 
 // Wires the desktop power/update/uninstall controls (see client/js/dashboard/
 // desktop-controls.js + electron/preload.js's window.desktopAPI) to the
@@ -32,6 +31,10 @@ function registerAppHandlers({ serverApp, config, quitApp, restartApp, autostart
       return { ok: false, error: 'Confirmation text did not match.' };
     }
     try {
+      // This module reaches into the initialized database/config runtime.
+      // Keep it out of the first-launch import graph so the setup wizard can
+      // create .env before src/config.js is loaded.
+      const { runUninstall } = require('../../src/uninstall/runUninstall');
       return await runUninstall({ serverApp, config, quit: quitApp, desktopPath, autostartFile });
     } catch (err) {
       return { ok: false, error: err.message };
