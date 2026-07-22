@@ -33,10 +33,19 @@ electron/dist/
 electron/stage/
 electron/.stage-work/
 
+# Vercel static output (scripts/vercel-build.js copies landing/ here at build time)
+/public/
+
 # Electron native-module rebuild staging area (electron/scripts/rebuild-native.js) —
 # an isolated, regeneratable copy of better-sqlite3 built for Electron's ABI.
 electron/native/node_modules/
 electron/native/build/
+
+# Arch-suffixed staging dirs for the macOS universal build (dist:mac-universal) —
+# generated fresh each build, package.json included; electron/native/ above is the
+# only one checked in.
+electron/native-arm64/
+electron/native-x64/
 
 # Bundled FFmpeg binaries — downloaded at build time by scripts/fetch-ffmpeg.js
 vendor/ffmpeg/

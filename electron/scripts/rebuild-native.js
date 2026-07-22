@@ -26,6 +26,7 @@ const { rebuild } = require('@electron/rebuild');
 const rootDir = path.resolve(__dirname, '..', '..');
 const electronDir = path.resolve(__dirname, '..');
 const srcModule = path.join(rootDir, 'node_modules', 'better-sqlite3');
+const nativePackageJson = path.join(electronDir, 'native', 'package.json');
 
 function parseArch(argv) {
   const idx = argv.indexOf('--arch');
@@ -43,10 +44,41 @@ function copyFresh(src, dest) {
   fs.cpSync(src, dest, { recursive: true });
 }
 
+// The mac universal build (dist:mac-universal) merges the x64 and arm64 native
+// dirs and requires every *non-binary* file to be byte-identical across arches.
+// @electron/rebuild/node-gyp leave arch-varying text/object files under build/
+// (.forge-meta, config.gypi, Makefile, obj.target/**/*.o) that fail the merge
+// with "Expected all non-binary files to have identical SHAs". The compiled
+// better_sqlite3.node is a Mach-O and is lipo-merged, so it's the only build/
+// file that must survive.
+function keepOnlyCompiledBinary(destModule) {
+  const buildDir = path.join(destModule, 'build');
+  const binary = path.join(buildDir, 'Release', 'better_sqlite3.node');
+  if (!fs.existsSync(binary)) {
+    throw new Error(`Expected compiled binary at ${binary} after rebuild`);
+  }
+  const buf = fs.readFileSync(binary);
+  fs.rmSync(buildDir, { recursive: true, force: true });
+  fs.mkdirSync(path.dirname(binary), { recursive: true });
+  fs.writeFileSync(binary, buf);
+}
+
+// @electron/rebuild requires a package.json at buildPath/projectRootPath.
+// electron/native/ has one checked into git; the arch-suffixed dirs
+// (native-arm64/, native-x64/) are generated fresh each build, so seed them
+// from the same template here.
+function ensureNativeDirPackageJson(nativeDir) {
+  const dest = path.join(nativeDir, 'package.json');
+  if (fs.existsSync(dest)) return;
+  fs.mkdirSync(nativeDir, { recursive: true });
+  fs.copyFileSync(nativePackageJson, dest);
+}
+
 async function rebuildFor(arch, nativeDir) {
   const electronVersion = require(path.join(electronDir, 'node_modules', 'electron', 'package.json')).version;
   const destModule = path.join(nativeDir, 'node_modules', 'better-sqlite3');
 
+  ensureNativeDirPackageJson(nativeDir);
   fs.mkdirSync(path.dirname(destModule), { recursive: true });
   copyFresh(srcModule, destModule);
 
@@ -65,6 +97,8 @@ async function rebuildFor(arch, nativeDir) {
     // projectRootPath to nativeDir confines the search to this copy only.
     projectRootPath: nativeDir,
   });
+
+  keepOnlyCompiledBinary(destModule);
 
   console.log(`[Paperweight] Rebuilt better-sqlite3 (${arch}) for Electron ${electronVersion} at ${destModule}`);
 }

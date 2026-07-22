@@ -1,6 +1,17 @@
 const MAX_BODY_BYTES = 16 * 1024;
 
 function readJsonBody(req) {
+  if (req.body && typeof req.body === 'object') return Promise.resolve(req.body);
+  if (typeof req.body === 'string') {
+    if (!req.body.trim()) return Promise.resolve({});
+    try {
+      return Promise.resolve(JSON.parse(req.body));
+    } catch {
+      return Promise.reject(Object.assign(new Error('Invalid JSON'), { statusCode: 400 }));
+    }
+  }
+  if (typeof req.on !== 'function') return Promise.resolve({});
+
   return new Promise((resolve, reject) => {
     let raw = '';
     req.on('data', chunk => {
@@ -31,7 +42,8 @@ function getAnalyticsBaseUrl() {
   return cleanBaseUrl(
     process.env.PAPERWEIGHT_ANALYTICS_BASE_URL ||
     process.env.PAPERWEIGHT_API_BASE_URL ||
-    process.env.PAPE_URL
+    process.env.PAPE_URL ||
+    'https://system.paperweighthq.com'
   );
 }
 

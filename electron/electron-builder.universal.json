@@ -16,7 +16,7 @@
   ],
   "extraResources": [
     { "from": "stage/src", "to": "src" },
-    { "from": "stage/node_modules", "to": "node_modules" },
+    { "from": "stage/node_modules", "to": "node_modules", "filter": ["**/*", "!better-sqlite3", "!better-sqlite3/**"] },
     { "from": "stage/package.json", "to": "package.json" },
     { "from": "native-${arch}/node_modules/better-sqlite3", "to": "node_modules/better-sqlite3" }
   ],
