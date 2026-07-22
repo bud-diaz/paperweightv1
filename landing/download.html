@@ -695,11 +695,11 @@ const PLATFORMS = {
     name: 'Windows',
     arch: 'x64 · Windows 10 / 11',
     file: 'paperweight-v1.5.1-Windows.zip',
-    href: 'https://github.com/bud-diaz/paper-packs/releases/download/windows/paperweight-v1.5.1-Windows.zip',
+    href: 'https://github.com/bud-diaz/paperweightv1/releases/download/windows1/paperweight-v1.5.1-Windows.zip',
     prompt: 'PS>',
     steps: [
       { comment: '# Unzip the download, then run the installer inside:',
-        cmd: 'Paperweight Setup 1.5.1.exe' },
+        cmd: 'Paperweight-Setup-1.5.1.exe' },
       { comment: '# Setup wizard walks you through your vault folder + dashboard token, then opens Studio', cmd: '' },
       { comment: '# No Node.js or FFmpeg to install — everything is bundled', cmd: '' }
     ],
@@ -710,13 +710,13 @@ const PLATFORMS = {
   },
   'macos': {
     name: 'macOS',
-    arch: 'Apple Silicon · M1 / M2 / M3',
-    file: 'paperweight-v1.5.1-macOS.zip',
-    href: 'https://github.com/bud-diaz/paperweightv1/releases/download/macOS/paperweight-v1.5.1-macOS.zip',
+    arch: 'Universal · Apple Silicon & Intel',
+    file: 'Paperweight-1.5.1-universal-mac-os.zip',
+    href: 'https://github.com/bud-diaz/paperweightv1/releases/download/macOS/Paperweight-1.5.1-universal-mac-os.zip',
     prompt: '$',
     steps: [
       { comment: '# Unzip the download, then open the .dmg and drag Paperweight to Applications:',
-        cmd: 'open Paperweight-1.5.1.dmg' },
+        cmd: 'open Paperweight-1.5.1-universal.dmg' },
       { comment: '# First run opens the setup wizard for your vault + dashboard token', cmd: '' },
       { comment: '# No Node.js or FFmpeg to install — everything is bundled', cmd: '' }
     ],
@@ -728,8 +728,8 @@ const PLATFORMS = {
   'linux-desktop': {
     name: 'Linux Desktop',
     arch: 'x64 · AppImage / .deb',
-    file: 'paperweight-v1.5.1-Linux_Ubuntu.zip',
-    href: 'https://github.com/bud-diaz/paperweightv1/releases/download/linux_desktop/paperweight-v1.5.1-Linux_Ubuntu.zip',
+    file: 'paperweight-desktop_1.5.1_linux.zip',
+    href: 'https://github.com/bud-diaz/paperweightv1/releases/download/linux_desktop/paperweight-desktop_1.5.1_linux.zip',
     prompt: '$',
     steps: [
       { comment: '# Unzip, then run the AppImage directly:',
@@ -757,8 +757,8 @@ const PLATFORMS = {
   'linux-arm64': {
     name: 'Raspberry Pi',
     arch: 'ARM64 · Pi 4 / Pi 5',
-    file: 'paperweight-v1.5.1-pi_linux-arm64.zip',
-    href: 'https://github.com/bud-diaz/paperweightv1/releases/download/pi_linux/paperweight-v1.5.1-pi_linux-arm64.zip',
+    file: 'paperweight-linux-arm64.zip',
+    href: 'https://github.com/bud-diaz/paperweightv1/releases/download/pi_linux/paperweight-linux-arm64.zip',
     prompt: '$',
     steps: [
       { comment: '# Unzip, make executable, and run:',
