@@ -20,14 +20,16 @@ import * as api from './api.js';
 let _toggleAuthSection = () => {};
 let _logoutListener = async () => {};
 let _maybeShowTour = () => {};
+let _openDocs = () => {};
 
 /**
- * @param {{ toggleAuthSection: (force?: boolean) => void, logoutListener: () => Promise<void>, maybeShowTour: () => void }} cbs
+ * @param {{ toggleAuthSection: (force?: boolean) => void, logoutListener: () => Promise<void>, maybeShowTour: () => void, openDocs: () => void }} cbs
  */
-export function init({ toggleAuthSection, logoutListener, maybeShowTour } = {}) {
+export function init({ toggleAuthSection, logoutListener, maybeShowTour, openDocs } = {}) {
   if (toggleAuthSection) _toggleAuthSection = toggleAuthSection;
   if (logoutListener) _logoutListener = logoutListener;
   if (maybeShowTour) _maybeShowTour = maybeShowTour;
+  if (openDocs) _openDocs = openDocs;
 }
 
 export function openSettingsModal() {
@@ -112,7 +114,18 @@ export function initSettingsHandlers() {
       closeSettingsDropdown();
     }
   });
-  el('pw-settings-open-btn').addEventListener('click', openSettingsModal);
+  el('pw-settings-open-btn').addEventListener('click', () => {
+    // Creators see DOCS instead of SETTINGS on this same dropdown item (see
+    // dashboard/index.js's showDashContent(), which relabels the button once
+    // creator-mode is confirmed) — the listener account-settings modal this
+    // normally opens is meaningless from inside the creator's own Studio.
+    if (document.body.classList.contains('creator-mode')) {
+      closeSettingsDropdown();
+      _openDocs();
+    } else {
+      openSettingsModal();
+    }
+  });
   el('pw-settings-logout-btn').addEventListener('click', () => {
     closeSettingsDropdown();
     _logoutListener();

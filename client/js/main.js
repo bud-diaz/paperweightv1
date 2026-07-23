@@ -35,6 +35,7 @@ import * as payment      from './payment.js';
 import * as welcome      from './welcome.js';
 import * as collection   from './collection.js';
 import * as settings     from './settings.js';
+import * as docsModal    from './docs.js';
 import * as tour         from './tour.js';
 import * as tilt         from './tilt.js';
 import * as swipe        from './swipe.js';
@@ -90,6 +91,7 @@ settings.init({
   toggleAuthSection: auth.toggleAuthSection,
   logoutListener: auth.logoutListener,
   maybeShowTour: tour.maybeShowSettingsTour,
+  openDocs: docsModal.openDocsModal,
 });
 
 tour.init();
@@ -275,6 +277,7 @@ earnings.initEarningsHandlers();
 ascii.initRealVideoToggleHandlers();
 library.initListenerQueueHandlers();
 libraryModal.initLibraryModalHandlers();
+docsModal.initDocsModalHandlers();
 payment.initPaymentHandlers();
 payment.initFloatingTip();
 player.initShareHandlers();

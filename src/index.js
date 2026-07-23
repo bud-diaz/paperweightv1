@@ -123,6 +123,17 @@ function relaxCspForLanding(req, res, next) {
   next();
 }
 
+// license.html and content-responsibility.html are also framed inline inside
+// the creator-mode Docs modal (client/js/docs.js) — same-origin only, so
+// frame-ancestors 'self' rather than the '*' the /embed route needs. Scoped
+// to just these two routes; /landing/download and /landing/listen have no
+// reason to become frameable.
+const LANDING_CSP_EMBEDDABLE = LANDING_CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'");
+function relaxCspForLandingEmbeddable(req, res, next) {
+  res.setHeader('Content-Security-Policy', LANDING_CSP_EMBEDDABLE);
+  next();
+}
+
 const LISTEN_CSP =
   "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
@@ -327,10 +338,40 @@ function createApp() {
       sendHtmlFile(res, path.join(config.paths.app, 'landing', diskFile));
     };
   }
-  app.get('/landing/license',               relaxCspForLanding, serveLanding('/landing/license.html',               'license.html'));
-  app.get('/landing/content-responsibility', relaxCspForLanding, serveLanding('/landing/content-responsibility.html', 'content-responsibility.html'));
+  app.get('/landing/license',               relaxCspForLandingEmbeddable, serveLanding('/landing/license.html',               'license.html'));
+  app.get('/landing/content-responsibility', relaxCspForLandingEmbeddable, serveLanding('/landing/content-responsibility.html', 'content-responsibility.html'));
   app.get('/landing/download',               relaxCspForLanding, serveLanding('/landing/download.html',               'download.html'));
   app.get('/landing/listen',                 relaxCspForListen,  serveLanding('/landing/listen.html',                 'listen.html'));
+
+  // Creator-mode "Docs" modal (client/js/docs.js) — README, per-platform
+  // setup guides, and the Asciline third-party notice, none of which have a
+  // hand-formatted HTML twin like license.html/content-responsibility.html
+  // do. Served as plain text; the client renders Markdown itself
+  // (client/js/markdown.js). Unauthenticated: same non-sensitive doc text
+  // already public in the repo and via /landing/license et al. — the modal
+  // is only reachable from creator-mode UI, but gating the route would add
+  // friction with no real security benefit.
+  const DOC_MANIFEST = require('./setup/docs-manifest');
+
+  app.get('/api/docs', (req, res) => {
+    res.json({ docs: DOC_MANIFEST.map(({ id, title }) => ({ id, title })) });
+  });
+
+  function serveDoc(entry) {
+    return (req, res) => {
+      if (isBundledRuntime) {
+        const bundled = require('./client-bundle')[entry.urlPath];
+        if (bundled) return res.type('text/plain; charset=utf-8').send(bundled.data.toString('utf8'));
+      }
+      fs.readFile(path.join(config.paths.app, entry.file), 'utf8', (err, content) => {
+        if (err) return res.status(404).json({ error: 'Doc not found' });
+        res.type('text/plain; charset=utf-8').send(content);
+      });
+    };
+  }
+  for (const entry of DOC_MANIFEST) {
+    app.get(`/api/docs/${entry.id}`, serveDoc(entry));
+  }
 
   app.get('/manifest.json', (req, res) => {
     const name = config.station.name || 'Paperweight';

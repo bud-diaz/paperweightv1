@@ -113,6 +113,11 @@ function showDashContent() {
   el('dash-auth-msg').textContent = '';
   setDashGate('content');
   document.body.classList.add('creator-mode');
+  // The settings-gear dropdown's single item reads DOCS instead of SETTINGS
+  // for creators (see settings.js's pw-settings-open-btn click handler).
+  el('pw-settings-open-btn').textContent = 'DOCS';
+  el('pw-settings-btn').title = 'Documentation';
+  el('pw-settings-btn').setAttribute('aria-label', 'Documentation');
   _loadLibrary();
   if (!dashboardLoaded) { dashboardLoaded = true; loadDashboard(); }
   checkLaunchAcceptance();
