@@ -38,9 +38,12 @@ function markDismissed() {
 /**
  * Show the overlay when the visitor has no identity yet (no account, no
  * profile, no creator token) and hasn't dismissed it before. Call after
- * loadAuthState() so authState reflects the cookie.
+ * loadAuthState() so authState reflects the cookie. Never shown in the
+ * creator's own Studio session — pass the resolved dashboard-auth result
+ * as isCreator (see main.js's init()).
  */
-export function maybeShowWelcome(stationName) {
+export function maybeShowWelcome(stationName, isCreator) {
+  if (isCreator) return;
   if (dismissed()) return;
   if (authState.loggedIn) { markDismissed(); return; }
   showWelcome(stationName);

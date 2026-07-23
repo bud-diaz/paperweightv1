@@ -118,10 +118,11 @@ function showDashContent() {
   checkLaunchAcceptance();
 }
 
-export async function initDashboard() {
+export async function initDashboard(knownAuth) {
   if (dashboardInitialized) return;
   dashboardInitialized = true;
-  if (await tryDashAuth()) { showDashContent(); return; }
+  const isCreator = typeof knownAuth === 'boolean' ? knownAuth : await tryDashAuth();
+  if (isCreator) { showDashContent(); return; }
   showDashAuthGate();
 }
 
