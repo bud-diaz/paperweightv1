@@ -1,75 +1,269 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Paperweight Listen</title>
-<link rel="icon" type="image/png" href="/favicon.png">
-<meta name="description" content="Search and play public Paperweight stations.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paperweight Listen</title>
+  <meta name="description" content="Search and play public Paperweight stations.">
+  <meta property="og:title" content="Paperweight Listen">
+  <meta property="og:description" content="Search and play public Paperweight stations.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* ── Variables ───────────────────────────────────────────────────────────── */
 :root{
-  --bg:#080808;--bg2:#0d0d0d;--text:#f4f1e8;--t-mid:rgba(244,241,232,.68);
-  --t-muted:rgba(244,241,232,.44);--border:rgba(244,241,232,.12);
-  --neon:#39ff14;--discord:#5865F2;--serif:'DM Serif Display',serif;--mono:'Space Mono',monospace;
+  --bg:        #080808;
+  --bg2:       #0d0d0d;
+  --neon:      #39ff14;
+  --neon-dim:  rgba(57,255,20,.12);
+  --border:    rgba(255,255,255,.08);
+  --border-hi: rgba(255,255,255,.14);
+  --text:      #fff;
+  --t-mid:     rgba(255,255,255,.45);
+  --t-muted:   rgba(255,255,255,.25);
+  --t-dim:     rgba(255,255,255,.13);
+  --serif:    'DM Serif Display',Georgia,serif;
+  --mono:     'Space Mono',monospace;
+  --discord:   #5865F2;
 }
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh;overflow-x:hidden}
-body:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:100;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")}
-body:after{content:"";position:fixed;inset:-20%;pointer-events:none;z-index:-1;background:radial-gradient(circle at 50% 8%,rgba(57,255,20,.13),transparent 34%),radial-gradient(circle at 20% 70%,rgba(88,101,242,.09),transparent 30%);filter:blur(18px)}
-a{color:inherit}.nav{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:18px;padding:18px clamp(18px,4vw,48px);background:linear-gradient(to bottom,rgba(8,8,8,.9),rgba(8,8,8,.45),transparent);backdrop-filter:blur(8px)}
-.nav-brand{font-family:var(--serif);font-size:23px;text-decoration:none;letter-spacing:-.02em;margin-right:auto}.nav-link,.nav-cta{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;text-decoration:none;color:var(--t-mid)}
-.nav-cta{border:1px solid rgba(57,255,20,.42);color:var(--neon);padding:9px 13px;border-radius:4px;background:rgba(57,255,20,.06)}.nav-cta:hover{background:rgba(57,255,20,.12)}
-.shell{min-height:100vh;display:grid;place-items:center;padding:96px 18px 36px}.intro{text-align:center;max-width:720px;margin:0 auto 28px}.eyebrow{display:inline-flex;align-items:center;gap:9px;color:var(--neon);font-size:10px;text-transform:uppercase;letter-spacing:.2em;margin-bottom:18px}.live-dot{width:7px;height:7px;border-radius:50%;background:var(--neon);box-shadow:0 0 12px var(--neon)}
-h1{font-family:var(--serif);font-weight:400;font-size:clamp(3rem,8vw,6rem);line-height:1;margin:0 0 18px;letter-spacing:-.03em}.intro p{margin:0 auto;color:var(--t-mid);line-height:1.8;font-size:14px;max-width:560px}
-.mock-card{width:min(100%,560px);margin:0 auto;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.035));border:1px solid var(--border);border-radius:14px;box-shadow:0 30px 90px rgba(0,0,0,.5),0 0 0 1px rgba(57,255,20,.04);overflow:hidden;position:relative}
-.mc-topbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:14px 16px 0}.mc-center{display:flex;align-items:center;gap:12px;justify-self:center}.mc-wordmark{font-family:var(--serif);font-size:16px;letter-spacing:-.02em}
-.mc-view-toggle{display:flex;align-items:center;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;overflow:hidden}.mc-view-tab{font-family:var(--mono);font-size:8px;letter-spacing:.1em;padding:5px 13px;color:var(--t-muted);text-transform:uppercase;border:0;background:transparent;cursor:pointer}.mc-view-tab.active{background:rgba(255,255,255,.1);color:var(--text)}
-.mc-live-badge{display:inline-flex;align-items:center;gap:5px;justify-self:end;background:var(--neon);border-radius:3px;padding:2px 7px;font-size:9px;font-weight:700;letter-spacing:.1em;color:#000}.mc-live-badge-dot{width:5px;height:5px;border-radius:50%;background:#000}
-.pane{padding:16px}.search-box{display:flex;gap:8px;margin-bottom:12px}.search-box input{width:100%;border:1px solid rgba(244,241,232,.14);background:#070707;color:var(--text);border-radius:6px;padding:12px 13px;font:12px var(--mono);outline:none}.search-box input:focus{border-color:rgba(57,255,20,.55);box-shadow:0 0 0 2px rgba(57,255,20,.08)}
-.results{display:grid;gap:8px;min-height:280px}.result-row{width:100%;text-align:left;border:1px solid rgba(244,241,232,.11);background:rgba(255,255,255,.035);border-radius:8px;padding:12px;cursor:pointer;color:var(--text);font:inherit}.result-row:hover{border-color:rgba(57,255,20,.38);background:rgba(57,255,20,.06)}
-.result-top{display:flex;align-items:center;gap:8px;min-width:0}.station-name{font-family:var(--serif);font-size:22px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.station-slug{font-size:10px;color:var(--t-muted);margin-top:2px}.listener-count{margin-left:auto;color:var(--t-muted);font-size:10px;white-space:nowrap}.now-playing{font-size:11px;color:var(--t-mid);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.state{display:grid;place-items:center;text-align:center;min-height:280px;border:1px dashed rgba(244,241,232,.12);border-radius:8px;color:var(--t-muted);font-size:12px;line-height:1.7;padding:20px}.player-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.player-title{font-family:var(--serif);font-size:25px;line-height:1.1}.player-url{font-size:10px;color:var(--t-muted);margin-top:4px}
-.frame-wrap{background:#050505;border:1px solid rgba(57,255,20,.18);border-radius:10px;overflow:hidden;min-height:300px}.frame-wrap iframe{display:block;width:100%;height:420px;border:0;background:#050505}.open-link{display:inline-flex;margin-top:12px;color:var(--neon);text-decoration:none;font-size:11px;text-transform:uppercase;letter-spacing:.08em}.open-link[hidden]{display:none}
-.mc-accent{height:3px;background:linear-gradient(90deg,transparent,var(--neon),transparent);opacity:.65}.hidden{display:none}.bad-url{color:#ff6680}.footer-note{margin-top:20px;text-align:center;color:var(--t-muted);font-size:10px}
-@media (max-width:640px){.nav{gap:12px;padding:14px 16px}.nav-link{display:none}.nav-brand{font-size:20px}.shell{padding-top:82px}.mc-topbar{grid-template-columns:1fr;gap:10px}.mc-topbar>div:first-child{display:none}.mc-center{justify-self:center}.mc-live-badge{display:none}.station-name{font-size:19px}.frame-wrap iframe{height:360px}}
-</style>
+
+/* ── Base — no page-level scroll, the shell owns its own viewport ─────────── */
+html,body{height:100%;overflow:hidden}
+html,body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.5}
+a{color:var(--neon);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* film grain */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  opacity:.03;pointer-events:none;z-index:9999;
+}
+
+/* fixed ambient glow */
+#ambient{
+  position:fixed;top:30%;left:50%;
+  transform:translate(-50%,-50%);
+  width:700px;height:700px;border-radius:50%;
+  background:radial-gradient(circle,rgba(57,255,20,.05) 0%,transparent 70%);
+  filter:blur(40px);pointer-events:none;z-index:0;
+}
+
+.live-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--neon);
+  box-shadow:0 0 8px var(--neon);flex-shrink:0;
+  animation:live-pulse 1.4s ease-in-out infinite;
+}
+@keyframes live-pulse{
+  0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 8px var(--neon)}
+  50%{opacity:.45;transform:scale(.75);box-shadow:0 0 3px var(--neon)}
+}
+
+.eyebrow{
+  font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--neon);
+  text-transform:uppercase;margin-bottom:14px;display:inline-flex;align-items:center;gap:9px;
+}
+
+.nav-cta{
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;
+  background:var(--neon);color:#000;
+  padding:7px 16px;border-radius:5px;text-decoration:none;
+  box-shadow:0 0 16px rgba(57,255,20,.35);
+  transition:box-shadow .2s,transform .12s;white-space:nowrap;
+  border:0;cursor:pointer;
+}
+.nav-cta:hover{box-shadow:0 0 32px rgba(57,255,20,.6);transform:translateY(-1px);text-decoration:none;color:#000}
+
+/* ── Mock card system (shell chrome) ────────────────────────────────────── */
+.mock-card{
+  background:linear-gradient(160deg,#141414 0%,#0d0d0d 100%);
+  border:1px solid var(--border);
+  border-radius:20px;
+  box-shadow:0 60px 120px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.04),inset 0 1px 0 rgba(255,255,255,.06);
+  overflow:hidden;
+  position:relative;
+}
+.mc-topbar{
+  display:grid;grid-template-columns:1fr auto 1fr;
+  align-items:center;padding:14px 16px;
+  border-bottom:1px solid var(--border);
+  flex:0 0 auto;
+}
+.mc-wordmark{font-family:var(--serif);font-size:16px;letter-spacing:-.02em;color:var(--text)}
+.mc-live-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--neon);border-radius:3px;padding:2px 7px;
+  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:#000;
+}
+.mc-live-badge-dot{width:5px;height:5px;border-radius:50%;background:#000}
+.mc-accent{height:2px;background:linear-gradient(to right,transparent,var(--neon),transparent);opacity:.55;flex:0 0 auto}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   App shell layout — matches landing/index.html and landing/download.html
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.as-page{
+  height:100vh;height:100dvh;
+  display:flex;align-items:center;justify-content:center;
+  padding:28px;position:relative;z-index:1;
+  overflow:auto;
+}
+
+.as-shell{
+  width:min(720px,96vw);
+  height:min(760px,calc(100dvh - 56px));
+  display:flex;flex-direction:column;
+  background:rgba(17,17,22,.5);
+  -webkit-backdrop-filter:blur(20px) saturate(1.4);
+  backdrop-filter:blur(20px) saturate(1.4);
+  border-color:var(--border-hi);
+  box-shadow:0 60px 120px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.04),inset 0 1px 0 rgba(255,255,255,.12);
+}
+
+.as-shell .mc-topbar > .nav-cta{justify-self:end}
+
+/* Tab nav — frosted pill */
+.as-tabs{
+  display:flex;gap:2px;overflow-x:auto;
+  width:fit-content;max-width:calc(100% - 32px);
+  margin:12px auto;padding:3px;
+  border-radius:999px;
+  background:rgba(20,20,24,.72);
+  -webkit-backdrop-filter:blur(10px) saturate(1.4);
+  backdrop-filter:blur(10px) saturate(1.4);
+  border:1px solid var(--border-hi);
+  flex:0 0 auto;
+  scrollbar-width:none;
+}
+.as-tabs::-webkit-scrollbar{display:none}
+.as-tab{
+  flex:0 0 auto;
+  font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--t-muted);background:transparent;border:0;
+  border-radius:999px;padding:9px 18px;cursor:pointer;
+  transition:background .15s,color .15s;
+  white-space:nowrap;
+}
+.as-tab:hover:not(.active){background:rgba(255,255,255,.06);color:var(--t-mid)}
+.as-tab.active{
+  background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(30,30,34,.9) 55%);
+  -webkit-backdrop-filter:blur(10px) saturate(1.4);
+  backdrop-filter:blur(10px) saturate(1.4);
+  color:var(--neon);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 0 12px -2px rgba(57,255,20,.45);
+}
+
+.as-viewport{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;position:relative}
+.as-panel{display:none;padding:8px 32px 32px;max-width:640px;margin:0 auto}
+.as-panel.active{display:block;animation:as-panel-in .22s ease}
+@keyframes as-panel-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.as-footer{
+  flex:0 0 auto;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:12px 20px;
+  font-family:var(--mono);font-size:10px;color:var(--t-dim);letter-spacing:.06em;
+}
+.as-footer-link{color:var(--t-muted);text-decoration:none;letter-spacing:.06em;transition:color .15s}
+.as-footer-link:hover{color:var(--t-mid);text-decoration:none}
+
+/* ── Search panel ─────────────────────────────────────────────────────────── */
+.listen-intro{text-align:center;padding:20px 0 24px}
+.listen-h1{
+  font-family:var(--serif);font-weight:400;font-size:clamp(2rem,5vw,2.8rem);
+  line-height:1.05;margin:0 0 12px;letter-spacing:-.03em;
+}
+.listen-sub{margin:0 auto;color:var(--t-mid);line-height:1.8;font-size:13px;max-width:440px}
+.search-box{display:flex;gap:8px;margin-bottom:12px}
+.search-box input{
+  width:100%;border:1px solid var(--border-hi);background:#070707;color:var(--text);
+  border-radius:6px;padding:12px 13px;font:12px var(--mono);outline:none;
+}
+.search-box input:focus{border-color:rgba(57,255,20,.55);box-shadow:0 0 0 2px rgba(57,255,20,.08)}
+.results{display:grid;gap:8px;padding-bottom:12px}
+.result-row{
+  width:100%;text-align:left;border:1px solid var(--border);background:rgba(255,255,255,.035);
+  border-radius:8px;padding:12px;cursor:pointer;color:var(--text);font:inherit;
+}
+.result-row:hover{border-color:rgba(57,255,20,.38);background:rgba(57,255,20,.06)}
+.result-top{display:flex;align-items:center;gap:8px;min-width:0}
+.station-name{font-family:var(--serif);font-size:20px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.station-slug{font-size:10px;color:var(--t-muted);margin-top:2px}
+.listener-count{margin-left:auto;color:var(--t-muted);font-size:10px;white-space:nowrap}
+.now-playing{font-size:11px;color:var(--t-mid);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.state{
+  display:grid;place-items:center;text-align:center;min-height:180px;
+  border:1px dashed var(--border-hi);border-radius:8px;color:var(--t-muted);
+  font-size:12px;line-height:1.7;padding:20px;
+}
+.bad-url{color:#ff6680}
+
+/* ── Play panel ───────────────────────────────────────────────────────────── */
+.player-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.player-title{font-family:var(--serif);font-size:24px;line-height:1.1}
+.player-url{font-size:10px;color:var(--t-muted);margin-top:4px}
+.frame-wrap{background:#050505;border:1px solid rgba(57,255,20,.18);border-radius:10px;overflow:hidden;min-height:260px}
+.frame-wrap iframe{display:block;width:100%;height:380px;border:0;background:#050505}
+.open-link{display:inline-flex;margin-top:12px;color:var(--neon);text-decoration:none;font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.open-link[hidden]{display:none}
+.footer-note{margin-top:16px;text-align:center;color:var(--t-muted);font-size:10px}
+.hidden{display:none}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media(max-width:640px){
+  .as-page{padding:8px}
+  .as-panel{padding:8px 20px 24px}
+  .as-tabs{margin:10px auto;max-width:calc(100% - 16px)}
+  .station-name{font-size:18px}
+  .frame-wrap iframe{height:300px}
+  .as-footer{flex-direction:column;text-align:center;gap:6px}
+}
+  </style>
 </head>
 <body>
-<nav class="nav">
-  <a href="/" class="nav-brand">Paperweight</a>
-  <a href="https://discord.gg/AHE6VuPT" class="nav-link" target="_blank" rel="noopener">Discord</a>
-  <a href="/" class="nav-cta">Get Started &rarr;</a>
-</nav>
-<main class="shell">
-  <div>
-    <section class="intro">
-      <div class="eyebrow"><span class="live-dot"></span>Public Stations</div>
-      <h1>Listen to Paperweight</h1>
-      <p>Find opted-in creator stations and play their live embedded signal from one place.</p>
-    </section>
-    <section class="mock-card" aria-label="Station player">
-      <div class="mc-topbar">
-        <div></div>
-        <div class="mc-center">
-          <span class="mc-wordmark">Paperweight</span>
-          <div class="mc-view-toggle" role="tablist" aria-label="Player views">
-            <button class="mc-view-tab" id="tab-play" type="button" role="tab" aria-controls="pane-play">Play</button>
-            <button class="mc-view-tab active" id="tab-search" type="button" role="tab" aria-controls="pane-search">Search</button>
-          </div>
+<div id="ambient"></div>
+
+<div class="as-page">
+  <div class="mock-card as-shell" id="as-shell">
+
+    <div class="mc-topbar">
+      <span class="mc-wordmark">Paperweight</span>
+      <div></div>
+      <a href="/" class="nav-cta">Get Started →</a>
+    </div>
+
+    <nav class="as-tabs" role="tablist" aria-label="Views">
+      <button type="button" class="as-tab active" role="tab" id="tab-search" aria-selected="true" aria-controls="panel-search" data-tab="search">Search</button>
+      <button type="button" class="as-tab" role="tab" id="tab-play" aria-selected="false" aria-controls="panel-play" data-tab="play">Play</button>
+    </nav>
+
+    <div class="as-viewport">
+
+      <!-- PANEL: Search -->
+      <section class="as-panel active" role="tabpanel" id="panel-search" aria-labelledby="tab-search" data-panel="search">
+        <div class="listen-intro">
+          <div class="eyebrow"><span class="live-dot"></span>Public Stations</div>
+          <h1 class="listen-h1">Listen to Paperweight</h1>
+          <p class="listen-sub">Find opted-in creator stations and play their live embedded signal from one place.</p>
         </div>
-        <div style="justify-self:end"><div class="mc-live-badge"><div class="mc-live-badge-dot"></div>LIVE</div></div>
-      </div>
-      <div class="pane" id="pane-search" role="tabpanel" aria-labelledby="tab-search">
         <div class="search-box">
           <input id="station-query" type="search" autocomplete="off" placeholder="Search stations">
         </div>
         <div class="results" id="station-results">
           <div class="state">Type to search stations</div>
         </div>
-      </div>
-      <div class="pane hidden" id="pane-play" role="tabpanel" aria-labelledby="tab-play">
+      </section>
+
+      <!-- PANEL: Play -->
+      <section class="as-panel" role="tabpanel" id="panel-play" aria-labelledby="tab-play" data-panel="play">
         <div id="no-selection" class="state">Search for a station, then choose one to start listening.</div>
         <div id="player-selected" class="hidden">
           <div class="player-head">
@@ -80,18 +274,23 @@ h1{font-family:var(--serif);font-weight:400;font-size:clamp(3rem,8vw,6rem);line-
             <div class="mc-live-badge hidden" id="player-live"><div class="mc-live-badge-dot"></div>LIVE</div>
           </div>
           <div class="frame-wrap"><iframe id="station-frame" title="Selected station player" allow="autoplay"></iframe></div>
-          <a class="open-link" id="open-station" target="_blank" rel="noopener">Open station &rarr;</a>
+          <a class="open-link" id="open-station" target="_blank" rel="noopener">Open station →</a>
           <div class="footer-note" id="player-now"></div>
         </div>
-      </div>
-      <div class="mc-accent"></div>
-    </section>
+      </section>
+
+    </div>
+
+    <div class="mc-accent"></div>
+    <div class="as-footer">
+      <span>Paperweight Systems LLC • 2026</span>
+      <a href="https://discord.gg/AHE6VuPT" class="as-footer-link" target="_blank" rel="noopener">Discord</a>
+    </div>
   </div>
-</main>
+</div>
+
 <script>
 const API_URL = 'https://system.paperweighthq.com/api/modules/paperweight/stations';
-const tabs = { play: document.getElementById('tab-play'), search: document.getElementById('tab-search') };
-const panes = { play: document.getElementById('pane-play'), search: document.getElementById('pane-search') };
 const resultsEl = document.getElementById('station-results');
 const queryEl = document.getElementById('station-query');
 let selectedStation = null;
@@ -102,17 +301,23 @@ function setText(id, value) {
   document.getElementById(id).textContent = value || '';
 }
 
-function showPane(name) {
-  for (const key of Object.keys(panes)) {
-    const active = key === name;
-    panes[key].classList.toggle('hidden', !active);
-    tabs[key].classList.toggle('active', active);
-    tabs[key].setAttribute('aria-selected', active ? 'true' : 'false');
-  }
-  if (name === 'play' && !selectedStation) {
+function selectTab(id) {
+  document.querySelectorAll('.as-tab').forEach(t => {
+    const on = t.dataset.tab === id;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('.as-panel').forEach(p => {
+    p.classList.toggle('active', p.dataset.panel === id);
+  });
+  if (id === 'play' && !selectedStation) {
     document.getElementById('station-frame').removeAttribute('src');
   }
 }
+
+document.querySelectorAll('.as-tab').forEach(tab => {
+  tab.addEventListener('click', () => selectTab(tab.dataset.tab));
+});
 
 function state(message, className) {
   resultsEl.replaceChildren();
@@ -135,7 +340,7 @@ function selectStation(station) {
   const parsed = validStationUrl(station.url);
   if (!parsed) {
     selectedStation = null;
-    showPane('play');
+    selectTab('play');
     document.getElementById('no-selection').classList.remove('hidden');
     document.getElementById('player-selected').classList.add('hidden');
     document.getElementById('no-selection').textContent = 'This station has an invalid player URL.';
@@ -153,7 +358,7 @@ function selectStation(station) {
   document.getElementById('player-live').classList.toggle('hidden', !station.live);
   document.getElementById('station-frame').src = new URL('/embed', parsed).href;
   document.getElementById('open-station').href = parsed.href;
-  showPane('play');
+  selectTab('play');
 }
 
 function renderStations(stations) {
@@ -220,13 +425,11 @@ async function searchStations() {
   }
 }
 
-tabs.play.addEventListener('click', () => showPane('play'));
-tabs.search.addEventListener('click', () => showPane('search'));
 queryEl.addEventListener('input', () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(searchStations, 300);
 });
-showPane('search');
+selectTab('search');
 </script>
 </body>
 </html>
