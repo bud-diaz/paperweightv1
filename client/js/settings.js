@@ -53,7 +53,7 @@ function toggleSettingsDropdown(force) {
   dd.hidden = !show;
 }
 
-function closeSettingsDropdown() {
+export function closeSettingsDropdown() {
   toggleSettingsDropdown(false);
 }
 

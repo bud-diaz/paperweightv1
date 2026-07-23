@@ -443,6 +443,17 @@
         <button id="pw-settings-btn" class="pw-settings-btn" aria-label="Account settings" title="Account">⚙</button>
         <div id="pw-settings-dropdown" class="pw-settings-dropdown" hidden>
           <button id="pw-settings-open-btn" class="pw-settings-dropdown-item">SETTINGS</button>
+          <!-- Desktop-only power/update/uninstall controls (see client/js/dashboard/desktop-controls.js) -->
+          <div id="desktop-power-items" data-desktop-only hidden>
+            <button id="dp-stop-broadcast" class="pw-settings-dropdown-item desktop-power-dropdown-item">STOP BROADCAST</button>
+            <button id="dp-restart-broadcast" class="pw-settings-dropdown-item desktop-power-dropdown-item">RESTART BROADCAST</button>
+            <button id="dp-toggle-tunnel" class="pw-settings-dropdown-item desktop-power-dropdown-item" title="Set up a Cloudflare tunnel in the Station panel first" disabled>DISCONNECT TUNNEL</button>
+            <button id="dp-stop-server" class="pw-settings-dropdown-item desktop-power-dropdown-item">STOP SERVER (QUITS APP)</button>
+            <button id="dp-restart-server" class="pw-settings-dropdown-item desktop-power-dropdown-item">RESTART SERVER</button>
+            <button id="dp-stop-both" class="pw-settings-dropdown-item desktop-power-dropdown-item">STOP BOTH</button>
+            <button id="desktop-update-btn" class="pw-settings-dropdown-item desktop-power-dropdown-item">CHECK FOR UPDATES</button>
+            <button id="desktop-uninstall-btn" class="pw-settings-dropdown-item desktop-power-dropdown-item">UNINSTALL</button>
+          </div>
           <button id="pw-settings-logout-btn" class="pw-settings-dropdown-item" hidden>LOG OUT</button>
         </div>
       </div>
@@ -1456,21 +1467,6 @@
   </div><!-- /player-card -->
 </div><!-- /player-wrap -->
 </div><!-- /layout -->
-
-<!-- Desktop-only power/update/uninstall controls (see client/js/dashboard/desktop-controls.js) -->
-<div id="desktop-power-cluster" data-desktop-only hidden>
-  <button id="desktop-power-btn" class="desktop-power-btn" title="Power">⏻</button>
-  <div id="desktop-power-dropdown" class="desktop-power-dropdown" hidden>
-    <button id="dp-stop-broadcast" class="desktop-power-dropdown-item">STOP BROADCAST</button>
-    <button id="dp-restart-broadcast" class="desktop-power-dropdown-item">RESTART BROADCAST</button>
-    <button id="dp-toggle-tunnel" class="desktop-power-dropdown-item" title="Set up a Cloudflare tunnel in the Station panel first" disabled>DISCONNECT TUNNEL</button>
-    <button id="dp-stop-server" class="desktop-power-dropdown-item">STOP SERVER (QUITS APP)</button>
-    <button id="dp-restart-server" class="desktop-power-dropdown-item">RESTART SERVER</button>
-    <button id="dp-stop-both" class="desktop-power-dropdown-item">STOP BOTH</button>
-  </div>
-  <button id="desktop-update-btn" class="desktop-power-cluster-btn" title="Check for updates">⟳</button>
-  <button id="desktop-uninstall-btn" class="desktop-power-cluster-btn" title="Uninstall">⌫</button>
-</div>
 
 <audio id="audio-el" hidden></audio>
 

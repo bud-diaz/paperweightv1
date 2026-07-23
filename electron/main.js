@@ -151,9 +151,17 @@ async function openMainWindow() {
 
   await autoUnlockDashboard(config).catch(() => {});
 
+  // The player/dashboard card is a fixed-width widget (--panel-w: 560px,
+  // client/css/tokens.css) regardless of window size — a wide window just
+  // leaves empty margin on either side. Default to roughly that card's own
+  // footprint (560 wide + ~30px breathing room each side, ~747 tall plus
+  // topbar/credit chrome) instead. useContentSize makes width/height apply
+  // to the web content area, not the outer frame, so this stays accurate
+  // across platforms regardless of title-bar height. Still freely resizable.
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 860,
+    width: 620,
+    height: 900,
+    useContentSize: true,
     title: config.station.name || 'Paperweight',
     icon: windowIcon,
     webPreferences: {
