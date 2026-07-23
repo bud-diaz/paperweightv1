@@ -8,9 +8,25 @@ const http = require('http');
 // Must happen before src/config.js (and src/index.js, which requires it) are
 // ever required — config.js reads process.env at module-load time.
 process.env.PAPERWEIGHT_ELECTRON = 'true';
-process.env.PAPERWEIGHT_DATA_ROOT = (!app.isPackaged && process.env.PAPERWEIGHT_DATA_ROOT)
-  ? path.resolve(process.env.PAPERWEIGHT_DATA_ROOT)
-  : app.getPath('userData');
+
+// The setup wizard lets the creator pick a custom data folder (see
+// electron/ipc/setup-handlers.js's setup:submit handler), which is recorded
+// as a pointer file at the fixed, OS-standard userData path since that's the
+// one location every future launch can always find without prior knowledge.
+const DEFAULT_DATA_ROOT = app.getPath('userData');
+
+function resolveDataRoot() {
+  if (!app.isPackaged && process.env.PAPERWEIGHT_DATA_ROOT) {
+    return path.resolve(process.env.PAPERWEIGHT_DATA_ROOT);
+  }
+  try {
+    const pointer = JSON.parse(fs.readFileSync(path.join(DEFAULT_DATA_ROOT, 'data-root.json'), 'utf8'));
+    if (pointer && pointer.dataRoot) return pointer.dataRoot;
+  } catch {}
+  return DEFAULT_DATA_ROOT;
+}
+
+process.env.PAPERWEIGHT_DATA_ROOT = resolveDataRoot();
 if (app.isPackaged) {
   process.env.PAPERWEIGHT_DESKTOP_RUNTIME = 'true';
 }
@@ -135,9 +151,17 @@ async function openMainWindow() {
 
   await autoUnlockDashboard(config).catch(() => {});
 
+  // The player/dashboard card is a fixed-width widget (--panel-w: 560px,
+  // client/css/tokens.css) regardless of window size — a wide window just
+  // leaves empty margin on either side. Default to roughly that card's own
+  // footprint (560 wide + ~30px breathing room each side, ~747 tall plus
+  // topbar/credit chrome) instead. useContentSize makes width/height apply
+  // to the web content area, not the outer frame, so this stays accurate
+  // across platforms regardless of title-bar height. Still freely resizable.
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 860,
+    width: 620,
+    height: 900,
+    useContentSize: true,
     title: config.station.name || 'Paperweight',
     icon: windowIcon,
     webPreferences: {

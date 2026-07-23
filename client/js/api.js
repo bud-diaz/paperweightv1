@@ -456,6 +456,28 @@ export const posts = {
   },
 };
 
+// ── api.docs ───────────────────────────────────────────────────────────────────────
+
+export const docs = {
+  /**
+   * GET /api/docs — list of the Markdown/text docs the Docs modal can show
+   * (README, per-platform setup guides, the Asciline third-party notice).
+   * @returns {{ docs: Array<{ id: string, title: string }> }}
+   */
+  list() {
+    return _json('/api/docs');
+  },
+
+  /**
+   * GET /api/docs/{id} — raw Markdown/text content for one doc.
+   * @param {string} id
+   * @returns {Promise<string>}
+   */
+  get(id) {
+    return _fetch(`/api/docs/${id}`).then(r => r.text());
+  },
+};
+
 // ── api.dashboard ─────────────────────────────────────────────────────────────────
 
 export const dashboard = {

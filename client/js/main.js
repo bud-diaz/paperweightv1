@@ -35,6 +35,7 @@ import * as payment      from './payment.js';
 import * as welcome      from './welcome.js';
 import * as collection   from './collection.js';
 import * as settings     from './settings.js';
+import * as docsModal    from './docs.js';
 import * as tour         from './tour.js';
 import * as tilt         from './tilt.js';
 import * as swipe        from './swipe.js';
@@ -90,6 +91,7 @@ settings.init({
   toggleAuthSection: auth.toggleAuthSection,
   logoutListener: auth.logoutListener,
   maybeShowTour: tour.maybeShowSettingsTour,
+  openDocs: docsModal.openDocsModal,
 });
 
 tour.init();
@@ -275,6 +277,7 @@ earnings.initEarningsHandlers();
 ascii.initRealVideoToggleHandlers();
 library.initListenerQueueHandlers();
 libraryModal.initLibraryModalHandlers();
+docsModal.initDocsModalHandlers();
 payment.initPaymentHandlers();
 payment.initFloatingTip();
 player.initShareHandlers();
@@ -652,9 +655,14 @@ async function init() {
   // On-demand play quota — needs tier known first, so the badge is correct on first paint
   await player.loadQuota();
 
+  // Resolve creator/dashboard session before deciding on the listener welcome
+  // overlay — the creator's own Studio window must never see it.
+  const isCreator = await dashIndex.tryDashAuth();
+
   // First-visit welcome page (display-name-only entry, Papercut-style).
-  // After loadAuthState so returning listeners are never re-prompted.
-  welcome.maybeShowWelcome(window._stationName || '');
+  // After loadAuthState so returning listeners are never re-prompted, and
+  // never shown at all in the creator's own dashboard session.
+  welcome.maybeShowWelcome(window._stationName || '', isCreator);
 
   // Library and queue
   library.loadLibrary();
@@ -668,8 +676,9 @@ async function init() {
   // Silently restore creator session from the httpOnly dashboard cookie.
   // dashboard.initDashboard() is idempotent (guarded by dashboardInitialized)
   // and internally shows either the content view or the auth gate, which
-  // replicates the original inline script's silent-restore IIFE.
-  dashIndex.initDashboard();
+  // replicates the original inline script's silent-restore IIFE. isCreator
+  // was already resolved above, so this reuses it instead of re-probing.
+  dashIndex.initDashboard(isCreator);
 
   // Initial render
   player.render();

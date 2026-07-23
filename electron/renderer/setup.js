@@ -4,11 +4,21 @@ const form = document.getElementById('setup-form');
 const stationNameInput = document.getElementById('stationName');
 const slugInput = document.getElementById('slug');
 const creatorFields = document.getElementById('creator-fields');
+const dataRootInput = document.getElementById('dataRootPath');
 const vaultPathInput = document.getElementById('vaultPath');
 const errorEl = document.getElementById('setup-error');
 const submitBtn = document.getElementById('submit-btn');
 const stepperItems = document.querySelectorAll('.stepper li');
 const stepEls = document.querySelectorAll('.step');
+
+window.electronAPI.getDefaultDataRoot().then(dir => {
+  if (dir) dataRootInput.value = dir;
+});
+
+document.getElementById('choose-data-root-btn').addEventListener('click', async () => {
+  const dir = await window.electronAPI.chooseDataRoot();
+  if (dir) dataRootInput.value = dir;
+});
 
 let slugTouched = false;
 slugInput.addEventListener('input', () => { slugTouched = true; });
@@ -75,6 +85,7 @@ form.addEventListener('submit', async e => {
   const initialVisibility = document.querySelector('input[name="initialVisibility"]:checked').value;
 
   const formData = {
+    dataRoot: dataRootInput.value,
     stationName: stationNameInput.value,
     slug: slugInput.value,
     identityMode,
@@ -97,13 +108,18 @@ form.addEventListener('submit', async e => {
   }
 
   document.getElementById('dashboard-token-display').value = result.dashboardToken;
-  showStep(4);
+  showStep(5);
 });
 
 document.getElementById('copy-token-btn').addEventListener('click', () => {
   const input = document.getElementById('dashboard-token-display');
   input.select();
   document.execCommand('copy');
+});
+
+document.getElementById('download-token-btn').addEventListener('click', () => {
+  const token = document.getElementById('dashboard-token-display').value;
+  window.electronAPI.downloadToken(token);
 });
 
 document.getElementById('launch-btn').addEventListener('click', async () => {

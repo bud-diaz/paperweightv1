@@ -1,6 +1,7 @@
 /**
  * dashboard/desktop-controls.js — Desktop-only power/update/uninstall
- * cluster (floating overlay, bottom-right, outside the player panel).
+ * items, flattened into the settings-gear dropdown below DOCS (see
+ * #desktop-power-items in client/creator.html and settings.js).
  *
  * Talks to window.desktopAPI (electron/preload.js) for anything that only
  * the Electron main process can do (quit, restart, check for updates,
@@ -10,18 +11,9 @@
 
 import { el, showToast } from '../utils.js';
 import * as api from '../api.js';
+import { closeSettingsDropdown } from '../settings.js';
 
 export function init() {}
-
-function toggleDropdown(force) {
-  const dd = el('desktop-power-dropdown');
-  const show = force !== undefined ? force : dd.hidden;
-  dd.hidden = !show;
-}
-
-function closeDropdown() {
-  toggleDropdown(false);
-}
 
 // Tunnel connect/disconnect — dulled until CLOUDFLARE_TUNNEL_TOKEN is set,
 // fed by station.js's loadDashStation() (same GET /api/dashboard/station
@@ -50,7 +42,7 @@ async function toggleTunnel() {
     ? "Disconnect the public tunnel? Your station will be unreachable from outside until you reconnect it."
     : 'Reconnect the public tunnel?';
   if (!confirm(msg)) return;
-  closeDropdown();
+  closeSettingsDropdown();
 
   const { res, data } = disconnecting
     ? await api.dashboard.station.tunnelDisconnect()
@@ -67,14 +59,14 @@ async function toggleTunnel() {
 
 async function stopBroadcast() {
   if (!confirm('Stop the broadcast?')) return;
-  closeDropdown();
+  closeSettingsDropdown();
   await api.dashboard.broadcast.stop();
   showToast('Broadcast stopped');
 }
 
 async function restartBroadcast() {
   if (!confirm('Restart the broadcast?')) return;
-  closeDropdown();
+  closeSettingsDropdown();
   await api.dashboard.broadcast.restart();
   showToast('Broadcast restarting…');
 }
@@ -82,14 +74,14 @@ async function restartBroadcast() {
 async function stopServer() {
   if (!window.desktopAPI) return;
   if (!confirm('Quit Paperweight? The broadcast and dashboard will stop.')) return;
-  closeDropdown();
+  closeSettingsDropdown();
   window.desktopAPI.quitApp();
 }
 
 async function restartServer() {
   if (!window.desktopAPI) return;
   if (!confirm('Restart Paperweight? The broadcast and dashboard will briefly go offline.')) return;
-  closeDropdown();
+  closeSettingsDropdown();
   showToast('Restarting…');
   window.desktopAPI.restartServer();
 }
@@ -97,7 +89,7 @@ async function restartServer() {
 async function stopBoth() {
   if (!window.desktopAPI) return;
   if (!confirm('Stop the broadcast and quit Paperweight?')) return;
-  closeDropdown();
+  closeSettingsDropdown();
   try { await api.dashboard.broadcast.stop(); } catch {}
   window.desktopAPI.quitApp();
 }
@@ -134,20 +126,10 @@ async function uninstall() {
 }
 
 export function initDesktopControlsHandlers() {
-  const cluster = el('desktop-power-cluster');
-  if (!cluster) return;
+  if (!el('dp-stop-broadcast')) return;
 
-  el('desktop-power-btn').addEventListener('click', e => {
-    e.stopPropagation();
-    toggleDropdown();
-  });
-  document.addEventListener('click', e => {
-    const dd = el('desktop-power-dropdown');
-    if (!dd.hidden && !dd.contains(e.target) && e.target !== el('desktop-power-btn')) {
-      closeDropdown();
-    }
-  });
-
+  // Click-outside-to-close and the trigger button are owned by settings.js
+  // (#pw-settings-dropdown) — these items just live inside that same menu.
   el('dp-stop-broadcast').addEventListener('click', stopBroadcast);
   el('dp-restart-broadcast').addEventListener('click', restartBroadcast);
   el('dp-toggle-tunnel').addEventListener('click', toggleTunnel);

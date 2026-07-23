@@ -13,8 +13,11 @@ const isSetupWindow =
 
 if (isSetupWindow) {
   contextBridge.exposeInMainWorld('electronAPI', {
+    getDefaultDataRoot: () => ipcRenderer.invoke('setup:get-data-root'),
+    chooseDataRoot: () => ipcRenderer.invoke('setup:choose-data-root'),
     submitSetup: formData => ipcRenderer.invoke('setup:submit', formData),
     chooseVaultFolder: () => ipcRenderer.invoke('setup:choose-folder'),
+    downloadToken: token => ipcRenderer.invoke('setup:download-token', token),
     closeSetup: () => ipcRenderer.invoke('setup:close'),
   });
 } else {

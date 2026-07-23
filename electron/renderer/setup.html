@@ -11,14 +11,37 @@
     <p class="sub">Let's set up your station. This only takes a minute.</p>
 
     <ol class="stepper">
-      <li data-step="1" class="active">Station</li>
-      <li data-step="2">Vault &amp; Import</li>
-      <li data-step="3">Network</li>
-      <li data-step="4">Done</li>
+      <li data-step="1" class="active">Data Location</li>
+      <li data-step="2">Station</li>
+      <li data-step="3">Vault &amp; Import</li>
+      <li data-step="4">Network</li>
+      <li data-step="5">Done</li>
     </ol>
 
     <form id="setup-form">
       <div class="step" data-step="1">
+        <label>
+          Where should Paperweight store its data?
+          <div class="row">
+            <input type="text" id="dataRootPath" readonly>
+            <button type="button" id="choose-data-root-btn">Browse…</button>
+          </div>
+        </label>
+
+        <p class="hint">
+          This folder holds your <code>.env</code> configuration, vault media,
+          database, and logs. It defaults to your system's app data folder —
+          pick a different location (e.g. an external drive, or somewhere
+          easy to find) if you'd rather keep everything together.
+        </p>
+
+        <div class="step-nav">
+          <span></span>
+          <button type="button" class="next-btn" data-next="2">Next →</button>
+        </div>
+      </div>
+
+      <div class="step" data-step="2" hidden>
         <label>
           Station name
           <input type="text" id="stationName" placeholder="My Cool Station" required>
@@ -51,12 +74,12 @@
         </div>
 
         <div class="step-nav">
-          <span></span>
-          <button type="button" class="next-btn" data-next="2">Next →</button>
+          <button type="button" class="back-btn" data-back="1">← Back</button>
+          <button type="button" class="next-btn" data-next="3">Next →</button>
         </div>
       </div>
 
-      <div class="step" data-step="2" hidden>
+      <div class="step" data-step="3" hidden>
         <label>
           Vault folder
           <div class="row">
@@ -91,12 +114,12 @@
         </fieldset>
 
         <div class="step-nav">
-          <button type="button" class="back-btn" data-back="1">← Back</button>
-          <button type="button" class="next-btn" data-next="3">Next →</button>
+          <button type="button" class="back-btn" data-back="2">← Back</button>
+          <button type="button" class="next-btn" data-next="4">Next →</button>
         </div>
       </div>
 
-      <div class="step" data-step="3" hidden>
+      <div class="step" data-step="4" hidden>
         <label>
           Cloudflare tunnel token (optional)
           <input type="text" id="cfTunnelToken" placeholder="leave blank if not using a tunnel">
@@ -111,18 +134,19 @@
         <p id="setup-error" class="error" hidden></p>
 
         <div class="step-nav">
-          <button type="button" class="back-btn" data-back="2">← Back</button>
+          <button type="button" class="back-btn" data-back="3">← Back</button>
           <button type="submit" id="submit-btn">Create station</button>
         </div>
       </div>
     </form>
 
-    <div class="step" data-step="4" id="done-screen" hidden>
+    <div class="step" data-step="5" id="done-screen" hidden>
       <h2>You're all set!</h2>
       <p>Your dashboard token — copy it now. It won't be shown again here, only in your <code>.env</code> file.</p>
       <div class="row">
         <input type="text" id="dashboard-token-display" readonly>
         <button type="button" id="copy-token-btn">Copy</button>
+        <button type="button" id="download-token-btn">Download as .txt</button>
       </div>
       <p class="hint">This token is your key to the dashboard. Store it somewhere safe before continuing.</p>
       <button type="button" id="launch-btn">I've saved my token — Launch Paperweight →</button>
