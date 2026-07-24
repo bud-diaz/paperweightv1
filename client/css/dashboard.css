@@ -1,50 +1,6 @@
 /* ── Dashboard ── */
 .dash-section { padding: 20px 20px 0; }
 
-/* ── Collapsible / rearrangeable section cards ── */
-.dash-sections-toolbar { display: flex; justify-content: flex-end; padding: 12px 20px 0; }
-.dash-sections-reset-btn {
-  background: none; border: none; cursor: pointer;
-  font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em;
-  color: var(--t4); padding: 4px 2px;
-  transition: color var(--dur-fast) var(--ease-out-macos);
-}
-.dash-sections-reset-btn:hover { color: var(--t2); }
-#dash-sections { display: flex; flex-direction: column; }
-.dash-card { border-bottom: 1px solid var(--border); }
-.dash-card:last-child { border-bottom: none; }
-.dash-card.dragging { opacity: .45; }
-.dash-card-head {
-  display: flex; align-items: center; gap: 10px;
-  padding: 14px 20px;
-  cursor: pointer; user-select: none;
-  transition: background-color var(--dur-fast) var(--ease-out-macos);
-}
-.dash-card-head:hover { background-color: rgba(255,255,255,.03); }
-.dash-drag-handle {
-  font-size: 13px; color: var(--t4); line-height: 1;
-  flex-shrink: 0; touch-action: none;
-  cursor: grab; padding: 4px; margin: -4px;
-}
-.dash-drag-handle:active { cursor: grabbing; }
-.dash-card-title {
-  flex: 1; font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700;
-  letter-spacing: .14em; color: var(--t1); text-transform: uppercase;
-  text-shadow: 0 0 8px rgba(240,240,244,.35);
-}
-.dash-card:not(.open) .dash-card-title { text-align: center; }
-.dash-card-chevron {
-  color: var(--t3); font-size: 10px; line-height: 1; flex-shrink: 0;
-  transform: rotate(-90deg);
-  transition: transform .2s var(--ease-out-macos);
-}
-.dash-card.open .dash-card-chevron { transform: rotate(0deg); }
-.dash-card-body {
-  height: 0; overflow: hidden;
-  transition: height .28s var(--ease-out-macos);
-}
-.dash-card > .dash-card-body > .dash-section { padding: 6px 20px 20px; }
-.dash-card > .dash-card-body > .dash-section > .dash-section-label:first-child { display: none; }
 .dash-section-label {
   font-size: 12px; letter-spacing: .16em; color: var(--t2);
   font-family: 'Space Mono', monospace; margin-bottom: 12px;
@@ -238,7 +194,6 @@ body.radio-host-mode #vault-panel-tokens { display: none !important; }
 body.radio-host-mode #new-proj-pricing-block { display: none !important; }
 body.radio-host-mode .dash-proj-pricing { display: none !important; }
 body:not(.radio-host-mode) #dash-ext-search-section { display: none !important; }
-body:not(.radio-host-mode) .dash-card[data-section-key="dash-ext-search-section"] { display: none !important; }
 
 /* ── Anonymous station: monetization disabled, same as Radio Host mode ── */
 body.anonymous-mode #vsb-tokens { display: none !important; }
