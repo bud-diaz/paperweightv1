@@ -28,7 +28,7 @@ Expected result:
 - Release cleanliness check passes.
 - Unit and HTTP tests pass.
 - Preflight has no `FAIL` items.
-- Migration, scheduler, analytics, and package checks pass.
+- Migration, scheduler, analytics, package, and dashboard contract checks pass.
 - `npm audit --omit=dev` reports zero production vulnerabilities.
 
 ## Platform Smoke Passes
