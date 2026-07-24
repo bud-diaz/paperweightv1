@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Installing Paperweight…</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<style>
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* ── Variables ───────────────────────────────────────────────────────────── */
+:root{
+  --bg:        #080808;
+  --bg2:       #0d0d0d;
+  --neon:      #39ff14;
+  --neon-dim:  rgba(57,255,20,.12);
+  --border:    rgba(255,255,255,.08);
+  --border-hi: rgba(255,255,255,.16);
+  --text:      #fff;
+  --t-mid:     rgba(255,255,255,.5);
+  --t-muted:   rgba(255,255,255,.3);
+  --sans:      -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:      ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
+}
+
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+
+/* film grain, purely decorative, inline data URI — no network request */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  opacity:.03;pointer-events:none;z-index:9999;
+}
+
+#installer{
+  position:fixed;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:28px 24px;
+  text-align:center;
+}
+
+.skip-btn{
+  display:none;position:fixed;top:14px;right:14px;z-index:20;
+  background:transparent;border:1px solid var(--border);color:var(--t-muted);
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  padding:10px 14px;border-radius:6px;cursor:pointer;
+}
+.skip-btn:hover,.skip-btn:focus-visible{color:var(--text);border-color:var(--border-hi)}
+body[data-stage="1"] .skip-btn,
+body[data-stage="2"] .skip-btn,
+body[data-stage="3"] .skip-btn{display:inline-block}
+
+.panel{display:none;flex-direction:column;align-items:center;gap:18px;width:100%;max-width:400px}
+.panel.active{display:flex}
+
+.stage-eyebrow{
+  font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--neon);
+  text-transform:uppercase;display:block;margin-bottom:8px;
+}
+.panel h1{font-size:20px;font-weight:600;line-height:1.35}
+
+.checklist{width:100%;list-style:none;text-align:left}
+.check-item{
+  display:flex;align-items:center;gap:12px;padding:11px 2px;
+  font-size:14px;color:var(--t-mid);border-bottom:1px solid var(--border);
+}
+.check-item:last-child{border-bottom:0}
+.check-box{
+  width:17px;height:17px;border:1px solid var(--border-hi);border-radius:4px;
+  flex-shrink:0;position:relative;
+}
+.check-item.done{color:var(--text)}
+.check-item.done .check-box{border-color:var(--neon);background:var(--neon-dim)}
+.check-item.done .check-box::after{
+  content:'✓';position:absolute;inset:0;display:flex;align-items:center;
+  justify-content:center;color:var(--neon);font-size:11px;font-weight:700;
+}
+
+.progress-track{
+  width:100%;height:10px;border:1px solid var(--border-hi);border-radius:5px;
+  overflow:hidden;background:var(--bg2);
+}
+.progress-fill{height:100%;width:0%;background:var(--neon);box-shadow:0 0 12px var(--neon-dim)}
+.progress-meta{
+  display:flex;justify-content:space-between;align-items:baseline;width:100%;
+  font-family:var(--mono);font-size:11px;color:var(--t-mid);gap:12px;
+}
+.progress-meta span:last-child{color:var(--t-muted);text-align:right}
+
+.term-log{
+  width:100%;min-height:112px;max-height:170px;overflow-y:auto;
+  background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+  padding:14px;text-align:left;font-family:var(--mono);font-size:12px;
+  color:var(--neon);line-height:1.7;
+}
+.term-log div{white-space:pre-wrap;word-break:break-word}
+
+.complete-note{font-size:14px;color:var(--t-mid);line-height:1.5}
+
+.btn-primary{
+  background:var(--neon);color:#000;border:0;font-family:var(--mono);
+  font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;
+  padding:16px 30px;border-radius:8px;cursor:pointer;min-height:48px;
+  box-shadow:0 0 20px rgba(57,255,20,.3);
+}
+.btn-primary:active{transform:scale(.98)}
+
+.target-tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--t-muted);text-transform:uppercase}
+.target-label{
+  font-family:var(--mono);font-size:11px;color:var(--t-muted);
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  padding:0 8px;
+}
+
+.spinner{
+  width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--neon);
+  border-radius:50%;animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#appFrame{
+  position:fixed;inset:0;width:100%;border:0;display:none;background:#000;
+  height:100vh;height:100dvh;
+}
+</style>
+</head>
+<body data-stage="1">
+
+<button id="skipBtn" class="skip-btn" type="button">Skip</button>
+
+<div id="installer">
+
+  <section class="panel active" data-panel="1">
+    <div>
+      <span class="stage-eyebrow">Stage 1 / 4</span>
+      <h1>Checking system requirements</h1>
+    </div>
+    <ul id="checklist" class="checklist">
+      <li class="check-item"><span class="check-box"></span><span>Checking disk space</span></li>
+      <li class="check-item"><span class="check-box"></span><span>Verifying audio drivers</span></li>
+      <li class="check-item"><span class="check-box"></span><span>Checking network connection</span></li>
+    </ul>
+  </section>
+
+  <section class="panel" data-panel="2">
+    <div>
+      <span class="stage-eyebrow">Stage 2 / 4</span>
+      <h1>Downloading Paperweight</h1>
+    </div>
+    <div class="progress-track"><div id="progressBar" class="progress-fill"></div></div>
+    <div class="progress-meta">
+      <span id="progressPct">0%</span>
+      <span>this part is mostly theater</span>
+    </div>
+  </section>
+
+  <section class="panel" data-panel="3">
+    <div>
+      <span class="stage-eyebrow">Stage 3 / 4</span>
+      <h1>Configuring</h1>
+    </div>
+    <div id="configLog" class="term-log" aria-live="polite"></div>
+  </section>
+
+  <section class="panel" data-panel="4">
+    <div>
+      <span class="stage-eyebrow">Stage 4 / 4</span>
+      <h1>Installation complete</h1>
+    </div>
+    <p class="complete-note">Paperweight is ready to open.</p>
+    <button id="launchBtn" class="btn-primary" type="button">Launch Paperweight</button>
+    <div>
+      <div class="target-tag">Opening</div>
+      <div id="targetLabel4" class="target-label"></div>
+    </div>
+  </section>
+
+  <section class="panel" data-panel="connecting">
+    <div class="spinner" aria-hidden="true"></div>
+    <p class="complete-note">Connecting…</p>
+  </section>
+
+  <section class="panel" data-panel="error">
+    <div>
+      <h1>Can't reach that build right now</h1>
+    </div>
+    <p class="complete-note">Check the deploy status, then try again.</p>
+    <button id="retryBtn" class="btn-primary" type="button">Retry</button>
+    <div>
+      <div class="target-tag">Target</div>
+      <div id="targetLabelError" class="target-label"></div>
+    </div>
+  </section>
+
+  <section class="panel" data-panel="redirecting">
+    <div class="spinner" aria-hidden="true"></div>
+    <p class="complete-note">Opening in full view…</p>
+  </section>
+
+</div>
+
+<iframe id="appFrame" title="Paperweight"></iframe>
+
+<script>
+(function(){
+  'use strict';
+
+  var DEFAULT_TARGET = 'https://paperweight-git-work-bud-diazs-projects.vercel.app';
+
+  function resolveTarget(){
+    var raw = new URLSearchParams(location.search).get('target');
+    if(!raw) return DEFAULT_TARGET;
+    try{
+      var u = new URL(raw);
+      return u.protocol === 'https:' ? u.href : DEFAULT_TARGET;
+    }catch(e){
+      return DEFAULT_TARGET;
+    }
+  }
+
+  var TARGET = resolveTarget();
+  var SKIP = new URLSearchParams(location.search).get('skip') === '1';
+
+  var skipRequested = false;
+  var timers = [];
+
+  function after(ms, fn){
+    var id = setTimeout(function(){
+      if(skipRequested) return;
+      fn();
+    }, ms);
+    timers.push(id);
+  }
+
+  function clearTimers(){
+    timers.forEach(clearTimeout);
+    timers = [];
+  }
+
+  function showPanel(name){
+    document.querySelectorAll('.panel').forEach(function(p){
+      p.classList.toggle('active', p.dataset.panel === name);
+    });
+  }
+
+  function setStage(name){ document.body.dataset.stage = name; }
+
+  var checkItems = document.querySelectorAll('#checklist .check-item');
+
+  function runStage1(){
+    setStage('1'); showPanel('1');
+    var delays = [360, 400, 430];
+    var cum = 0;
+    checkItems.forEach(function(item, i){
+      cum += delays[i] || 360;
+      (function(el){ after(cum, function(){ el.classList.add('done'); }); })(item);
+    });
+    after(cum + 320, runStage2);
+  }
+
+  var progressBar = document.getElementById('progressBar');
+  var progressPct = document.getElementById('progressPct');
+  var keypoints = [[0,0],[800,70],[1500,72],[1900,100]];
+
+  function interpolate(t){
+    for(var i = 0; i < keypoints.length - 1; i++){
+      var a = keypoints[i], b = keypoints[i + 1];
+      if(t >= a[0] && t <= b[0]){
+        var frac = (t - a[0]) / (b[0] - a[0]);
+        return a[1] + frac * (b[1] - a[1]);
+      }
+    }
+    return 100;
+  }
+
+  function runStage2(){
+    setStage('2'); showPanel('2');
+    var start = performance.now();
+    function tick(now){
+      if(skipRequested) return;
+      var elapsed = now - start;
+      var pct = interpolate(elapsed);
+      progressBar.style.width = pct + '%';
+      progressPct.textContent = Math.round(pct) + '%';
+      if(elapsed < keypoints[keypoints.length - 1][0]){
+        requestAnimationFrame(tick);
+      }else{
+        after(250, runStage3);
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  var logPanel = document.getElementById('configLog');
+  var logLines = [
+    '> Writing config to ~/.paperweight',
+    '> Linking audio engine',
+    '> Registering station... ok',
+    '> Done.'
+  ];
+
+  function runStage3(){
+    setStage('3'); showPanel('3');
+    logPanel.textContent = '';
+    var cum = 0;
+    logLines.forEach(function(line){
+      cum += 270;
+      after(cum, function(){
+        var row = document.createElement('div');
+        row.textContent = line;
+        logPanel.appendChild(row);
+        logPanel.scrollTop = logPanel.scrollHeight;
+      });
+    });
+    after(cum + 500, runStage4);
+  }
+
+  function runStage4(){
+    setStage('4'); showPanel('4');
+    document.getElementById('targetLabel4').textContent = TARGET;
+    document.getElementById('targetLabelError').textContent = TARGET;
+  }
+
+  function jumpToComplete(){
+    skipRequested = true;
+    clearTimers();
+    runStage4();
+  }
+
+  document.getElementById('skipBtn').addEventListener('click', jumpToComplete);
+  document.getElementById('launchBtn').addEventListener('click', launch);
+  document.getElementById('retryBtn').addEventListener('click', launch);
+
+  var frame = document.getElementById('appFrame');
+
+  function checkReachable(url){
+    return new Promise(function(resolve){
+      var settled = false;
+      var timer = setTimeout(function(){
+        if(!settled){ settled = true; resolve(false); }
+      }, 5000);
+      try{
+        fetch(url, { mode: 'no-cors', cache: 'no-store' })
+          .then(function(){ if(!settled){ settled = true; clearTimeout(timer); resolve(true); } })
+          .catch(function(){ if(!settled){ settled = true; clearTimeout(timer); resolve(false); } });
+      }catch(e){
+        if(!settled){ settled = true; clearTimeout(timer); resolve(false); }
+      }
+    });
+  }
+
+  function launch(){
+    setStage('connecting'); showPanel('connecting');
+    checkReachable(TARGET).then(function(ok){
+      if(ok){ showFrame(); }else{ setStage('error'); showPanel('error'); }
+    });
+  }
+
+  function showFrame(){
+    document.getElementById('installer').style.display = 'none';
+    frame.style.display = 'block';
+    var loaded = false;
+    var fallback = setTimeout(function(){
+      if(!loaded){ fallbackRedirect(); }
+    }, 4000);
+    frame.addEventListener('load', function onLoad(){
+      loaded = true;
+      clearTimeout(fallback);
+    }, { once: true });
+    frame.src = TARGET;
+  }
+
+  function fallbackRedirect(){
+    frame.style.display = 'none';
+    var el = document.getElementById('installer');
+    el.style.display = 'flex';
+    setStage('redirecting'); showPanel('redirecting');
+    setTimeout(function(){ window.location.href = TARGET; }, 900);
+  }
+
+  if(SKIP){
+    jumpToComplete();
+  }else{
+    runStage1();
+  }
+})();
+</script>
+
+</body>
+</html>
