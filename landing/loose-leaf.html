@@ -14,6 +14,8 @@
 :root{
   --bg:        #080808;
   --bg2:       #0d0d0d;
+  --card:      #111116;
+  --raised:    #1c1c22;
   --neon:      #39ff14;
   --neon-dim:  rgba(57,255,20,.12);
   --border:    rgba(255,255,255,.08);
@@ -21,6 +23,8 @@
   --text:      #fff;
   --t-mid:     rgba(255,255,255,.5);
   --t-muted:   rgba(255,255,255,.3);
+  --red:       #ff5566;
+  --amber:     #ffcc66;
   --sans:      -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   --mono:      ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
 }
@@ -30,6 +34,7 @@ body{
   background:var(--bg);color:var(--text);font-family:var(--sans);
   -webkit-font-smoothing:antialiased;
 }
+body[data-stage="player"]{overflow-y:auto;-webkit-overflow-scrolling:touch}
 
 /* film grain, purely decorative, inline data URI — no network request */
 body::before{
@@ -43,6 +48,10 @@ body::before{
   align-items:center;justify-content:center;padding:28px 24px;
   text-align:center;
 }
+body[data-stage="player"] #installer{
+  justify-content:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding-top:22px;padding-bottom:48px;
+}
 
 .skip-btn{
   display:none;position:fixed;top:14px;right:14px;z-index:20;
@@ -53,10 +62,15 @@ body::before{
 .skip-btn:hover,.skip-btn:focus-visible{color:var(--text);border-color:var(--border-hi)}
 body[data-stage="1"] .skip-btn,
 body[data-stage="2"] .skip-btn,
-body[data-stage="3"] .skip-btn{display:inline-block}
+body[data-stage="3"] .skip-btn,
+body[data-stage="wizard-location"] .skip-btn,
+body[data-stage="wizard-station"] .skip-btn,
+body[data-stage="wizard-vault"] .skip-btn,
+body[data-stage="wizard-network"] .skip-btn{display:inline-block}
 
 .panel{display:none;flex-direction:column;align-items:center;gap:18px;width:100%;max-width:400px}
 .panel.active{display:flex}
+.panel.player-panel{max-width:480px;align-items:stretch;text-align:left}
 
 .stage-eyebrow{
   font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--neon);
@@ -93,7 +107,7 @@ body[data-stage="3"] .skip-btn{display:inline-block}
 .progress-meta span:last-child{color:var(--t-muted);text-align:right}
 
 .term-log{
-  width:100%;min-height:112px;max-height:170px;overflow-y:auto;
+  width:100%;min-height:88px;max-height:170px;overflow-y:auto;
   background:var(--bg2);border:1px solid var(--border);border-radius:8px;
   padding:14px;text-align:left;font-family:var(--mono);font-size:12px;
   color:var(--neon);line-height:1.7;
@@ -101,6 +115,23 @@ body[data-stage="3"] .skip-btn{display:inline-block}
 .term-log div{white-space:pre-wrap;word-break:break-word}
 
 .complete-note{font-size:14px;color:var(--t-mid);line-height:1.5}
+
+.field-label{
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--t-mid);align-self:flex-start;
+}
+.station-input{
+  width:100%;background:var(--bg2);border:1px solid var(--border-hi);border-radius:8px;
+  padding:14px 16px;color:var(--text);font-family:var(--mono);font-size:15px;min-height:48px;
+}
+.station-input:focus{outline:2px solid var(--neon);outline-offset:2px;border-color:var(--neon)}
+
+.token-box{
+  width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+  padding:14px;font-family:var(--mono);font-size:11px;color:var(--neon);
+  word-break:break-all;line-height:1.6;
+}
+.token-actions{display:flex;gap:10px;width:100%}
 
 .btn-primary{
   background:var(--neon);color:#000;border:0;font-family:var(--mono);
@@ -110,12 +141,13 @@ body[data-stage="3"] .skip-btn{display:inline-block}
 }
 .btn-primary:active{transform:scale(.98)}
 
-.target-tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--t-muted);text-transform:uppercase}
-.target-label{
-  font-family:var(--mono);font-size:11px;color:var(--t-muted);
-  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  padding:0 8px;
+.btn-secondary{
+  flex:1;background:transparent;border:1px solid var(--border-hi);color:var(--text);
+  font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+  padding:12px 14px;border-radius:8px;cursor:pointer;min-height:44px;width:100%;
 }
+.btn-secondary:active{transform:scale(.98)}
+.btn-secondary.copied{border-color:var(--neon);color:var(--neon)}
 
 .spinner{
   width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--neon);
@@ -123,10 +155,126 @@ body[data-stage="3"] .skip-btn{display:inline-block}
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 
-#appFrame{
-  position:fixed;inset:0;width:100%;border:0;display:none;background:#000;
-  height:100vh;height:100dvh;
+/* ── Player card ─────────────────────────────────────────────────────────── */
+.player-card{
+  width:100%;background:var(--card);border:1px solid var(--border);
+  border-radius:20px;padding:22px 20px;display:flex;flex-direction:column;
+  align-items:center;gap:12px;text-align:center;
 }
+.art-wrap{position:relative;width:112px;height:112px}
+.art-placeholder{
+  width:100%;height:100%;border-radius:14px;
+  background:radial-gradient(circle at 30% 30%,rgba(57,255,20,.18),transparent 60%),
+    linear-gradient(135deg,var(--raised),var(--bg2));
+  border:1px solid var(--border-hi);
+}
+.on-air-badge{
+  position:absolute;top:-8px;right:-8px;background:var(--neon);color:#000;
+  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;
+  padding:4px 8px;border-radius:20px;box-shadow:0 0 10px rgba(57,255,20,.5);
+}
+.station-name{font-size:16px;font-weight:600}
+.waveform{
+  width:100%;height:34px;border-radius:6px;overflow:hidden;position:relative;
+  background:linear-gradient(90deg,var(--neon-dim),transparent 75%);
+}
+.waveform::before{
+  content:'';position:absolute;inset:0;
+  background-image:repeating-linear-gradient(90deg,var(--neon) 0 2px,transparent 2px 5px);
+  opacity:.35;
+}
+.time-row{display:flex;justify-content:space-between;width:100%;font-family:var(--mono);font-size:11px;color:var(--t-mid)}
+.transport{display:flex;align-items:center;justify-content:center;gap:14px}
+.transport-btn{
+  background:transparent;border:0;color:var(--text);font-size:16px;cursor:pointer;
+  width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+}
+.transport-btn:active{background:var(--border)}
+.transport-btn--play{
+  width:52px;height:52px;background:var(--neon);color:#000;font-size:18px;
+  box-shadow:0 0 16px rgba(57,255,20,.35);
+}
+
+/* ── Status strip ────────────────────────────────────────────────────────── */
+.status-strip{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px}
+.stat-cell{
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:10px 6px;text-align:center;
+}
+.stat-cell .stat-label{
+  display:block;font-family:var(--mono);font-size:9px;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--t-muted);margin-bottom:4px;
+}
+.stat-cell .stat-value{font-size:13px;font-weight:600;color:var(--text)}
+
+/* ── Drawers ─────────────────────────────────────────────────────────────── */
+.drawers{width:100%;display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.drawer{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.drawer summary{
+  list-style:none;cursor:pointer;padding:14px 16px;display:flex;align-items:center;
+  justify-content:space-between;font-family:var(--mono);font-size:12px;font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;min-height:44px;
+}
+.drawer summary::-webkit-details-marker{display:none}
+.drawer summary::after{content:'▾';color:var(--t-muted);transition:transform .15s;font-size:11px}
+.drawer[open] summary::after{transform:rotate(180deg)}
+.drawer-body{padding:0 16px 16px;display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--t-mid)}
+
+.mini-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.mini-row:last-child{border-bottom:0}
+.mini-label{color:var(--t-mid);display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px}
+.mini-value{color:var(--text);font-family:var(--mono);font-size:12px;text-align:right}
+
+.desktop-tag{
+  font-family:var(--mono);font-size:8px;letter-spacing:.05em;color:var(--neon);
+  border:1px solid var(--neon-dim);background:var(--neon-dim);padding:2px 6px;
+  border-radius:20px;text-transform:uppercase;
+}
+
+.mini-toggle{
+  width:36px;height:20px;border-radius:10px;background:var(--bg2);border:1px solid var(--border-hi);
+  position:relative;flex-shrink:0;cursor:pointer;
+}
+.mini-toggle::after{
+  content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+  background:var(--t-muted);transition:transform .15s,background .15s;
+}
+.mini-toggle.on{background:var(--neon-dim);border-color:var(--neon)}
+.mini-toggle.on::after{transform:translateX(16px);background:var(--neon)}
+
+.kebab-wrap{position:relative}
+.kebab-btn{
+  background:transparent;border:1px solid var(--border-hi);color:var(--text);
+  width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;line-height:1;
+}
+.kebab-menu{
+  display:none;position:absolute;right:0;top:38px;background:var(--raised);
+  border:1px solid var(--border-hi);border-radius:10px;padding:6px;min-width:180px;
+  z-index:5;box-shadow:0 8px 24px rgba(0,0,0,.5);
+}
+.kebab-menu.open{display:block}
+.kebab-menu button{
+  display:block;width:100%;text-align:left;background:transparent;border:0;color:var(--text);
+  font-family:var(--mono);font-size:11px;padding:10px 8px;cursor:pointer;border-radius:6px;
+}
+.kebab-menu button:active{background:var(--border)}
+
+.collection-title{
+  font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--t-mid);margin-top:10px;
+}
+.track-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);gap:8px}
+.track-row:last-child{border-bottom:0}
+.track-title{font-size:13px;color:var(--text)}
+.track-meta{font-family:var(--mono);font-size:10px;color:var(--t-muted);margin-top:2px}
+.visibility-pill{
+  font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.05em;
+  padding:3px 7px;border-radius:20px;border:1px solid var(--border-hi);color:var(--t-mid);flex-shrink:0;
+}
+.visibility-pill.public{border-color:var(--neon);color:var(--neon)}
+.visibility-pill.vault{border-color:var(--red);color:var(--red)}
+.visibility-pill.supporters_only{border-color:var(--amber);color:var(--amber)}
 </style>
 </head>
 <body data-stage="1">
@@ -137,7 +285,7 @@ body[data-stage="3"] .skip-btn{display:inline-block}
 
   <section class="panel active" data-panel="1">
     <div>
-      <span class="stage-eyebrow">Stage 1 / 4</span>
+      <span class="stage-eyebrow">Stage 1 / 8</span>
       <h1>Checking system requirements</h1>
     </div>
     <ul id="checklist" class="checklist">
@@ -149,7 +297,7 @@ body[data-stage="3"] .skip-btn{display:inline-block}
 
   <section class="panel" data-panel="2">
     <div>
-      <span class="stage-eyebrow">Stage 2 / 4</span>
+      <span class="stage-eyebrow">Stage 2 / 8</span>
       <h1>Downloading Paperweight</h1>
     </div>
     <div class="progress-track"><div id="progressBar" class="progress-fill"></div></div>
@@ -161,70 +309,127 @@ body[data-stage="3"] .skip-btn{display:inline-block}
 
   <section class="panel" data-panel="3">
     <div>
-      <span class="stage-eyebrow">Stage 3 / 4</span>
+      <span class="stage-eyebrow">Stage 3 / 8</span>
       <h1>Configuring</h1>
     </div>
     <div id="configLog" class="term-log" aria-live="polite"></div>
   </section>
 
-  <section class="panel" data-panel="4">
+  <section class="panel" data-panel="wizard-location">
     <div>
-      <span class="stage-eyebrow">Stage 4 / 4</span>
-      <h1>Installation complete</h1>
+      <span class="stage-eyebrow">Stage 4 / 8</span>
+      <h1>Locating data folder</h1>
     </div>
-    <p class="complete-note">Paperweight is ready to open.</p>
-    <button id="launchBtn" class="btn-primary" type="button">Launch Paperweight</button>
+    <div id="locationLog" class="term-log" aria-live="polite"></div>
+  </section>
+
+  <section class="panel" data-panel="wizard-station">
     <div>
-      <div class="target-tag">Opening</div>
-      <div id="targetLabel4" class="target-label"></div>
+      <span class="stage-eyebrow">Stage 5 / 8</span>
+      <h1>Station</h1>
     </div>
+    <label class="field-label" for="stationNameInput">Station name</label>
+    <input id="stationNameInput" class="station-input" type="text" placeholder="My Cool Station" maxlength="40" autocomplete="off">
+    <button id="stationContinueBtn" class="btn-primary" type="button">Continue →</button>
+  </section>
+
+  <section class="panel" data-panel="wizard-vault">
+    <div>
+      <span class="stage-eyebrow">Stage 6 / 8</span>
+      <h1>Vault &amp; Import</h1>
+    </div>
+    <div id="vaultLog" class="term-log" aria-live="polite"></div>
+  </section>
+
+  <section class="panel" data-panel="wizard-network">
+    <div>
+      <span class="stage-eyebrow">Stage 7 / 8</span>
+      <h1>Network</h1>
+    </div>
+    <div id="networkLog" class="term-log" aria-live="polite"></div>
+  </section>
+
+  <section class="panel" data-panel="wizard-done">
+    <div>
+      <span class="stage-eyebrow">Stage 8 / 8</span>
+      <h1>Done</h1>
+    </div>
+    <p class="complete-note">Your dashboard token. Save it — it won't be shown again.</p>
+    <div id="tokenBox" class="token-box"></div>
+    <div class="token-actions">
+      <button id="copyTokenBtn" class="btn-secondary" type="button">Copy</button>
+      <button id="downloadTokenBtn" class="btn-secondary" type="button">Download .txt</button>
+    </div>
+    <button id="launchBtn" class="btn-primary" type="button">Launch Paperweight →</button>
   </section>
 
   <section class="panel" data-panel="connecting">
     <div class="spinner" aria-hidden="true"></div>
-    <p class="complete-note">Connecting…</p>
+    <p class="complete-note">Launching…</p>
   </section>
 
-  <section class="panel" data-panel="error">
-    <div>
-      <h1>Can't reach that build right now</h1>
+  <section class="panel player-panel" data-panel="player">
+    <div class="player-card">
+      <div class="art-wrap">
+        <div class="art-placeholder"></div>
+        <span class="on-air-badge">ON AIR</span>
+      </div>
+      <div id="playerStationName" class="station-name"></div>
+      <div class="waveform" aria-hidden="true"></div>
+      <div class="time-row"><span>0:41</span><span>-3:00</span></div>
+      <div class="transport">
+        <button class="transport-btn" type="button" aria-label="Share">⤴</button>
+        <button class="transport-btn" type="button" aria-label="Previous">⏮</button>
+        <button class="transport-btn transport-btn--play" type="button" aria-label="Play / pause">▶</button>
+        <button class="transport-btn" type="button" aria-label="Next">⏭</button>
+        <button class="transport-btn" type="button" aria-label="Queue">☰</button>
+      </div>
     </div>
-    <p class="complete-note">Check the deploy status, then try again.</p>
-    <button id="retryBtn" class="btn-primary" type="button">Retry</button>
-    <div>
-      <div class="target-tag">Target</div>
-      <div id="targetLabelError" class="target-label"></div>
-    </div>
-  </section>
 
-  <section class="panel" data-panel="redirecting">
-    <div class="spinner" aria-hidden="true"></div>
-    <p class="complete-note">Opening in full view…</p>
+    <div id="statusStrip" class="status-strip"></div>
+
+    <div id="drawers" class="drawers"></div>
   </section>
 
 </div>
-
-<iframe id="appFrame" title="Paperweight"></iframe>
 
 <script>
 (function(){
   'use strict';
 
-  var DEFAULT_TARGET = 'https://paperweight-git-work-bud-diazs-projects.vercel.app';
+  var FALLBACK_STATION_NAME = 'Loose Leaf Radio';
 
-  function resolveTarget(){
-    var raw = new URLSearchParams(location.search).get('target');
-    if(!raw) return DEFAULT_TARGET;
-    try{
-      var u = new URL(raw);
-      return u.protocol === 'https:' ? u.href : DEFAULT_TARGET;
-    }catch(e){
-      return DEFAULT_TARGET;
+  var STATE = {
+    stationName: '',
+    dashboardToken: ''
+  };
+
+  var COLLECTIONS = [
+    {
+      name: 'Late Night Sessions Vol. 2',
+      tracks: [
+        { title: '3AM Static', artist: 'Rollingwoods', genre: 'Lo-fi', duration: '3:41', visibility: 'public' },
+        { title: 'Amber Room', artist: 'Rollingwoods', genre: 'Ambient', duration: '4:58', visibility: 'supporters_only' },
+        { title: 'Dial Tone Reprise', artist: 'Rollingwoods', genre: 'Lo-fi', duration: '1:12', visibility: 'vault' }
+      ]
+    },
+    {
+      name: 'Demo Vault',
+      tracks: [
+        { title: 'Untitled Sketch 04', artist: 'Rollingwoods', genre: 'Experimental', duration: '2:03', visibility: 'vault' },
+        { title: 'Placeholder Anthem', artist: 'Rollingwoods', genre: 'Rock', duration: '3:15', visibility: 'vault' }
+      ]
     }
-  }
+  ];
 
-  var TARGET = resolveTarget();
-  var SKIP = new URLSearchParams(location.search).get('skip') === '1';
+  var STATS = [
+    { label: 'Broadcast', value: 'LIVE' },
+    { label: 'Listeners', value: '9' },
+    { label: 'Station health', value: 'OK' },
+    { label: 'Schedule', value: '2 blocks' },
+    { label: 'Queue', value: '6 tracks' },
+    { label: 'Today', value: '$4.00' }
+  ];
 
   var skipRequested = false;
   var timers = [];
@@ -250,6 +455,20 @@ body[data-stage="3"] .skip-btn{display:inline-block}
 
   function setStage(name){ document.body.dataset.stage = name; }
 
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  function appendLogLine(el, text){
+    var row = document.createElement('div');
+    row.textContent = text;
+    el.appendChild(row);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  // ---- Stage 1: system checks ----
   var checkItems = document.querySelectorAll('#checklist .check-item');
 
   function runStage1(){
@@ -263,6 +482,7 @@ body[data-stage="3"] .skip-btn{display:inline-block}
     after(cum + 320, runStage2);
   }
 
+  // ---- Stage 2: download progress ----
   var progressBar = document.getElementById('progressBar');
   var progressPct = document.getElementById('progressPct');
   var keypoints = [[0,0],[800,70],[1500,72],[1900,100]];
@@ -296,6 +516,7 @@ body[data-stage="3"] .skip-btn{display:inline-block}
     requestAnimationFrame(tick);
   }
 
+  // ---- Stage 3: configuring ----
   var logPanel = document.getElementById('configLog');
   var logLines = [
     '> Writing config to ~/.paperweight',
@@ -310,81 +531,267 @@ body[data-stage="3"] .skip-btn{display:inline-block}
     var cum = 0;
     logLines.forEach(function(line){
       cum += 270;
-      after(cum, function(){
-        var row = document.createElement('div');
-        row.textContent = line;
-        logPanel.appendChild(row);
-        logPanel.scrollTop = logPanel.scrollHeight;
-      });
+      after(cum, function(){ appendLogLine(logPanel, line); });
     });
-    after(cum + 500, runStage4);
+    after(cum + 400, runWizardLocation);
   }
 
-  function runStage4(){
-    setStage('4'); showPanel('4');
-    document.getElementById('targetLabel4').textContent = TARGET;
-    document.getElementById('targetLabelError').textContent = TARGET;
+  // ---- Stage 4: wizard — data location ----
+  var locationLog = document.getElementById('locationLog');
+
+  function runWizardLocation(){
+    setStage('wizard-location'); showPanel('wizard-location');
+    locationLog.textContent = '';
+    after(280, function(){ appendLogLine(locationLog, '~/Paperweight/data'); });
+    after(650, runWizardStation);
   }
 
-  function jumpToComplete(){
+  // ---- Stage 5: wizard — station name ----
+  var stationInput = document.getElementById('stationNameInput');
+
+  function runWizardStation(){
+    setStage('wizard-station'); showPanel('wizard-station');
+  }
+
+  document.getElementById('stationContinueBtn').addEventListener('click', function(){
+    STATE.stationName = stationInput.value.trim() || FALLBACK_STATION_NAME;
+    runWizardVault();
+  });
+
+  // ---- Stage 6: wizard — vault & import ----
+  var vaultLog = document.getElementById('vaultLog');
+  var vaultLines = [
+    'Vault folder: ~/Paperweight/data/vault',
+    'Vault mode: Hybrid (recommended)',
+    'Initial import visibility: Private (Vault)'
+  ];
+
+  function runWizardVault(){
+    setStage('wizard-vault'); showPanel('wizard-vault');
+    vaultLog.textContent = '';
+    var cum = 0;
+    vaultLines.forEach(function(line){
+      cum += 210;
+      after(cum, function(){ appendLogLine(vaultLog, line); });
+    });
+    after(cum + 350, runWizardNetwork);
+  }
+
+  // ---- Stage 7: wizard — network ----
+  var networkLog = document.getElementById('networkLog');
+  var networkLines = [
+    'Cloudflare tunnel: not configured',
+    'Public URL: —',
+    'Creating station...'
+  ];
+
+  function runWizardNetwork(){
+    setStage('wizard-network'); showPanel('wizard-network');
+    networkLog.textContent = '';
+    var cum = 0;
+    networkLines.forEach(function(line){
+      cum += 220;
+      after(cum, function(){ appendLogLine(networkLog, line); });
+    });
+    after(cum + 350, runWizardDone);
+  }
+
+  // ---- Stage 8: wizard — done ----
+  function generateFakeToken(){
+    var bytes = new Uint8Array(32);
+    if(window.crypto && crypto.getRandomValues){
+      crypto.getRandomValues(bytes);
+    }else{
+      for(var i = 0; i < bytes.length; i++){ bytes[i] = Math.floor(Math.random() * 256); }
+    }
+    return Array.from(bytes, function(b){ return b.toString(16).padStart(2, '0'); }).join('');
+  }
+
+  function runWizardDone(){
+    setStage('wizard-done'); showPanel('wizard-done');
+    if(!STATE.stationName){ STATE.stationName = FALLBACK_STATION_NAME; }
+    if(!STATE.dashboardToken){ STATE.dashboardToken = generateFakeToken(); }
+    document.getElementById('tokenBox').textContent = STATE.dashboardToken;
+  }
+
+  function jumpToDone(){
     skipRequested = true;
     clearTimers();
-    runStage4();
+    runWizardDone();
   }
 
-  document.getElementById('skipBtn').addEventListener('click', jumpToComplete);
+  document.getElementById('skipBtn').addEventListener('click', jumpToDone);
+
+  document.getElementById('copyTokenBtn').addEventListener('click', function(){
+    var btn = this;
+    if(!(navigator.clipboard && navigator.clipboard.writeText)) return;
+    navigator.clipboard.writeText(STATE.dashboardToken).then(function(){
+      var original = btn.textContent;
+      btn.textContent = 'Copied';
+      btn.classList.add('copied');
+      setTimeout(function(){ btn.textContent = original; btn.classList.remove('copied'); }, 1500);
+    }).catch(function(){});
+  });
+
+  document.getElementById('downloadTokenBtn').addEventListener('click', function(){
+    var blob = new Blob([STATE.dashboardToken + '\n'], { type: 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'paperweight-token.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  });
+
   document.getElementById('launchBtn').addEventListener('click', launch);
-  document.getElementById('retryBtn').addEventListener('click', launch);
 
-  var frame = document.getElementById('appFrame');
+  function launch(){
+    setStage('connecting'); showPanel('connecting');
+    setTimeout(function(){
+      buildPlayer();
+      setStage('player'); showPanel('player');
+    }, 700);
+  }
 
-  function checkReachable(url){
-    return new Promise(function(resolve){
-      var settled = false;
-      var timer = setTimeout(function(){
-        if(!settled){ settled = true; resolve(false); }
-      }, 5000);
-      try{
-        fetch(url, { mode: 'no-cors', cache: 'no-store' })
-          .then(function(){ if(!settled){ settled = true; clearTimeout(timer); resolve(true); } })
-          .catch(function(){ if(!settled){ settled = true; clearTimeout(timer); resolve(false); } });
-      }catch(e){
-        if(!settled){ settled = true; clearTimeout(timer); resolve(false); }
+  // ---- Mock player / dashboard ----
+  var playerBuilt = false;
+
+  function buildPlayer(){
+    if(playerBuilt) return;
+    playerBuilt = true;
+    document.getElementById('playerStationName').textContent = STATE.stationName;
+    buildStatusStrip();
+    buildDrawers();
+  }
+
+  function buildStatusStrip(){
+    var strip = document.getElementById('statusStrip');
+    strip.innerHTML = STATS.map(function(s){
+      return '<div class="stat-cell"><span class="stat-label">' + escapeHtml(s.label) +
+        '</span><span class="stat-value">' + escapeHtml(s.value) + '</span></div>';
+    }).join('');
+  }
+
+  function desktopTag(){
+    return '<span class="desktop-tag">Desktop</span>';
+  }
+
+  function valueRow(label, value, desktop){
+    return '<div class="mini-row"><span class="mini-label">' + escapeHtml(label) +
+      (desktop ? desktopTag() : '') + '</span><span class="mini-value">' + escapeHtml(value) + '</span></div>';
+  }
+
+  function toggleRow(label, on, desktop){
+    return '<div class="mini-row"><span class="mini-label">' + escapeHtml(label) +
+      (desktop ? desktopTag() : '') + '</span><span class="mini-toggle' + (on ? ' on' : '') + '"></span></div>';
+  }
+
+  function renderStationDrawer(){
+    return (
+      valueRow('Station name', STATE.stationName) +
+      toggleRow('Live source: MIC / EXTERNAL', false, true) +
+      toggleRow('Searchable in Directory', false, true) +
+      valueRow('Cloudflare Tunnel', 'Not configured', true) +
+      toggleRow('Radio Host Mode', false, true) +
+      '<div class="mini-row"><span class="mini-label">Power controls' + desktopTag() + '</span>' +
+        '<div class="kebab-wrap">' +
+          '<button type="button" class="kebab-btn" data-kebab-toggle data-desktop-only>⋮</button>' +
+          '<div class="kebab-menu" data-kebab-menu>' +
+            '<button type="button">Stop Broadcast</button>' +
+            '<button type="button">Restart Broadcast</button>' +
+            '<button type="button">Disconnect Tunnel</button>' +
+            '<button type="button">Restart Server</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<button type="button" class="btn-secondary" data-desktop-only>+ Add Schedule Block ' + desktopTag() + '</button>'
+    );
+  }
+
+  function renderCommunityDrawer(){
+    return valueRow('Followers', '128') + valueRow('Pending requests', '3');
+  }
+
+  function renderLibraryDrawer(){
+    var html = valueRow('Tokens', '1', true) +
+      '<button type="button" class="btn-secondary" data-desktop-only>Import Folder… ' + desktopTag() + '</button>' +
+      '<button type="button" class="btn-secondary" data-desktop-only>Search &amp; Add Content ' + desktopTag() + '</button>';
+    COLLECTIONS.forEach(function(col){
+      html += '<div class="collection-title">' + escapeHtml(col.name) + '</div>';
+      col.tracks.forEach(function(t){
+        html += '<div class="track-row"><div><div class="track-title">' + escapeHtml(t.title) +
+          '</div><div class="track-meta">' + escapeHtml(t.artist) + ' · ' + escapeHtml(t.genre) + ' · ' + escapeHtml(t.duration) +
+          '</div></div><span class="visibility-pill ' + t.visibility + '">' + t.visibility.replace('_', ' ') + '</span></div>';
+      });
+    });
+    return html;
+  }
+
+  function renderMonetizationDrawer(){
+    return valueRow('Supporters', '4') + valueRow('This month', '$12.00');
+  }
+
+  function renderAnalyticsDrawer(){
+    return valueRow('Peak listeners today', '9') + valueRow('Avg session', '6m') + valueRow('Plays today', '41');
+  }
+
+  function renderSecurityDrawer(){
+    return valueRow('Active tokens', '1') + valueRow('Locked tracks', '2');
+  }
+
+  var DRAWERS = [
+    { key: 'station', title: 'Station & Broadcast', render: renderStationDrawer },
+    { key: 'community', title: 'Community', render: renderCommunityDrawer },
+    { key: 'library', title: 'Library', render: renderLibraryDrawer },
+    { key: 'monetization', title: 'Monetization', render: renderMonetizationDrawer },
+    { key: 'analytics', title: 'Analytics', render: renderAnalyticsDrawer },
+    { key: 'security', title: 'Security & Devices', render: renderSecurityDrawer }
+  ];
+
+  function buildDrawers(){
+    var wrap = document.getElementById('drawers');
+    wrap.innerHTML = DRAWERS.map(function(d, i){
+      return '<details class="drawer"' + (i === 0 ? ' open' : '') + ' data-drawer="' + d.key + '">' +
+        '<summary>' + escapeHtml(d.title) + '</summary>' +
+        '<div class="drawer-body">' + d.render() + '</div></details>';
+    }).join('');
+
+    var details = wrap.querySelectorAll('details.drawer');
+    details.forEach(function(el){
+      el.addEventListener('toggle', function(){
+        if(el.open){
+          details.forEach(function(other){ if(other !== el) other.open = false; });
+        }
+      });
+    });
+
+    wrap.addEventListener('click', function(e){
+      var kebabBtn = e.target.closest('[data-kebab-toggle]');
+      if(kebabBtn){
+        e.preventDefault();
+        var menu = kebabBtn.nextElementSibling;
+        var wasOpen = menu.classList.contains('open');
+        wrap.querySelectorAll('.kebab-menu.open').forEach(function(m){ m.classList.remove('open'); });
+        if(!wasOpen) menu.classList.add('open');
+        return;
+      }
+      var toggleSwitch = e.target.closest('.mini-toggle');
+      if(toggleSwitch){
+        toggleSwitch.classList.toggle('on');
+        return;
+      }
+      if(!e.target.closest('.kebab-wrap')){
+        wrap.querySelectorAll('.kebab-menu.open').forEach(function(m){ m.classList.remove('open'); });
       }
     });
   }
 
-  function launch(){
-    setStage('connecting'); showPanel('connecting');
-    checkReachable(TARGET).then(function(ok){
-      if(ok){ showFrame(); }else{ setStage('error'); showPanel('error'); }
-    });
-  }
-
-  function showFrame(){
-    document.getElementById('installer').style.display = 'none';
-    frame.style.display = 'block';
-    var loaded = false;
-    var fallback = setTimeout(function(){
-      if(!loaded){ fallbackRedirect(); }
-    }, 4000);
-    frame.addEventListener('load', function onLoad(){
-      loaded = true;
-      clearTimeout(fallback);
-    }, { once: true });
-    frame.src = TARGET;
-  }
-
-  function fallbackRedirect(){
-    frame.style.display = 'none';
-    var el = document.getElementById('installer');
-    el.style.display = 'flex';
-    setStage('redirecting'); showPanel('redirecting');
-    setTimeout(function(){ window.location.href = TARGET; }, 900);
-  }
+  var SKIP = new URLSearchParams(location.search).get('skip') === '1';
 
   if(SKIP){
-    jumpToComplete();
+    jumpToDone();
   }else{
     runStage1();
   }
