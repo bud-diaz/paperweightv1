@@ -151,11 +151,6 @@ body[data-stage="wizard-network"] .skip-btn{display:inline-block}
   border-radius:50%;animation:spin .8s linear infinite;
 }
 @keyframes spin{to{transform:rotate(360deg)}}
-
-#appFrame{
-  position:fixed;inset:0;width:100%;border:0;display:none;background:#000;
-  height:100vh;height:100dvh;
-}
 </style>
 </head>
 <body data-stage="1">
@@ -271,8 +266,6 @@ body[data-stage="wizard-network"] .skip-btn{display:inline-block}
   </section>
 
 </div>
-
-<iframe id="appFrame" title="Paperweight"></iframe>
 
 <script>
 (function(){
@@ -512,8 +505,6 @@ body[data-stage="wizard-network"] .skip-btn{display:inline-block}
   document.getElementById('launchBtn').addEventListener('click', launch);
   document.getElementById('retryBtn').addEventListener('click', launch);
 
-  var frame = document.getElementById('appFrame');
-
   function checkReachable(url){
     return new Promise(function(resolve){
       var settled = false;
@@ -533,30 +524,21 @@ body[data-stage="wizard-network"] .skip-btn{display:inline-block}
   function launch(){
     setStage('connecting'); showPanel('connecting');
     checkReachable(TARGET).then(function(ok){
-      if(ok){ showFrame(); }else{ setStage('error'); showPanel('error'); }
+      if(ok){ redirectToTarget(); }else{ setStage('error'); showPanel('error'); }
     });
   }
 
-  function showFrame(){
-    document.getElementById('installer').style.display = 'none';
-    frame.style.display = 'block';
-    var loaded = false;
-    var fallback = setTimeout(function(){
-      if(!loaded){ fallbackRedirect(); }
-    }, 4000);
-    frame.addEventListener('load', function onLoad(){
-      loaded = true;
-      clearTimeout(fallback);
-    }, { once: true });
-    frame.src = TARGET;
-  }
-
-  function fallbackRedirect(){
-    frame.style.display = 'none';
-    var el = document.getElementById('installer');
-    el.style.display = 'flex';
+  // The real app sends X-Frame-Options: deny / frame-ancestors 'none' on every
+  // route except /embed, /landing/*, and /listen (see src/index.js) to protect
+  // the dashboard session from clickjacking — intentional, not a bug, and not
+  // something to work around from here. That means the target can basically
+  // never be iframed, and WebKit fires the iframe's own 'load' event even when
+  // the frame is blocked, so there's no reliable way to detect the block and
+  // fall back afterward. Skip the iframe attempt entirely and go straight to a
+  // full-page redirect once the reachability check passes.
+  function redirectToTarget(){
     setStage('redirecting'); showPanel('redirecting');
-    setTimeout(function(){ window.location.href = TARGET; }, 900);
+    setTimeout(function(){ window.location.href = TARGET; }, 700);
   }
 
   var SKIP = new URLSearchParams(location.search).get('skip') === '1';
