@@ -33,7 +33,11 @@ function request(baseUrl, method, path, token, body) {
   return new Promise(resolve => {
     let target;
     try {
-      target = new NodeURL(path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
+      // path always starts with '/'; resolving a leading-slash reference
+      // against a base URL replaces the base's own path (e.g. `/client/v4`)
+      // instead of appending to it, per the WHATWG URL spec. Strip it so the
+      // request lands under the base's path prefix.
+      target = new NodeURL(path.replace(/^\/+/, ''), baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
     } catch {
       return resolve({ ok: false, error: 'Invalid Cloudflare API URL' });
     }
