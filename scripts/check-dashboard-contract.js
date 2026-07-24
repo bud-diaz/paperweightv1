@@ -48,11 +48,11 @@ if (process.argv.includes('--list')) {
   }
 }
 
-if (htmlIds.length !== 284) {
-  throw new Error(`Expected 284 dashboard IDs, found ${htmlIds.length}`);
+if (htmlIds.length !== 236) {
+  throw new Error(`Expected 236 dashboard IDs, found ${htmlIds.length}`);
 }
-if (desktopOnlyCount !== 15) {
-  throw new Error(`Expected 15 data-desktop-only placements, found ${desktopOnlyCount}`);
+if (desktopOnlyCount !== 13) {
+  throw new Error(`Expected 13 data-desktop-only placements, found ${desktopOnlyCount}`);
 }
 if (duplicates.length) {
   throw new Error(`Dashboard IDs are not unique: ${duplicates.map(([id, count]) => `${id} (${count})`).join(', ')}`);
