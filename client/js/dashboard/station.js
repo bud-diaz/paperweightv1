@@ -65,6 +65,8 @@ export async function loadDashStation() {
     renderTelemetryStatus(data.telemetryConfigured, !!data.slug);
     applyTunnelState(data);
     if (data.cloudflareApiConfigured) loadCloudflareZones();
+    const tunnelSection = el('paperweighthq-tunnel-section');
+    if (tunnelSection) tunnelSection.hidden = !data.paperweighthqTunnelAvailable;
     if (!data.slug) {
       el('station-unclaimed').hidden   = false;
       el('station-reg-content').hidden = true;
@@ -251,6 +253,32 @@ export function initStationHandlers() {
     button.disabled = true;
     try {
       const { res, data } = await api.dashboard.station.autoCreateTunnel(zoneId, hostname);
+      if (res.ok) {
+        msg.className   = 'dash-success-msg';
+        msg.textContent = `Tunnel created for ${data.url}.`;
+        result.hidden = false;
+        result.textContent = `Connector token: ${data.tunnelToken} — ${data.note || ''}`;
+        el('station-public-url').textContent = data.url;
+        checkStationHealth();
+      } else {
+        msg.className   = 'dash-error-msg';
+        msg.textContent = data.error || 'Could not create tunnel';
+      }
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  el('btn-paperweighthq-tunnel').addEventListener('click', async () => {
+    const button = el('btn-paperweighthq-tunnel');
+    const msg = el('paperweighthq-tunnel-msg');
+    const result = el('paperweighthq-tunnel-result');
+    msg.textContent = '';
+    msg.className = '';
+    result.hidden = true;
+    button.disabled = true;
+    try {
+      const { res, data } = await api.dashboard.station.createPaperweighthqTunnel();
       if (res.ok) {
         msg.className   = 'dash-success-msg';
         msg.textContent = `Tunnel created for ${data.url}.`;
