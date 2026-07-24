@@ -1,0 +1,140 @@
+/* Studio dashboard — status strip + drawer accordion. Scoped to the authenticated dashboard. */
+
+#dash-content { padding: 10px; }
+.studio-drawers { min-width: 0; }
+
+.console-status-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--border);
+  box-shadow: var(--shadow-1), var(--shadow-edge-top);
+}
+
+.console-status-cell {
+  min-width: 0;
+  min-height: 66px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  padding: 9px 11px;
+  color: var(--t1);
+  background: color-mix(in srgb, var(--raised) 68%, transparent);
+  -webkit-backdrop-filter: blur(var(--vibrancy-blur-sm)) saturate(var(--vibrancy-sat));
+  backdrop-filter: blur(var(--vibrancy-blur-sm)) saturate(var(--vibrancy-sat));
+  border: 0;
+  text-align: left;
+}
+
+.console-status-button {
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out-macos), color var(--dur-fast) var(--ease-out-macos);
+}
+.console-status-button:hover,
+.console-status-button:focus-visible { background: color-mix(in srgb, var(--raised) 88%, transparent); outline: none; }
+.console-status-button::after { content: 'TAP TO CHANGE'; font-size: 7px; letter-spacing: .1em; color: var(--t4); }
+[data-console-status-cell="broadcast"].console-status-button::after { content: 'TAP TO GO LIVE'; }
+
+.console-status-label {
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: .15em;
+  color: var(--t4);
+  text-transform: uppercase;
+}
+.console-status-value {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'DM Serif Display', serif;
+  font-size: 17px;
+  line-height: 1.05;
+  color: var(--t1);
+}
+.console-status-value.is-live,
+.console-status-value.is-error { color: #ff5566; }
+.console-status-value.is-ok { color: #39ff14; }
+.console-status-sub {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 8px;
+  color: var(--t3);
+}
+
+/* ── Drawer accordion ── */
+
+.studio-drawer-list { display: flex; flex-direction: column; }
+
+.studio-drawer { border-bottom: 1px solid var(--border); }
+.studio-drawer:last-child { border-bottom: none; }
+
+.studio-drawer-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+  user-select: none;
+  transition: background-color var(--dur-fast) var(--ease-out-macos);
+}
+.studio-drawer-head:hover { background: rgba(255,255,255,.03); }
+
+.studio-drawer-title {
+  flex: 1;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--t1);
+  text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(240,240,244,.35);
+}
+
+.studio-drawer-chevron {
+  color: var(--t3);
+  font-size: 10px;
+  line-height: 1;
+  flex-shrink: 0;
+  transform: rotate(-90deg);
+  transition: transform .2s var(--ease-out-macos);
+}
+.studio-drawer.open .studio-drawer-chevron { transform: rotate(0deg); }
+
+.studio-drawer-body {
+  height: 0;
+  overflow: hidden;
+  transition: height .28s var(--ease-out-macos);
+}
+
+.studio-drawer-content > .dash-section { padding: 6px 20px 20px; }
+.studio-drawer-content > .dash-section + .dash-section {
+  margin-top: 4px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+/* Analytics is a lone-member drawer whose head already reads "ANALYTICS";
+   its inner <details> is forced open in JS, so hide the now-redundant
+   <summary> label instead of showing a duplicate title. */
+.studio-drawer-content > #analytics-details > summary { display: none; }
+
+@media (max-width: 520px) {
+  #dash-content { padding: 8px; }
+  .console-status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

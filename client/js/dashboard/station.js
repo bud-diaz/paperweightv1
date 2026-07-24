@@ -5,7 +5,7 @@
 import * as api from '../api.js';
 import { el, esc } from '../utils.js';
 import { applyTunnelState } from './desktop-controls.js';
-import * as dashConsole from './console.js';
+import * as dashDrawers from './drawers.js';
 
 export function init() {}
 
@@ -68,7 +68,7 @@ export async function loadDashStation() {
     if (!data.slug) {
       el('station-unclaimed').hidden   = false;
       el('station-reg-content').hidden = true;
-      dashConsole.updateHealth({ label: 'UNCLAIMED', url: '' });
+      dashDrawers.updateHealth({ label: 'UNCLAIMED', url: '' });
       return;
     }
     el('station-unclaimed').hidden   = true;
@@ -108,24 +108,24 @@ export async function checkStationHealth() {
   dot.style.background = 'rgba(255,255,255,.25)';
   status.textContent   = 'Checking…';
   status.style.color   = 'rgba(255,255,255,.3)';
-  dashConsole.updateHealth({ label: 'Checking…', url: el('station-public-url')?.textContent || '' });
+  dashDrawers.updateHealth({ label: 'Checking…', url: el('station-public-url')?.textContent || '' });
   try {
     const res = await api.dashboard.station.health();
     if (res.reachable === true) {
       dot.style.background = '#39ff14';
       status.textContent   = `Reachable · ${res.latencyMs}ms`;
       status.style.color   = '#39ff14';
-      dashConsole.updateHealth({ state: 'ok', label: 'Reachable', url: el('station-public-url')?.textContent || '' });
+      dashDrawers.updateHealth({ state: 'ok', label: 'Reachable', url: el('station-public-url')?.textContent || '' });
     } else {
       dot.style.background = '#ff4466';
       status.textContent   = res.error ? `Unreachable — ${res.error}` : 'Unreachable';
       status.style.color   = '#ff4466';
-      dashConsole.updateHealth({ state: 'error', label: 'Unreachable', url: el('station-public-url')?.textContent || '' });
+      dashDrawers.updateHealth({ state: 'error', label: 'Unreachable', url: el('station-public-url')?.textContent || '' });
     }
   } catch {
     dot.style.background = 'rgba(255,255,255,.2)';
     status.textContent   = 'Check failed';
-    dashConsole.updateHealth({ state: 'error', label: 'Check failed', url: el('station-public-url')?.textContent || '' });
+    dashDrawers.updateHealth({ state: 'error', label: 'Check failed', url: el('station-public-url')?.textContent || '' });
   }
 }
 

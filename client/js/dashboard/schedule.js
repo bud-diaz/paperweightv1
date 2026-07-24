@@ -5,7 +5,7 @@
 import * as api from '../api.js';
 import { el, esc, fmt } from '../utils.js';
 import { isDesktopPlatform } from './index.js';
-import * as dashConsole from './console.js';
+import * as dashDrawers from './drawers.js';
 
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
@@ -81,7 +81,7 @@ export async function loadDashSchedule() {
     ]);
 
     const mode = (status.mode || 'shuffle').toUpperCase();
-    dashConsole.updateSchedule({ mode, block: currentBlock });
+    dashDrawers.updateSchedule({ mode, block: currentBlock });
     const modeEl = el('sched-broadcast-mode');
     const toggleBtn = el('btn-sched-mode-toggle');
     if (modeEl) {

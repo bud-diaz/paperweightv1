@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="/css/layout.css"/>
   <link rel="stylesheet" href="/css/auth.css"/>
   <link rel="stylesheet" href="/css/dashboard.css"/>
-  <link rel="stylesheet" href="/css/dashboard-console.css"/>
+  <link rel="stylesheet" href="/css/dashboard-drawers.css"/>
   <link rel="stylesheet" href="/css/stack.css"/>
 </head>
 <body>
@@ -753,7 +753,7 @@
           <div id="dash-runtime-alert" hidden></div>
 
           <!-- Station -->
-          <div class="dash-section">
+          <div class="dash-section" data-drawer="station">
             <div class="dash-section-label">STATION</div>
             <div id="station-unclaimed" hidden>No public URL registered yet.</div>
             <div id="station-reg-content">
@@ -830,7 +830,7 @@
           <div class="dash-divider"></div>
 
           <!-- Notifications, feed & account recovery -->
-          <div class="dash-section" id="dash-tools-section">
+          <div class="dash-section" id="dash-tools-section" data-drawer="community">
             <div class="dash-section-label">NOTIFICATIONS &amp; FEED</div>
             <div class="dash-edit-label">WEBHOOK URL (DISCORD-COMPATIBLE) — ANNOUNCES GO-LIVE AND NEW POSTS</div>
             <input class="dash-input dash-input-sm dash-input-gap" id="set-webhook-url" type="url" placeholder="https://discord.com/api/webhooks/…"/>
@@ -871,7 +871,7 @@
           <div class="dash-divider"></div>
 
           <!-- Creator Bio -->
-          <div class="dash-section" id="dash-bio-section">
+          <div class="dash-section" id="dash-bio-section" data-drawer="community">
             <div class="dash-section-header">
               <div class="dash-section-label">CREATOR BIO</div>
               <label class="toggle-sw" title="Toggle creator bio landing page">
@@ -941,7 +941,7 @@
           <div class="dash-divider"></div>
 
           <!-- Vault Stats -->
-          <div class="dash-section">
+          <div class="dash-section" data-drawer="library">
             <div class="dash-section-label">VAULT</div>
             <div class="vault-stat-grid">
               <button class="vault-stat-btn" id="vsb-tracks">
@@ -987,7 +987,7 @@
           <div class="dash-divider"></div>
 
           <!-- Collections -->
-          <div class="dash-section">
+          <div class="dash-section" data-drawer="library">
             <div class="dash-section-label">COLLECTIONS</div>
             <button class="mgmt-btn" id="btn-import-folder" data-desktop-only style="margin-bottom:8px;">IMPORT FOLDER…</button>
             <div id="import-folder-msg" class="dash-inline-msg" data-desktop-only></div>
@@ -1029,7 +1029,7 @@
           <div class="dash-divider"></div>
 
           <!-- All-Access Pricing -->
-          <div class="dash-section">
+          <div class="dash-section" data-drawer="monetization">
             <div class="dash-section-label">ALL-ACCESS PRICING</div>
             <div class="dash-new-proj-body">
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
@@ -1077,7 +1077,7 @@
           <div class="dash-divider"></div>
 
           <!-- Share Links -->
-          <div class="dash-section">
+          <div class="dash-section" data-drawer="library">
             <div class="dash-section-label">SHARE LINKS</div>
             <div id="dash-share-list"></div>
             <details id="dash-new-share">
@@ -1108,7 +1108,7 @@
           <div class="dash-divider"></div>
 
           <!-- Creator posts -->
-          <div class="dash-section">
+          <div class="dash-section" data-drawer="community">
             <div class="dash-section-label">POSTS</div>
             <div id="dash-posts-list"></div>
             <details id="dash-new-post">
@@ -1145,7 +1145,7 @@
           <div class="dash-divider"></div>
 
           <!-- Analytics -->
-          <div class="dash-section">
+          <div class="dash-section" data-drawer="analytics">
             <details id="analytics-details">
               <summary>
                 <div class="dash-section-label">ANALYTICS</div>
@@ -1185,7 +1185,7 @@
           <div class="dash-divider"></div>
 
           <!-- Broadcast -->
-          <div class="dash-section" id="dash-live-section">
+          <div class="dash-section" id="dash-live-section" data-drawer="station">
             <div class="dash-section-label">BROADCAST</div>
             <div class="broadcast-row">
               <div class="broadcast-info">
@@ -1221,7 +1221,7 @@
           <div class="dash-divider"></div>
 
           <!-- Schedule -->
-          <div class="dash-section">
+          <div class="dash-section" data-drawer="station">
             <div class="dash-section-label">SCHEDULE</div>
             <div id="sched-mode-bar">
               BROADCAST MODE: <span id="sched-broadcast-mode">SHUFFLE</span>
@@ -1308,7 +1308,7 @@
           <div class="dash-divider"></div>
 
           <!-- Upload -->
-          <div class="dash-section" id="dash-upload-section">
+          <div class="dash-section" id="dash-upload-section" data-drawer="library">
             <div class="dash-section-label">UPLOAD</div>
             <div class="dash-upload-zone" id="dash-upload-zone">
               <div class="dash-upload-label">DROP FILES OR CLICK TO BROWSE</div>
@@ -1338,7 +1338,7 @@
           <div class="dash-divider"></div>
 
           <!-- Search & Add Content (radio host mode only, desktop app only) -->
-          <div class="dash-section" id="dash-ext-search-section" data-desktop-only>
+          <div class="dash-section" id="dash-ext-search-section" data-desktop-only data-drawer="library">
             <div class="dash-section-label">SEARCH &amp; ADD CONTENT</div>
             <div class="ext-search-shell">
               <div class="ext-search-tabs">
@@ -1358,7 +1358,7 @@
           <div class="dash-divider"></div>
 
           <!-- Security -->
-          <div class="dash-section" id="dash-2fa-section">
+          <div class="dash-section" id="dash-2fa-section" data-drawer="security">
             <div class="dash-section-label">SECURITY</div>
             <div id="dash-2fa-status-row"></div>
             <!-- Setup: scan secret -->
@@ -1390,7 +1390,7 @@
           <div class="dash-divider"></div>
 
           <!-- Authorized devices (mobile Studio pairing) -->
-          <div class="dash-section" id="dash-devices-section">
+          <div class="dash-section" id="dash-devices-section" data-drawer="security">
             <div class="dash-section-label">AUTHORIZED DEVICES</div>
             <div class="twofa-copy">Sign a phone into Studio by scanning a QR code — no need to type your dashboard token.</div>
             <button class="mgmt-btn" id="btn-pair-device">PAIR A NEW DEVICE</button>
@@ -1403,7 +1403,7 @@
           <div class="dash-divider"></div>
 
           <!-- Payments -->
-          <div class="dash-section" id="dash-payment-section">
+          <div class="dash-section" id="dash-payment-section" data-drawer="monetization">
             <div class="dash-section-label">PAYMENTS</div>
             <div id="dash-payment-status"></div>
 
@@ -1430,7 +1430,7 @@
           <div class="dash-divider"></div>
 
           <!-- Earnings -->
-          <div class="dash-section">
+          <div class="dash-section" data-drawer="monetization">
             <details id="earnings-details">
               <summary>
                 <div class="dash-section-label">EARNINGS</div>
@@ -1449,7 +1449,7 @@
           <div class="dash-divider"></div>
 
           <!-- Tip Config -->
-          <div class="dash-section" id="tip-config-section">
+          <div class="dash-section" id="tip-config-section" data-drawer="monetization">
             <div class="dash-section-label">TIP BUTTON</div>
             <div class="tip-cfg-row">
               <div class="tip-cfg-field">

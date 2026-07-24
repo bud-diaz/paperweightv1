@@ -59,8 +59,7 @@ import * as upload      from './dashboard/upload.js';
 import * as analytics   from './dashboard/analytics.js';
 import * as twofa       from './dashboard/twofa.js';
 import * as devices     from './dashboard/devices.js';
-import * as dashConsole from './dashboard/console.js';
-import * as sections    from './dashboard/sections.js';
+import * as dashDrawers from './dashboard/drawers.js';
 import * as search      from './dashboard/search.js';
 import * as tools       from './dashboard/tools.js';
 import * as earnings    from './dashboard/earnings.js';
@@ -160,7 +159,7 @@ stack.init({
   onStashChanged: collection.loadCollection,
   editTrack: async trackId => {
     enterDashboard();
-    sections.openSection('vault', { animate: false });
+    dashDrawers.openSection('library', { animate: false });
     await vault.openTrackEditor(trackId);
   },
 });
@@ -264,8 +263,7 @@ smartPlaylists.init();
 dashPosts.init();
 twofa.init();
 devices.init();
-dashConsole.init();
-sections.init();
+dashDrawers.init();
 tools.init();
 desktopControls.init();
 

@@ -4,7 +4,7 @@
 
 import * as api from '../api.js';
 import { el, esc, showToast } from '../utils.js';
-import * as dashConsole from './console.js';
+import * as dashDrawers from './drawers.js';
 
 export function init() {}
 
@@ -52,7 +52,7 @@ export async function loadDashBroadcast() {
 export async function loadDashBroadcastQueue() {
   try {
     const { queue: q } = await api.dashboard.broadcast.getQueue();
-    dashConsole.updateQueue(q || []);
+    dashDrawers.updateQueue(q || []);
     queuedIds = (q || []).map(item => item.id);
     refreshQueueButtons();
 
