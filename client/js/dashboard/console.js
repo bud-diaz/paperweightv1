@@ -255,6 +255,7 @@ function buildLayout(content) {
 
   const station = take('STATION');
   const vault = take('VAULT');
+  const collections = take('COLLECTIONS');
   const posts = take('POSTS');
   const analytics = take('ANALYTICS');
   const topTracks = moveAnalyticsTopList(analytics);
@@ -293,11 +294,10 @@ function buildLayout(content) {
     { key: 'live-video', label: 'Live Broadcast', shortLabel: 'LIVE', span: 5, nodes: [liveVideo] },
     { key: 'schedule', label: 'Schedule', shortLabel: 'SCHEDULE', span: 8, nodes: [schedule] },
     { key: 'system', label: 'System Health', shortLabel: 'SYSTEM', span: 4, nodes: [runtimeAlert, station] },
-    { key: 'vault', label: 'Vault', shortLabel: 'VAULT', span: 4, nodes: [vault] },
+    { key: 'vault', label: 'Vault', shortLabel: 'VAULT', span: 4, nodes: [vault, collections, upload] },
     { key: 'earnings', label: 'Earnings', shortLabel: 'EARNINGS', span: 4, nodes: [earnings] },
     { key: 'analytics', label: 'Analytics', shortLabel: 'ANALYTICS', span: 6, nodes: [analytics] },
     { key: 'top-tracks', label: 'Top Tracks', shortLabel: 'TOP TRACKS', span: 6, nodes: [topTracks] },
-    { key: 'upload', label: 'Upload', shortLabel: 'UPLOAD', span: 4, nodes: [upload] },
     { key: 'posts', label: 'Posts', shortLabel: 'POSTS', span: 4, nodes: [posts] },
     { key: 'security', label: 'Security & Devices', shortLabel: 'SECURITY', span: 4, nodes: [security, devices] },
     { key: 'dash-ext-search-section', label: 'Search & Add Content', shortLabel: 'SEARCH + ADD', span: 12, nodes: [externalSearch], desktopOnly: true },
