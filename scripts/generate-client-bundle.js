@@ -21,6 +21,7 @@ const LANDING_DIR = path.join(ROOT, 'landing');
 const HLS_SRC     = path.join(ROOT, 'node_modules', 'hls.js', 'dist', 'hls.min.js');
 const MATTER_SRC  = path.join(ROOT, 'node_modules', 'matter-js', 'build', 'matter.min.js');
 const OUTPUT      = path.join(ROOT, 'src', 'client-bundle.js');
+const DOC_MANIFEST = require(path.join(ROOT, 'src', 'setup', 'docs-manifest'));
 
 const MIME = {
   '.html':  'text/html; charset=utf-8',
@@ -30,6 +31,7 @@ const MIME = {
   '.woff':  'font/woff',
   '.ttf':   'font/ttf',
   '.md':    'text/plain',
+  '.txt':   'text/plain',
   '.json':  'application/json',
   '.jpg':   'image/jpeg',
   '.jpeg':  'image/jpeg',
@@ -72,6 +74,11 @@ function listClientBundleEntries() {
   }
   entries.push({ full: HLS_SRC, urlPath: '/vendor/hls.min.js' });
   entries.push({ full: MATTER_SRC, urlPath: '/vendor/matter.min.js' });
+  // Root-level docs shown in the creator-mode Docs modal (src/setup/docs-manifest.js)
+  // — outside client/ and landing/, so they need to be listed explicitly.
+  for (const entry of DOC_MANIFEST) {
+    entries.push({ full: path.join(ROOT, entry.file), urlPath: entry.urlPath });
+  }
   return entries;
 }
 

@@ -324,7 +324,6 @@
 .console-service-status { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 .console-service-status #dash-payment-status .stat-grid { grid-template-columns: repeat(2, 1fr); }
 
-body.radio-host-mode .console-card[data-section-key="upload"] { display: none !important; }
 body:not(.radio-host-mode) .console-card[data-section-key="dash-ext-search-section"] { display: none !important; }
 
 @media (max-width: 520px) {

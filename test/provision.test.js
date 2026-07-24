@@ -11,6 +11,26 @@ const { buildEnv, provisionEnv, slugify, cleanEnvValue } = require('../src/setup
 
 test('desktop IPC modules do not load config before first-run setup', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-electron-first-run-'));
+
+  // electron/ipc/app-handlers.js and vault-handlers.js require the real
+  // 'electron' package, which only ever exists under electron/node_modules
+  // (a separate `cd electron && npm ci`) — the root project's own npm
+  // install/ci never installs it, on purpose, so the root dependency tree
+  // used by @yao-pkg/pkg builds (npm run build:exe, the Linux x64/Pi CI
+  // jobs) stays free of it. This test only cares about import-graph
+  // *ordering* (does requiring these files pull in src/config too early),
+  // not real Electron behavior, so a minimal stub satisfies the three named
+  // imports these files actually destructure (ipcMain, shell, dialog)
+  // without needing the real package. NODE_PATH is only a fallback after
+  // normal resolution, so a real electron/node_modules/electron still wins
+  // if one happens to be present.
+  const stubModulesDir = path.join(tmpDir, 'stub_node_modules');
+  fs.mkdirSync(path.join(stubModulesDir, 'electron'), { recursive: true });
+  fs.writeFileSync(
+    path.join(stubModulesDir, 'electron', 'index.js'),
+    'module.exports = { ipcMain: {}, shell: {}, dialog: {} };\n'
+  );
+
   const script = `
     const configPath = require.resolve('./src/config');
     require('./electron/ipc/app-handlers');
@@ -29,6 +49,7 @@ test('desktop IPC modules do not load config before first-run setup', () => {
         PAPERWEIGHT_ELECTRON: 'true',
         PAPERWEIGHT_DATA_ROOT: tmpDir,
         PAPERWEIGHT_ALLOW_MISSING_ENV: '',
+        NODE_PATH: stubModulesDir,
       },
     });
 
