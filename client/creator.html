@@ -423,6 +423,27 @@
   </div>
 </div>
 
+<!-- Uninstall confirmation (desktop-only, see client/js/dashboard/desktop-controls.js).
+     A custom modal rather than window.prompt() — Electron's renderer does not
+     implement window.prompt() (only alert/confirm), so it must not be used here. -->
+<div id="uninstall-modal-backdrop">
+  <div id="uninstall-modal">
+    <div id="uninstall-modal-header">
+      <span id="uninstall-modal-title">UNINSTALL</span>
+      <button id="uninstall-modal-close">×</button>
+    </div>
+    <div id="uninstall-modal-body">
+      <div id="uninstall-modal-copy">This will export your data to your Desktop, then permanently delete all Paperweight data and quit.</div>
+      <label id="uninstall-modal-label" for="uninstall-confirm-input"></label>
+      <input id="uninstall-confirm-input" class="auth-input" type="text" autocomplete="off" spellcheck="false"/>
+      <div class="uninstall-modal-actions">
+        <button id="uninstall-modal-cancel">CANCEL</button>
+        <button id="uninstall-modal-confirm">DELETE EVERYTHING</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Player -->
 <div id="layout">
 <div id="player-wrap">

@@ -106,17 +106,29 @@ async function checkForUpdates() {
   }
 }
 
-async function uninstall() {
+// A custom modal, not window.prompt() — Electron's renderer only implements
+// window.alert()/window.confirm() natively; window.prompt() returns null
+// immediately with no UI, which silently no-ops this whole flow.
+function openUninstallModal() {
   if (!window.desktopAPI) return;
   const stationName = window._stationName || '';
-  const phrase = prompt(
-    `This will export your data to your Desktop, then permanently delete all Paperweight data and quit.\n\nType your station name to confirm: ${stationName}`
-  );
-  if (phrase === null) return;
+  el('uninstall-modal-label').textContent = `Type your station name to confirm: ${stationName}`;
+  el('uninstall-confirm-input').value = '';
+  el('uninstall-modal-backdrop').classList.add('open');
+}
+
+function closeUninstallModal() {
+  el('uninstall-modal-backdrop').classList.remove('open');
+}
+
+async function confirmUninstall() {
+  const stationName = window._stationName || '';
+  const phrase = el('uninstall-confirm-input').value;
   if (phrase !== stationName) {
     showToast('Confirmation text did not match — nothing was deleted');
     return;
   }
+  closeUninstallModal();
   showToast('Exporting and uninstalling…');
   const result = await window.desktopAPI.uninstall(phrase);
   if (result && result.ok === false) {
@@ -137,5 +149,12 @@ export function initDesktopControlsHandlers() {
   el('dp-restart-server').addEventListener('click', restartServer);
   el('dp-stop-both').addEventListener('click', stopBoth);
   el('desktop-update-btn').addEventListener('click', checkForUpdates);
-  el('desktop-uninstall-btn').addEventListener('click', uninstall);
+  el('desktop-uninstall-btn').addEventListener('click', openUninstallModal);
+
+  el('uninstall-modal-close').addEventListener('click', closeUninstallModal);
+  el('uninstall-modal-cancel').addEventListener('click', closeUninstallModal);
+  el('uninstall-modal-confirm').addEventListener('click', confirmUninstall);
+  el('uninstall-modal-backdrop').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeUninstallModal();
+  });
 }
