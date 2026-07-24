@@ -1,0 +1,1418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Paperweight — Loose Leaf</title>
+<style>
+/* ============================================================
+   TOKENS — mirrors client/css/tokens.css :root block
+   ============================================================ */
+:root {
+  --bg:       #0a0a0c;
+  --card:     #111116;
+  --inset:    #0d0d11;
+  --raised:   #1c1c22;
+  --border:   rgba(255,255,255,.08);
+  --border-strong: rgba(255,255,255,.14);
+  --border-hairline-top: rgba(255,255,255,.13);
+  --t1: #f0f0f4;
+  --t2: rgba(240,240,244,.55);
+  --t3: rgba(240,240,244,.28);
+  --t4: rgba(240,240,244,.12);
+  --radius-card: 20px;
+  --radius-md:   10px;
+  --radius-sm:   8px;
+  --radius-xs:   4px;
+
+  --shadow-1: 0 1px 2px rgba(0,0,0,.3), 0 1px 1px rgba(0,0,0,.2);
+  --shadow-2: 0 8px 24px rgba(0,0,0,.45);
+  --shadow-3: 0 16px 40px rgba(0,0,0,.55);
+  --shadow-edge-top: inset 0 1px 0 rgba(255,255,255,.07);
+
+  --vibrancy-blur-sm: 10px;
+  --vibrancy-sat: 1.4;
+  --vibrancy-bg: rgba(20,20,24,.72);
+
+  --track-glow-color: #39ff14;
+  --track-glow-color-soft: #39ff1459;
+  --live-red: #ff5566;
+
+  --ease-out-macos: cubic-bezier(.16,1,.3,1);
+  --dur-fast: .12s;
+  --dur-med:  .2s;
+  --dur-slow: .35s;
+
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+  --serif: Georgia, 'Times New Roman', serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: .001ms !important; animation-duration: .001ms !important; }
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+html { height: 100%; }
+body {
+  width: 100%; min-height: 100dvh;
+  background-color: var(--bg);
+  background-image: radial-gradient(ellipse at 50% -10%, rgba(255,255,255,.05), transparent 60%);
+  font-family: var(--mono);
+  color: var(--t1);
+  overflow-x: hidden;
+}
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+::-webkit-scrollbar-track { background: transparent; }
+button, input, select, textarea { font-family: inherit; }
+a { color: inherit; }
+
+/* ============================================================
+   INSTALLER — styled after electron/renderer/setup.css
+   ============================================================ */
+#installer-root { min-height: 100dvh; display: flex; flex-direction: column; }
+.install-stage { display: none; flex: 1; flex-direction: column; padding: 28px 20px 40px; max-width: 560px; margin: 0 auto; width: 100%; }
+.install-stage.current { display: flex; }
+
+.install-brand { font-size: 11px; letter-spacing: .18em; color: var(--t4); text-transform: uppercase; margin-bottom: 18px; }
+.install-h1 { font-family: var(--serif); font-size: 24px; color: var(--t1); margin-bottom: 6px; }
+.install-sub { color: var(--t3); font-size: 13px; margin-bottom: 26px; line-height: 1.5; }
+
+.stepper { display: flex; list-style: none; gap: 4px; margin-bottom: 26px; }
+.stepper li { flex: 1; text-align: center; font-size: 9px; letter-spacing: .06em; color: var(--t4); padding-bottom: 8px; border-bottom: 2px solid var(--border); text-transform: uppercase; }
+.stepper li.active { color: var(--t1); border-bottom-color: var(--track-glow-color); }
+.stepper li.completed { color: var(--t3); border-bottom-color: rgba(57,255,20,.35); }
+
+.install-label { display: block; font-size: 11px; color: var(--t2); letter-spacing: .04em; margin-bottom: 16px; }
+.install-label .req { color: var(--live-red); }
+.install-field {
+  display: block; width: 100%; margin-top: 7px; padding: 11px 12px;
+  background: var(--inset); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--t1); font-size: 14px; font-family: var(--mono); outline: none;
+}
+.install-field:focus { border-color: var(--border-strong); }
+.install-field[readonly] { color: var(--t2); }
+textarea.install-field { resize: vertical; min-height: 64px; }
+
+.install-hint { color: var(--t3); font-size: 11px; margin: 6px 0 16px; line-height: 1.5; }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.chip {
+  background: var(--raised); border: 1px solid var(--border); border-radius: 999px;
+  color: var(--t2); font-size: 11px; padding: 7px 13px; cursor: pointer;
+  font-family: var(--mono); transition: border-color .12s, color .12s;
+}
+.chip:hover, .chip.picked { border-color: var(--track-glow-color); color: var(--t1); }
+
+fieldset.install-fieldset { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 16px; padding: 12px 14px; }
+fieldset.install-fieldset legend { font-size: 10px; color: var(--t3); letter-spacing: .1em; text-transform: uppercase; padding: 0 4px; }
+.install-radio { display: flex; align-items: center; gap: 7px; margin: 8px 0; font-size: 12px; color: var(--t2); cursor: pointer; }
+.install-radio input { accent-color: var(--track-glow-color); width: 15px; height: 15px; }
+
+.install-nav { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 24px; }
+.install-btn {
+  cursor: pointer; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  padding: 11px 18px; font-size: 12px; letter-spacing: .06em; background: var(--raised); color: var(--t1);
+  font-family: var(--mono); transition: background .12s, transform .12s;
+}
+.install-btn:hover { background: rgba(255,255,255,.12); transform: translateY(-1px); }
+.install-btn:active { transform: translateY(0); }
+.install-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.install-btn-primary { margin-left: auto; background: var(--track-glow-color); color: #0a0a0c; font-weight: 700; border-color: var(--track-glow-color); }
+.install-btn-primary:hover { background: #2fe00f; }
+.install-skip { margin-left: auto; background: none; border: none; color: var(--t3); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; padding: 8px; font-family: var(--mono); }
+.install-skip:hover { color: var(--t1); }
+.install-topline { display: flex; justify-content: flex-end; padding: 12px 16px 0; }
+
+.term-log {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 16px; font-size: 12px; line-height: 1.85; color: var(--t2); flex: 1; overflow-y: auto;
+  min-height: 220px; max-height: 50dvh;
+}
+.term-line { white-space: pre; opacity: 0; animation: term-in .18s forwards; }
+@keyframes term-in { to { opacity: 1; } }
+.term-ok   { color: var(--track-glow-color); }
+.term-sec  { color: var(--t4); margin-top: 6px; }
+.term-note { color: var(--t3); }
+
+.token-field-row { display: flex; gap: 8px; align-items: stretch; }
+.token-field-row .install-field { flex: 1; }
+.done-icon { font-size: 34px; color: var(--track-glow-color); margin-bottom: 10px; }
+/* ============================================================
+   TOPBAR / SETTINGS DROPDOWN / VIEW TOGGLE — mirrors client/creator.html + layout.css
+   ============================================================ */
+#shell-root { min-height: 100dvh; display: flex; flex-direction: column; }
+#topbar {
+  display: grid; grid-template-columns: 1fr auto 1fr; grid-template-rows: auto auto;
+  align-items: center; gap: 8px 10px; padding: 10px 12px; position: sticky; top: 0; z-index: 40;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(var(--vibrancy-blur-sm)) saturate(var(--vibrancy-sat));
+  backdrop-filter: blur(var(--vibrancy-blur-sm)) saturate(var(--vibrancy-sat));
+  border-bottom: 1px solid var(--border);
+}
+.pw-brand { grid-column: 1; grid-row: 1; display: flex; align-items: center; gap: 6px; }
+.pw-wordmark { font-family: var(--serif); font-size: 16px; color: var(--t1); }
+
+.pw-settings-wrap { grid-column: 3; grid-row: 1; justify-self: end; position: relative; }
+.pw-settings-btn {
+  background: none; border: none; cursor: pointer; padding: 2px 4px;
+  color: var(--t3); font-size: 17px; line-height: 1; transition: color .15s;
+}
+.pw-settings-btn:hover { color: var(--t1); }
+.pw-settings-dropdown {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 60;
+  min-width: 200px; max-height: calc(100dvh - 80px); overflow-y: auto;
+  background: var(--raised); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-2);
+  padding: 4px; display: flex; flex-direction: column;
+}
+.pw-settings-dropdown[hidden] { display: none; }
+.pw-settings-dropdown-item {
+  display: block; width: 100%; text-align: left;
+  background: none; border: none; cursor: pointer;
+  border-radius: var(--radius-xs); padding: 9px 10px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .06em; color: var(--t1);
+}
+.pw-settings-dropdown-item:hover { background: var(--inset); }
+.pw-power-divider { height: 1px; background: var(--border); margin: 4px 2px; }
+.pw-power-dropdown-item:disabled { opacity: .35; cursor: not-allowed; }
+.pw-power-dropdown-item:disabled:hover { background: none; }
+.pw-power-danger { color: rgba(255,100,100,.8); }
+
+#view-toggle {
+  grid-column: 1 / -1; grid-row: 2; justify-self: center;
+  display: flex; align-items: center;
+  background: var(--vibrancy-bg);
+  -webkit-backdrop-filter: blur(var(--vibrancy-blur-sm)) saturate(var(--vibrancy-sat));
+  backdrop-filter: blur(var(--vibrancy-blur-sm)) saturate(var(--vibrancy-sat));
+  border-radius: 999px; border: 1px solid var(--border-strong);
+  padding: 3px; gap: 2px; box-shadow: var(--shadow-1), var(--shadow-edge-top);
+}
+.view-tab {
+  background: none; border: none; cursor: pointer;
+  font-family: var(--mono); font-size: 12px; letter-spacing: .1em;
+  padding: 6px 13px; border-radius: 999px; color: var(--t3);
+  transition: background var(--dur-fast) var(--ease-out-macos), color var(--dur-fast) var(--ease-out-macos);
+}
+.view-tab:hover:not(.active) { background: rgba(255,255,255,.05); color: var(--t2); }
+.view-tab.active {
+  background: linear-gradient(160deg, rgba(255,255,255,.14), var(--raised) 55%);
+  color: var(--t1);
+}
+
+.tab-panel { display: none; flex: 1; }
+.tab-panel.active { display: flex; flex-direction: column; }
+.stub-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 60px 20px; text-align: center; }
+.stub-panel-title { font-family: var(--serif); font-size: 20px; color: var(--t2); }
+.stub-panel-sub { font-size: 11px; color: var(--t4); letter-spacing: .06em; max-width: 260px; line-height: 1.6; }
+/* ============================================================
+   STATUS STRIP + DRAWER ACCORDION — mirrors client/css/dashboard-drawers.css
+   ============================================================ */
+#dash-content { padding: 10px; }
+
+.console-status-strip {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px;
+  margin-bottom: 8px; overflow: hidden; border: 1px solid var(--border);
+  border-radius: var(--radius-md); background: var(--border);
+  box-shadow: var(--shadow-1), var(--shadow-edge-top);
+}
+.console-status-cell {
+  min-width: 0; min-height: 66px; display: flex; flex-direction: column;
+  align-items: flex-start; justify-content: center; gap: 3px; padding: 9px 11px;
+  color: var(--t1); background: color-mix(in srgb, var(--raised) 68%, transparent);
+  -webkit-backdrop-filter: blur(var(--vibrancy-blur-sm)) saturate(var(--vibrancy-sat));
+  backdrop-filter: blur(var(--vibrancy-blur-sm)) saturate(var(--vibrancy-sat));
+  border: 0; text-align: left; font-family: inherit;
+}
+.console-status-button { width: 100%; cursor: pointer; transition: background var(--dur-fast) var(--ease-out-macos); }
+.console-status-button:hover { background: color-mix(in srgb, var(--raised) 88%, transparent); }
+.console-status-button::after { content: 'TAP TO CHANGE'; font-size: 7px; letter-spacing: .1em; color: var(--t4); }
+[data-status-cell="broadcast"].console-status-button::after { content: 'TAP TO GO LIVE'; }
+.console-status-label { font-size: 8px; line-height: 1; letter-spacing: .15em; color: var(--t4); text-transform: uppercase; }
+.console-status-value {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--serif); font-size: 17px; line-height: 1.05; color: var(--t1);
+}
+.console-status-value.is-live, .console-status-value.is-error { color: var(--live-red); }
+.console-status-value.is-ok { color: var(--track-glow-color); }
+.console-status-sub { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; color: var(--t3); }
+
+.studio-drawer-list { display: flex; flex-direction: column; }
+.studio-drawer { border-bottom: 1px solid var(--border); }
+.studio-drawer:last-child { border-bottom: none; }
+.studio-drawer-head {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 14px 20px;
+  background: none; border: none; cursor: pointer; color: inherit; text-align: left;
+  user-select: none; transition: background-color var(--dur-fast) var(--ease-out-macos);
+}
+.studio-drawer-head:hover { background: rgba(255,255,255,.03); }
+.studio-drawer-title {
+  flex: 1; font-family: var(--mono); font-size: 13px; font-weight: 700; letter-spacing: .14em;
+  color: var(--t1); text-transform: uppercase; text-shadow: 0 0 8px rgba(240,240,244,.35);
+}
+.studio-drawer-chevron { color: var(--t3); font-size: 10px; line-height: 1; flex-shrink: 0; transform: rotate(-90deg); transition: transform .2s var(--ease-out-macos); }
+.studio-drawer.open .studio-drawer-chevron { transform: rotate(0deg); }
+.studio-drawer-body { max-height: 0; overflow: hidden; transition: max-height .28s var(--ease-out-macos); }
+.studio-drawer.open .studio-drawer-body { max-height: 2600px; }
+.studio-drawer-content > .dash-section { padding: 6px 20px 20px; }
+.studio-drawer-content > .dash-section + .dash-section { margin-top: 4px; padding-top: 20px; border-top: 1px solid var(--border); }
+/* ============================================================
+   DASHBOARD COMPONENTS — mirrors client/css/dashboard.css
+   ============================================================ */
+.dash-section-label {
+  font-size: 12px; letter-spacing: .16em; color: var(--t2); font-family: var(--mono);
+  margin-bottom: 12px; display: flex; align-items: center; gap: 12px; font-weight: 700;
+}
+.dash-section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+.stat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.stat-card { background: var(--raised); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 10px; text-align: center; box-shadow: var(--shadow-1); }
+.stat-val { font-family: var(--serif); font-size: 26px; color: var(--t1); line-height: 1; }
+.stat-key { font-family: var(--mono); font-size: 10px; color: var(--t3); letter-spacing: .1em; margin-top: 5px; }
+
+.vault-stat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.vault-stat-btn {
+  background: var(--raised); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 14px 10px; text-align: center; cursor: pointer; width: 100%; box-shadow: var(--shadow-1);
+  transition: border-color var(--dur-fast) var(--ease-out-macos), transform var(--dur-fast) var(--ease-out-macos);
+  font-family: inherit;
+}
+.vault-stat-btn:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.vault-stat-btn.active { border-color: rgba(255,255,255,.28); }
+.vault-panel { padding-top: 10px; }
+
+.dash-divider { height: 1px; background: var(--border); margin: 20px 20px 0; }
+
+.sched-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius-sm); border-left: 2px solid transparent; margin: 0 -4px 4px; }
+.sched-row.live-now { border-left-color: var(--track-glow-color); background: rgba(255,255,255,.03); }
+.sched-info { display: flex; flex-direction: column; gap: 2px; }
+.sched-title { font-family: var(--serif); font-size: 15px; color: var(--t2); }
+.sched-meta { font-family: var(--mono); font-size: 11px; color: var(--t4); }
+.sched-badge { font-size: 10px; font-family: var(--mono); letter-spacing: .1em; padding: 3px 10px; border-radius: var(--radius-xs); font-weight: 700; }
+.sched-badge.on { background: var(--track-glow-color); color: #000; }
+.sched-badge.up { background: var(--raised); color: var(--t3); border: 1px solid var(--border); }
+
+.mgmt-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-radius: var(--radius-sm); }
+.mgmt-thumb { width: 30px; height: 30px; border-radius: var(--radius-xs); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; background: var(--raised); }
+.mgmt-info { flex: 1; min-width: 0; }
+.mgmt-title { font-family: var(--serif); font-size: 14px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mgmt-meta { font-family: var(--mono); font-size: 10px; color: var(--t4); margin-top: 1px; }
+.mgmt-actions { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+
+.mgmt-btn {
+  background: var(--raised); border: 1px solid var(--border); border-radius: var(--radius-xs);
+  color: var(--t2); cursor: pointer; font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
+  padding: 7px 12px; white-space: nowrap;
+  transition: border-color var(--dur-fast) var(--ease-out-macos), color var(--dur-fast) var(--ease-out-macos), transform var(--dur-fast) var(--ease-out-macos);
+  text-decoration: none; display: inline-block;
+}
+.mgmt-btn:hover { border-color: var(--border-strong); color: var(--t1); transform: translateY(-1px); }
+.mgmt-btn.danger { background: rgba(255,50,50,.08); border-color: rgba(255,60,60,.22); color: rgba(255,100,100,.75); }
+.mgmt-btn.danger:hover { background: rgba(255,50,50,.16); color: #ff6666; }
+.mgmt-btn.active { background: rgba(57,255,20,.08); border-color: rgba(57,255,20,.3); color: #39ff14; }
+
+.dash-input {
+  background: var(--inset); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--t1); font-family: var(--mono); font-size: 12px; outline: none; padding: 9px 12px;
+  transition: border-color .15s; width: 100%;
+}
+.dash-input:focus { border-color: var(--border-strong); }
+.dash-input-sm { font-size: 11px; padding: 7px 10px; }
+.dash-input-gap { margin-bottom: 10px; }
+.dash-edit-label { font-family: var(--mono); font-size: 10px; color: var(--t3); letter-spacing: .1em; margin: 10px 0 4px; text-transform: uppercase; }
+.dash-form-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.dash-inline-msg { font-family: var(--mono); font-size: 10px; color: var(--t3); }
+
+.toggle-sw { position: relative; display: inline-flex; align-items: center; cursor: pointer; gap: 8px; }
+.toggle-sw input { position: absolute; opacity: 0; width: 0; height: 0; }
+.toggle-track { position: relative; width: 32px; height: 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--border); transition: background .15s, border-color .15s; flex-shrink: 0; }
+.toggle-track::after { content: ''; position: absolute; top: 1px; left: 1px; width: 14px; height: 14px; border-radius: 50%; background: var(--t3); transition: transform .15s, background .15s; }
+.toggle-sw input:checked + .toggle-track { background: rgba(57,255,20,.2); border-color: rgba(57,255,20,.5); }
+.toggle-sw input:checked + .toggle-track::after { transform: translateX(14px); background: #39ff14; }
+.toggle-label { font-family: var(--mono); font-size: 10px; color: var(--t3); letter-spacing: .06em; }
+
+.dash-summary { font-family: var(--mono); font-size: 11px; color: var(--t3); letter-spacing: .06em; cursor: pointer; padding: 8px 0; text-transform: uppercase; }
+.dash-summary:hover { color: var(--t2); }
+details > .dash-new-proj-body { padding-top: 8px; }
+
+.bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 70px; padding: 6px 0 2px; }
+.bar-chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; justify-content: flex-end; height: 100%; }
+.bar-chart-bar { width: 100%; max-width: 22px; background: linear-gradient(180deg, var(--track-glow-color), rgba(57,255,20,.35)); border-radius: 3px 3px 0 0; }
+.bar-chart-day { font-size: 8px; color: var(--t4); letter-spacing: .06em; }
+
+.mock-badge { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; padding: 3px 8px; border-radius: var(--radius-xs); border: 1px solid var(--border); color: var(--t3); }
+.mock-badge.on { color: var(--track-glow-color); border-color: rgba(57,255,20,.3); background: rgba(57,255,20,.08); }
+
+.dropzone {
+  border: 1px dashed var(--border-strong); border-radius: var(--radius-md); padding: 22px 12px;
+  text-align: center; color: var(--t3); font-size: 11px; letter-spacing: .04em; cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.dropzone:hover { border-color: var(--track-glow-color); color: var(--t2); }
+/* ============================================================
+   MODALS — Go-Live + Uninstall, mirrors client/css/layout.css modal idiom
+   ============================================================ */
+.pw-modal-backdrop {
+  display: none; position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.6);
+  align-items: flex-end; justify-content: center;
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+}
+.pw-modal-backdrop.open { display: flex; }
+.pw-modal {
+  background: var(--card); border: 1px solid var(--border); border-radius: 18px 18px 0 0;
+  width: 100%; max-width: 480px; max-height: 88dvh; overflow-y: auto; padding: 18px 18px 26px;
+  box-shadow: var(--shadow-3);
+}
+@media (min-width: 600px) {
+  .pw-modal-backdrop { align-items: center; }
+  .pw-modal { border-radius: var(--radius-card); }
+}
+.pw-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.pw-modal-title { font-family: var(--serif); font-size: 17px; color: var(--t1); }
+.pw-modal-close { background: none; border: none; color: var(--t3); font-size: 20px; cursor: pointer; line-height: 1; padding: 4px; }
+.pw-modal-close:hover { color: var(--t1); }
+
+.golive-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.golive-tab { flex: 1; background: var(--raised); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--t3); font-family: var(--mono); font-size: 11px; letter-spacing: .08em; padding: 9px; cursor: pointer; }
+.golive-tab.active { color: var(--t1); border-color: var(--border-strong); background: rgba(255,255,255,.06); }
+.golive-pane { display: none; }
+.golive-pane.active { display: block; }
+.golive-idle-copy { font-size: 12px; color: var(--t3); line-height: 1.6; margin-bottom: 16px; }
+.golive-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--raised); color: var(--t1); font-family: var(--mono); font-size: 13px; letter-spacing: .06em; cursor: pointer; }
+.golive-btn.is-live { background: rgba(255,50,50,.14); border-color: rgba(255,60,60,.4); color: #ff6666; }
+
+.uninstall-warn { font-size: 12px; color: var(--live-red); line-height: 1.6; margin-bottom: 12px; }
+.uninstall-label { font-family: var(--mono); font-size: 10px; color: var(--t3); letter-spacing: .06em; margin-bottom: 6px; }
+.uninstall-actions { display: flex; gap: 8px; margin-top: 16px; }
+.uninstall-actions .mgmt-btn { flex: 1; text-align: center; padding: 11px; font-size: 11px; }
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+.pw-toast {
+  position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(8px);
+  background: var(--raised); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  color: var(--t1); font-family: var(--mono); font-size: 12px; padding: 11px 18px;
+  box-shadow: var(--shadow-3); z-index: 200; opacity: 0; pointer-events: none;
+  transition: opacity .18s var(--ease-out-macos), transform .18s var(--ease-out-macos);
+  max-width: 90vw; text-align: center;
+}
+.pw-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* ============================================================
+   RESPONSIVE — the one real Studio breakpoint, from dashboard-drawers.css
+   ============================================================ */
+@media (max-width: 520px) {
+  #dash-content { padding: 8px; }
+  .console-status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+</style>
+</head>
+<body>
+
+<div id="installer-root">
+  <div class="install-topline">
+    <button class="install-skip" id="btn-skip-install">SKIP →</button>
+  </div>
+
+  <!-- STAGE 1 — Checking system requirements -->
+  <div class="install-stage current" id="stage-1">
+    <div class="install-brand">PAPERWEIGHT SETUP</div>
+    <div class="install-h1">Checking system requirements</div>
+    <div class="install-sub">Anchor your creative archive. Give us a second to look around.</div>
+    <div class="term-log" id="stage1-log"></div>
+  </div>
+
+  <!-- STAGE 2 — Setup wizard (4 sub-steps) -->
+  <div class="install-stage" id="stage-2">
+    <div class="install-brand">PAPERWEIGHT SETUP</div>
+    <div class="install-h1">Welcome to Paperweight</div>
+    <div class="install-sub">Let's set up your station. This only takes a minute.</div>
+    <ol class="stepper" id="stepper">
+      <li data-step="1">Data Location</li>
+      <li data-step="2">Station</li>
+      <li data-step="3">Vault &amp; Import</li>
+      <li data-step="4">Network</li>
+      <li data-step="5">Done</li>
+    </ol>
+
+    <!-- Sub-step 1: Data Location -->
+    <div class="substep current" data-substep="1">
+      <label class="install-label">Where should Paperweight store its data?
+        <input type="text" class="install-field" id="f-data-root" value="~/Paperweight" readonly>
+      </label>
+      <div class="chip-row" id="chips-data-root">
+        <button type="button" class="chip" data-fill="f-data-root" data-value="~/Paperweight">~/Paperweight</button>
+        <button type="button" class="chip" data-fill="f-data-root" data-value="/Volumes/External/Paperweight">External drive</button>
+        <button type="button" class="chip" data-fill="f-data-root" data-value="~/Documents/Paperweight">~/Documents/Paperweight</button>
+      </div>
+      <div class="install-hint">This folder holds your .env configuration, vault media, database, and logs. It defaults to your system's app data folder — pick a different location (e.g. an external drive, or somewhere easy to find) if you'd rather keep everything together.</div>
+      <div class="install-nav">
+        <button class="install-btn install-btn-primary" data-next="2">NEXT →</button>
+      </div>
+    </div>
+
+    <!-- Sub-step 2: Station -->
+    <div class="substep" data-substep="2">
+      <label class="install-label">Station name <span class="req">*</span>
+        <input type="text" class="install-field" id="f-station-name" placeholder="My Cool Station">
+      </label>
+      <label class="install-label">Station slug
+        <input type="text" class="install-field" id="f-station-slug" placeholder="auto-generated from station name">
+      </label>
+      <fieldset class="install-fieldset">
+        <legend>Identity</legend>
+        <label class="install-radio"><input type="radio" name="identity" value="anonymous" checked> Anonymous station</label>
+        <label class="install-radio"><input type="radio" name="identity" value="creator"> Creator brand</label>
+      </fieldset>
+      <div id="creator-fields" hidden>
+        <label class="install-label">Creator name
+          <input type="text" class="install-field" id="f-creator-name" placeholder="Your name">
+        </label>
+        <label class="install-label">Station description
+          <textarea class="install-field" id="f-creator-desc" placeholder="Description…"></textarea>
+        </label>
+      </div>
+      <div class="install-nav">
+        <button class="install-btn" data-back="1">← BACK</button>
+        <button class="install-btn install-btn-primary" id="btn-step2-next" data-next="3">NEXT →</button>
+      </div>
+    </div>
+
+    <!-- Sub-step 3: Vault & Import -->
+    <div class="substep" data-substep="3">
+      <label class="install-label">Vault folder
+        <input type="text" class="install-field" id="f-vault-path" value="./vault">
+      </label>
+      <div class="chip-row" id="chips-vault-path">
+        <button type="button" class="chip" data-fill="f-vault-path" data-value="./vault">./vault</button>
+        <button type="button" class="chip" data-fill="f-vault-path" data-value="~/Music/PaperweightVault">~/Music/PaperweightVault</button>
+      </div>
+      <label class="install-label" style="margin-top:14px;">Vault mode
+        <select class="install-field" id="f-vault-mode">
+          <option value="hybrid" selected>Hybrid (recommended)</option>
+          <option value="folder">Folder</option>
+          <option value="metadata">Metadata</option>
+        </select>
+      </label>
+      <div class="install-hint">Imported media starts out Private (Vault) by default — the broadcast only plays Public tracks, so newly scanned files won't play until you publish them from the dashboard.</div>
+      <fieldset class="install-fieldset">
+        <legend>Initial import visibility</legend>
+        <label class="install-radio"><input type="radio" name="visibility" value="public"> Public — play imports on the broadcast right away</label>
+        <label class="install-radio"><input type="radio" name="visibility" value="vault" checked> Private (Vault) — review before publishing</label>
+      </fieldset>
+      <div class="install-nav">
+        <button class="install-btn" data-back="2">← BACK</button>
+        <button class="install-btn install-btn-primary" data-next="4">NEXT →</button>
+      </div>
+    </div>
+
+    <!-- Sub-step 4: Network -->
+    <div class="substep" data-substep="4">
+      <label class="install-label">Cloudflare tunnel token (optional)
+        <input type="text" class="install-field" id="f-cf-token" placeholder="leave blank if not using a tunnel">
+      </label>
+      <label class="install-label">Public URL (optional)
+        <input type="url" class="install-field" id="f-public-url" placeholder="https://your-tunnel.trycloudflare.com">
+      </label>
+      <div class="install-hint">Your station's actual reachable address — the tunnel, reverse-proxy, or public IP URL. Leave blank until you have one.</div>
+      <div class="install-nav">
+        <button class="install-btn" data-back="3">← BACK</button>
+        <button class="install-btn install-btn-primary" id="btn-create-station">CREATE STATION</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAGE 3 — Configuring -->
+  <div class="install-stage" id="stage-3">
+    <div class="install-brand">PAPERWEIGHT SETUP</div>
+    <div class="install-h1">Configuring</div>
+    <div class="install-sub">Writing your station into place.</div>
+    <div class="term-log" id="stage3-log"></div>
+  </div>
+
+  <!-- STAGE 4 — Done -->
+  <div class="install-stage" id="stage-4">
+    <div class="done-icon">●</div>
+    <div class="install-h1">Installation complete</div>
+    <div class="install-sub">You're all set! Your dashboard token — copy it now. It won't be shown again here, only in your .env file.</div>
+    <label class="install-label">Dashboard token</label>
+    <div class="token-field-row">
+      <input type="text" class="install-field" id="f-token" readonly>
+      <button class="install-btn" id="btn-copy-token">COPY</button>
+      <button class="install-btn" id="btn-download-token">.TXT</button>
+    </div>
+    <div class="install-hint">This token is your key to the dashboard. Store it somewhere safe before continuing. (This is a mock token — nothing is actually saved anywhere.)</div>
+    <div class="install-nav">
+      <button class="install-btn install-btn-primary" id="btn-launch" style="width:100%;">I'VE SAVED MY TOKEN — LAUNCH PAPERWEIGHT →</button>
+    </div>
+  </div>
+</div>
+
+<div id="shell-root" hidden>
+  <div id="topbar">
+    <div class="pw-brand">
+      <span class="pw-wordmark" id="shell-wordmark">Paperweight</span>
+    </div>
+    <div id="view-toggle">
+      <button class="view-tab" data-tab="stack">STACK</button>
+      <button class="view-tab" data-tab="player">PLAY</button>
+      <button class="view-tab active" data-tab="dashboard">STUDIO</button>
+    </div>
+    <div class="pw-settings-wrap">
+      <button class="pw-settings-btn" id="pw-settings-btn" aria-label="Account settings" title="Account">⚙</button>
+      <div class="pw-settings-dropdown" id="pw-settings-dropdown" hidden>
+        <button class="pw-settings-dropdown-item" id="btn-open-docs">DOCS</button>
+        <div class="pw-power-divider"></div>
+        <button class="pw-settings-dropdown-item pw-power-dropdown-item" data-power="stop-broadcast">STOP BROADCAST</button>
+        <button class="pw-settings-dropdown-item pw-power-dropdown-item" data-power="restart-broadcast">RESTART BROADCAST</button>
+        <button class="pw-settings-dropdown-item pw-power-dropdown-item" id="dp-toggle-tunnel" data-power="toggle-tunnel">DISCONNECT TUNNEL</button>
+        <button class="pw-settings-dropdown-item pw-power-dropdown-item" data-power="stop-server">STOP SERVER (QUITS APP)</button>
+        <button class="pw-settings-dropdown-item pw-power-dropdown-item" data-power="restart-server">RESTART SERVER</button>
+        <button class="pw-settings-dropdown-item pw-power-dropdown-item" data-power="stop-both">STOP BOTH</button>
+        <button class="pw-settings-dropdown-item pw-power-dropdown-item" data-power="check-updates">CHECK FOR UPDATES</button>
+        <div class="pw-power-divider"></div>
+        <button class="pw-settings-dropdown-item pw-power-dropdown-item pw-power-danger" id="btn-uninstall">UNINSTALL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: STACK (placeholder) -->
+  <div class="tab-panel" data-panel="stack">
+    <div class="stub-panel">
+      <div class="stub-panel-title">Stack</div>
+      <div class="stub-panel-sub">The listener-facing library stack view isn't part of this Studio mock — this is a stand-in so the tab isn't dead.</div>
+    </div>
+  </div>
+
+  <!-- TAB: PLAY (placeholder) -->
+  <div class="tab-panel" data-panel="player">
+    <div class="stub-panel">
+      <div class="stub-panel-title" id="stub-player-name">Test Station</div>
+      <div class="stub-panel-sub">The public player view isn't part of this Studio mock — this is a stand-in so the tab isn't dead.</div>
+    </div>
+  </div>
+
+  <!-- TAB: STUDIO -->
+  <div class="tab-panel active" data-panel="dashboard">
+    <div id="dash-content">
+
+      <div class="console-status-strip">
+        <button class="console-status-cell console-status-button" data-status-cell="broadcast" id="cell-broadcast">
+          <span class="console-status-label">Broadcast</span>
+          <span class="console-status-value" id="val-broadcast">STANDBY</span>
+        </button>
+        <div class="console-status-cell">
+          <span class="console-status-label">Listeners</span>
+          <span class="console-status-value" id="val-listeners">42</span>
+          <span class="console-status-sub">peak 61 today</span>
+        </div>
+        <div class="console-status-cell">
+          <span class="console-status-label">Station Health</span>
+          <span class="console-status-value is-ok">OK</span>
+          <span class="console-status-sub">checked 2m ago</span>
+        </div>
+        <div class="console-status-cell">
+          <span class="console-status-label">Schedule</span>
+          <span class="console-status-value">Deep Cuts</span>
+          <span class="console-status-sub">up next, 8:00 PM</span>
+        </div>
+        <div class="console-status-cell">
+          <span class="console-status-label">Queue</span>
+          <span class="console-status-value">6</span>
+          <span class="console-status-sub">queued</span>
+        </div>
+        <button class="console-status-cell console-status-button" id="cell-earnings">
+          <span class="console-status-label" id="earnings-cell-label">Today</span>
+          <span class="console-status-value" id="val-earnings">$18.50</span>
+          <span class="console-status-sub" id="sub-earnings">3 unlocks · 2 tips</span>
+        </button>
+      </div>
+
+      <div class="studio-drawer-list" id="drawer-list">
+        <section class="studio-drawer" data-drawer-key="station">
+  <button class="studio-drawer-head"><span class="studio-drawer-title">Station &amp; Broadcast</span><span class="studio-drawer-chevron">▾</span></button>
+  <div class="studio-drawer-body"><div class="studio-drawer-content">
+
+    <div class="dash-section">
+      <div class="dash-section-label">STATION</div>
+      <div id="station-url-block"></div>
+      <div class="dash-form-row" style="margin-top:12px;">
+        <span style="width:8px;height:8px;border-radius:50%;background:#39ff14;display:inline-block;"></span>
+        <span class="dash-inline-msg" style="color:var(--t2);">Reachable, no errors</span>
+        <button class="mgmt-btn" data-toast="Health re-checked (mock)">RE-CHECK</button>
+      </div>
+      <label class="toggle-sw" style="margin-top:14px;">
+        <input type="checkbox" checked>
+        <span class="toggle-track"></span>
+        <span class="toggle-label">SEARCHABLE IN DIRECTORY</span>
+      </label>
+      <div class="dash-edit-label">CLOUDFLARE TUNNEL (OPTIONAL)</div>
+      <div class="dash-form-row">
+        <input type="password" class="dash-input dash-input-sm" placeholder="Cloudflare API token" id="cf-token-display">
+        <button class="mgmt-btn" data-toast="Tunnel created (mock)">CREATE TUNNEL</button>
+      </div>
+      <div class="dash-edit-label">SYSTEM.PAPE TELEMETRY (OPTIONAL)</div>
+      <div class="dash-form-row">
+        <button class="mgmt-btn" data-toast="Registered (mock)">REGISTER</button>
+      </div>
+      <div class="dash-edit-label">EXPORTS &amp; BACKUP</div>
+      <div class="dash-form-row">
+        <button class="mgmt-btn" data-toast="Subscribers CSV downloaded (mock)">SUBSCRIBERS CSV</button>
+        <button class="mgmt-btn" data-toast="Listeners CSV downloaded (mock)">LISTENERS CSV</button>
+        <button class="mgmt-btn" data-toast="Leads CSV downloaded (mock)">LEADS CSV</button>
+        <button class="mgmt-btn" data-toast="DB backup downloaded (mock)">DB BACKUP</button>
+        <button class="mgmt-btn" data-toast="Embed code copied (mock)">COPY EMBED CODE</button>
+      </div>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-label">BROADCAST</div>
+      <div class="mgmt-row">
+        <div class="mgmt-thumb">📻</div>
+        <div class="mgmt-info">
+          <div class="mgmt-title">Radio-host mode</div>
+          <div class="mgmt-meta">Auto-fades between tracks and live sets</div>
+        </div>
+        <label class="toggle-sw"><input type="checkbox" checked><span class="toggle-track"></span></label>
+      </div>
+      <div class="dash-inline-msg" style="padding:8px 0;">Now playing: <strong style="color:var(--t2);">Deep Cuts — track 4 of 9</strong></div>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-label">SCHEDULE</div>
+      <div class="sched-row live-now">
+        <div class="sched-info"><div class="sched-title">Deep Cuts</div><div class="sched-meta">Mon–Fri · 6:00 PM – 10:00 PM</div></div>
+        <span class="sched-badge on">LIVE</span>
+      </div>
+      <div class="sched-row">
+        <div class="sched-info"><div class="sched-title">Sunday Wind-Down</div><div class="sched-meta">Sun · 8:00 PM – 11:00 PM</div></div>
+        <span class="sched-badge up">UPCOMING</span>
+      </div>
+      <details class="dash-summary-wrap" style="margin-top:8px;">
+        <summary class="dash-summary">+ ADD SCHEDULE BLOCK</summary>
+        <div class="dash-new-proj-body">
+          <div class="dash-edit-label">SMART PLAYLIST</div>
+          <select class="dash-input dash-input-sm dash-input-gap">
+            <option>Deep Cuts (auto-mix)</option>
+            <option>Late Night Sessions</option>
+          </select>
+          <button class="mgmt-btn" data-toast="Schedule block saved (mock)">SAVE BLOCK</button>
+        </div>
+      </details>
+    </div>
+
+  </div></div>
+</section>
+        <section class="studio-drawer" data-drawer-key="community">
+  <button class="studio-drawer-head"><span class="studio-drawer-title">Community</span><span class="studio-drawer-chevron">▾</span></button>
+  <div class="studio-drawer-body"><div class="studio-drawer-content">
+
+    <div class="dash-section">
+      <div class="dash-section-label">NOTIFICATIONS &amp; FEED</div>
+      <div class="dash-edit-label">WEBHOOK URL (DISCORD-COMPATIBLE) — ANNOUNCES GO-LIVE AND NEW POSTS</div>
+      <input class="dash-input dash-input-sm dash-input-gap" type="url" placeholder="https://discord.com/api/webhooks/…">
+      <div style="display:flex;flex-wrap:wrap;gap:16px;padding:6px 0;">
+        <label class="toggle-sw"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-label">ANNOUNCE GO-LIVE</span></label>
+        <label class="toggle-sw"><input type="checkbox"><span class="toggle-track"></span><span class="toggle-label">PUBLIC RSS FEED</span></label>
+      </div>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-label">CREATOR BIO</div>
+      <div class="dash-edit-label">DISPLAY NAME</div>
+      <input class="dash-input dash-input-sm dash-input-gap" id="bio-name-input" value="">
+      <div class="dash-edit-label">BIO</div>
+      <textarea class="dash-input dash-input-gap" placeholder="A few lines about your station…">Late-night radio for people who miss late-night radio.</textarea>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-label">POSTS</div>
+      <div class="mgmt-row">
+        <div class="mgmt-thumb">📝</div>
+        <div class="mgmt-info"><div class="mgmt-title">New tracks up in Late Night Sessions</div><div class="mgmt-meta">Public · 3 days ago</div></div>
+      </div>
+      <div class="mgmt-row">
+        <div class="mgmt-thumb">📝</div>
+        <div class="mgmt-info"><div class="mgmt-title">Supporter-only demo dump</div><div class="mgmt-meta">Supporters only · 9 days ago</div></div>
+      </div>
+      <details style="margin-top:6px;">
+        <summary class="dash-summary">+ NEW POST</summary>
+        <div class="dash-new-proj-body">
+          <textarea class="dash-input dash-input-gap" placeholder="What's new?"></textarea>
+          <button class="mgmt-btn" data-toast="Post published (mock)">PUBLISH</button>
+        </div>
+      </details>
+    </div>
+
+  </div></div>
+</section>
+        <section class="studio-drawer" data-drawer-key="library">
+  <button class="studio-drawer-head"><span class="studio-drawer-title">Library</span><span class="studio-drawer-chevron">▾</span></button>
+  <div class="studio-drawer-body"><div class="studio-drawer-content">
+
+    <div class="dash-section">
+      <div class="dash-section-label">VAULT</div>
+      <div class="vault-stat-grid">
+        <button class="vault-stat-btn" data-vault-panel="tracks"><div class="stat-val">128</div><div class="stat-key">TRACKS</div></button>
+        <button class="vault-stat-btn" data-vault-panel="locked"><div class="stat-val">19</div><div class="stat-key">LOCKED</div></button>
+        <button class="vault-stat-btn" data-vault-panel="tokens"><div class="stat-val">6</div><div class="stat-key">TOKENS</div></button>
+      </div>
+      <div class="vault-panel" data-vault-panel-body="tracks" hidden>
+        <div class="mgmt-row"><div class="mgmt-thumb">🎵</div><div class="mgmt-info"><div class="mgmt-title">Night Drive</div><div class="mgmt-meta">Deep Cuts · Public</div></div></div>
+        <div class="mgmt-row"><div class="mgmt-thumb">🎵</div><div class="mgmt-info"><div class="mgmt-title">Static Bloom</div><div class="mgmt-meta">Late Night Sessions · Public</div></div></div>
+        <div class="mgmt-row"><div class="mgmt-thumb">🎵</div><div class="mgmt-info"><div class="mgmt-title">Unreleased Sketch 04</div><div class="mgmt-meta">Demo Vault · Vault</div></div></div>
+      </div>
+      <div class="vault-panel" data-vault-panel-body="locked" hidden>
+        <div class="mgmt-row"><div class="mgmt-thumb">🔒</div><div class="mgmt-info"><div class="mgmt-title">B-Side Collection</div><div class="mgmt-meta">All-Access only</div></div></div>
+        <div class="mgmt-row"><div class="mgmt-thumb">🔒</div><div class="mgmt-info"><div class="mgmt-title">Studio Outtakes</div><div class="mgmt-meta">Subscriber+</div></div></div>
+      </div>
+      <div class="vault-panel" data-vault-panel-body="tokens" hidden>
+        <div class="mgmt-row"><div class="mgmt-thumb">🎟️</div><div class="mgmt-info"><div class="mgmt-title">Maria</div><div class="mgmt-meta">Pro tier</div></div><div class="mgmt-actions"><button class="mgmt-btn danger" data-toast="Token revoked (mock)">REVOKE</button></div></div>
+        <div class="mgmt-row"><div class="mgmt-thumb">🎟️</div><div class="mgmt-info"><div class="mgmt-title">unlabeled-4f2a</div><div class="mgmt-meta">Subscriber tier</div></div><div class="mgmt-actions"><button class="mgmt-btn danger" data-toast="Token revoked (mock)">REVOKE</button></div></div>
+        <div class="dash-form-row" style="margin-top:8px;">
+          <input type="text" class="dash-input dash-input-sm" placeholder="Label (e.g. Maria)">
+          <button class="mgmt-btn" data-toast="Token created (mock)">CREATE</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-label">COLLECTIONS</div>
+      <button class="mgmt-btn" style="margin-bottom:10px;" data-toast="Folder import started (mock)">IMPORT FOLDER…</button>
+      <div class="mgmt-row"><div class="mgmt-thumb">💿</div><div class="mgmt-info"><div class="mgmt-title">Late Night Sessions</div><div class="mgmt-meta">14 tracks · Public</div></div></div>
+      <div class="mgmt-row"><div class="mgmt-thumb">💿</div><div class="mgmt-info"><div class="mgmt-title">Demo Vault</div><div class="mgmt-meta">6 tracks · Vault</div></div></div>
+      <details style="margin-top:6px;">
+        <summary class="dash-summary">+ NEW COLLECTION</summary>
+        <div class="dash-new-proj-body">
+          <div class="dash-edit-label">NAME</div>
+          <input class="dash-input dash-input-gap" placeholder="Collection name">
+          <button class="mgmt-btn" data-toast="Collection created (mock)">CREATE COLLECTION</button>
+        </div>
+      </details>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-label">SHARE LINKS</div>
+      <div class="mgmt-row"><div class="mgmt-thumb">🔗</div><div class="mgmt-info"><div class="mgmt-title">Night Drive — preview link</div><div class="mgmt-meta">Opened 12 times</div></div><div class="mgmt-actions"><button class="mgmt-btn" data-toast="Link copied (mock)">COPY</button></div></div>
+      <div class="mgmt-row"><div class="mgmt-thumb">🔗</div><div class="mgmt-info"><div class="mgmt-title">Demo Vault — full album</div><div class="mgmt-meta">Opened 4 times</div></div><div class="mgmt-actions"><button class="mgmt-btn" data-toast="Link copied (mock)">COPY</button></div></div>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-label">UPLOAD</div>
+      <div class="dropzone" data-toast="File picker would open here (mock)">DROP FILES HERE OR TAP TO BROWSE</div>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-label">SEARCH &amp; ADD CONTENT</div>
+      <div class="dash-form-row">
+        <input type="text" class="dash-input dash-input-sm" placeholder="Search external sources…">
+        <button class="mgmt-btn" data-toast="Search (mock)">SEARCH</button>
+      </div>
+    </div>
+
+  </div></div>
+</section>
+        <section class="studio-drawer" data-drawer-key="monetization">
+  <button class="studio-drawer-head"><span class="studio-drawer-title">Monetization</span><span class="studio-drawer-chevron">▾</span></button>
+  <div class="studio-drawer-body"><div class="studio-drawer-content">
+
+    <div class="dash-section">
+      <div class="dash-section-label">ALL-ACCESS PRICING</div>
+      <label class="toggle-sw" style="margin-bottom:10px;"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-label">ENABLE ALL-ACCESS TIER</span></label>
+      <div class="dash-form-row">
+        <div style="flex:1;"><div class="dash-edit-label">PRICE / MO</div><input class="dash-input dash-input-sm" value="8.00"></div>
+      </div>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-label">PAYMENTS</div>
+      <div class="mgmt-row"><div class="mgmt-thumb">💳</div><div class="mgmt-info"><div class="mgmt-title">Stripe</div><div class="mgmt-meta">Connected</div></div><span class="mock-badge on">LIVE</span></div>
+      <div class="mgmt-row"><div class="mgmt-thumb">💳</div><div class="mgmt-info"><div class="mgmt-title">PayPal</div><div class="mgmt-meta">Not connected</div></div><span class="mock-badge">OFF</span></div>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-label">EARNINGS</div>
+      <div class="stat-grid" id="earnings-stat-grid">
+        <div class="stat-card"><div class="stat-val" id="earn-total">$18.50</div><div class="stat-key">TOTAL</div></div>
+        <div class="stat-card"><div class="stat-val" id="earn-unlocks">3</div><div class="stat-key">UNLOCKS</div></div>
+        <div class="stat-card"><div class="stat-val" id="earn-tips">2</div><div class="stat-key">TIPS</div></div>
+      </div>
+      <div id="earnings-list" style="margin-top:10px;">
+        <div class="mgmt-row"><div class="mgmt-thumb">💵</div><div class="mgmt-info"><div class="mgmt-title">Night Drive unlock</div><div class="mgmt-meta">$5.00 · 2h ago</div></div></div>
+        <div class="mgmt-row"><div class="mgmt-thumb">💵</div><div class="mgmt-info"><div class="mgmt-title">Tip from a listener</div><div class="mgmt-meta">$3.00 · 5h ago</div></div></div>
+      </div>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-label">TIP BUTTON</div>
+      <div class="dash-form-row">
+        <button class="mgmt-btn active">$3</button>
+        <button class="mgmt-btn active">$5</button>
+        <button class="mgmt-btn active">$10</button>
+      </div>
+      <div class="dash-inline-msg" style="padding-top:8px;">Default suggested amounts shown on the tip page.</div>
+    </div>
+
+  </div></div>
+</section>
+        <section class="studio-drawer" data-drawer-key="analytics">
+  <button class="studio-drawer-head"><span class="studio-drawer-title">Analytics</span><span class="studio-drawer-chevron">▾</span></button>
+  <div class="studio-drawer-body"><div class="studio-drawer-content">
+
+    <div class="dash-section">
+      <div class="dash-section-label">ANALYTICS</div>
+      <div class="bar-chart">
+        <div class="bar-chart-col"><div class="bar-chart-bar" style="height:52%;"></div><div class="bar-chart-day">M</div></div>
+        <div class="bar-chart-col"><div class="bar-chart-bar" style="height:68%;"></div><div class="bar-chart-day">T</div></div>
+        <div class="bar-chart-col"><div class="bar-chart-bar" style="height:41%;"></div><div class="bar-chart-day">W</div></div>
+        <div class="bar-chart-col"><div class="bar-chart-bar" style="height:77%;"></div><div class="bar-chart-day">T</div></div>
+        <div class="bar-chart-col"><div class="bar-chart-bar" style="height:90%;"></div><div class="bar-chart-day">F</div></div>
+        <div class="bar-chart-col"><div class="bar-chart-bar" style="height:100%;"></div><div class="bar-chart-day">S</div></div>
+        <div class="bar-chart-col"><div class="bar-chart-bar" style="height:63%;"></div><div class="bar-chart-day">S</div></div>
+      </div>
+      <div class="stat-grid" style="margin-top:12px;">
+        <div class="stat-card"><div class="stat-val">612</div><div class="stat-key">PLAYS</div></div>
+        <div class="stat-card"><div class="stat-val">84</div><div class="stat-key">UNIQUE LISTENERS</div></div>
+        <div class="stat-card"><div class="stat-val">6m40s</div><div class="stat-key">AVG LISTEN</div></div>
+      </div>
+    </div>
+
+  </div></div>
+</section>
+        <section class="studio-drawer" data-drawer-key="security">
+  <button class="studio-drawer-head"><span class="studio-drawer-title">Security &amp; Devices</span><span class="studio-drawer-chevron">▾</span></button>
+  <div class="studio-drawer-body"><div class="studio-drawer-content">
+
+    <div class="dash-section">
+      <div class="dash-section-label">SECURITY</div>
+      <div class="mgmt-row">
+        <div class="mgmt-thumb">🔐</div>
+        <div class="mgmt-info"><div class="mgmt-title">Two-Factor Auth</div><div class="mgmt-meta">Disabled</div></div>
+        <button class="mgmt-btn" data-toast="2FA setup would open here (mock)">ENABLE</button>
+      </div>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-label">AUTHORIZED DEVICES</div>
+      <div class="mgmt-row"><div class="mgmt-thumb">📱</div><div class="mgmt-info"><div class="mgmt-title">iPhone — Safari</div><div class="mgmt-meta">Paired 6 days ago</div></div><div class="mgmt-actions"><button class="mgmt-btn danger" data-toast="Device revoked (mock)">REVOKE</button></div></div>
+      <div class="mgmt-row"><div class="mgmt-thumb">💻</div><div class="mgmt-info"><div class="mgmt-title">Studio Laptop — Chrome</div><div class="mgmt-meta">Paired 3 weeks ago</div></div><div class="mgmt-actions"><button class="mgmt-btn danger" data-toast="Device revoked (mock)">REVOKE</button></div></div>
+      <button class="mgmt-btn" style="margin-top:10px;" data-toast="QR pairing code would appear here (mock)">PAIR A DEVICE</button>
+    </div>
+
+  </div></div>
+</section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pw-modal-backdrop" id="golive-modal-backdrop">
+  <div class="pw-modal">
+    <div class="pw-modal-header">
+      <span class="pw-modal-title">GO LIVE</span>
+      <button class="pw-modal-close" id="golive-close">×</button>
+    </div>
+    <div class="golive-tabs">
+      <button class="golive-tab active" data-golive-tab="audio">AUDIO</button>
+      <button class="golive-tab" data-golive-tab="video">VIDEO</button>
+    </div>
+    <div class="golive-pane active" data-golive-pane="audio">
+      <div class="golive-idle-copy">Go live from your mic. Listeners switch to your feed in real time.</div>
+      <button class="golive-btn" id="btn-golive-toggle">● GO LIVE</button>
+    </div>
+    <div class="golive-pane" data-golive-pane="video">
+      <div class="golive-idle-copy">Go live with your camera. Listeners switch to your video feed in real time.</div>
+      <button class="golive-btn" id="btn-golive-toggle-video">● GO LIVE</button>
+    </div>
+  </div>
+</div>
+
+<div class="pw-modal-backdrop" id="uninstall-modal-backdrop">
+  <div class="pw-modal">
+    <div class="pw-modal-header">
+      <span class="pw-modal-title">Uninstall Paperweight</span>
+      <button class="pw-modal-close" id="uninstall-close">×</button>
+    </div>
+    <div class="uninstall-warn">This deletes your station, vault, and database. It cannot be undone. (Mock — nothing real is deleted; this resets the demo back to Stage 1.)</div>
+    <div class="uninstall-label" id="uninstall-modal-label">Type your station name to confirm:</div>
+    <input type="text" class="dash-input" id="uninstall-confirm-input" placeholder="Station name">
+    <div class="uninstall-actions">
+      <button class="mgmt-btn" id="uninstall-cancel">CANCEL</button>
+      <button class="mgmt-btn danger" id="uninstall-confirm" disabled>DELETE EVERYTHING</button>
+    </div>
+  </div>
+</div>
+<div class="pw-toast" id="pw-toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'pw-loose-leaf-state';
+  try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
+
+  var MIGRATIONS = [
+    '001_initial.sql','002_analytics.sql','003_monetization.sql','004_slug_registry.sql',
+    '005_tips.sql','006_webhook_log.sql','007_vault_pricing.sql','008_private_to_vault.sql',
+    '009_token_assignments.sql','010_webhook_idempotency.sql','011_payment_idempotency.sql',
+    '012_dashboard_2fa.sql','013_creator_profile.sql','014_launch_acceptance.sql',
+    '015_download_leads.sql','016_highlight.sql','017_share_links.sql','018_smart_playlists.sql',
+    '019_creator_posts.sql','020_download_lead_updates_opt_in.sql','021_pending_checkouts.sql',
+    '022_download_events.sql','023_password_resets.sql','024_app_settings.sql',
+    '025_genre_offline.sql','026_listener_profiles.sql','027_listener_email_tokens.sql',
+    '028_dashboard_devices.sql'
+  ];
+
+  var STAGE1_LINES = [
+    { cls: 'term-sec', text: '-- SYSTEM ---------------------------------------------' },
+    { cls: 'term-ok',  text: '  OK   Node.js runtime detected' },
+    { cls: 'term-ok',  text: '  OK   FFmpeg / FFprobe found' },
+    { cls: 'term-ok',  text: '  OK   better-sqlite3 native module loads' },
+    { cls: 'term-sec', text: '-- DIRECTORIES ----------------------------------------' },
+    { cls: 'term-ok',  text: '  OK   Disk space available' },
+    { cls: 'term-ok',  text: '  OK   Vault directory ready' },
+    { cls: 'term-sec', text: '-- NETWORK --------------------------------------------' },
+    { cls: 'term-ok',  text: '  OK   Port 3000 is available' }
+  ];
+
+  var MOCK = {
+    listeners: { base: 42, live: 88 },
+    earnings: {
+      today: {
+        total: '$18.50', unlocks: 3, tips: 2, statusSub: '3 unlocks · 2 tips',
+        list: [
+          { title: 'Night Drive unlock', meta: '$5.00 · 2h ago' },
+          { title: 'Tip from a listener', meta: '$3.00 · 5h ago' }
+        ]
+      },
+      lifetime: {
+        total: '$412.75', unlocks: 61, tips: 38, statusSub: '61 unlocks · 38 tips',
+        list: [
+          { title: 'B-Side Collection unlock', meta: '$8.00 · 2 days ago' },
+          { title: 'Tip from a listener', meta: '$10.00 · 4 days ago' },
+          { title: 'Studio Outtakes unlock', meta: '$5.00 · 6 days ago' }
+        ]
+      }
+    }
+  };
+
+  function defaultState() {
+    return {
+      dataRoot: '', stationName: '', slug: '', slugTouched: false,
+      identityMode: 'anonymous', creatorName: '', creatorDesc: '',
+      vaultPath: './vault', vaultMode: 'hybrid', initialVisibility: 'vault',
+      cfTunnelToken: '', publicUrl: '', dashboardToken: '',
+      stage: 1, substep: 1,
+      shell: { liveOnAir: false, earningsPeriod: 'today', openDrawer: 'library', activeTab: 'dashboard', tunnelConnected: false }
+    };
+  }
+
+  var state = defaultState();
+
+  function persist() {
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function slugify(s) {
+    return String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+
+  function genToken() {
+    var bytes = [];
+    for (var i = 0; i < 20; i++) bytes.push(Math.floor(Math.random() * 256).toString(16).padStart(2, '0'));
+    return 'pw_' + bytes.join('');
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function $(id) { return document.getElementById(id); }
+
+  var toastTimer;
+  function showToast(msg) {
+    var el = $('pw-toast');
+    clearTimeout(toastTimer);
+    el.textContent = msg;
+    el.classList.add('show');
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2200);
+  }
+
+  function runLog(el, lines, opts) {
+    opts = opts || {};
+    var interval = opts.interval || 150;
+    el.innerHTML = '';
+    var i = 0;
+    function next() {
+      if (i >= lines.length) { if (opts.onDone) setTimeout(opts.onDone, 500); return; }
+      var line = lines[i];
+      var div = document.createElement('div');
+      div.className = 'term-line' + (line.cls ? ' ' + line.cls : '');
+      div.textContent = line.text;
+      el.appendChild(div);
+      el.scrollTop = el.scrollHeight;
+      i++;
+      setTimeout(next, interval);
+    }
+    next();
+  }
+
+  function buildStage3Lines() {
+    var lines = [{ cls: 'term-sec', text: '-- DATABASE -------------------------------------------' }];
+    MIGRATIONS.forEach(function (m) { lines.push({ cls: 'term-ok', text: '  OK   applied ' + m }); });
+    lines.push({ cls: 'term-sec', text: '-- FINALIZING -----------------------------------------' });
+    lines.push({ cls: 'term-ok', text: '  OK   Writing .env' });
+    lines.push({ cls: 'term-ok', text: '  OK   Dashboard token generated' });
+    lines.push({ cls: 'term-ok', text: '  OK   Station "' + (state.stationName || 'My Cool Station') + '" created' });
+    return lines;
+  }
+
+  /* ---------------- Installer stage/substep navigation ---------------- */
+
+  function showStage(n) {
+    document.querySelectorAll('.install-stage').forEach(function (el) { el.classList.remove('current'); });
+    $('stage-' + n).classList.add('current');
+    state.stage = n; persist();
+  }
+
+  function showSubstep(n) {
+    state.substep = n;
+    document.querySelectorAll('#stage-2 .substep').forEach(function (el) {
+      el.classList.toggle('current', Number(el.dataset.substep) === n);
+    });
+    document.querySelectorAll('#stepper li').forEach(function (li) {
+      var step = Number(li.dataset.step);
+      li.classList.remove('active', 'completed');
+      if (step < n) li.classList.add('completed');
+      else if (step === n) li.classList.add('active');
+    });
+    persist();
+  }
+
+  function syncFieldsToState() {
+    if ($('f-data-root')) state.dataRoot = $('f-data-root').value;
+    if ($('f-station-name')) state.stationName = $('f-station-name').value.trim();
+    if ($('f-station-slug')) state.slug = $('f-station-slug').value.trim();
+    var idr = document.querySelector('input[name=identity]:checked'); if (idr) state.identityMode = idr.value;
+    if ($('f-creator-name')) state.creatorName = $('f-creator-name').value.trim();
+    if ($('f-creator-desc')) state.creatorDesc = $('f-creator-desc').value.trim();
+    if ($('f-vault-path')) state.vaultPath = $('f-vault-path').value.trim();
+    if ($('f-vault-mode')) state.vaultMode = $('f-vault-mode').value;
+    var vis = document.querySelector('input[name=visibility]:checked'); if (vis) state.initialVisibility = vis.value;
+    if ($('f-cf-token')) state.cfTunnelToken = $('f-cf-token').value.trim();
+    if ($('f-public-url')) state.publicUrl = $('f-public-url').value.trim();
+    persist();
+  }
+
+  function fillDefaults() {
+    syncFieldsToState();
+    if (!state.stationName) state.stationName = 'My Cool Station';
+    if (!state.slug) state.slug = slugify(state.stationName);
+    if (!state.vaultPath) state.vaultPath = './vault';
+    if (!state.vaultMode) state.vaultMode = 'hybrid';
+    if (!state.initialVisibility) state.initialVisibility = 'vault';
+    if (!state.identityMode) state.identityMode = 'anonymous';
+    if (!state.dashboardToken) state.dashboardToken = genToken();
+    persist();
+  }
+
+  function wireInstaller() {
+    $('btn-skip-install').addEventListener('click', function () {
+      fillDefaults();
+      if ($('f-token')) $('f-token').value = state.dashboardToken;
+      showStage(4);
+    });
+
+    document.querySelectorAll('.chip[data-fill]').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var input = $(chip.dataset.fill);
+        if (input) input.value = chip.dataset.value;
+        var row = chip.parentElement;
+        row.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('picked'); });
+        chip.classList.add('picked');
+      });
+    });
+
+    var nameInput = $('f-station-name');
+    var slugInput = $('f-station-slug');
+    if (nameInput && slugInput) {
+      nameInput.addEventListener('input', function () {
+        if (!state.slugTouched) slugInput.value = slugify(nameInput.value);
+      });
+      slugInput.addEventListener('input', function () { state.slugTouched = true; });
+    }
+
+    document.querySelectorAll('input[name=identity]').forEach(function (r) {
+      r.addEventListener('change', function () {
+        var creatorSelected = document.querySelector('input[name=identity]:checked').value === 'creator';
+        $('creator-fields').hidden = !creatorSelected;
+      });
+    });
+
+    document.querySelectorAll('#stage-2 [data-next]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (btn.id === 'btn-step2-next') {
+          var nameVal = $('f-station-name').value.trim();
+          if (!nameVal) { $('f-station-name').style.borderColor = 'var(--live-red)'; $('f-station-name').focus(); return; }
+          $('f-station-name').style.borderColor = '';
+        }
+        syncFieldsToState();
+        showSubstep(Number(btn.dataset.next));
+      });
+    });
+    document.querySelectorAll('#stage-2 [data-back]').forEach(function (btn) {
+      btn.addEventListener('click', function () { syncFieldsToState(); showSubstep(Number(btn.dataset.back)); });
+    });
+
+    $('btn-create-station').addEventListener('click', function () {
+      syncFieldsToState();
+      if (!state.dashboardToken) state.dashboardToken = genToken();
+      persist();
+      showStage(3);
+      runLog($('stage3-log'), buildStage3Lines(), {
+        interval: 60,
+        onDone: function () { if ($('f-token')) $('f-token').value = state.dashboardToken; showStage(4); }
+      });
+    });
+
+    $('btn-copy-token').addEventListener('click', function () {
+      var val = state.dashboardToken;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(val).then(function () { showToast('Token copied'); }).catch(function () { fallbackCopy(val); });
+      } else { fallbackCopy(val); }
+    });
+    function fallbackCopy(val) {
+      var ta = document.createElement('textarea');
+      ta.value = val; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); showToast('Token copied'); } catch (e) { showToast('Copy failed'); }
+      document.body.removeChild(ta);
+    }
+
+    $('btn-download-token').addEventListener('click', function () {
+      var blob = new Blob([state.dashboardToken + '\n'], { type: 'text/plain' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'paperweight-dashboard-token.txt';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    $('btn-launch').addEventListener('click', function () { enterShell(); });
+  }
+
+  /* ---------------- Shell ---------------- */
+
+  function renderBroadcastState() {
+    var val = $('val-broadcast');
+    var listeners = $('val-listeners');
+    var btnA = $('btn-golive-toggle');
+    var btnV = $('btn-golive-toggle-video');
+    if (state.shell.liveOnAir) {
+      val.textContent = '● ON AIR'; val.classList.add('is-live');
+      listeners.textContent = String(MOCK.listeners.live);
+      btnA.textContent = '■ END BROADCAST'; btnA.classList.add('is-live');
+      btnV.textContent = '■ END BROADCAST'; btnV.classList.add('is-live');
+    } else {
+      val.textContent = 'STANDBY'; val.classList.remove('is-live');
+      listeners.textContent = String(MOCK.listeners.base);
+      btnA.textContent = '● GO LIVE'; btnA.classList.remove('is-live');
+      btnV.textContent = '● GO LIVE'; btnV.classList.remove('is-live');
+    }
+  }
+
+  function renderEarnings() {
+    var data = MOCK.earnings[state.shell.earningsPeriod];
+    $('earnings-cell-label').textContent = state.shell.earningsPeriod === 'today' ? 'TODAY' : 'LIFETIME';
+    $('val-earnings').textContent = data.total;
+    $('sub-earnings').textContent = data.statusSub;
+    $('earn-total').textContent = data.total;
+    $('earn-unlocks').textContent = String(data.unlocks);
+    $('earn-tips').textContent = String(data.tips);
+    var list = $('earnings-list');
+    list.innerHTML = '';
+    data.list.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'mgmt-row';
+      row.innerHTML = '<div class="mgmt-thumb">💵</div><div class="mgmt-info"><div class="mgmt-title">' +
+        escapeHtml(item.title) + '</div><div class="mgmt-meta">' + escapeHtml(item.meta) + '</div></div>';
+      list.appendChild(row);
+    });
+  }
+
+  function wireShell() {
+    document.querySelectorAll('.view-tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        document.querySelectorAll('.view-tab').forEach(function (t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        var target = tab.dataset.tab;
+        document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.toggle('active', p.dataset.panel === target); });
+        state.shell.activeTab = target; persist();
+      });
+    });
+
+    var settingsBtn = $('pw-settings-btn');
+    var settingsDropdown = $('pw-settings-dropdown');
+    settingsBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      settingsDropdown.hidden = !settingsDropdown.hidden;
+    });
+    document.addEventListener('click', function (e) {
+      if (!settingsDropdown.hidden && !settingsDropdown.contains(e.target) && e.target !== settingsBtn) {
+        settingsDropdown.hidden = true;
+      }
+    });
+    $('btn-open-docs').addEventListener('click', function () { showToast('Docs would open here (mock)'); settingsDropdown.hidden = true; });
+
+    document.querySelectorAll('[data-power]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var action = btn.dataset.power;
+        if (action === 'toggle-tunnel') {
+          if (btn.disabled) return;
+          state.shell.tunnelConnected = !state.shell.tunnelConnected;
+          btn.textContent = state.shell.tunnelConnected ? 'DISCONNECT TUNNEL' : 'RECONNECT TUNNEL';
+          showToast(state.shell.tunnelConnected ? 'Tunnel reconnected (mock)' : 'Tunnel disconnected (mock)');
+          persist();
+        } else {
+          showToast(btn.textContent + ' (mock)');
+        }
+        settingsDropdown.hidden = true;
+      });
+    });
+
+    $('btn-uninstall').addEventListener('click', function () {
+      settingsDropdown.hidden = true;
+      $('uninstall-modal-label').textContent = 'Type your station name to confirm: ' + (state.stationName || 'My Cool Station');
+      $('uninstall-confirm-input').value = '';
+      $('uninstall-confirm').disabled = true;
+      $('uninstall-modal-backdrop').classList.add('open');
+    });
+    $('uninstall-confirm-input').addEventListener('input', function () {
+      var expected = state.stationName || 'My Cool Station';
+      $('uninstall-confirm').disabled = ($('uninstall-confirm-input').value.trim() !== expected);
+    });
+    function closeUninstall() { $('uninstall-modal-backdrop').classList.remove('open'); }
+    $('uninstall-cancel').addEventListener('click', closeUninstall);
+    $('uninstall-close').addEventListener('click', closeUninstall);
+    $('uninstall-modal-backdrop').addEventListener('click', function (e) { if (e.target === $('uninstall-modal-backdrop')) closeUninstall(); });
+    $('uninstall-confirm').addEventListener('click', function () {
+      try { sessionStorage.clear(); } catch (e) {}
+      window.location.href = window.location.pathname;
+    });
+
+    $('cell-broadcast').addEventListener('click', function () { $('golive-modal-backdrop').classList.add('open'); });
+    function closeGolive() { $('golive-modal-backdrop').classList.remove('open'); }
+    $('golive-close').addEventListener('click', closeGolive);
+    $('golive-modal-backdrop').addEventListener('click', function (e) { if (e.target === $('golive-modal-backdrop')) closeGolive(); });
+    document.querySelectorAll('.golive-tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        document.querySelectorAll('.golive-tab').forEach(function (t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        var target = tab.dataset.goliveTab;
+        document.querySelectorAll('.golive-pane').forEach(function (p) { p.classList.toggle('active', p.dataset.golivePane === target); });
+      });
+    });
+    function toggleLive() { state.shell.liveOnAir = !state.shell.liveOnAir; renderBroadcastState(); persist(); }
+    $('btn-golive-toggle').addEventListener('click', toggleLive);
+    $('btn-golive-toggle-video').addEventListener('click', toggleLive);
+
+    $('cell-earnings').addEventListener('click', function () {
+      state.shell.earningsPeriod = (state.shell.earningsPeriod === 'today') ? 'lifetime' : 'today';
+      renderEarnings(); persist();
+    });
+
+    document.querySelectorAll('.studio-drawer-head').forEach(function (head) {
+      head.addEventListener('click', function () {
+        var drawer = head.closest('.studio-drawer');
+        var key = drawer.dataset.drawerKey;
+        var wasOpen = drawer.classList.contains('open');
+        document.querySelectorAll('.studio-drawer').forEach(function (d) { d.classList.remove('open'); });
+        if (!wasOpen) { drawer.classList.add('open'); state.shell.openDrawer = key; }
+        else { state.shell.openDrawer = null; }
+        persist();
+      });
+    });
+
+    document.querySelectorAll('.vault-stat-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.dataset.vaultPanel;
+        var wasActive = btn.classList.contains('active');
+        document.querySelectorAll('.vault-stat-btn').forEach(function (b) { b.classList.remove('active'); });
+        document.querySelectorAll('[data-vault-panel-body]').forEach(function (p) { p.hidden = true; });
+        if (!wasActive) {
+          btn.classList.add('active');
+          var panel = document.querySelector('[data-vault-panel-body="' + key + '"]');
+          if (panel) panel.hidden = false;
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-toast]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        showToast(el.dataset.toast);
+        if (el.classList.contains('danger')) {
+          var row = el.closest('.mgmt-row');
+          if (row) { row.style.transition = 'opacity .2s'; row.style.opacity = '0'; setTimeout(function () { row.remove(); }, 200); }
+        }
+      });
+    });
+
+    renderBroadcastState();
+    renderEarnings();
+  }
+
+  function seedShellFromState() {
+    var name = state.stationName || 'Test Station';
+    $('shell-wordmark').textContent = name;
+    $('stub-player-name').textContent = name;
+    if ($('bio-name-input')) $('bio-name-input').value = name;
+
+    var urlBlock = $('station-url-block');
+    if (state.publicUrl) {
+      urlBlock.innerHTML = '<div class="dash-form-row"><span style="font-family:var(--mono);font-size:11px;color:var(--t2);word-break:break-all;">' +
+        escapeHtml(state.publicUrl) + '</span><button class="mgmt-btn" id="btn-copy-public-url">COPY</button></div>';
+      $('btn-copy-public-url').addEventListener('click', function () { showToast('URL copied (mock)'); });
+    } else {
+      urlBlock.innerHTML = '<div class="dash-inline-msg">No public URL registered yet.</div>';
+    }
+
+    var tunnelBtn = $('dp-toggle-tunnel');
+    if (state.cfTunnelToken) { tunnelBtn.disabled = false; tunnelBtn.removeAttribute('title'); }
+    else { tunnelBtn.disabled = true; tunnelBtn.title = 'Set up a Cloudflare tunnel in the Station panel first'; }
+
+    renderEarnings();
+  }
+
+  function enterShell() {
+    seedShellFromState();
+    $('installer-root').hidden = true;
+    $('shell-root').hidden = false;
+    persist();
+  }
+
+  function boot() {
+    wireInstaller();
+    wireShell();
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('skip') === '1') {
+      fillDefaults();
+      persist();
+      enterShell();
+    } else {
+      showStage(1);
+      runLog($('stage1-log'), STAGE1_LINES, {
+        interval: 190,
+        onDone: function () { showStage(2); showSubstep(1); }
+      });
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', boot);
+})();
+</script>
+</body>
+</html>
