@@ -5,14 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Paperweight — The Streaming Platform You Own</title>
   <meta name="description" content="Break free from algorithm-controlled platforms. Paperweight is creator-owned streaming — direct to your listeners, 0% platform cut, no deplatforming risk.">
+  <link rel="canonical" href="https://paperweighthq.com/">
   <meta property="og:title" content="Paperweight — The Streaming Platform You Own">
   <meta property="og:description" content="Break free from algorithm-controlled platforms. Paperweight is creator-owned streaming — direct to your listeners, 0% platform cut, no deplatforming risk.">
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://paperweighthq.com/">
+  <meta property="og:site_name" content="Paperweight">
+  <meta property="og:image" content="https://paperweighthq.com/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Paperweight — the streaming platform you own">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Paperweight — The Streaming Platform You Own">
+  <meta name="twitter:description" content="Break free from algorithm-controlled platforms. Paperweight is creator-owned streaming — direct to your listeners, 0% platform cut, no deplatforming risk.">
+  <meta name="twitter:image" content="https://paperweighthq.com/og-image.png">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Paperweight",
+    "description": "Creator-owned streaming platform. Broadcast 24/7 from your own machine, keep 0% platform cut on tips, subscriptions, and vault unlocks, and own your subscriber list — no deplatforming risk.",
+    "url": "https://paperweighthq.com/",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Windows, macOS, Linux, Raspberry Pi OS",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  }
+  </script>
   <style>
 /* ── Reset ───────────────────────────────────────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -459,6 +485,7 @@ body::before{
 }
 .as-footer-link{color:var(--t-muted);text-decoration:none;letter-spacing:.06em;transition:color .15s}
 .as-footer-link:hover{color:var(--t-mid);text-decoration:none}
+.as-footer-links{display:flex;gap:16px;flex-wrap:wrap}
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media(max-width:1024px){
@@ -725,7 +752,13 @@ body::before{
     <div class="mc-accent"></div>
     <div class="as-footer">
       <span>Paperweight Systems LLC • 2026</span>
-      <a href="https://discord.gg/AHE6VuPT" class="as-footer-link" target="_blank" rel="noopener">Discord</a>
+      <div class="as-footer-links">
+        <a href="/listen" class="as-footer-link">Listen</a>
+        <a href="/download" class="as-footer-link">Download</a>
+        <a href="/license" class="as-footer-link">License</a>
+        <a href="/content-responsibility" class="as-footer-link">Content Policy</a>
+        <a href="https://discord.gg/AHE6VuPT" class="as-footer-link" target="_blank" rel="noopener">Discord</a>
+      </div>
     </div>
   </div>
 </div>
