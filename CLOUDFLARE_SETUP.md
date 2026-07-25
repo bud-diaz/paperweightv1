@@ -17,19 +17,19 @@ dashboard. That's a dev-tooling convenience only — it's unrelated to
 anything shipped to end users; see "1a. Or: let the dashboard create the
 tunnel for you" below for the actual product feature.
 
-## Two Ways To Tunnel
+## Three Ways To Tunnel
 
-| | Quick Tunnel | Named Tunnel |
-|---|---|---|
-| Cloudflare account | Not required | Free account required |
-| Your own domain | Not required | Required |
-| URL | Random `*.trycloudflare.com`, changes every restart | Stable subdomain you choose, e.g. `radio.yoursite.com` |
-| `CLOUDFLARE_TUNNEL_TOKEN` | None — searchability requirements stay unmet | Set in `.env` |
-| Runs as a background service | No, ties to the terminal | Yes |
-| Good for | Quickly testing that public access works | Running a real station long-term |
+| | Quick Tunnel | Named Tunnel (own domain) | Hosted on paperweighthq.com |
+|---|---|---|---|
+| Cloudflare account | Not required | Free account required | Not required |
+| Your own domain | Not required | Required | Not required |
+| URL | Random `*.trycloudflare.com`, changes every restart | Stable subdomain you choose, e.g. `radio.yoursite.com` | Stable `<slug>.paperweighthq.com` |
+| `CLOUDFLARE_TUNNEL_TOKEN` | None — searchability requirements stay unmet | Set in `.env` | Set in `.env` (issued by system.pape) |
+| Runs as a background service | No, ties to the terminal | Yes | Yes |
+| Good for | Quickly testing that public access works | Running a real station long-term with your own domain | Running a real station without buying a domain |
 
-Use a Quick Tunnel to confirm things work, then move to a Named Tunnel before
-telling anyone the URL.
+Use a Quick Tunnel to confirm things work, then move to a Named Tunnel or the
+paperweighthq.com-hosted option before telling anyone the URL.
 
 ## Prerequisites
 
@@ -198,6 +198,33 @@ Open the dashboard's **Station** panel:
 - The "searchable" toggle becomes available once both a tunnel token
   (`CLOUDFLARE_TUNNEL_TOKEN`) and a registered public URL are present, and it
   actually flips on only after a live reachability check succeeds.
+
+## Path C: Hosted On paperweighthq.com (no domain needed)
+
+If you don't own a domain and don't want to buy one, the dashboard can get
+you a Named Tunnel on `<slug>.paperweighthq.com` instead — same stable-URL,
+runs-as-a-service tunnel as Path B, provisioned for you by system.pape
+instead of your own Cloudflare account.
+
+1. Claim a station slug and register with system.pape telemetry (dashboard's
+   **Station** panel → **SYSTEM.PAPE TELEMETRY** → **REGISTER**) if you
+   haven't already — this is also what makes the public directory listing
+   work.
+2. In the **PAPERWEIGHTHQ.COM TUNNEL** section that appears once telemetry is
+   registered, click **GET FREE ADDRESS**. The dashboard asks system.pape to
+   create the tunnel and DNS record, then saves the resulting
+   `CLOUDFLARE_TUNNEL_TOKEN` and `STATION_PUBLIC_URL`
+   (`https://<slug>.paperweighthq.com`) for you, the same way Path B's
+   "auto-tunnel" button does for your own domain.
+3. Run `cloudflared` as a background service with that token — same step 3 as
+   Path B.
+4. Restart and verify — same step 4 as Path B.
+
+Unlike Path B, there's no per-creator Cloudflare account or API token
+involved: the `paperweighthq.com` zone and its Cloudflare credentials are
+held by system.pape, not by your station. See
+`docs/system-pape-directory.md` ("Hosted Tunnel Provisioning") for that
+contract.
 
 ## Security Notes
 

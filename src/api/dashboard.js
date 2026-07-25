@@ -768,6 +768,11 @@ router.get('/station', (req, res) => {
   const cloudflareTunnelManaged = !!(getSetting('cloudflare_tunnel_id') && getSetting('cloudflare_account_id'));
   const cloudflareTunnelPaused = getBoolSetting('cloudflare_tunnel_paused', false);
 
+  // Whether the dashboard can offer the "get a free paperweighthq.com
+  // address" tunnel option — needs a claimed slug and a registered telemetry
+  // secret (system.pape uses that secret to authenticate the request).
+  const paperweighthqTunnelAvailable = !!(config.telemetry.secretConfigured && config.station.slug);
+
   if (!row) {
     return res.json({
       slug: null,
@@ -782,6 +787,7 @@ router.get('/station', (req, res) => {
       cloudflareApiConfigured,
       cloudflareTunnelManaged,
       cloudflareTunnelPaused,
+      paperweighthqTunnelAvailable,
       telemetryConfigured: config.telemetry.secretConfigured,
     });
   }
@@ -799,6 +805,7 @@ router.get('/station', (req, res) => {
     cloudflareApiConfigured,
     cloudflareTunnelManaged,
     cloudflareTunnelPaused,
+    paperweighthqTunnelAvailable,
     telemetryConfigured: config.telemetry.secretConfigured,
   });
 });
@@ -1155,6 +1162,74 @@ router.post('/station/telemetry/register', requireDesktop, asyncHandler(async (r
     ok: true,
     restartRequired: true,
     note: 'Restart Paperweight for telemetry reporting (and your paperweighthq.com vanity URL) to start working.',
+  });
+}));
+
+// POST /api/dashboard/station/cloudflare/paperweighthq/create
+// Alternative to the Cloudflare API-token auto-tunnel flow above, for
+// creators without their own domain: asks system.pape to create a Named
+// Tunnel on the maintainers' paperweighthq.com zone and hand back a
+// connector token, authenticated with this station's registered telemetry
+// secret. See docs/system-pape-directory.md ("Hosted Tunnel Provisioning")
+// for the system.pape-side contract this depends on — that endpoint doesn't
+// exist yet, so this route 502s against the hosted system.pape until it
+// ships there.
+router.post('/station/cloudflare/paperweighthq/create', requireDesktop, asyncHandler(async (req, res) => {
+  if (!config.station.slug) {
+    return res.status(409).json({ error: 'Claim a station slug first' });
+  }
+  if (!config.telemetry.secretConfigured) {
+    return res.status(409).json({ error: 'Register with system.pape telemetry first' });
+  }
+
+  const stationKey = telemetryReporter.getStationKey();
+
+  let response;
+  try {
+    response = await fetch(new NodeURL('/api/modules/paperweight/tunnel/create', config.telemetry.url), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-telemetry-secret': process.env.PAPE_TELEMETRY_SECRET },
+      body: JSON.stringify({ slug: config.station.slug, stationKey }),
+    });
+  } catch (err) {
+    return res.status(502).json({ error: `Could not reach system.pape: ${err.message}` });
+  }
+
+  if (response.status === 409) {
+    const body = await response.json().catch(() => ({}));
+    return res.status(409).json({ error: body.error || 'Slug not claimed by this station' });
+  }
+  if (!response.ok) {
+    return res.status(502).json({ error: `system.pape tunnel creation failed (HTTP ${response.status})` });
+  }
+
+  const body = await response.json().catch(() => ({}));
+  if (!body.tunnelToken || !body.hostname) {
+    return res.status(502).json({ error: 'system.pape returned an unexpected response' });
+  }
+
+  const publicUrl = `https://${body.hostname}`;
+
+  updateEnvKey('CLOUDFLARE_TUNNEL_TOKEN', body.tunnelToken);
+  updateEnvKey('STATION_PUBLIC_URL', publicUrl);
+  updateEnvKey('HTTPS', 'true');
+  updateEnvKey('TRUST_PROXY', 'loopback');
+  config.station.cloudflareTunnel = true;
+  config.station.publicUrl = publicUrl;
+
+  const db = getDb();
+  const existing = db.prepare('SELECT id FROM station_registry WHERE id = 1').get();
+  if (existing) {
+    db.prepare("UPDATE station_registry SET url = ?, updated_at = datetime('now') WHERE id = 1").run(publicUrl);
+  }
+
+  log('info', 'dashboard', `paperweighthq.com tunnel created for ${body.hostname}`);
+  res.json({
+    ok: true,
+    url: publicUrl,
+    tunnelToken: body.tunnelToken,
+    restartRequired: true,
+    note: 'Run `cloudflared service install <token>` with the tunnelToken above (see CLOUDFLARE_SETUP.md), then restart Paperweight.',
   });
 }));
 
