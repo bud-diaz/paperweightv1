@@ -752,6 +752,24 @@
         <div id="dash-content" hidden>
           <div id="dash-runtime-alert" hidden></div>
 
+          <!-- Getting Started checklist -->
+          <div class="dash-section" id="setup-progress-section" hidden>
+            <div class="dash-section-label">GETTING STARTED</div>
+            <div id="setup-progress-list"></div>
+          </div>
+
+          <!-- Optional post-activation signup (replaces the old required download-page email gate) -->
+          <div class="dash-section" id="dashboard-signup-section" hidden>
+            <div class="dash-section-label">STAY IN THE LOOP</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:8px;">Your first listener tuned in! Want release/setup updates? Totally optional.</div>
+            <div class="dash-form-row">
+              <input type="email" class="dash-input dash-input-sm" id="dashboard-signup-email" placeholder="your@email.com" style="flex:1;"/>
+              <button class="mgmt-btn" id="btn-dashboard-signup">SIGN UP</button>
+              <button class="mgmt-btn" id="btn-dashboard-signup-dismiss">MAYBE LATER</button>
+            </div>
+            <div id="dashboard-signup-msg" style="font-family:'Space Mono',monospace;font-size:10px;margin-top:4px;"></div>
+          </div>
+
           <!-- Station -->
           <div class="dash-section" data-drawer="station">
             <div class="dash-section-label">STATION</div>

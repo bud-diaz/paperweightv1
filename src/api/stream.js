@@ -5,6 +5,7 @@ const live = require('../broadcast/live');
 const liveVideo = require('../broadcast/liveVideo');
 const { getDb, log } = require('../db');
 const { getSetting } = require('../db/settings');
+const { recordMilestone } = require('../runtime/funnel');
 
 // In-memory listener sessions keyed by anonymous listener hash.
 // Sessions expire after 60s with no ping.
@@ -98,6 +99,7 @@ function recordListenEvent(req, state, nowMs) {
   const info = db.prepare(
     'INSERT INTO listen_events (ip_hash, media_id, seconds, tier) VALUES (?, ?, ?, ?)'
   ).run(hash, mediaId, 0, req.tier || 'free');
+  recordMilestone('first_listener');
 
   activeListeners.set(hash, {
     mediaId,

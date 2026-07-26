@@ -20,6 +20,7 @@ const asyncHandler = require('./middleware/asyncHandler');
 const { getFFmpegStatus } = require('./runtime/ffmpeg');
 const telemetry = require('./telemetry/reporter');
 const tunnelSupervisor = require('./runtime/tunnel-supervisor');
+const { recordMilestone } = require('./runtime/funnel');
 
 const isPackaged = typeof process.pkg !== 'undefined';
 const isBundledRuntime = isPackaged || process.env.PAPERWEIGHT_DESKTOP_RUNTIME === 'true';
@@ -451,6 +452,10 @@ function finishShutdown() {
 
 async function start() {
   initDb();
+  // First successful DB init is the closest cross-distribution proxy for
+  // "install completed" — INSERT OR IGNORE (migration 029) makes this a
+  // no-op after the very first boot, on every distribution path.
+  recordMilestone('install_completed');
   const ffmpegStatus = getFFmpegStatus();
   if (!ffmpegStatus.ok) {
     console.error(`[Paperweight] ${ffmpegStatus.message}`);

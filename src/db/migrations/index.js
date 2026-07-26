@@ -664,4 +664,50 @@ CREATE TABLE IF NOT EXISTS dashboard_devices (
 );
 `,
   },
+  {
+    filename: "029_funnel_events.sql",
+    sql: `-- Migration 029: Local activation funnel milestones
+-- First-occurrence-only markers for the visit->download->install->first-track->
+-- public-station->first-listener funnel (visit/download are already covered by
+-- download_leads/download_events, migrations 015/022). Deliberately narrow —
+-- four fixed event types, not a general event log — powers a local "setup
+-- progress" dashboard widget (GET /api/dashboard/setup-progress) that works
+-- whether or not the opt-in telemetry reporter (src/telemetry/reporter.js) is
+-- configured, plus that reporter's own aggregate cross-install snapshot when
+-- it is. INSERT OR IGNORE at each call site is the entire "recorded already?"
+-- check, so there's no read-before-write race.
+
+CREATE TABLE IF NOT EXISTS funnel_events (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_type  TEXT    NOT NULL,
+  occurred_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  metadata    TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_funnel_events_type ON funnel_events(event_type);
+`,
+  },
+  {
+    filename: "030_landing_pageviews.sql",
+    sql: `-- Migration 030: Landing page visit tracking
+-- Fills the one genuinely-missing funnel stage (visit) — download, install,
+-- first-track, went-public, and first-listener are all covered elsewhere
+-- (download_leads/download_events, migrations 015/022; funnel_events,
+-- migration 029). No cookies, no third-party script: a fire-and-forget beacon
+-- from the landing pages themselves (POST /api/landing/pageview).
+
+CREATE TABLE IF NOT EXISTS landing_pageviews (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  path       TEXT    NOT NULL,
+  source     TEXT,
+  medium     TEXT,
+  campaign   TEXT,
+  referrer   TEXT,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_landing_pageviews_created ON landing_pageviews(created_at);
+CREATE INDEX IF NOT EXISTS idx_landing_pageviews_path ON landing_pageviews(path, created_at);
+`,
+  },
 ];

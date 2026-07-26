@@ -840,5 +840,24 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !gsOverlay.hidden) setGsOpen(false);
 });
 </script>
+<script>
+(function () {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var payload = JSON.stringify({
+      path: window.location.pathname,
+      source: params.get('utm_source') || params.get('source') || null,
+      medium: params.get('utm_medium') || null,
+      campaign: params.get('utm_campaign') || params.get('campaign') || null,
+      referrer: document.referrer || null,
+    });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/landing/pageview', new Blob([payload], { type: 'application/json' }));
+    } else {
+      fetch('/api/landing/pageview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+    }
+  } catch (e) { /* pageview tracking is best-effort */ }
+})();
+</script>
 </body>
 </html>

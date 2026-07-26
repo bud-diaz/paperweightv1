@@ -498,6 +498,32 @@ export const dashboard = {
   },
 
   /**
+   * GET /api/dashboard/setup-progress — local activation-funnel checklist.
+   * @returns {{ milestones: Record<string, string>, signupDismissed: boolean }}
+   */
+  setupProgress() {
+    return _json('/api/dashboard/setup-progress');
+  },
+
+  /**
+   * POST /api/dashboard/signup — optional post-activation email signup.
+   * @param {string} email
+   * @param {boolean} updatesOptIn
+   * @returns {{ res: Response, data: { error?: string } }}
+   */
+  signup(email, updatesOptIn) {
+    return _send('/api/dashboard/signup', { email, updatesOptIn }, 'POST');
+  },
+
+  /**
+   * POST /api/dashboard/signup/dismiss — "maybe later", never ask again.
+   * @returns {{ res: Response, data: { ok: boolean } }}
+   */
+  dismissSignup() {
+    return _send('/api/dashboard/signup/dismiss', {}, 'POST');
+  },
+
+  /**
    * GET /api/dashboard/accounts — all listener accounts (for typeahead).
    * @returns {Array<{ email: string }>}
    */

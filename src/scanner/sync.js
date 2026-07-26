@@ -3,6 +3,7 @@ const path = require('path');
 const { getDb, log } = require('../db');
 const { probe } = require('./probe');
 const config = require('../config');
+const { recordMilestone } = require('../runtime/funnel');
 
 function isExternalMediaPath(filepath) {
   return typeof filepath === 'string' && filepath.startsWith('external://');
@@ -73,6 +74,7 @@ function upsert(filepath, category, probeData) {
     mime_type: probeData.mime_type || null,
     visibility: config.vault.defaultVisibility,
   });
+  recordMilestone('first_track_scanned');
 }
 
 function markInactive(filepath) {
