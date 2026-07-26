@@ -690,6 +690,15 @@ export const dashboard = {
     registerTelemetry() {
       return _send('/api/dashboard/station/telemetry/register', {}, 'POST');
     },
+
+    /**
+     * POST /api/dashboard/station/cloudflare/paperweighthq/create — provision a
+     * tunnel on <slug>.paperweighthq.com via system.pape (no own domain needed).
+     * @returns {{ res: Response, data: { error?: string, url?: string, tunnelToken?: string, note?: string } }}
+     */
+    createPaperweighthqTunnel() {
+      return _send('/api/dashboard/station/cloudflare/paperweighthq/create', {}, 'POST');
+    },
   },
 
   /**
