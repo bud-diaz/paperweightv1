@@ -246,6 +246,9 @@ function resourceIssues(dir, expectedPlatform = EXPECTED_PLATFORM) {
   if (!fs.existsSync(path.join(dir, 'bin', cloudflaredBinName(expectedPlatform)))) {
     issues.push(`missing bundled cloudflared binary bin/${cloudflaredBinName(expectedPlatform)}`);
   }
+  for (const legalFile of ['CONTENT RESPONSIBILITY.txt', 'LICENSE.txt', 'THIRD-PARTY NOTICE.txt']) {
+    if (!fs.existsSync(path.join(dir, legalFile))) issues.push(`missing bundled legal file ${legalFile}`);
+  }
   walk(path.join(dir, 'src'), full => {
     if (full.endsWith('.map')) issues.push(`contains source map: ${full}`);
     if (/\.(js|css|html)$/i.test(full) && /sourceMappingURL=/.test(fs.readFileSync(full, 'utf8'))) {

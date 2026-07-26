@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Privacy Policy — Paperweight</title>
+  <link rel="icon" type="image/png" href="/favicon.png"/>
+  <meta name="description" content="Paperweight Privacy Policy."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"/>
+  <style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:clip;scroll-behavior:smooth}
+a{text-decoration:none;color:inherit}
+button{border:none;cursor:pointer;background:none;font:inherit}
+
+:root{
+  --bg:#080808;--bg2:#0d0d0d;
+  --neon:#39ff14;
+  --border:rgba(255,255,255,.08);--border-hi:rgba(255,255,255,.14);
+  --text:#fff;--t-mid:rgba(255,255,255,.45);
+  --t-muted:rgba(255,255,255,.25);--t-dim:rgba(255,255,255,.13);
+  --serif:'DM Serif Display',Georgia,serif;
+  --mono:'Space Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh}
+
+.nav{
+  position:sticky;top:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 32px;height:52px;
+  background:rgba(8,8,8,.88);
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+}
+.nav-brand{font-family:var(--serif);font-size:15px;letter-spacing:-.02em;color:var(--text)}
+.nav-links{display:flex;align-items:center;gap:28px}
+.nav-link{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--t-muted);text-transform:uppercase;transition:color .15s}
+.nav-link:hover{color:var(--t-mid)}
+
+.page-hero{
+  padding:64px 32px 40px;
+  max-width:760px;margin:0 auto;
+}
+.page-eyebrow{
+  font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--neon);
+  text-transform:uppercase;margin-bottom:12px;
+}
+.page-title{
+  font-family:var(--serif);font-size:clamp(2rem,5vw,3rem);
+  font-weight:400;letter-spacing:-.02em;margin-bottom:8px;
+}
+.page-subtitle{
+  font-family:var(--mono);font-size:10px;color:var(--t-muted);
+  letter-spacing:.04em;
+}
+
+.doc-body{
+  max-width:760px;margin:0 auto;
+  padding:0 32px 80px;
+}
+.doc-section{
+  border-top:1px solid var(--border);
+  padding:32px 0 0;
+  margin-bottom:32px;
+}
+.doc-section-title{
+  font-family:var(--mono);font-size:9px;letter-spacing:.18em;
+  color:var(--neon);text-transform:uppercase;margin-bottom:16px;
+}
+.doc-p{
+  font-family:var(--mono);font-size:10px;color:var(--t-mid);
+  line-height:1.9;margin-bottom:12px;
+}
+.doc-list{
+  list-style:none;padding-left:12px;margin-bottom:12px;
+}
+.doc-list li{
+  font-family:var(--mono);font-size:10px;color:var(--t-mid);
+  line-height:1.9;padding:2px 0;
+}
+.doc-list li::before{content:'• ';color:rgba(57,255,20,.5);}
+.doc-callout{
+  background:rgba(57,255,20,.05);border:1px solid rgba(57,255,20,.2);
+  border-radius:8px;padding:16px 18px;margin-bottom:20px;
+}
+.doc-callout p{font-family:var(--mono);font-size:10px;color:var(--t-mid);line-height:1.8;}
+
+footer{
+  border-top:1px solid var(--border);
+  padding:24px 32px;
+  display:flex;align-items:center;justify-content:space-between;
+  font-family:var(--mono);font-size:9px;color:var(--t-dim);
+  flex-wrap:wrap;gap:12px;
+}
+.footer-links{display:flex;gap:20px;}
+.footer-link{color:var(--t-dim);transition:color .15s;}
+.footer-link:hover{color:var(--t-mid);}
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-brand">Paperweight</a>
+  <div class="nav-links">
+    <a href="/landing/download" class="nav-link">Download</a>
+    <a href="/landing/terms" class="nav-link">Terms</a>
+  </div>
+</nav>
+
+<div class="page-hero">
+  <div class="page-eyebrow">Legal</div>
+  <h1 class="page-title">Privacy Policy</h1>
+  <p class="page-subtitle">Paperweight Systems LLC</p>
+</div>
+
+<div class="doc-body">
+
+  <div class="doc-callout">
+    <p>Paperweight is self-hosted software: each station runs on the creator's own machine, with its own local database. Paperweight Systems LLC does not operate the servers that run creator stations and does not have access to the media, listener accounts, or payment data any individual station stores.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">What This Policy Covers</div>
+    <p class="doc-p">This policy covers data collected by Paperweight Systems LLC directly — the marketing/download website, the optional hosted directory and tunnel service ("system.pape" / paperweighthq.com), and optional phone-home telemetry a creator can enable in their own station.</p>
+    <p class="doc-p">It does not cover data an individual creator's self-hosted station collects from their own listeners (accounts, tokens, payment records, analytics) — that data lives entirely on the creator's own server and is governed by whatever policies that creator publishes, not by Paperweight Systems LLC.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">Download Page</div>
+    <p class="doc-p">The download page may capture an email address if you choose to enter one (it is optional, not required to download). If provided, it is used only to send release/setup updates you've opted into, and is never sold or shared with third parties.</p>
+    <p class="doc-p">We also record basic, non-identifying attribution data (platform selected, referrer, UTM parameters) to understand which channels bring people to the download page.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">Optional Hosted Services</div>
+    <p class="doc-p">If a creator opts into the public station directory, the hosted tunnel (paperweighthq.com subdomain), or telemetry reporting, their station sends a small set of station-level metrics (name, slug, listener counts, track counts, version) to Paperweight Systems LLC's infrastructure. This is entirely opt-in and off by default — see `docs/system-pape-directory.md` in the Paperweight source for the technical detail of what is sent.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">Cookies And Tracking</div>
+    <p class="doc-p">The marketing/download website does not use third-party analytics or advertising cookies. A lightweight, first-party visit beacon (no cookies) records the page path and referrer for our own funnel measurement.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">Your Choices</div>
+    <p class="doc-p">To stop receiving update emails, use the unsubscribe mechanism in the email itself, or contact us (see Support). To stop a station from reporting telemetry, disable it in that station's own dashboard — this is entirely under the creator's control, not ours.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">Changes To This Policy</div>
+    <p class="doc-p">We may update this policy as the product changes. Material changes will be reflected here with an updated effective date.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">Contact</div>
+    <p class="doc-p">Questions about this policy: <a href="mailto:rollingwoodsmedia@gmail.com" style="color:var(--neon);">rollingwoodsmedia@gmail.com</a>.</p>
+  </div>
+
+</div>
+
+<footer>
+  <span>Paperweight Systems LLC · 2026</span>
+  <div class="footer-links">
+    <a href="/landing/terms" class="footer-link">Terms</a>
+    <a href="/landing/support" class="footer-link">Support</a>
+    <a href="/landing/license" class="footer-link">License</a>
+  </div>
+</footer>
+
+</body>
+</html>

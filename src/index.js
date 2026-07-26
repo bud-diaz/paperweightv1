@@ -344,6 +344,11 @@ function createApp() {
   app.get('/landing/content-responsibility', relaxCspForLandingEmbeddable, serveLanding('/landing/content-responsibility.html', 'content-responsibility.html'));
   app.get('/landing/download',               relaxCspForLanding, serveLanding('/landing/download.html',               'download.html'));
   app.get('/landing/listen',                 relaxCspForListen,  serveLanding('/landing/listen.html',                 'listen.html'));
+  app.get('/landing/privacy',                relaxCspForLanding, serveLanding('/landing/privacy.html',                'privacy.html'));
+  app.get('/landing/terms',                  relaxCspForLanding, serveLanding('/landing/terms.html',                  'terms.html'));
+  app.get('/landing/support',                relaxCspForLanding, serveLanding('/landing/support.html',                'support.html'));
+  app.get('/landing/warranty',               relaxCspForLanding, serveLanding('/landing/warranty.html',               'warranty.html'));
+  app.get('/landing/refund',                 relaxCspForLanding, serveLanding('/landing/refund.html',                 'refund.html'));
 
   // Creator-mode "Docs" modal (client/js/docs.js) — README, per-platform
   // setup guides, and the Asciline third-party notice, none of which have a

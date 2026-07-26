@@ -168,6 +168,15 @@ async function main(args = process.argv.slice(2)) {
         run(process.execPath, [path.join(ROOT, 'scripts', 'check-package-assets.js'), '--require-binary-bundles', '--platform', target.platform, '--arch', target.arch, '--abi', target.abi]);
         const output = path.join(DIST, target.out);
         run(process.execPath, [pkgCli, path.join(ROOT, 'src', 'launcher.js'), '--target', target.target, '--output', output, '--compress', 'GZip']);
+
+        // Ship the legal text files alongside the exe (same as Electron's
+        // extraResources) — see docs/BUSINESS_MODEL.md's "Content
+        // responsibility & licensing" section for why this must be a literal
+        // file in every package, not just a web page and an in-app checkbox.
+        for (const legalFile of ['CONTENT RESPONSIBILITY.txt', 'LICENSE.txt', 'THIRD-PARTY NOTICE.txt']) {
+          fs.copyFileSync(path.join(ROOT, legalFile), path.join(DIST, legalFile));
+        }
+
         console.log(`OK   ${target.label}: ${output}`);
       } finally {
         fs.rmSync(workDir, { recursive: true, force: true });

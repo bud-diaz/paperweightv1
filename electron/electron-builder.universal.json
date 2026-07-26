@@ -19,7 +19,10 @@
     { "from": "stage/node_modules", "to": "node_modules", "filter": ["**/*", "!better-sqlite3", "!better-sqlite3/**"] },
     { "from": "stage/package.json", "to": "package.json" },
     { "from": "native-${arch}/node_modules/better-sqlite3", "to": "node_modules/better-sqlite3" },
-    { "from": "stage/bin", "to": "bin" }
+    { "from": "stage/bin", "to": "bin" },
+    { "from": "../CONTENT RESPONSIBILITY.txt", "to": "CONTENT RESPONSIBILITY.txt" },
+    { "from": "../LICENSE.txt", "to": "LICENSE.txt" },
+    { "from": "../THIRD-PARTY NOTICE.txt", "to": "THIRD-PARTY NOTICE.txt" }
   ],
   "mac": {
     "target": [

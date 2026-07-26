@@ -46,8 +46,12 @@ Media files are still untrusted input. Keep FFmpeg updated and avoid running Pap
 
 ## Known Limits
 
-- No email verification for listener accounts.
-- No password reset flow.
+- Listener email verification exists (verify links, and a 24h grace window
+  enforced once an unverified account goes paid — `src/auth/access.js`) but
+  is not required up front at signup.
+- Password reset works via emailed links (SMTP configured) or dashboard-
+  generated links (SMTP not configured) — there is no self-service reset
+  without one of those two paths.
 - Dashboard auth is a shared token, not named creator accounts.
 - Analytics are approximate and based on player pings.
 - One station per install.
