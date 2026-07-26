@@ -58,7 +58,12 @@ async function stageMacUniversal() {
 
     fs.mkdirSync(STAGE_BIN, { recursive: true });
     run('lipo', ['-create', x64.ffmpeg, arm64.ffmpeg, '-output', path.join(STAGE_BIN, 'ffmpeg')]);
-    run('lipo', ['-create', x64.ffprobe, arm64.ffprobe, '-output', path.join(STAGE_BIN, 'ffprobe')]);
+    // ffprobe-static's darwin/arm64 asset is actually an x86_64 build (see the
+    // note in fetch-ffmpeg.js), identical in architecture to the x64 download,
+    // so `lipo -create` on the pair fails with "same architectures ... can't
+    // be in the same fat output file". Ship the x64 binary directly — it
+    // already runs under Rosetta 2 on Apple Silicon.
+    fs.copyFileSync(x64.ffprobe, path.join(STAGE_BIN, 'ffprobe'));
     fs.chmodSync(path.join(STAGE_BIN, 'ffmpeg'), 0o755);
     fs.chmodSync(path.join(STAGE_BIN, 'ffprobe'), 0o755);
   } finally {

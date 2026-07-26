@@ -135,7 +135,11 @@ async function fetchFfmpeg(options = {}) {
     await downloadToFile(source.url, archive);
     if (source.format === 'zip') {
       if (process.platform === 'win32') {
-        run('powershell.exe', ['-NoProfile', '-Command', 'Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force', archive, extracted]);
+        // Trailing args after a bare -Command string are NOT bound to $args;
+        // that only happens for a script block invoked with &. Without the
+        // & { param(...) } wrapper, $args[0]/[1] are empty, so Expand-Archive
+        // gets a null -LiteralPath.
+        run('powershell.exe', ['-NoProfile', '-Command', '& { param($a, $b) Expand-Archive -LiteralPath $a -DestinationPath $b -Force }', archive, extracted]);
       } else {
         run('unzip', ['-q', archive, '-d', extracted]);
       }
