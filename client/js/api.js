@@ -940,6 +940,18 @@ export const dashboard = {
     },
 
     /**
+     * PUT /api/dashboard/vault/pricing/track/{contentId}
+     * Body: { suggested_price, minimum_price, allow_free, payment_type, recurring_interval }
+     * Pass {} to remove vault pricing for a standalone track (resets visibility to 'public').
+     * @param {number} contentId
+     * @param {object} body
+     * @returns {{ res: Response, data: object }}
+     */
+    pricingTrack(contentId, body) {
+      return _send(`/api/dashboard/vault/pricing/track/${contentId}`, body, 'PUT');
+    },
+
+    /**
      * POST /api/dashboard/vault/projects
      * @param {object} body
      * @returns {{ res: Response, data: object }}
