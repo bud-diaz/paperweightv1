@@ -19,6 +19,7 @@ const { csrfCheck } = require('./middleware/csrfCheck');
 const asyncHandler = require('./middleware/asyncHandler');
 const { getFFmpegStatus } = require('./runtime/ffmpeg');
 const telemetry = require('./telemetry/reporter');
+const tunnelSupervisor = require('./runtime/tunnel-supervisor');
 
 const isPackaged = typeof process.pkg !== 'undefined';
 const isBundledRuntime = isPackaged || process.env.PAPERWEIGHT_DESKTOP_RUNTIME === 'true';
@@ -459,6 +460,13 @@ async function start() {
   releaseScheduler.start();
   broadcast.start('shuffle');
 
+  // Resume the supervised cloudflared connector across restarts (see
+  // src/runtime/tunnel-supervisor.js and the auto-tunnel dashboard route) —
+  // it's a child process of this one, so it doesn't survive on its own.
+  if (config.station.cloudflareTunnel && process.env.CLOUDFLARE_TUNNEL_TOKEN) {
+    tunnelSupervisor.start(process.env.CLOUDFLARE_TUNNEL_TOKEN);
+  }
+
   const app = createApp();
   const configuredPort = config.port;
 
@@ -541,6 +549,7 @@ function shutdown() {
       liveVideo.stopLive();
       broadcast.stop();
       releaseScheduler.stop();
+      tunnelSupervisor.stop();
 
       const cleanupTasks = [Promise.resolve(stopScanner())];
       if (devReloadCleanup) {

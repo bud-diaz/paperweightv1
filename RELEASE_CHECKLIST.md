@@ -168,7 +168,7 @@ Manual QA before publishing:
 ## Do Not Ship If
 
 - `npm run release:check` fails.
-- FFmpeg or ffprobe are missing on a target platform.
+- FFmpeg, ffprobe, or cloudflared are missing on a target platform (`npm run check:package` and `npm run check:desktop-artifact` both assert the bundled binaries are present).
 - Any setup guide is stale or untested.
 - Runtime frontend depends on a CDN.
 - Payment provider configuration is partial.

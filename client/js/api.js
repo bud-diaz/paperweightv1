@@ -649,12 +649,24 @@ export const dashboard = {
 
     /**
      * POST /api/dashboard/station/cloudflare/auto-tunnel
+     * Starts the bundled, supervised cloudflared connector immediately
+     * (src/runtime/tunnel-supervisor.js) — no restart or manual terminal step
+     * needed, unlike the paperweighthq/create route below.
      * @param {string} zoneId
      * @param {string} hostname
-     * @returns {{ res: Response, data: { error?: string, url?: string, tunnelToken?: string, note?: string } }}
+     * @returns {{ res: Response, data: { error?: string, url?: string, restartRequired?: boolean, tunnelStatus?: object } }}
      */
     autoCreateTunnel(zoneId, hostname) {
       return _send('/api/dashboard/station/cloudflare/auto-tunnel', { zoneId, hostname }, 'POST');
+    },
+
+    /**
+     * GET /api/dashboard/station/cloudflare/tunnel/status
+     * Live status of the supervised cloudflared connector.
+     * @returns {{ status: string, lastError: string|null, reconnectAttempts: number, running: boolean }}
+     */
+    getTunnelStatus() {
+      return _json('/api/dashboard/station/cloudflare/tunnel/status');
     },
 
     /**
@@ -694,7 +706,9 @@ export const dashboard = {
     /**
      * POST /api/dashboard/station/cloudflare/paperweighthq/create — provision a
      * tunnel on <slug>.paperweighthq.com via system.pape (no own domain needed).
-     * @returns {{ res: Response, data: { error?: string, url?: string, tunnelToken?: string, note?: string } }}
+     * Also starts the supervised cloudflared connector immediately, same as
+     * autoCreateTunnel above.
+     * @returns {{ res: Response, data: { error?: string, url?: string, restartRequired?: boolean, tunnelStatus?: object } }}
      */
     createPaperweighthqTunnel() {
       return _send('/api/dashboard/station/cloudflare/paperweighthq/create', {}, 'POST');

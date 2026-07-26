@@ -19,6 +19,7 @@ const { probe } = require('../scanner/probe');
 const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCode } = require('../auth/totp');
 const { getFFmpegStatus } = require('../runtime/ffmpeg');
 const cloudflareApi = require('../runtime/cloudflare');
+const tunnelSupervisor = require('../runtime/tunnel-supervisor');
 const telemetryReporter = require('../telemetry/reporter');
 const asyncHandler = require('../middleware/asyncHandler');
 const { clearArtworkCache, ARTWORK_DIR } = require('./library');
@@ -1031,14 +1032,29 @@ router.post('/station/cloudflare/auto-tunnel', requireDesktop, asyncHandler(asyn
   }
 
   log('info', 'dashboard', `Cloudflare tunnel auto-created for ${cleanHostname}`);
+
+  // Start the bundled, supervised cloudflared connector immediately (see
+  // src/runtime/tunnel-supervisor.js) instead of asking the owner to run
+  // `cloudflared service install <token>` in a terminal themselves — this is
+  // what makes this flow genuinely one-click. src/index.js also starts the
+  // supervisor on boot if CLOUDFLARE_TUNNEL_TOKEN is already set, so the
+  // tunnel survives a restart without repeating this route.
+  tunnelSupervisor.start(tunnelToken.result);
+
   res.json({
     ok: true,
     url: publicUrl,
-    tunnelToken: tunnelToken.result,
-    restartRequired: true,
-    note: 'Run `cloudflared service install <token>` with the tunnelToken above (see CLOUDFLARE_SETUP.md), then restart Paperweight.',
+    restartRequired: false,
+    tunnelStatus: tunnelSupervisor.getStatus(),
   });
 }));
+
+// GET /api/dashboard/station/cloudflare/tunnel/status
+// Live status of the supervised cloudflared connector (connecting/connected/
+// error), for the dashboard to poll after auto-tunnel or on page load.
+router.get('/station/cloudflare/tunnel/status', requireDesktop, (req, res) => {
+  res.json(tunnelSupervisor.getStatus());
+});
 
 // ─── Cloudflare tunnel connect/disconnect (dashboard power button) ────────────
 // Toggles public routing through the tunnel created above, via the same
@@ -1224,12 +1240,16 @@ router.post('/station/cloudflare/paperweighthq/create', requireDesktop, asyncHan
   }
 
   log('info', 'dashboard', `paperweighthq.com tunnel created for ${body.hostname}`);
+
+  // Same immediate-supervision behavior as the auto-tunnel route above — no
+  // restart, no manual cloudflared step.
+  tunnelSupervisor.start(body.tunnelToken);
+
   res.json({
     ok: true,
     url: publicUrl,
-    tunnelToken: body.tunnelToken,
-    restartRequired: true,
-    note: 'Run `cloudflared service install <token>` with the tunnelToken above (see CLOUDFLARE_SETUP.md), then restart Paperweight.',
+    restartRequired: false,
+    tunnelStatus: tunnelSupervisor.getStatus(),
   });
 }));
 

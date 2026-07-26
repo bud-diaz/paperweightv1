@@ -430,7 +430,13 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
       });
       assert.equal(autoTunnel.res.status, 200);
       assert.equal(autoTunnel.body.url, 'https://radio.example.com');
-      assert.equal(autoTunnel.body.tunnelToken, 'connector-token-xyz');
+      // The connector token is no longer echoed to the client — the dashboard
+      // route hands it straight to the supervised cloudflared child process
+      // (src/runtime/tunnel-supervisor.js) instead of asking the owner to run
+      // `cloudflared service install <token>` themselves.
+      assert.equal(autoTunnel.body.tunnelToken, undefined);
+      assert.equal(autoTunnel.body.restartRequired, false);
+      assert.ok(autoTunnel.body.tunnelStatus);
       assert.equal(config.station.cloudflareTunnel, true);
       assert.equal(config.station.publicUrl, 'https://radio.example.com');
 
@@ -442,6 +448,7 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
       assert.equal(webBlocked.res.status, 403);
     });
   } finally {
+    require('../src/runtime/tunnel-supervisor').stop();
     stub.close();
     config.platform = originalPlatform;
     config.station.cloudflareApiToken = originalApiToken;
@@ -503,7 +510,9 @@ test('paperweighthq.com tunnel route requires slug + telemetry, then persists wh
       const created = await request(baseUrl, '/api/dashboard/station/cloudflare/paperweighthq/create', { method: 'POST', headers: auth.headers });
       assert.equal(created.res.status, 200);
       assert.equal(created.body.url, 'https://radio-test.paperweighthq.com');
-      assert.equal(created.body.tunnelToken, 'pape-connector-token');
+      assert.equal(created.body.tunnelToken, undefined);
+      assert.equal(created.body.restartRequired, false);
+      assert.ok(created.body.tunnelStatus);
       assert.equal(config.station.cloudflareTunnel, true);
       assert.equal(config.station.publicUrl, 'https://radio-test.paperweighthq.com');
       assert.equal(lastRequest.headers['x-telemetry-secret'], 'shh');
@@ -521,6 +530,7 @@ test('paperweighthq.com tunnel route requires slug + telemetry, then persists wh
       assert.equal(webBlocked.res.status, 403);
     });
   } finally {
+    require('../src/runtime/tunnel-supervisor').stop();
     stub.close();
     config.platform = originalPlatform;
     config.station.slug = originalSlug;

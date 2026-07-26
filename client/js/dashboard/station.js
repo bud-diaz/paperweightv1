@@ -131,6 +131,26 @@ export async function checkStationHealth() {
   }
 }
 
+// Polls the supervised cloudflared connector's status a few times after
+// auto-tunnel creation, since "connecting" -> "connected" happens
+// asynchronously in the background (src/runtime/tunnel-supervisor.js).
+// Stops early on a terminal state, or after a fixed number of tries so a
+// stuck connector doesn't poll forever.
+async function pollTunnelStatus(resultEl, attemptsLeft = 8) {
+  try {
+    const status = await api.dashboard.station.getTunnelStatus();
+    resultEl.textContent = status.status === 'connected'
+      ? 'Tunnel connected.'
+      : status.status === 'error'
+        ? `Tunnel error: ${status.lastError || 'unknown error'}`
+        : 'Connecting…';
+    if (status.status === 'connected' || status.status === 'error' || attemptsLeft <= 1) return;
+  } catch {
+    if (attemptsLeft <= 1) return;
+  }
+  setTimeout(() => pollTunnelStatus(resultEl, attemptsLeft - 1), 1500);
+}
+
 export function initStationHandlers() {
   el('btn-recheck-health').addEventListener('click', checkStationHealth);
 
@@ -255,11 +275,11 @@ export function initStationHandlers() {
       const { res, data } = await api.dashboard.station.autoCreateTunnel(zoneId, hostname);
       if (res.ok) {
         msg.className   = 'dash-success-msg';
-        msg.textContent = `Tunnel created for ${data.url}.`;
+        msg.textContent = `Tunnel created for ${data.url}. Connecting…`;
         result.hidden = false;
-        result.textContent = `Connector token: ${data.tunnelToken} — ${data.note || ''}`;
         el('station-public-url').textContent = data.url;
         checkStationHealth();
+        pollTunnelStatus(result);
       } else {
         msg.className   = 'dash-error-msg';
         msg.textContent = data.error || 'Could not create tunnel';
@@ -281,11 +301,11 @@ export function initStationHandlers() {
       const { res, data } = await api.dashboard.station.createPaperweighthqTunnel();
       if (res.ok) {
         msg.className   = 'dash-success-msg';
-        msg.textContent = `Tunnel created for ${data.url}.`;
+        msg.textContent = `Tunnel created for ${data.url}. Connecting…`;
         result.hidden = false;
-        result.textContent = `Connector token: ${data.tunnelToken} — ${data.note || ''}`;
         el('station-public-url').textContent = data.url;
         checkStationHealth();
+        pollTunnelStatus(result);
       } else {
         msg.className   = 'dash-error-msg';
         msg.textContent = data.error || 'Could not create tunnel';

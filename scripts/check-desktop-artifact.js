@@ -154,6 +154,7 @@ function checkStage() {
   for (const bin of ffmpegBinNames(EXPECTED_PLATFORM)) {
     checkMissing(path.join('bin', bin), `staged Electron FFmpeg binary (${bin})`);
   }
+  checkMissing(path.join('bin', cloudflaredBinName(EXPECTED_PLATFORM)), 'staged Electron cloudflared binary');
 
   checkAbsent('client', 'raw client directory');
   checkAbsent('landing', 'raw landing directory');
@@ -166,6 +167,7 @@ function checkStage() {
   checkAbsent('node_modules/source-map-support', 'source-map-support build helper');
   checkAbsent('src/native-bundle.js', 'pkg native bundle');
   checkAbsent('src/ffmpeg-bundle.js', 'pkg ffmpeg bundle');
+  checkAbsent('src/cloudflared-bundle.js', 'pkg cloudflared bundle');
 
   checkNoSourceMaps(path.join(STAGE, 'src'), 'staged first-party runtime');
 }
@@ -173,6 +175,10 @@ function checkStage() {
 function ffmpegBinNames(platform) {
   const suffix = (platform || process.platform) === 'win32' ? '.exe' : '';
   return [`ffmpeg${suffix}`, `ffprobe${suffix}`];
+}
+
+function cloudflaredBinName(platform) {
+  return (platform || process.platform) === 'win32' ? 'cloudflared.exe' : 'cloudflared';
 }
 
 function matchesPlatformDir(name, platform) {
@@ -228,6 +234,7 @@ function resourceIssues(dir, expectedPlatform = EXPECTED_PLATFORM) {
     path.join('node_modules', 'source-map-support'),
     path.join('src', 'native-bundle.js'),
     path.join('src', 'ffmpeg-bundle.js'),
+    path.join('src', 'cloudflared-bundle.js'),
   ];
   const issues = forbidden
     .filter(name => fs.existsSync(path.join(dir, name)))
@@ -235,6 +242,9 @@ function resourceIssues(dir, expectedPlatform = EXPECTED_PLATFORM) {
   if (!fs.existsSync(path.join(dir, 'src', 'client-bundle.js'))) issues.push('missing src/client-bundle.js');
   for (const bin of ffmpegBinNames(expectedPlatform)) {
     if (!fs.existsSync(path.join(dir, 'bin', bin))) issues.push(`missing bundled FFmpeg binary bin/${bin}`);
+  }
+  if (!fs.existsSync(path.join(dir, 'bin', cloudflaredBinName(expectedPlatform)))) {
+    issues.push(`missing bundled cloudflared binary bin/${cloudflaredBinName(expectedPlatform)}`);
   }
   walk(path.join(dir, 'src'), full => {
     if (full.endsWith('.map')) issues.push(`contains source map: ${full}`);
