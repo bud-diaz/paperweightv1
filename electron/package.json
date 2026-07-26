@@ -38,7 +38,8 @@
     "extraResources": [
       { "from": "stage/src", "to": "src" },
       { "from": "stage/node_modules", "to": "node_modules" },
-      { "from": "stage/package.json", "to": "package.json" }
+      { "from": "stage/package.json", "to": "package.json" },
+      { "from": "stage/bin", "to": "bin" }
     ],
     "mac": {
       "target": ["dmg", "zip"],

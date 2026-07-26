@@ -151,6 +151,10 @@ function checkStage() {
   checkMissing('node_modules/better-sqlite3/build/Release/better_sqlite3.node', 'staged Electron SQLite native binding');
   checkMissing('package.json', 'staged runtime package.json');
 
+  for (const bin of ffmpegBinNames(EXPECTED_PLATFORM)) {
+    checkMissing(path.join('bin', bin), `staged Electron FFmpeg binary (${bin})`);
+  }
+
   checkAbsent('client', 'raw client directory');
   checkAbsent('landing', 'raw landing directory');
   checkAbsent('node_modules/.bin', 'npm bin shims');
@@ -164,6 +168,11 @@ function checkStage() {
   checkAbsent('src/ffmpeg-bundle.js', 'pkg ffmpeg bundle');
 
   checkNoSourceMaps(path.join(STAGE, 'src'), 'staged first-party runtime');
+}
+
+function ffmpegBinNames(platform) {
+  const suffix = (platform || process.platform) === 'win32' ? '.exe' : '';
+  return [`ffmpeg${suffix}`, `ffprobe${suffix}`];
 }
 
 function matchesPlatformDir(name, platform) {
@@ -206,7 +215,7 @@ function resourceDirsFromDist(expectedPlatform = EXPECTED_PLATFORM, electronDir 
   return resources;
 }
 
-function resourceIssues(dir) {
+function resourceIssues(dir, expectedPlatform = EXPECTED_PLATFORM) {
   const forbidden = [
     'client',
     'landing',
@@ -224,6 +233,9 @@ function resourceIssues(dir) {
     .filter(name => fs.existsSync(path.join(dir, name)))
     .map(name => `contains forbidden runtime path ${name}`);
   if (!fs.existsSync(path.join(dir, 'src', 'client-bundle.js'))) issues.push('missing src/client-bundle.js');
+  for (const bin of ffmpegBinNames(expectedPlatform)) {
+    if (!fs.existsSync(path.join(dir, 'bin', bin))) issues.push(`missing bundled FFmpeg binary bin/${bin}`);
+  }
   walk(path.join(dir, 'src'), full => {
     if (full.endsWith('.map')) issues.push(`contains source map: ${full}`);
     if (/\.(js|css|html)$/i.test(full) && /sourceMappingURL=/.test(fs.readFileSync(full, 'utf8'))) {

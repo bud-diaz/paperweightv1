@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 
 const isPackaged = typeof process.pkg !== 'undefined';
+const isElectron = process.env.PAPERWEIGHT_ELECTRON === 'true';
 
 const FFMPEG_BIN  = process.platform === 'win32' ? 'ffmpeg.exe'  : 'ffmpeg';
 const FFPROBE_BIN = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
@@ -84,6 +85,25 @@ if (isPackaged) {
 
   if (fs.existsSync(ffmpegDest))  ffmpegPath  = ffmpegDest;
   if (fs.existsSync(ffprobeDest)) ffprobePath = ffprobeDest;
+} else if (isElectron && process.resourcesPath) {
+  // A packaged Electron build stages ffmpeg/ffprobe into extraResources
+  // (electron/package.json, populated by scripts/stage-electron-ffmpeg.js) —
+  // process.resourcesPath is that extraResources root at runtime. In dev mode
+  // (electron main.js, not packaged) nothing is staged there, so this falls
+  // through to the vendor/PATH branch below like the plain-Node case.
+  const electronBinDir = path.join(process.resourcesPath, 'bin');
+  const electronFfmpeg = path.join(electronBinDir, FFMPEG_BIN);
+  const electronFfprobe = path.join(electronBinDir, FFPROBE_BIN);
+  if (fs.existsSync(electronFfmpeg))  ffmpegPath  = electronFfmpeg;
+  if (fs.existsSync(electronFfprobe)) ffprobePath = electronFfprobe;
+
+  if (!fs.existsSync(electronFfmpeg) || !fs.existsSync(electronFfprobe)) {
+    const vendorDir = path.join(__dirname, '../../vendor/ffmpeg');
+    const vendorFfmpeg = path.join(vendorDir, FFMPEG_BIN);
+    const vendorFfprobe = path.join(vendorDir, FFPROBE_BIN);
+    if (!fs.existsSync(electronFfmpeg) && fs.existsSync(vendorFfmpeg))   ffmpegPath  = vendorFfmpeg;
+    if (!fs.existsSync(electronFfprobe) && fs.existsSync(vendorFfprobe)) ffprobePath = vendorFfprobe;
+  }
 } else {
   const vendorDir = path.join(__dirname, '../../vendor/ffmpeg');
   const vendorFfmpeg = path.join(vendorDir, FFMPEG_BIN);

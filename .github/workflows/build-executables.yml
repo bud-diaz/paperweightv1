@@ -161,6 +161,11 @@ jobs:
           if (-not $exe) { throw "Could not find installed Paperweight.exe under $env:LOCALAPPDATA\Programs" }
           node scripts/smoke-electron.js $exe.FullName
 
+      - name: Ensure Rosetta 2 (bundled ffprobe runs under it on Apple Silicon)
+        if: matrix.artifact-platform == 'darwin'
+        shell: bash
+        run: softwareupdate --install-rosetta --agree-to-license || true
+
       - name: Clean-install smoke test (macOS)
         if: matrix.artifact-platform == 'darwin'
         shell: bash
