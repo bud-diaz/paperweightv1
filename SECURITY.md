@@ -16,7 +16,7 @@ Paperweight is a self-hosted, creator-first streaming and distribution server. I
 - Set `HTTPS=true` when public traffic is served over TLS so cookies use the `Secure` flag.
 - Keep `.env` private.
 - Set a permanent `DOWNLOAD_SIGNING_SECRET`; otherwise signed download links break after restart.
-- Back up `.env`, `vault/`, and `data/paperweight.db`.
+- Back up `.env`, `vault/`, and `data/paperweight.db`. `npm run backup` (`scripts/backup.js`) supports optional AES-256-GCM encryption at rest via `BACKUP_ENCRYPTION_KEY` (a 64-character hex string) — see the comment at the top of that script for generating a key and restoring an encrypted backup.
 
 ## Dashboard Auth
 

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Station Ops — Paperweight</title>
+  <link rel="icon" type="image/png" href="/favicon.png"/>
+  <meta name="description" content="Station Ops: managed public URL, monitoring, automated updates, and encrypted backup for your Paperweight station."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"/>
+  <style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:clip;scroll-behavior:smooth}
+a{text-decoration:none;color:inherit}
+button{border:none;cursor:pointer;background:none;font:inherit}
+
+:root{
+  --bg:#080808;--bg2:#0d0d0d;
+  --neon:#39ff14;
+  --border:rgba(255,255,255,.08);--border-hi:rgba(255,255,255,.14);
+  --text:#fff;--t-mid:rgba(255,255,255,.45);
+  --t-muted:rgba(255,255,255,.25);--t-dim:rgba(255,255,255,.13);
+  --serif:'DM Serif Display',Georgia,serif;
+  --mono:'Space Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh}
+
+.nav{
+  position:sticky;top:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 32px;height:52px;
+  background:rgba(8,8,8,.88);
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+}
+.nav-brand{font-family:var(--serif);font-size:15px;letter-spacing:-.02em;color:var(--text)}
+.nav-links{display:flex;align-items:center;gap:28px}
+.nav-link{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--t-muted);text-transform:uppercase;transition:color .15s}
+.nav-link:hover{color:var(--t-mid)}
+
+.page-hero{
+  padding:64px 32px 40px;
+  max-width:760px;margin:0 auto;
+}
+.page-eyebrow{
+  font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--neon);
+  text-transform:uppercase;margin-bottom:12px;
+}
+.page-title{
+  font-family:var(--serif);font-size:clamp(2rem,5vw,3rem);
+  font-weight:400;letter-spacing:-.02em;margin-bottom:8px;
+}
+.page-subtitle{
+  font-family:var(--mono);font-size:11px;color:var(--t-mid);
+  letter-spacing:.02em;line-height:1.7;max-width:560px;
+}
+
+.price-row{
+  display:flex;align-items:baseline;gap:8px;margin:20px 0;
+}
+.price-num{font-family:var(--serif);font-size:2.5rem;color:var(--neon);}
+.price-unit{font-family:var(--mono);font-size:11px;color:var(--t-muted);}
+
+.doc-body{
+  max-width:760px;margin:0 auto;
+  padding:0 32px 80px;
+}
+.doc-section{
+  border-top:1px solid var(--border);
+  padding:32px 0 0;
+  margin-bottom:32px;
+}
+.doc-section-title{
+  font-family:var(--mono);font-size:9px;letter-spacing:.18em;
+  color:var(--neon);text-transform:uppercase;margin-bottom:16px;
+}
+.doc-p{
+  font-family:var(--mono);font-size:10px;color:var(--t-mid);
+  line-height:1.9;margin-bottom:12px;
+}
+.doc-list{
+  list-style:none;padding-left:12px;margin-bottom:12px;
+}
+.doc-list li{
+  font-family:var(--mono);font-size:10px;color:var(--t-mid);
+  line-height:1.9;padding:2px 0;
+}
+.doc-list li::before{content:'• ';color:rgba(57,255,20,.5);}
+
+.wl-form{
+  display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;
+}
+.wl-email{
+  flex:1;min-width:220px;
+  background:var(--bg2);border:1px solid var(--border-hi);border-radius:6px;
+  padding:11px 14px;color:var(--text);font-family:var(--mono);font-size:12px;
+}
+.wl-email::placeholder{color:var(--t-muted);}
+.wl-email:focus{outline:none;border-color:rgba(57,255,20,.4);}
+.wl-btn{
+  background:var(--neon);color:#000;font-family:var(--mono);font-size:10px;
+  letter-spacing:.08em;text-transform:uppercase;font-weight:700;
+  padding:0 20px;border-radius:6px;white-space:nowrap;
+}
+.wl-btn:hover{box-shadow:0 0 24px rgba(57,255,20,.5);}
+.wl-btn:disabled{opacity:.5;cursor:default;}
+.wl-status{font-family:var(--mono);font-size:10px;margin-top:8px;min-height:14px;}
+.wl-status.ok{color:var(--neon);}
+.wl-status.err{color:#ff6b6b;}
+.wl-check{display:flex;align-items:center;gap:8px;margin-top:10px;}
+.wl-check input{width:auto;}
+.wl-check label{font-family:var(--mono);font-size:10px;color:var(--t-muted);}
+
+footer{
+  border-top:1px solid var(--border);
+  padding:24px 32px;
+  display:flex;align-items:center;justify-content:space-between;
+  font-family:var(--mono);font-size:9px;color:var(--t-dim);
+  flex-wrap:wrap;gap:12px;
+}
+.footer-links{display:flex;gap:20px;}
+.footer-link{color:var(--t-dim);transition:color .15s;}
+.footer-link:hover{color:var(--t-mid);}
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-brand">Paperweight</a>
+  <div class="nav-links">
+    <a href="/landing/download" class="nav-link">Download</a>
+    <a href="/landing/support" class="nav-link">Support</a>
+  </div>
+</nav>
+
+<div class="page-hero">
+  <div class="page-eyebrow">Optional Add-On · Waitlist</div>
+  <h1 class="page-title">Station Ops</h1>
+  <p class="page-subtitle">The self-hosted Paperweight core stays free forever, with a permanent 0% cut on everything you sell. Station Ops is an optional layer on top, for creators who'd rather not run their own ops.</p>
+  <div class="price-row"><span class="price-num">$29</span><span class="price-unit">/ month, cancel any time</span></div>
+</div>
+
+<div class="doc-body">
+
+  <div class="doc-section" style="border-top:none;padding-top:0;">
+    <div class="doc-section-title">What's Included</div>
+    <ul class="doc-list">
+      <li>Managed public URL — a stable address without setting up your own domain or Cloudflare account.</li>
+      <li>Uptime monitoring for your station.</li>
+      <li>Automated updates so you're always on the latest release.</li>
+      <li>Encrypted backup of your station's database.</li>
+      <li>Priority support over the community Discord.</li>
+    </ul>
+    <p class="doc-p">This is a test — we're gauging interest before building full managed fulfillment. Join the waitlist and we'll reach out as spots open up. See the <a href="/landing/refund" style="color:var(--neon);">Refund Policy</a> for billing terms once this is live.</p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">Join The Waitlist</div>
+    <form class="wl-form" id="wl-form">
+      <input type="email" class="wl-email" id="wl-email" placeholder="your@email.com" required>
+      <button type="submit" class="wl-btn" id="wl-btn">Join Waitlist</button>
+    </form>
+    <div class="wl-check">
+      <input type="checkbox" id="wl-updates" checked>
+      <label for="wl-updates">Also send me general Paperweight release updates</label>
+    </div>
+    <div class="wl-status" id="wl-status" role="status" aria-live="polite"></div>
+  </div>
+
+</div>
+
+<footer>
+  <span>Paperweight Systems LLC · 2026</span>
+  <div class="footer-links">
+    <a href="/landing/terms" class="footer-link">Terms</a>
+    <a href="/landing/refund" class="footer-link">Refunds</a>
+    <a href="/landing/privacy" class="footer-link">Privacy</a>
+  </div>
+</footer>
+
+<script>
+document.getElementById('wl-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const email = document.getElementById('wl-email').value.trim();
+  const updatesOptIn = document.getElementById('wl-updates').checked;
+  const status = document.getElementById('wl-status');
+  const btn = document.getElementById('wl-btn');
+  if (!email) return;
+
+  btn.disabled = true;
+  status.className = 'wl-status';
+  status.textContent = 'Joining…';
+
+  fetch('/api/download-lead', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, platform: null, updatesOptIn, source: 'station_ops_waitlist' }),
+  })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+      btn.disabled = false;
+      if (ok) {
+        status.className = 'wl-status ok';
+        status.textContent = "You're on the list — we'll email you when spots open up.";
+        document.getElementById('wl-email').value = '';
+      } else {
+        status.className = 'wl-status err';
+        status.textContent = data.error || 'Could not join the waitlist.';
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      status.className = 'wl-status err';
+      status.textContent = 'Network error — please try again.';
+    });
+});
+
+/* ── Visit beacon ─────────────────────────────────────────────────────────── */
+(function () {
+  try {
+    const beaconParams = new URLSearchParams(window.location.search);
+    const beaconPayload = JSON.stringify({
+      path: window.location.pathname,
+      source: beaconParams.get('utm_source') || beaconParams.get('source') || null,
+      medium: beaconParams.get('utm_medium') || null,
+      campaign: beaconParams.get('utm_campaign') || beaconParams.get('campaign') || null,
+      referrer: document.referrer || null,
+    });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/landing/pageview', new Blob([beaconPayload], { type: 'application/json' }));
+    } else {
+      fetch('/api/landing/pageview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: beaconPayload, keepalive: true });
+    }
+  } catch (e) { /* pageview tracking is best-effort */ }
+})();
+</script>
+
+</body>
+</html>

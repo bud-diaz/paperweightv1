@@ -349,6 +349,7 @@ function createApp() {
   app.get('/landing/support',                relaxCspForLanding, serveLanding('/landing/support.html',                'support.html'));
   app.get('/landing/warranty',               relaxCspForLanding, serveLanding('/landing/warranty.html',               'warranty.html'));
   app.get('/landing/refund',                 relaxCspForLanding, serveLanding('/landing/refund.html',                 'refund.html'));
+  app.get('/landing/station-ops',            relaxCspForLanding, serveLanding('/landing/station-ops.html',            'station-ops.html'));
 
   // Creator-mode "Docs" modal (client/js/docs.js) — README, per-platform
   // setup guides, and the Asciline third-party notice, none of which have a

@@ -36,6 +36,12 @@ toward single-digit minutes/month rather than 30, which would push gross margin
 above 90%. Track actual support minutes per subscriber from day one so this
 assumption gets replaced with data quickly instead of staying a guess.
 
+## What ships at this test-phase scope
+
+- **Waitlist**: `landing/station-ops.html`, reusing `download_leads`/`POST /api/download-lead` with `source: 'station_ops_waitlist'` — no new table.
+- **Encrypted backup**: `scripts/backup.js` now supports optional AES-256-GCM encryption via `BACKUP_ENCRYPTION_KEY` (pure Node `crypto`, no new dependency).
+- **Monitoring**: `scripts/station-ops-monitor.js`, a script the founder runs by hand or via cron against a list of subscriber station URLs — not a hosted dashboard. Reuses the same SSRF-safe reachability check already used for the in-app station health check.
+
 ## Backup storage cost bound
 
 `scripts/backup.js`'s pruning keeps the on-disk backup set bounded per station, so
