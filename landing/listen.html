@@ -430,6 +430,25 @@ queryEl.addEventListener('input', () => {
   searchTimer = setTimeout(searchStations, 300);
 });
 selectTab('search');
+
+/* ── Visit beacon ─────────────────────────────────────────────────────────── */
+(function () {
+  try {
+    const beaconParams = new URLSearchParams(window.location.search);
+    const beaconPayload = JSON.stringify({
+      path: window.location.pathname,
+      source: beaconParams.get('utm_source') || beaconParams.get('source') || null,
+      medium: beaconParams.get('utm_medium') || null,
+      campaign: beaconParams.get('utm_campaign') || beaconParams.get('campaign') || null,
+      referrer: document.referrer || null,
+    });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/landing/pageview', new Blob([beaconPayload], { type: 'application/json' }));
+    } else {
+      fetch('/api/landing/pageview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: beaconPayload, keepalive: true });
+    }
+  } catch (e) { /* pageview tracking is best-effort */ }
+})();
 </script>
 </body>
 </html>

@@ -726,6 +726,13 @@ body::before{
     <div class="as-footer">
       <span>Paperweight Systems LLC • 2026</span>
       <a href="https://discord.gg/AHE6VuPT" class="as-footer-link" target="_blank" rel="noopener">Discord</a>
+      <a href="/privacy" class="as-footer-link">Privacy</a>
+      <a href="/terms" class="as-footer-link">Terms</a>
+      <a href="/support" class="as-footer-link">Support</a>
+      <a href="/warranty" class="as-footer-link">Warranty</a>
+      <a href="/refund" class="as-footer-link">Refunds</a>
+      <a href="/license" class="as-footer-link">License</a>
+      <a href="/station-ops" class="as-footer-link">Station Ops</a>
     </div>
   </div>
 </div>
@@ -839,6 +846,25 @@ gsOverlay.addEventListener('click', e => { if (e.target === gsOverlay) setGsOpen
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !gsOverlay.hidden) setGsOpen(false);
 });
+</script>
+<script>
+(function () {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var payload = JSON.stringify({
+      path: window.location.pathname,
+      source: params.get('utm_source') || params.get('source') || null,
+      medium: params.get('utm_medium') || null,
+      campaign: params.get('utm_campaign') || params.get('campaign') || null,
+      referrer: document.referrer || null,
+    });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/landing/pageview', new Blob([payload], { type: 'application/json' }));
+    } else {
+      fetch('/api/landing/pageview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+    }
+  } catch (e) { /* pageview tracking is best-effort */ }
+})();
 </script>
 </body>
 </html>

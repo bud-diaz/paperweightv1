@@ -48,8 +48,8 @@ if (process.argv.includes('--list')) {
   }
 }
 
-if (htmlIds.length !== 236) {
-  throw new Error(`Expected 236 dashboard IDs, found ${htmlIds.length}`);
+if (htmlIds.length !== 247) {
+  throw new Error(`Expected 247 dashboard IDs, found ${htmlIds.length}`);
 }
 if (desktopOnlyCount !== 13) {
   throw new Error(`Expected 13 data-desktop-only placements, found ${desktopOnlyCount}`);

@@ -150,6 +150,46 @@ jobs:
       - name: Inspect Electron runtime artifact
         run: npm run check:desktop-artifact -- --platform ${{ matrix.artifact-platform }}
 
+      - name: Clean-install smoke test (Windows)
+        if: matrix.artifact-platform == 'win32'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path electron/dist -Filter "Paperweight-Setup-*.exe" | Select-Object -First 1
+          if (-not $installer) { throw "No NSIS installer found in electron/dist" }
+          Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait
+          $exe = Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Recurse -Filter "Paperweight.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw "Could not find installed Paperweight.exe under $env:LOCALAPPDATA\Programs" }
+          node scripts/smoke-electron.js $exe.FullName
+
+      - name: Ensure Rosetta 2 (bundled ffprobe runs under it on Apple Silicon)
+        if: matrix.artifact-platform == 'darwin'
+        shell: bash
+        run: softwareupdate --install-rosetta --agree-to-license || true
+
+      - name: Clean-install smoke test (macOS)
+        if: matrix.artifact-platform == 'darwin'
+        shell: bash
+        run: |
+          set -e
+          zip_path=$(ls electron/dist/*.zip | head -n1)
+          dest=$(mktemp -d)
+          ditto -x -k "$zip_path" "$dest"
+          app_path=$(find "$dest" -maxdepth 2 -name "Paperweight.app" | head -n1)
+          if [ -z "$app_path" ]; then echo "Could not find Paperweight.app inside $zip_path"; exit 1; fi
+          chmod +x "$app_path/Contents/MacOS/Paperweight"
+          node scripts/smoke-electron.js "$app_path/Contents/MacOS/Paperweight"
+
+      - name: Clean-install smoke test (Linux)
+        if: matrix.artifact-platform == 'linux'
+        shell: bash
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          appimage=$(ls electron/dist/*.AppImage | head -n1)
+          chmod +x "$appimage"
+          xvfb-run -a node scripts/smoke-electron.js "$appimage" --appimage-extract-and-run
+
       - name: Upload Electron installer
         uses: actions/upload-artifact@v4
         with:

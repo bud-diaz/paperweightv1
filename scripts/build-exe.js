@@ -6,14 +6,17 @@ const path = require('path');
 const fs = require('fs');
 const { assertLinuxElfArch } = require('./lib/binary-target');
 const { fetchFfmpeg } = require('./fetch-ffmpeg');
+const { fetchCloudflared } = require('./fetch-cloudflared');
 const { generateNativeBundle } = require('./generate-native-bundle');
 const { generateFfmpegBundle } = require('./generate-ffmpeg-bundle');
+const { generateCloudflaredBundle } = require('./generate-cloudflared-bundle');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
 const BUILD_WORK = path.join(DIST, '.build');
 const NATIVE_BUNDLE = path.join(ROOT, 'src', 'native-bundle.js');
 const FFMPEG_BUNDLE = path.join(ROOT, 'src', 'ffmpeg-bundle.js');
+const CLOUDFLARED_BUNDLE = path.join(ROOT, 'src', 'cloudflared-bundle.js');
 
 const TARGETS = Object.freeze([
   { key: 'linux-x64', aliases: ['linux'], platform: 'linux', arch: 'x64', label: 'Linux x64', target: 'node20-linux-x64', nodeVersion: '20.18.1', abi: '115', out: 'paperweight-linux-x64' },
@@ -133,8 +136,13 @@ async function prepareTargetBundles(target, workDir) {
   assertLinuxElfArch(ffmpeg.ffmpeg, target.arch, 'ffmpeg');
   assertLinuxElfArch(ffmpeg.ffprobe, target.arch, 'ffprobe');
 
+  const cloudflaredDir = path.join(ROOT, 'vendor', 'cloudflared', target.key);
+  const cloudflared = await fetchCloudflared({ platform: target.platform, arch: target.arch, dest: cloudflaredDir });
+  assertLinuxElfArch(cloudflared.cloudflared, target.arch, 'cloudflared');
+
   generateNativeBundle({ input: nativeBinding, output: NATIVE_BUNDLE, platform: target.platform, arch: target.arch, abi: target.abi });
   generateFfmpegBundle({ inputDir: ffmpegDir, output: FFMPEG_BUNDLE, platform: target.platform, arch: target.arch });
+  generateCloudflaredBundle({ inputDir: cloudflaredDir, output: CLOUDFLARED_BUNDLE, platform: target.platform, arch: target.arch });
 }
 
 async function main(args = process.argv.slice(2)) {
@@ -160,6 +168,15 @@ async function main(args = process.argv.slice(2)) {
         run(process.execPath, [path.join(ROOT, 'scripts', 'check-package-assets.js'), '--require-binary-bundles', '--platform', target.platform, '--arch', target.arch, '--abi', target.abi]);
         const output = path.join(DIST, target.out);
         run(process.execPath, [pkgCli, path.join(ROOT, 'src', 'launcher.js'), '--target', target.target, '--output', output, '--compress', 'GZip']);
+
+        // Ship the legal text files alongside the exe (same as Electron's
+        // extraResources) — see docs/BUSINESS_MODEL.md's "Content
+        // responsibility & licensing" section for why this must be a literal
+        // file in every package, not just a web page and an in-app checkbox.
+        for (const legalFile of ['CONTENT RESPONSIBILITY.txt', 'LICENSE.txt', 'THIRD-PARTY NOTICE.txt']) {
+          fs.copyFileSync(path.join(ROOT, legalFile), path.join(DIST, legalFile));
+        }
+
         console.log(`OK   ${target.label}: ${output}`);
       } finally {
         fs.rmSync(workDir, { recursive: true, force: true });

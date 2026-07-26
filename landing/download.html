@@ -466,8 +466,8 @@ body::before{
             I understand and accept the <a href="content-responsibility.html" target="_blank" rel="noopener">Content Responsibility Policy</a>
           </label>
           <div class="dl-gate-email-wrap">
-            <input type="email" id="gate-email" class="dl-gate-email" placeholder="your@email.com (required)" required>
-            <div class="dl-gate-disclaimer">Required for download. No spam. We never sell or share your data.</div>
+            <input type="email" id="gate-email" class="dl-gate-email" placeholder="your@email.com (optional)">
+            <div class="dl-gate-disclaimer">Optional. No spam. We never sell or share your data.</div>
           </div>
           <label class="dl-gate-check">
             <input type="checkbox" id="gate-chk-updates">
@@ -775,10 +775,15 @@ function setGateStatus(message, state = '') {
   gateStatus.classList.toggle('warn', state === 'warn');
 }
 
+// Email is optional — only the two policy acknowledgments actually gate the
+// download. An email typed in but not yet valid still blocks the button
+// (rather than silently discarding a half-typed address), but a blank field
+// is fine.
 function isGateReady() {
+  const email = (document.getElementById('gate-email').value || '').trim();
   return document.getElementById('gate-chk-license').checked &&
          document.getElementById('gate-chk-content').checked &&
-         EMAIL_RE.test((document.getElementById('gate-email').value || '').trim());
+         (email === '' || EMAIL_RE.test(email));
 }
 
 function updateGate() {
@@ -814,7 +819,7 @@ document.getElementById('dl-btn').addEventListener('click', function(e) {
   e.preventDefault();
   if (!isGateReady()) {
     updateGate();
-    setGateStatus('Enter a valid email and accept both required policies before downloading.', 'warn');
+    setGateStatus('Accept both required policies before downloading (and enter a valid email, or leave it blank).', 'warn');
     return;
   }
 
@@ -839,30 +844,34 @@ document.getElementById('dl-btn').addEventListener('click', function(e) {
     }
   }
 
-  setGateStatus(updatesOptIn ? 'Saving update preference…' : 'Saving email…');
+  setGateStatus(email ? 'Saving…' : '');
 
-  const leadRequest = postJson('/api/download-lead', {
-    email,
-    platform: activePlatform,
-    updatesOptIn,
-  });
+  // /api/download-lead requires a valid email server-side, so only call it
+  // when one was actually entered — it's optional here, not a download gate.
+  const requests = email
+    ? [postJson('/api/download-lead', { email, platform: activePlatform, updatesOptIn })]
+    : [];
 
-  const eventRequest = postJson('/api/download-events', {
-    email,
+  requests.push(postJson('/api/download-events', {
+    email: email || null,
     platform: activePlatform,
     artifact: platform?.file || null,
     version: APP_VERSION,
     referrer: document.referrer || null,
     ...tracking,
-  });
+  }));
 
-  Promise.allSettled([leadRequest, eventRequest]).then(results => {
+  Promise.allSettled(requests).then(results => {
     const failed = results.some(result => result.status === 'rejected' || !result.value.ok);
     if (failed) {
       setGateStatus('Could not save all tracking details, but your download will still open.', 'warn');
       return;
     }
-    setGateStatus(updatesOptIn ? `Updates enabled for ${email}.` : 'Email saved for this download.', 'ok');
+    if (email) {
+      setGateStatus(updatesOptIn ? `Updates enabled for ${email}.` : 'Email saved for this download.', 'ok');
+    } else {
+      setGateStatus('');
+    }
   }).finally(openDownload);
 });
 
@@ -871,6 +880,25 @@ const detected = detectOS();
 selectPlatform(detected);
 buildWaveform(document.getElementById('dl-wf'), 5);
 selectTab('download');
+
+/* ── Visit beacon (funnel: visit -> download) ────────────────────────────── */
+(function () {
+  try {
+    const beaconParams = new URLSearchParams(window.location.search);
+    const beaconPayload = JSON.stringify({
+      path: window.location.pathname,
+      source: beaconParams.get('utm_source') || beaconParams.get('source') || null,
+      medium: beaconParams.get('utm_medium') || null,
+      campaign: beaconParams.get('utm_campaign') || beaconParams.get('campaign') || null,
+      referrer: document.referrer || null,
+    });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/landing/pageview', new Blob([beaconPayload], { type: 'application/json' }));
+    } else {
+      fetch('/api/landing/pageview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: beaconPayload, keepalive: true });
+    }
+  } catch (e) { /* pageview tracking is best-effort */ }
+})();
 </script>
 
 </body>

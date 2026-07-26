@@ -50,9 +50,13 @@ electron/native-x64/
 # Bundled FFmpeg binaries — downloaded at build time by scripts/fetch-ffmpeg.js
 vendor/ffmpeg/
 
-# Platform-specific native binding and FFmpeg bundles — generated at build time, NOT committed
+# Bundled cloudflared binary — downloaded at build time by scripts/fetch-cloudflared.js
+vendor/cloudflared/
+
+# Platform-specific native binding and FFmpeg/cloudflared bundles — generated at build time, NOT committed
 src/native-bundle.js
 src/ffmpeg-bundle.js
+src/cloudflared-bundle.js
 
 # Temp and scratch files
 *.tmp

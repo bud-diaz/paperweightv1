@@ -19,6 +19,8 @@ const { probe } = require('../scanner/probe');
 const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCode } = require('../auth/totp');
 const { getFFmpegStatus } = require('../runtime/ffmpeg');
 const cloudflareApi = require('../runtime/cloudflare');
+const tunnelSupervisor = require('../runtime/tunnel-supervisor');
+const { recordMilestone, getMilestones } = require('../runtime/funnel');
 const telemetryReporter = require('../telemetry/reporter');
 const asyncHandler = require('../middleware/asyncHandler');
 const { clearArtworkCache, ARTWORK_DIR } = require('./library');
@@ -821,6 +823,58 @@ router.get('/runtime', (req, res) => {
   });
 });
 
+// GET /api/dashboard/setup-progress
+// Local activation-funnel checklist (migration 029, src/runtime/funnel.js) —
+// works identically whether or not opt-in telemetry is configured, since it
+// reads straight from this station's own DB rather than anything reported
+// upstream.
+router.get('/setup-progress', (req, res) => {
+  const milestones = {};
+  for (const row of getMilestones()) {
+    milestones[row.event_type] = row.occurred_at;
+  }
+  res.json({ milestones, signupDismissed: getBoolSetting('dashboard_signup_dismissed', false) });
+});
+
+// POST /api/dashboard/signup/dismiss
+// "Maybe later" — never show the post-activation signup prompt again.
+router.post('/signup/dismiss', (req, res) => {
+  setSetting('dashboard_signup_dismissed', '1');
+  res.json({ ok: true });
+});
+
+// POST /api/dashboard/signup
+// Body: { email, updatesOptIn? }
+// Optional, post-activation alternative to the (now-optional) pre-download
+// email gate on landing/download.html — shown once in-dashboard after the
+// creator's first broadcast/first-public moment, dismissible forever.
+// Reuses download_leads' existing table and dedup-by-email logic, tagged with
+// source='dashboard_signup' to stay distinguishable from download-gate leads.
+const SIGNUP_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_SIGNUP_EMAIL_LENGTH = 254;
+router.post('/signup', (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  const updatesOptIn = req.body?.updatesOptIn === true ? 1 : 0;
+
+  if (!SIGNUP_EMAIL_RE.test(email) || email.length > MAX_SIGNUP_EMAIL_LENGTH) {
+    return res.status(400).json({ error: 'Valid email is required' });
+  }
+
+  const db = getDb();
+  const existing = db.prepare('SELECT id FROM download_leads WHERE email = ? LIMIT 1').get(email);
+  if (existing) {
+    if (updatesOptIn) {
+      db.prepare('UPDATE download_leads SET updates_opt_in = 1 WHERE email = ?').run(email);
+    }
+    return res.json({ ok: true });
+  }
+
+  db.prepare(
+    "INSERT INTO download_leads (email, platform, updates_opt_in, source) VALUES (?, NULL, ?, 'dashboard_signup')"
+  ).run(email, updatesOptIn);
+  res.json({ ok: true });
+});
+
 // PUT /api/dashboard/station/url
 // Body: { url: "https://..." }
 // Updates the registered URL and persists it to .env so it survives restarts.
@@ -910,6 +964,7 @@ router.put('/station/searchable', requireDesktop, asyncHandler(async (req, res) 
 
   setSetting('station_searchable', '1');
   log('info', 'dashboard', 'Station directory searchability enabled');
+  recordMilestone('went_public');
   res.json({ ok: true, searchable: true, checks });
 }));
 
@@ -1031,14 +1086,29 @@ router.post('/station/cloudflare/auto-tunnel', requireDesktop, asyncHandler(asyn
   }
 
   log('info', 'dashboard', `Cloudflare tunnel auto-created for ${cleanHostname}`);
+
+  // Start the bundled, supervised cloudflared connector immediately (see
+  // src/runtime/tunnel-supervisor.js) instead of asking the owner to run
+  // `cloudflared service install <token>` in a terminal themselves — this is
+  // what makes this flow genuinely one-click. src/index.js also starts the
+  // supervisor on boot if CLOUDFLARE_TUNNEL_TOKEN is already set, so the
+  // tunnel survives a restart without repeating this route.
+  tunnelSupervisor.start(tunnelToken.result);
+
   res.json({
     ok: true,
     url: publicUrl,
-    tunnelToken: tunnelToken.result,
-    restartRequired: true,
-    note: 'Run `cloudflared service install <token>` with the tunnelToken above (see CLOUDFLARE_SETUP.md), then restart Paperweight.',
+    restartRequired: false,
+    tunnelStatus: tunnelSupervisor.getStatus(),
   });
 }));
+
+// GET /api/dashboard/station/cloudflare/tunnel/status
+// Live status of the supervised cloudflared connector (connecting/connected/
+// error), for the dashboard to poll after auto-tunnel or on page load.
+router.get('/station/cloudflare/tunnel/status', requireDesktop, (req, res) => {
+  res.json(tunnelSupervisor.getStatus());
+});
 
 // ─── Cloudflare tunnel connect/disconnect (dashboard power button) ────────────
 // Toggles public routing through the tunnel created above, via the same
@@ -1224,12 +1294,16 @@ router.post('/station/cloudflare/paperweighthq/create', requireDesktop, asyncHan
   }
 
   log('info', 'dashboard', `paperweighthq.com tunnel created for ${body.hostname}`);
+
+  // Same immediate-supervision behavior as the auto-tunnel route above — no
+  // restart, no manual cloudflared step.
+  tunnelSupervisor.start(body.tunnelToken);
+
   res.json({
     ok: true,
     url: publicUrl,
-    tunnelToken: body.tunnelToken,
-    restartRequired: true,
-    note: 'Run `cloudflared service install <token>` with the tunnelToken above (see CLOUDFLARE_SETUP.md), then restart Paperweight.',
+    restartRequired: false,
+    tunnelStatus: tunnelSupervisor.getStatus(),
   });
 }));
 
