@@ -22,8 +22,8 @@ const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { PRODUCT_NAME } = require('../electron/product');
 
-const PRODUCT_NAME = 'Paperweight';
 const PORT = parseInt(process.env.PAPERWEIGHT_SMOKE_PORT || '3971', 10);
 const BOOT_TIMEOUT_MS = parseInt(process.env.PAPERWEIGHT_SMOKE_BOOT_MS || '60000', 10);
 const ROOT = path.resolve(__dirname, '..');

@@ -4,10 +4,16 @@ const { app, BrowserWindow, session, Tray, Menu, nativeImage, dialog } = require
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const { configureAppIdentity } = require('./product');
 
 // Must happen before src/config.js (and src/index.js, which requires it) are
 // ever required — config.js reads process.env at module-load time.
 process.env.PAPERWEIGHT_ELECTRON = 'true';
+
+// This must precede app.getPath('userData'): Electron otherwise derives that
+// directory from the npm package name (paperweight-desktop), while installers,
+// setup, and smoke tests use the visible product name (Paperweight).
+configureAppIdentity(app);
 
 // The setup wizard lets the creator pick a custom data folder (see
 // electron/ipc/setup-handlers.js's setup:submit handler), which is recorded
@@ -72,12 +78,6 @@ process.on('unhandledRejection', reason => {
   reportFatalError('Unhandled rejection', reason);
   app.exit(1);
 });
-
-// Keep Windows notifications, taskbar grouping, and development builds under
-// Paperweight's identity instead of Electron's default application identity.
-if (process.platform === 'win32') {
-  app.setAppUserModelId('com.paperweight.desktop');
-}
 
 // better-sqlite3's native binary in the shared ../node_modules is built
 // against the host Node's ABI (used by `npm test`/`node src/index.js`/pkg),

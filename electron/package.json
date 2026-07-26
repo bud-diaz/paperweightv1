@@ -1,5 +1,6 @@
 {
   "name": "paperweight-desktop",
+  "productName": "Paperweight",
   "version": "1.5.1",
   "private": true,
   "description": "Paperweight desktop app (Windows, macOS & Linux)",

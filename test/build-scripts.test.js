@@ -11,6 +11,7 @@ const { TARGETS, prebuildArgsFor, readTargetArgs, selectTargets } = require('../
 const { generateNativeBundle } = require('../scripts/generate-native-bundle');
 const { generateFfmpegBundle } = require('../scripts/generate-ffmpeg-bundle');
 const { cleanDist, commandsFor, selectPlatform } = require('../electron/scripts/dist');
+const { PRODUCT_NAME, configureAppIdentity } = require('../electron/product');
 const { matchesPlatformDir, resourceDirsFromDist, resourceIssues } = require('../scripts/check-desktop-artifact');
 
 function elfBuffer(arch) {
@@ -92,6 +93,34 @@ test('Electron dist dispatch is host-aware and maps every supported host', () =>
   assert.deepEqual(commandsFor('win32').at(-1)[1].slice(-2), ['--platform', 'win32']);
   assert.deepEqual(commandsFor('linux').at(-1)[1].slice(-2), ['--platform', 'linux']);
   assert.deepEqual(commandsFor('darwin').at(-1)[1].slice(-2), ['--platform', 'darwin']);
+});
+
+test('Electron runtime identity matches package and builder product names', () => {
+  const electronPackage = require('../electron/package.json');
+  const universalConfig = require('../electron/electron-builder.universal.json');
+  const calls = [];
+  const app = {
+    setName: value => calls.push(['name', value]),
+    setAppUserModelId: value => calls.push(['appId', value]),
+  };
+
+  configureAppIdentity(app, 'win32');
+
+  assert.equal(PRODUCT_NAME, 'Paperweight');
+  assert.equal(electronPackage.productName, electronPackage.build.productName);
+  assert.equal(electronPackage.productName, universalConfig.productName);
+  assert.deepEqual(calls, [
+    ['name', PRODUCT_NAME],
+    ['appId', 'com.paperweight.desktop'],
+  ]);
+});
+
+test('macOS universal merge permits staged Mach-O resources shared by both arches', () => {
+  const universalConfig = require('../electron/electron-builder.universal.json');
+  assert.equal(
+    universalConfig.mac.x64ArchFiles,
+    '**/{*.node,bin/cloudflared,bin/ffmpeg,bin/ffprobe}'
+  );
 });
 
 test('desktop dist cleanup is confined to the exact output directory', t => {
