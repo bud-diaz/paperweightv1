@@ -28,7 +28,7 @@ Expected result:
 - Release cleanliness check passes.
 - Unit and HTTP tests pass.
 - Preflight has no `FAIL` items.
-- Migration, scheduler, analytics, and package checks pass.
+- Migration, scheduler, analytics, package, and dashboard contract checks pass.
 - `npm audit --omit=dev` reports zero production vulnerabilities.
 
 ## Platform Smoke Passes
@@ -129,19 +129,20 @@ the pkg convenience executable. Build it on each matching OS:
 npm ci
 cd electron
 npm ci
-npm run dist         # Windows / macOS: rebuilds better-sqlite3, stages the hardened runtime, builds, then inspects artifacts
-npm run dist:linux   # Linux: same, targeting AppImage + deb
+npm run dist         # Dispatches to the matching Windows, macOS-universal, or Linux build
 ```
 
 This produces an NSIS installer (`electron/dist/*.exe`) on Windows, a DMG +
 ZIP (`electron/dist/*.dmg`, `*.zip`) on macOS, and an AppImage + Debian package
 (`electron/dist/*.AppImage`, `*.deb`) on Linux.
 
+Desktop target commands are host-guarded and clear `electron/dist/` before
+building so stale output from another platform cannot contaminate validation.
 Desktop builds package a staged runtime from `electron/stage/`, not raw `../src`
 or `../client`. The staging step minifies first-party JavaScript, embeds client
 assets into `src/client-bundle.js`, copies runtime dependencies, and overlays
-the Electron-ABI `better-sqlite3` binding. `npm run dist` and `npm run
-dist:linux` both finish with `npm run check:artifact`, which fails if raw client
+the Electron-ABI `better-sqlite3` binding. Every desktop build finishes with a
+platform-scoped artifact check, which fails if raw client
 folders, source maps, dev build tools, or the wrong SQLite binding are present.
 
 The app should be code-signed before public distribution. Unsigned internal
@@ -167,7 +168,7 @@ Manual QA before publishing:
 ## Do Not Ship If
 
 - `npm run release:check` fails.
-- FFmpeg or ffprobe are missing on a target platform.
+- FFmpeg, ffprobe, or cloudflared are missing on a target platform (`npm run check:package` and `npm run check:desktop-artifact` both assert the bundled binaries are present).
 - Any setup guide is stale or untested.
 - Runtime frontend depends on a CDN.
 - Payment provider configuration is partial.

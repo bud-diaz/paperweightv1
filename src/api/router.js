@@ -60,6 +60,9 @@ router.use('/system',    require('./system'));
 router.use('/download-lead', require('./download-lead'));
 router.use('/download-events', require('./download-events'));
 
+// Landing page visit beacon (public, no auth required)
+router.use('/landing/pageview', require('./landing-pageview'));
+
 // downloads.js defines two routes:
 //   GET /library/:id/signed-url  (mounted at / so becomes /api/library/:id/signed-url)
 //   GET /download/:token         (mounted at / so becomes /api/download/:token)

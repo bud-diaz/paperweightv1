@@ -4,7 +4,7 @@
 
 import * as api from '../api.js';
 import { el, esc } from '../utils.js';
-import * as dashConsole from './console.js';
+import * as dashDrawers from './drawers.js';
 
 // ── Module-local state ─────────────────────────────────────────────────────────
 let _analyticsExpandedLoaded = false;
@@ -23,7 +23,7 @@ export async function loadDashAnalytics() {
       api.dashboard.analytics.live(),
       api.dashboard.analytics.top(3),
     ]);
-    dashConsole.updateListeners(liveData);
+    dashDrawers.updateListeners(liveData);
     el('dash-analytics').innerHTML =
       `<div class="stat-card"><div class="stat-val">${liveData.currentListeners||0}</div><div class="stat-key">NOW</div></div>` +
       `<div class="stat-card"><div class="stat-val">${liveData.peakToday||0}</div><div class="stat-key">PEAK TODAY</div></div>` +

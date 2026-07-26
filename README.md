@@ -34,8 +34,10 @@ It is built for one creator or a small trusted team running one station on Windo
 | Linux x64 server/headless | `scripts/install.sh`, then `scripts/setup.sh` |
 | Raspberry Pi 64-bit | `scripts/install.sh`, then `scripts/setup.sh` |
 
-FFmpeg and ffprobe are required on every platform. The Linux/Pi installers verify
-or install them; the desktop app's setup wizard checks for them on first run.
+FFmpeg and ffprobe are bundled with every distribution (the Linux/Pi executable and
+the Windows/macOS/Linux desktop app) — no separate install step is needed. If you're
+instead running from source with `npm start`, install them yourself and make sure
+they're on PATH; see `TROUBLESHOOTING.md`.
 
 The Electron app isn't code-signed yet, so Windows SmartScreen / macOS Gatekeeper
 will warn on first run — see [TROUBLESHOOTING.md](TROUBLESHOOTING.md). If you'd
@@ -147,17 +149,23 @@ Convenience executable packaging for Linux/Raspberry Pi remains available:
 npm run build:exe
 ```
 
-By default this builds the native executable for the current OS/CPU. The
+By default this builds the native Linux executable for the current CPU. Linux
+x64 and ARM64 hosts can build the other architecture explicitly with
+`--target <linux-x64|linux-arm64> --allow-cross`, or both with
+`--all --allow-cross`. Cross-builds require a published target-compatible
+`better-sqlite3` prebuild. The
 `Build Executables` GitHub Actions workflow builds and smoke-tests Linux x64
 and Raspberry Pi/Linux ARM64 artifacts on matching hosted runners, and
 separately builds the Windows/macOS/Linux Electron installers as a packaging check.
 
-Desktop app packaging (run on the matching OS):
+Desktop app packaging automatically selects the current OS:
 
 ```bash
-cd electron && npm ci && npm run dist         # Windows / macOS
-cd electron && npm ci && npm run dist:linux   # Linux (AppImage + deb)
+cd electron && npm ci && npm run dist
 ```
+
+The guarded `dist:win`, `dist:mac-universal`, and `dist:linux` commands remain
+available when an explicit target command is useful.
 
 ## Project Layout
 
@@ -201,7 +209,6 @@ hls_output/
 - No listener email verification.
 - Password reset emails require SMTP configuration; without it, the creator generates reset links from the dashboard.
 - Payments require provider setup and verified webhooks.
-- FFmpeg/ffprobe remain external system dependencies.
 
 ## License
 

@@ -456,6 +456,28 @@ export const posts = {
   },
 };
 
+// ── api.docs ───────────────────────────────────────────────────────────────────────
+
+export const docs = {
+  /**
+   * GET /api/docs — list of the Markdown/text docs the Docs modal can show
+   * (README, per-platform setup guides, the Asciline third-party notice).
+   * @returns {{ docs: Array<{ id: string, title: string }> }}
+   */
+  list() {
+    return _json('/api/docs');
+  },
+
+  /**
+   * GET /api/docs/{id} — raw Markdown/text content for one doc.
+   * @param {string} id
+   * @returns {Promise<string>}
+   */
+  get(id) {
+    return _fetch(`/api/docs/${id}`).then(r => r.text());
+  },
+};
+
 // ── api.dashboard ─────────────────────────────────────────────────────────────────
 
 export const dashboard = {
@@ -473,6 +495,32 @@ export const dashboard = {
    */
   runtime() {
     return _json('/api/dashboard/runtime');
+  },
+
+  /**
+   * GET /api/dashboard/setup-progress — local activation-funnel checklist.
+   * @returns {{ milestones: Record<string, string>, signupDismissed: boolean }}
+   */
+  setupProgress() {
+    return _json('/api/dashboard/setup-progress');
+  },
+
+  /**
+   * POST /api/dashboard/signup — optional post-activation email signup.
+   * @param {string} email
+   * @param {boolean} updatesOptIn
+   * @returns {{ res: Response, data: { error?: string } }}
+   */
+  signup(email, updatesOptIn) {
+    return _send('/api/dashboard/signup', { email, updatesOptIn }, 'POST');
+  },
+
+  /**
+   * POST /api/dashboard/signup/dismiss — "maybe later", never ask again.
+   * @returns {{ res: Response, data: { ok: boolean } }}
+   */
+  dismissSignup() {
+    return _send('/api/dashboard/signup/dismiss', {}, 'POST');
   },
 
   /**
@@ -627,12 +675,24 @@ export const dashboard = {
 
     /**
      * POST /api/dashboard/station/cloudflare/auto-tunnel
+     * Starts the bundled, supervised cloudflared connector immediately
+     * (src/runtime/tunnel-supervisor.js) — no restart or manual terminal step
+     * needed, unlike the paperweighthq/create route below.
      * @param {string} zoneId
      * @param {string} hostname
-     * @returns {{ res: Response, data: { error?: string, url?: string, tunnelToken?: string, note?: string } }}
+     * @returns {{ res: Response, data: { error?: string, url?: string, restartRequired?: boolean, tunnelStatus?: object } }}
      */
     autoCreateTunnel(zoneId, hostname) {
       return _send('/api/dashboard/station/cloudflare/auto-tunnel', { zoneId, hostname }, 'POST');
+    },
+
+    /**
+     * GET /api/dashboard/station/cloudflare/tunnel/status
+     * Live status of the supervised cloudflared connector.
+     * @returns {{ status: string, lastError: string|null, reconnectAttempts: number, running: boolean }}
+     */
+    getTunnelStatus() {
+      return _json('/api/dashboard/station/cloudflare/tunnel/status');
     },
 
     /**
@@ -667,6 +727,17 @@ export const dashboard = {
      */
     registerTelemetry() {
       return _send('/api/dashboard/station/telemetry/register', {}, 'POST');
+    },
+
+    /**
+     * POST /api/dashboard/station/cloudflare/paperweighthq/create — provision a
+     * tunnel on <slug>.paperweighthq.com via system.pape (no own domain needed).
+     * Also starts the supervised cloudflared connector immediately, same as
+     * autoCreateTunnel above.
+     * @returns {{ res: Response, data: { error?: string, url?: string, restartRequired?: boolean, tunnelStatus?: object } }}
+     */
+    createPaperweighthqTunnel() {
+      return _send('/api/dashboard/station/cloudflare/paperweighthq/create', {}, 'POST');
     },
   },
 
@@ -906,6 +977,18 @@ export const dashboard = {
      */
     pricing() {
       return _json('/api/dashboard/vault/pricing');
+    },
+
+    /**
+     * PUT /api/dashboard/vault/pricing/track/{contentId}
+     * Body: { suggested_price, minimum_price, allow_free, payment_type, recurring_interval }
+     * Pass {} to remove vault pricing for a standalone track (resets visibility to 'public').
+     * @param {number} contentId
+     * @param {object} body
+     * @returns {{ res: Response, data: object }}
+     */
+    pricingTrack(contentId, body) {
+      return _send(`/api/dashboard/vault/pricing/track/${contentId}`, body, 'PUT');
     },
 
     /**

@@ -1,6 +1,7 @@
 /**
  * dashboard/desktop-controls.js — Desktop-only power/update/uninstall
- * cluster (floating overlay, bottom-right, outside the player panel).
+ * items, flattened into the settings-gear dropdown below DOCS (see
+ * #desktop-power-items in client/creator.html and settings.js).
  *
  * Talks to window.desktopAPI (electron/preload.js) for anything that only
  * the Electron main process can do (quit, restart, check for updates,
@@ -10,18 +11,9 @@
 
 import { el, showToast } from '../utils.js';
 import * as api from '../api.js';
+import { closeSettingsDropdown } from '../settings.js';
 
 export function init() {}
-
-function toggleDropdown(force) {
-  const dd = el('desktop-power-dropdown');
-  const show = force !== undefined ? force : dd.hidden;
-  dd.hidden = !show;
-}
-
-function closeDropdown() {
-  toggleDropdown(false);
-}
 
 // Tunnel connect/disconnect — dulled until CLOUDFLARE_TUNNEL_TOKEN is set,
 // fed by station.js's loadDashStation() (same GET /api/dashboard/station
@@ -50,7 +42,7 @@ async function toggleTunnel() {
     ? "Disconnect the public tunnel? Your station will be unreachable from outside until you reconnect it."
     : 'Reconnect the public tunnel?';
   if (!confirm(msg)) return;
-  closeDropdown();
+  closeSettingsDropdown();
 
   const { res, data } = disconnecting
     ? await api.dashboard.station.tunnelDisconnect()
@@ -67,14 +59,14 @@ async function toggleTunnel() {
 
 async function stopBroadcast() {
   if (!confirm('Stop the broadcast?')) return;
-  closeDropdown();
+  closeSettingsDropdown();
   await api.dashboard.broadcast.stop();
   showToast('Broadcast stopped');
 }
 
 async function restartBroadcast() {
   if (!confirm('Restart the broadcast?')) return;
-  closeDropdown();
+  closeSettingsDropdown();
   await api.dashboard.broadcast.restart();
   showToast('Broadcast restarting…');
 }
@@ -82,14 +74,14 @@ async function restartBroadcast() {
 async function stopServer() {
   if (!window.desktopAPI) return;
   if (!confirm('Quit Paperweight? The broadcast and dashboard will stop.')) return;
-  closeDropdown();
+  closeSettingsDropdown();
   window.desktopAPI.quitApp();
 }
 
 async function restartServer() {
   if (!window.desktopAPI) return;
   if (!confirm('Restart Paperweight? The broadcast and dashboard will briefly go offline.')) return;
-  closeDropdown();
+  closeSettingsDropdown();
   showToast('Restarting…');
   window.desktopAPI.restartServer();
 }
@@ -97,7 +89,7 @@ async function restartServer() {
 async function stopBoth() {
   if (!window.desktopAPI) return;
   if (!confirm('Stop the broadcast and quit Paperweight?')) return;
-  closeDropdown();
+  closeSettingsDropdown();
   try { await api.dashboard.broadcast.stop(); } catch {}
   window.desktopAPI.quitApp();
 }
@@ -114,17 +106,29 @@ async function checkForUpdates() {
   }
 }
 
-async function uninstall() {
+// A custom modal, not window.prompt() — Electron's renderer only implements
+// window.alert()/window.confirm() natively; window.prompt() returns null
+// immediately with no UI, which silently no-ops this whole flow.
+function openUninstallModal() {
   if (!window.desktopAPI) return;
   const stationName = window._stationName || '';
-  const phrase = prompt(
-    `This will export your data to your Desktop, then permanently delete all Paperweight data and quit.\n\nType your station name to confirm: ${stationName}`
-  );
-  if (phrase === null) return;
+  el('uninstall-modal-label').textContent = `Type your station name to confirm: ${stationName}`;
+  el('uninstall-confirm-input').value = '';
+  el('uninstall-modal-backdrop').classList.add('open');
+}
+
+function closeUninstallModal() {
+  el('uninstall-modal-backdrop').classList.remove('open');
+}
+
+async function confirmUninstall() {
+  const stationName = window._stationName || '';
+  const phrase = el('uninstall-confirm-input').value;
   if (phrase !== stationName) {
     showToast('Confirmation text did not match — nothing was deleted');
     return;
   }
+  closeUninstallModal();
   showToast('Exporting and uninstalling…');
   const result = await window.desktopAPI.uninstall(phrase);
   if (result && result.ok === false) {
@@ -134,20 +138,10 @@ async function uninstall() {
 }
 
 export function initDesktopControlsHandlers() {
-  const cluster = el('desktop-power-cluster');
-  if (!cluster) return;
+  if (!el('dp-stop-broadcast')) return;
 
-  el('desktop-power-btn').addEventListener('click', e => {
-    e.stopPropagation();
-    toggleDropdown();
-  });
-  document.addEventListener('click', e => {
-    const dd = el('desktop-power-dropdown');
-    if (!dd.hidden && !dd.contains(e.target) && e.target !== el('desktop-power-btn')) {
-      closeDropdown();
-    }
-  });
-
+  // Click-outside-to-close and the trigger button are owned by settings.js
+  // (#pw-settings-dropdown) — these items just live inside that same menu.
   el('dp-stop-broadcast').addEventListener('click', stopBroadcast);
   el('dp-restart-broadcast').addEventListener('click', restartBroadcast);
   el('dp-toggle-tunnel').addEventListener('click', toggleTunnel);
@@ -155,5 +149,12 @@ export function initDesktopControlsHandlers() {
   el('dp-restart-server').addEventListener('click', restartServer);
   el('dp-stop-both').addEventListener('click', stopBoth);
   el('desktop-update-btn').addEventListener('click', checkForUpdates);
-  el('desktop-uninstall-btn').addEventListener('click', uninstall);
+  el('desktop-uninstall-btn').addEventListener('click', openUninstallModal);
+
+  el('uninstall-modal-close').addEventListener('click', closeUninstallModal);
+  el('uninstall-modal-cancel').addEventListener('click', closeUninstallModal);
+  el('uninstall-modal-confirm').addEventListener('click', confirmUninstall);
+  el('uninstall-modal-backdrop').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeUninstallModal();
+  });
 }

@@ -35,6 +35,7 @@ import * as payment      from './payment.js';
 import * as welcome      from './welcome.js';
 import * as collection   from './collection.js';
 import * as settings     from './settings.js';
+import * as docsModal    from './docs.js';
 import * as tour         from './tour.js';
 import * as tilt         from './tilt.js';
 import * as swipe        from './swipe.js';
@@ -50,6 +51,7 @@ import * as broadcast   from './dashboard/broadcast.js';
 import * as live        from './dashboard/live.js';
 import * as liveExternal from './dashboard/live-external.js';
 import * as liveVideo    from './dashboard/liveVideo.js';
+import * as golive      from './dashboard/golive.js';
 import * as schedule    from './dashboard/schedule.js';
 import * as smartPlaylists from './dashboard/smartplaylists.js';
 import * as dashPosts   from './dashboard/posts.js';
@@ -57,8 +59,7 @@ import * as upload      from './dashboard/upload.js';
 import * as analytics   from './dashboard/analytics.js';
 import * as twofa       from './dashboard/twofa.js';
 import * as devices     from './dashboard/devices.js';
-import * as dashConsole from './dashboard/console.js';
-import * as sections    from './dashboard/sections.js';
+import * as dashDrawers from './dashboard/drawers.js';
 import * as search      from './dashboard/search.js';
 import * as tools       from './dashboard/tools.js';
 import * as earnings    from './dashboard/earnings.js';
@@ -89,6 +90,7 @@ settings.init({
   toggleAuthSection: auth.toggleAuthSection,
   logoutListener: auth.logoutListener,
   maybeShowTour: tour.maybeShowSettingsTour,
+  openDocs: docsModal.openDocsModal,
 });
 
 tour.init();
@@ -107,6 +109,7 @@ library.init({
 collection.init({
   selectVOD:      player.selectVOD,
   normalizeTrack: library.normalizeTrack,
+  onSavedChanged: stack.refresh,
 });
 
 welcome.init({
@@ -153,6 +156,12 @@ stack.init({
   checkVaultGate: payment.checkVaultGate,
   addToQueue:     library.addToQueue,
   setNextUp:      player.setNextUp,
+  onStashChanged: collection.loadCollection,
+  editTrack: async trackId => {
+    enterDashboard();
+    dashDrawers.openSection('library', { animate: false });
+    await vault.openTrackEditor(trackId);
+  },
 });
 
 payment.init({
@@ -254,8 +263,7 @@ smartPlaylists.init();
 dashPosts.init();
 twofa.init();
 devices.init();
-dashConsole.init();
-sections.init();
+dashDrawers.init();
 tools.init();
 desktopControls.init();
 
@@ -267,6 +275,7 @@ earnings.initEarningsHandlers();
 ascii.initRealVideoToggleHandlers();
 library.initListenerQueueHandlers();
 libraryModal.initLibraryModalHandlers();
+docsModal.initDocsModalHandlers();
 payment.initPaymentHandlers();
 payment.initFloatingTip();
 player.initShareHandlers();
@@ -284,6 +293,7 @@ broadcast.initBroadcastHandlers();
 live.initLiveHandlers();
 liveExternal.initLiveExternalHandlers();
 liveVideo.initLiveVideoHandlers();
+golive.initGoLiveModalHandlers();
 schedule.initScheduleHandlers();
 smartPlaylists.initSmartPlaylistHandlers();
 dashPosts.initPostHandlers();
@@ -643,9 +653,14 @@ async function init() {
   // On-demand play quota — needs tier known first, so the badge is correct on first paint
   await player.loadQuota();
 
+  // Resolve creator/dashboard session before deciding on the listener welcome
+  // overlay — the creator's own Studio window must never see it.
+  const isCreator = await dashIndex.tryDashAuth();
+
   // First-visit welcome page (display-name-only entry, Papercut-style).
-  // After loadAuthState so returning listeners are never re-prompted.
-  welcome.maybeShowWelcome(window._stationName || '');
+  // After loadAuthState so returning listeners are never re-prompted, and
+  // never shown at all in the creator's own dashboard session.
+  welcome.maybeShowWelcome(window._stationName || '', isCreator);
 
   // Library and queue
   library.loadLibrary();
@@ -659,8 +674,9 @@ async function init() {
   // Silently restore creator session from the httpOnly dashboard cookie.
   // dashboard.initDashboard() is idempotent (guarded by dashboardInitialized)
   // and internally shows either the content view or the auth gate, which
-  // replicates the original inline script's silent-restore IIFE.
-  dashIndex.initDashboard();
+  // replicates the original inline script's silent-restore IIFE. isCreator
+  // was already resolved above, so this reuses it instead of re-probing.
+  dashIndex.initDashboard(isCreator);
 
   // Initial render
   player.render();

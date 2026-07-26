@@ -203,6 +203,15 @@ function runMigrations(database) {
       column: 'donor_email',
       sql:    'ALTER TABLE tips ADD COLUMN donor_email TEXT',
     },
+    {
+      // Distinguishes rows from the public, pre-download-required-gate lead
+      // capture (landing/download.html, now optional) from the authenticated,
+      // post-activation dashboard signup prompt (POST /api/dashboard/signup) —
+      // same table, same dedup-by-email logic, different provenance.
+      table:  'download_leads',
+      column: 'source',
+      sql:    "ALTER TABLE download_leads ADD COLUMN source TEXT NOT NULL DEFAULT 'download_gate'",
+    },
   ];
 
   for (const guard of alterGuards) {

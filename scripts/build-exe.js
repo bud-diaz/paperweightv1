@@ -1,49 +1,41 @@
 #!/usr/bin/env node
-/**
- * Convenience executable packaging for Paperweight — Linux / Raspberry Pi only.
- *
- * Windows and macOS users should install the Electron desktop app instead
- * (see electron/, built with `cd electron && npm run dist`), which ships a
- * graphical setup wizard, system tray, and native installer (NSIS/DMG) with
- * Desktop/Start Menu shortcuts. This script remains for Linux/Pi users who
- * want a single self-bootstrapping binary on the same platform they build on.
- *
- * Native modules are platform-specific. Build each target on its matching OS
- * and architecture; do not treat --allow-cross as a release build.
- */
-
 'use strict';
 
 const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { assertLinuxElfArch } = require('./lib/binary-target');
+const { fetchFfmpeg } = require('./fetch-ffmpeg');
+const { fetchCloudflared } = require('./fetch-cloudflared');
+const { generateNativeBundle } = require('./generate-native-bundle');
+const { generateFfmpegBundle } = require('./generate-ffmpeg-bundle');
+const { generateCloudflaredBundle } = require('./generate-cloudflared-bundle');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
+const BUILD_WORK = path.join(DIST, '.build');
+const NATIVE_BUNDLE = path.join(ROOT, 'src', 'native-bundle.js');
+const FFMPEG_BUNDLE = path.join(ROOT, 'src', 'ffmpeg-bundle.js');
+const CLOUDFLARED_BUNDLE = path.join(ROOT, 'src', 'cloudflared-bundle.js');
 
-const TARGETS = [
-  { key: 'linux-x64',   aliases: ['linux'],                               platform: 'linux',  arch: 'x64',   label: 'Linux x64',                    target: 'node20-linux-x64',   nodeVersion: '20.18.1', abi: '115', out: 'paperweight-linux-x64' },
-  { key: 'linux-arm64', aliases: ['pi', 'raspberry-pi', 'raspi'],         platform: 'linux',  arch: 'arm64', label: 'Raspberry Pi / Linux ARM64',    target: 'node20-linux-arm64', nodeVersion: '20.18.1', abi: '115', out: 'paperweight-linux-arm64' },
-];
+const TARGETS = Object.freeze([
+  { key: 'linux-x64', aliases: ['linux'], platform: 'linux', arch: 'x64', label: 'Linux x64', target: 'node20-linux-x64', nodeVersion: '20.18.1', abi: '115', out: 'paperweight-linux-x64' },
+  { key: 'linux-arm64', aliases: ['pi', 'raspberry-pi', 'raspi'], platform: 'linux', arch: 'arm64', label: 'Raspberry Pi / Linux ARM64', target: 'node20-linux-arm64', nodeVersion: '20.18.1', abi: '115', out: 'paperweight-linux-arm64' },
+]);
 
 function usage() {
-  console.log(`Usage:
+  return `Usage:
   npm run build:exe
-  npm run build:exe -- --target linux-arm64
+  npm run build:exe -- --target linux-arm64 --allow-cross
   npm run build:exe -- --all --allow-cross
 
-Targets (Linux/Pi only — Windows/macOS use the Electron app, see electron/):
-${TARGETS.map(t => `  ${t.key.padEnd(13)} ${t.label}`).join('\n')}
-`);
-}
-
-function hostTarget() {
-  return TARGETS.find(t => t.platform === process.platform && t.arch === process.arch);
+Targets:
+${TARGETS.map(target => `  ${target.key.padEnd(13)} ${target.label}`).join('\n')}`;
 }
 
 function findTarget(name) {
   const normalized = String(name || '').trim().toLowerCase();
-  return TARGETS.find(t => t.key === normalized || t.target === normalized || t.aliases.includes(normalized));
+  return TARGETS.find(target => target.key === normalized || target.target === normalized || target.aliases.includes(normalized));
 }
 
 function readTargetArgs(args) {
@@ -51,12 +43,8 @@ function readTargetArgs(args) {
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === '--target' || arg === '--targets') {
-      const value = args[i + 1];
-      if (!value) {
-        console.error(`Missing value for ${arg}`);
-        process.exit(1);
-      }
-      requested.push(...value.split(','));
+      if (!args[i + 1]) throw new Error(`Missing value for ${arg}`);
+      requested.push(...args[i + 1].split(','));
       i += 1;
     } else if (arg.startsWith('--target=')) {
       requested.push(...arg.slice('--target='.length).split(','));
@@ -67,160 +55,143 @@ function readTargetArgs(args) {
   return requested;
 }
 
-const args = process.argv.slice(2);
-const allowCross = args.includes('--allow-cross');
-if (args.includes('--help') || args.includes('-h')) {
-  usage();
-  process.exit(0);
-}
-
-let targets;
-if (args.includes('--all')) {
-  targets = TARGETS;
-} else {
-  const requested = readTargetArgs(args);
-  targets = requested.length
-    ? requested.map(name => {
+function selectTargets(args, host = { platform: process.platform, arch: process.arch }) {
+  const names = args.includes('--all') ? TARGETS.map(target => target.key) : readTargetArgs(args);
+  const selected = names.length
+    ? names.map(name => {
       const target = findTarget(name);
-      if (!target) {
-        console.error(`Unknown executable target: ${name}`);
-        usage();
-        process.exit(1);
-      }
+      if (!target) throw new Error(`Unknown executable target: ${name}`);
       return target;
     })
-    : [hostTarget()].filter(Boolean);
-}
+    : TARGETS.filter(target => target.platform === host.platform && target.arch === host.arch);
 
-if (targets.length === 0) {
-  console.error(`No packaged target is configured for ${process.platform}/${process.arch}.`);
-  if (process.platform === 'win32' || process.platform === 'darwin') {
-    console.error('Windows and macOS now ship as the Electron desktop app: cd electron && npm run dist');
+  if (!selected.length) throw new Error(`No packaged target is configured for ${host.platform}/${host.arch}`);
+  const crossTargets = selected.filter(target => target.platform !== host.platform || target.arch !== host.arch);
+  if (crossTargets.length && !args.includes('--allow-cross')) {
+    throw new Error(`Non-native target(s) require --allow-cross: ${crossTargets.map(target => target.key).join(', ')}`);
   }
-  usage();
-  process.exit(1);
-}
-
-const crossTargets = targets.filter(t => t.platform !== process.platform || t.arch !== process.arch);
-if (crossTargets.length && !allowCross) {
-  console.error('Refusing to build non-native executable target(s):');
-  for (const target of crossTargets) {
-    console.error(`  ${target.key} requires ${target.platform}/${target.arch}; host is ${process.platform}/${process.arch}`);
+  if (crossTargets.length && host.platform !== 'linux') {
+    throw new Error('Executable cross-building is supported only on Linux hosts between x64 and ARM64');
   }
-  console.error('\nBuild each target on matching hardware, or pass --allow-cross only for local experiments.');
-  process.exit(1);
+  return selected;
 }
 
-function run(cmd, opts = {}) {
-  console.log(`  $ ${cmd}`);
-  const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: ROOT, ...opts });
-  if (result.status !== 0) {
-    console.error(`\nCommand failed (exit ${result.status})`);
-    process.exit(result.status ?? 1);
+function run(command, args, options = {}) {
+  console.log(`  $ ${command} ${args.join(' ')}`);
+  const result = spawnSync(command, args, { cwd: ROOT, stdio: 'inherit', windowsHide: true, ...options });
+  if (result.status !== 0) throw new Error(`${command} failed (exit ${result.status ?? 'unknown'})`);
+}
+
+function tryRun(command, args, options = {}) {
+  console.log(`  $ ${command} ${args.join(' ')}`);
+  return spawnSync(command, args, { cwd: ROOT, stdio: 'inherit', windowsHide: true, ...options }).status === 0;
+}
+
+function resetDir(dir, parent) {
+  const relative = path.relative(path.resolve(parent), path.resolve(dir));
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`Refusing to reset unsafe build directory: ${dir}`);
   }
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
 }
 
-function tryRun(cmd, opts = {}) {
-  console.log(`  $ ${cmd}`);
-  const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: ROOT, ...opts });
-  return result.status === 0;
+function prebuildArgsFor(target, prebuildCli = require.resolve('prebuild-install/bin.js', { paths: [ROOT] })) {
+  return [prebuildCli, '--target', target.nodeVersion, '--runtime', 'node', '--platform', target.platform, '--arch', target.arch, '--force'];
 }
 
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+function acquireNativeBinding(target, workDir, host = { platform: process.platform, arch: process.arch }) {
+  const sourceModule = path.join(ROOT, 'node_modules', 'better-sqlite3');
+  const moduleDir = path.join(workDir, 'better-sqlite3');
+  if (!fs.existsSync(sourceModule)) throw new Error('better-sqlite3 is not installed; run npm install first');
+  fs.cpSync(sourceModule, moduleDir, { recursive: true });
+  fs.rmSync(path.join(moduleDir, 'build'), { recursive: true, force: true });
+
+  const prebuildCli = require.resolve('prebuild-install/bin.js', { paths: [ROOT] });
+  const prebuildArgs = prebuildArgsFor(target, prebuildCli);
+  // prebuild-install loads package.json before processing --path, so cwd must
+  // be the isolated module tree or it would resolve Paperweight's metadata.
+  let acquired = tryRun(process.execPath, prebuildArgs, { cwd: moduleDir });
+
+  const isNativeTarget = target.platform === host.platform && target.arch === host.arch;
+  if (!acquired && isNativeTarget) {
+    const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    acquired = tryRun(npm, ['run', 'build-release', '--', `--target=${target.nodeVersion}`, '--dist-url=https://nodejs.org/dist'], { cwd: moduleDir });
+  }
+  if (!acquired) {
+    const detail = isNativeTarget ? 'prebuilt download and isolated source build both failed' : 'no compatible upstream prebuilt binary was available';
+    throw new Error(`Could not acquire better-sqlite3 for ${target.key}: ${detail}`);
+  }
+
+  const binding = path.join(moduleDir, 'build', 'Release', 'better_sqlite3.node');
+  if (!fs.existsSync(binding)) throw new Error(`better-sqlite3 acquisition did not produce ${binding}`);
+  assertLinuxElfArch(binding, target.arch, 'better_sqlite3.node');
+  return binding;
 }
 
-console.log('\nPaperweight executable packaging');
-console.log('Public distribution remains source/install-script based.\n');
-console.log(`Host: ${process.platform}/${process.arch} (ABI ${process.versions.modules})`);
-console.log(`Targets: ${targets.map(t => t.key).join(', ')}\n`);
+async function prepareTargetBundles(target, workDir) {
+  const nativeBinding = acquireNativeBinding(target, workDir);
+  const ffmpegDir = path.join(ROOT, 'vendor', 'ffmpeg', target.key);
+  const ffmpeg = await fetchFfmpeg({ platform: target.platform, arch: target.arch, dest: ffmpegDir });
+  assertLinuxElfArch(ffmpeg.ffmpeg, target.arch, 'ffmpeg');
+  assertLinuxElfArch(ffmpeg.ffprobe, target.arch, 'ffprobe');
 
-// ─── ABI alignment ────────────────────────────────────────────────────────────
-// better_sqlite3.node must be compiled for the same Node ABI that pkg bundles
-// in the output exe. All current targets use node20 (ABI 115). If the host
-// Node ABI differs, attempt to download a prebuilt binary for the target ABI
-// via prebuild-install before generating the native bundle.
+  const cloudflaredDir = path.join(ROOT, 'vendor', 'cloudflared', target.key);
+  const cloudflared = await fetchCloudflared({ platform: target.platform, arch: target.arch, dest: cloudflaredDir });
+  assertLinuxElfArch(cloudflared.cloudflared, target.arch, 'cloudflared');
 
-const uniqueTargetAbis = [...new Set(targets.map(t => t.abi))];
-for (const targetAbi of uniqueTargetAbis) {
-  if (process.versions.modules === targetAbi) continue;
+  generateNativeBundle({ input: nativeBinding, output: NATIVE_BUNDLE, platform: target.platform, arch: target.arch, abi: target.abi });
+  generateFfmpegBundle({ inputDir: ffmpegDir, output: FFMPEG_BUNDLE, platform: target.platform, arch: target.arch });
+  generateCloudflaredBundle({ inputDir: cloudflaredDir, output: CLOUDFLARED_BUNDLE, platform: target.platform, arch: target.arch });
+}
 
-  const targetEntry = targets.find(t => t.abi === targetAbi);
-  const nodeVersion  = targetEntry.nodeVersion;
+async function main(args = process.argv.slice(2)) {
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(usage());
+    return;
+  }
+  const targets = selectTargets(args);
+  const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const pkgCli = require.resolve('@yao-pkg/pkg/lib-es5/bin.js', { paths: [ROOT] });
 
-  console.log(`\nABI mismatch: host ABI ${process.versions.modules}, target ABI ${targetAbi} (Node ${nodeVersion})`);
-  console.log('Attempting to download prebuilt better-sqlite3 for the target Node version...');
+  console.log(`Paperweight executable targets: ${targets.map(target => target.key).join(', ')}`);
+  run(process.execPath, [path.join(ROOT, 'scripts', 'generate-client-bundle.js')]);
+  run(npm, ['run', 'release:check']);
+  fs.mkdirSync(BUILD_WORK, { recursive: true });
 
-  const prebuildInstall = path.join(ROOT, 'node_modules', '.bin', 'prebuild-install');
-  const sqliteDir = path.join(ROOT, 'node_modules', 'better-sqlite3');
+  try {
+    for (const target of targets) {
+      const workDir = path.join(BUILD_WORK, target.key);
+      resetDir(workDir, BUILD_WORK);
+      try {
+        await prepareTargetBundles(target, workDir);
+        run(process.execPath, [path.join(ROOT, 'scripts', 'check-package-assets.js'), '--require-binary-bundles', '--platform', target.platform, '--arch', target.arch, '--abi', target.abi]);
+        const output = path.join(DIST, target.out);
+        run(process.execPath, [pkgCli, path.join(ROOT, 'src', 'launcher.js'), '--target', target.target, '--output', output, '--compress', 'GZip']);
 
-  const prebuildOk = fs.existsSync(prebuildInstall) && tryRun(
-    `"${prebuildInstall}" --target ${nodeVersion} --runtime node`,
-    { cwd: sqliteDir },
-  );
+        // Ship the legal text files alongside the exe (same as Electron's
+        // extraResources) — see docs/BUSINESS_MODEL.md's "Content
+        // responsibility & licensing" section for why this must be a literal
+        // file in every package, not just a web page and an in-app checkbox.
+        for (const legalFile of ['CONTENT RESPONSIBILITY.txt', 'LICENSE.txt', 'THIRD-PARTY NOTICE.txt']) {
+          fs.copyFileSync(path.join(ROOT, legalFile), path.join(DIST, legalFile));
+        }
 
-  if (!prebuildOk) {
-    console.log('prebuild-install unavailable or failed; trying node-gyp source rebuild...');
-    const rebuildOk = tryRun(
-      `npm rebuild better-sqlite3 --build-from-source`,
-      { env: { ...process.env, npm_config_target: nodeVersion, npm_config_dist_url: 'https://nodejs.org/dist' } },
-    );
-    if (!rebuildOk) {
-      console.error(`\nERROR: Could not rebuild better-sqlite3 for Node ${nodeVersion} (ABI ${targetAbi}).`);
-      console.error(`Install Node ${nodeVersion} (e.g. via nvm) and re-run build:exe from there.`);
-      process.exit(1);
+        console.log(`OK   ${target.label}: ${output}`);
+      } finally {
+        fs.rmSync(workDir, { recursive: true, force: true });
+      }
     }
+  } finally {
+    try { fs.rmdirSync(BUILD_WORK); } catch {}
   }
-
-  console.log(`OK   better-sqlite3 rebuilt for Node ${nodeVersion} / ABI ${targetAbi}`);
 }
 
-// Regenerate the client bundle so pkg bundles the latest client/ and hls.js.
-run('node scripts/generate-client-bundle.js');
-
-// Generate platform-specific native binding bundle. Runs after the ABI rebuild
-// above so the embedded binary matches the pkg target runtime ABI.
-// Pass the target ABI via env so the bundle metadata is correct when host ABI differs.
-const nativeBundleEnv = uniqueTargetAbis.length === 1 && uniqueTargetAbis[0] !== process.versions.modules
-  ? { ...process.env, PAPERWEIGHT_BUNDLE_ABI: uniqueTargetAbis[0] }
-  : process.env;
-run('node scripts/generate-native-bundle.js', { env: nativeBundleEnv });
-
-// If we downloaded a target-ABI binary above, restore the host-ABI build now
-// so that the subsequent `npm test` (inside release:check) runs correctly under
-// the host Node version.
-if (uniqueTargetAbis.some(a => a !== process.versions.modules)) {
-  console.log('\nRestoring host-ABI better-sqlite3 for test run...');
-  run('npm rebuild better-sqlite3');
+if (require.main === module) {
+  main().catch(err => {
+    console.error(`Build failed: ${err.message}`);
+    process.exit(1);
+  });
 }
 
-// Download FFmpeg/ffprobe for this platform into vendor/ffmpeg/ (skips if present).
-run('node scripts/fetch-ffmpeg.js');
-
-// Embed FFmpeg binaries as a Base64 JS bundle so pkg can include them.
-// pkg.assets globs are broken for node20 targets; this mirrors the approach
-// used for better_sqlite3.node.
-run('node scripts/generate-ffmpeg-bundle.js');
-
-run('npm run release:check', { env: { ...process.env, PAPERWEIGHT_REQUIRE_BINARY_BUNDLES: '1' } });
-
-const pkgBin = path.join(ROOT, 'node_modules', '.bin', 'pkg');
-if (!fs.existsSync(pkgBin) && !fs.existsSync(`${pkgBin}.cmd`)) {
-  console.error('ERROR: @yao-pkg/pkg not found. Run npm install first.');
-  process.exit(1);
-}
-
-ensureDir(DIST);
-
-for (const { label, target, out } of targets) {
-  const outPath = path.join(DIST, out);
-  console.log(`\nBuilding ${label} -> dist/${out}`);
-  run(`pkg src/launcher.js --target ${target} --output ${outPath} --compress GZip`);
-  const size = (fs.statSync(outPath).size / 1024 / 1024).toFixed(1);
-  console.log(`OK   ${out} (${size} MB)`);
-}
-
-console.log('\nExecutable packaging complete.');
-console.log('\nNext: verify the build self-bootstraps in an empty folder with');
-console.log('  npm run smoke:exe');
-console.log('Run it on this same OS/arch - a native module built here will not load elsewhere.');
+module.exports = { TARGETS, acquireNativeBinding, findTarget, main, prebuildArgsFor, prepareTargetBundles, readTargetArgs, selectTargets, usage };

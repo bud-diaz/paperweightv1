@@ -17,19 +17,19 @@ dashboard. That's a dev-tooling convenience only — it's unrelated to
 anything shipped to end users; see "1a. Or: let the dashboard create the
 tunnel for you" below for the actual product feature.
 
-## Two Ways To Tunnel
+## Three Ways To Tunnel
 
-| | Quick Tunnel | Named Tunnel |
-|---|---|---|
-| Cloudflare account | Not required | Free account required |
-| Your own domain | Not required | Required |
-| URL | Random `*.trycloudflare.com`, changes every restart | Stable subdomain you choose, e.g. `radio.yoursite.com` |
-| `CLOUDFLARE_TUNNEL_TOKEN` | None — searchability requirements stay unmet | Set in `.env` |
-| Runs as a background service | No, ties to the terminal | Yes |
-| Good for | Quickly testing that public access works | Running a real station long-term |
+| | Quick Tunnel | Named Tunnel (own domain) | Hosted on paperweighthq.com |
+|---|---|---|---|
+| Cloudflare account | Not required | Free account required | Not required |
+| Your own domain | Not required | Required | Not required |
+| URL | Random `*.trycloudflare.com`, changes every restart | Stable subdomain you choose, e.g. `radio.yoursite.com` | Stable `<slug>.paperweighthq.com` |
+| `CLOUDFLARE_TUNNEL_TOKEN` | None — searchability requirements stay unmet | Set in `.env` | Set in `.env` (issued by system.pape) |
+| Runs as a background service | No, ties to the terminal | Yes — Paperweight spawns and supervises it automatically | Yes — same automatic supervision |
+| Good for | Quickly testing that public access works | Running a real station long-term with your own domain | Running a real station without buying a domain |
 
-Use a Quick Tunnel to confirm things work, then move to a Named Tunnel before
-telling anyone the URL.
+Use a Quick Tunnel to confirm things work, then move to a Named Tunnel or the
+paperweighthq.com-hosted option before telling anyone the URL.
 
 ## Prerequisites
 
@@ -41,7 +41,15 @@ telling anyone the URL.
 
 ## Installing `cloudflared`
 
-Paperweight's installer scripts can install `cloudflared` for you:
+**You don't need to install this yourself for the default path.** Every
+Paperweight distribution (pkg executable and desktop app) bundles its own
+copy of `cloudflared` and runs it automatically once a tunnel token is set —
+see "1a" below. The instructions in this section are only needed if you're
+running from source (`npm start`, no bundled binary) or if you want a
+separate, OS-managed `cloudflared` install for step 3's optional
+background-service setup.
+
+Paperweight's installer scripts can install a system-wide `cloudflared` for you:
 
 ```bash
 # Linux / Raspberry Pi
@@ -105,10 +113,11 @@ want to keep online.
    (`RTMP_INGEST_PORT`, default `1935`). That's for local/LAN encoders only
    (e.g. OBS) and must never be reachable from the internet.
 
-### 1a. Or: let the dashboard create the tunnel for you
+### 1a. Or: let the dashboard create the tunnel for you (recommended — one click)
 
 Instead of steps above, the dashboard's **Station** panel can create the
-tunnel and DNS record for you via Cloudflare's API:
+tunnel and DNS record for you via Cloudflare's API, and then bring the tunnel
+online itself — no terminal, no `cloudflared service install` step:
 
 1. Generate a Cloudflare API Token at
    [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)
@@ -120,14 +129,19 @@ tunnel and DNS record for you via Cloudflare's API:
 3. Pick a zone (domain) from the dropdown, enter the hostname you want (e.g.
    `radio.yoursite.com`), and click **Create Tunnel**.
 4. The dashboard creates the tunnel, points its ingress at this Paperweight
-   instance, creates the DNS CNAME, and saves the resulting
-   `CLOUDFLARE_TUNNEL_TOKEN` and `STATION_PUBLIC_URL` for you.
+   instance, creates the DNS CNAME, saves the resulting
+   `CLOUDFLARE_TUNNEL_TOKEN` and `STATION_PUBLIC_URL`, and immediately spawns
+   the bundled `cloudflared` binary itself (`src/runtime/tunnel-supervisor.js`)
+   to bring the tunnel up — the same binary ships with every distribution
+   (pkg executable and desktop app), the same way FFmpeg does. No restart, no
+   step 3 below.
 
-This is entirely optional — `CLOUDFLARE_TUNNEL_TOKEN` works exactly the same
-whether it was pasted in by hand or created this way. You still need to run
-`cloudflared` as a background service afterward — see step 3 below — this
-flow only replaces the manual dashboard clicking in step 1, not
-`cloudflared` itself.
+This isn't limited to tunnels created this way: **any time
+`CLOUDFLARE_TUNNEL_TOKEN` is set** — including a token you paste by hand into
+the setup wizard or `.env` from step 1 above — Paperweight spawns and
+supervises `cloudflared` on its own at every boot. There is no longer a path
+where you need to run `cloudflared service install` yourself, unless you
+specifically want the trade-off in step 3 below.
 
 ### 2. Configure Paperweight
 
@@ -152,10 +166,17 @@ tunnel's actual address — never set it to
 whatever `STATION_PUBLIC_URL` holds, so pointing it at itself creates a
 redirect loop.
 
-### 3. Run `cloudflared` as a background service
+### 3. (Optional) Run `cloudflared` as an OS-level service instead
 
-A Named Tunnel needs `cloudflared` running continuously, independent of your
-terminal session.
+Skip this entirely for the normal case — as soon as `CLOUDFLARE_TUNNEL_TOKEN`
+is set, Paperweight spawns and supervises `cloudflared` itself on every boot
+(`src/runtime/tunnel-supervisor.js`), whether you set that token by pasting
+it into `.env`/the setup wizard or by using 1a above. This step only matters
+if you specifically want `cloudflared` to keep running as an OS service
+*independent* of the Paperweight process — e.g. so the tunnel survives a
+Paperweight crash or update, at the cost of running a second (redundant but
+harmless — Cloudflare tunnels support multiple concurrent connector
+replicas) `cloudflared` process alongside Paperweight's own.
 
 **Linux (systemd):**
 
@@ -178,12 +199,6 @@ This registers it as a Windows service that starts on boot.
 sudo cloudflared service install <token>
 ```
 
-**Desktop app (Electron):** paste the tunnel token into the setup wizard's
-"Cloudflare tunnel token" field (or the dashboard's Station panel later).
-This does *not* run or supervise `cloudflared` for you — you still need to
-install it and run `cloudflared service install <token>` as shown above, same
-as any other platform. The wizard/dashboard only manage the token value.
-
 ### 4. Restart and verify
 
 ```bash
@@ -198,6 +213,33 @@ Open the dashboard's **Station** panel:
 - The "searchable" toggle becomes available once both a tunnel token
   (`CLOUDFLARE_TUNNEL_TOKEN`) and a registered public URL are present, and it
   actually flips on only after a live reachability check succeeds.
+
+## Path C: Hosted On paperweighthq.com (no domain needed)
+
+If you don't own a domain and don't want to buy one, the dashboard can get
+you a Named Tunnel on `<slug>.paperweighthq.com` instead — same stable-URL,
+runs-as-a-service tunnel as Path B, provisioned for you by system.pape
+instead of your own Cloudflare account.
+
+1. Claim a station slug and register with system.pape telemetry (dashboard's
+   **Station** panel → **SYSTEM.PAPE TELEMETRY** → **REGISTER**) if you
+   haven't already — this is also what makes the public directory listing
+   work.
+2. In the **PAPERWEIGHTHQ.COM TUNNEL** section that appears once telemetry is
+   registered, click **GET FREE ADDRESS**. The dashboard asks system.pape to
+   create the tunnel and DNS record, then saves the resulting
+   `CLOUDFLARE_TUNNEL_TOKEN` and `STATION_PUBLIC_URL`
+   (`https://<slug>.paperweighthq.com`) for you, the same way Path B's
+   "auto-tunnel" button does for your own domain.
+3. Run `cloudflared` as a background service with that token — same step 3 as
+   Path B.
+4. Restart and verify — same step 4 as Path B.
+
+Unlike Path B, there's no per-creator Cloudflare account or API token
+involved: the `paperweighthq.com` zone and its Cloudflare credentials are
+held by system.pape, not by your station. See
+`docs/system-pape-directory.md` ("Hosted Tunnel Provisioning") for that
+contract.
 
 ## Security Notes
 

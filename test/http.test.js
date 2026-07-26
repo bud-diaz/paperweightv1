@@ -430,7 +430,13 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
       });
       assert.equal(autoTunnel.res.status, 200);
       assert.equal(autoTunnel.body.url, 'https://radio.example.com');
-      assert.equal(autoTunnel.body.tunnelToken, 'connector-token-xyz');
+      // The connector token is no longer echoed to the client — the dashboard
+      // route hands it straight to the supervised cloudflared child process
+      // (src/runtime/tunnel-supervisor.js) instead of asking the owner to run
+      // `cloudflared service install <token>` themselves.
+      assert.equal(autoTunnel.body.tunnelToken, undefined);
+      assert.equal(autoTunnel.body.restartRequired, false);
+      assert.ok(autoTunnel.body.tunnelStatus);
       assert.equal(config.station.cloudflareTunnel, true);
       assert.equal(config.station.publicUrl, 'https://radio.example.com');
 
@@ -442,6 +448,7 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
       assert.equal(webBlocked.res.status, 403);
     });
   } finally {
+    require('../src/runtime/tunnel-supervisor').stop();
     stub.close();
     config.platform = originalPlatform;
     config.station.cloudflareApiToken = originalApiToken;
@@ -449,6 +456,90 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
     config.station.publicUrl = originalPublicUrl;
     if (originalBaseUrl === undefined) delete process.env.CLOUDFLARE_API_BASE_URL;
     else process.env.CLOUDFLARE_API_BASE_URL = originalBaseUrl;
+  }
+});
+
+test('paperweighthq.com tunnel route requires slug + telemetry, then persists what system.pape returns', async () => {
+  const db = freshDb();
+  const auth = { headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN, 'Content-Type': 'application/json' } };
+  const originalPlatform = config.platform;
+  const originalSlug = config.station.slug;
+  const originalTunnel = config.station.cloudflareTunnel;
+  const originalPublicUrl = config.station.publicUrl;
+  const originalSecretConfigured = config.telemetry.secretConfigured;
+  const originalTelemetryUrl = config.telemetry.url;
+  const originalSecretEnv = process.env.PAPE_TELEMETRY_SECRET;
+
+  let lastRequest = null;
+  const stub = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      lastRequest = { url: req.url, headers: req.headers, body: JSON.parse(body || '{}') };
+      if (req.url === '/api/modules/paperweight/tunnel/create') {
+        if (lastRequest.body.slug === 'taken-slug') {
+          res.statusCode = 409;
+          return res.end(JSON.stringify({ error: 'slug not claimed by this station' }));
+        }
+        return res.end(JSON.stringify({ ok: true, tunnelToken: 'pape-connector-token', hostname: `${lastRequest.body.slug}.paperweighthq.com` }));
+      }
+      res.statusCode = 404;
+      res.end(JSON.stringify({ error: 'not stubbed' }));
+    });
+  });
+  await new Promise(resolve => stub.listen(0, '127.0.0.1', resolve));
+
+  try {
+    config.platform = 'desktop';
+    config.telemetry.url = `http://127.0.0.1:${stub.address().port}`;
+
+    await withServer(async baseUrl => {
+      config.station.slug = '';
+      config.telemetry.secretConfigured = false;
+      const noSlug = await request(baseUrl, '/api/dashboard/station/cloudflare/paperweighthq/create', { method: 'POST', headers: auth.headers });
+      assert.equal(noSlug.res.status, 409);
+
+      config.station.slug = 'radio-test';
+      const noSecret = await request(baseUrl, '/api/dashboard/station/cloudflare/paperweighthq/create', { method: 'POST', headers: auth.headers });
+      assert.equal(noSecret.res.status, 409);
+
+      config.telemetry.secretConfigured = true;
+      process.env.PAPE_TELEMETRY_SECRET = 'shh';
+      db.prepare("INSERT INTO station_registry (id, slug, url) VALUES (1, 'radio-test', 'https://old.example.com')").run();
+
+      const created = await request(baseUrl, '/api/dashboard/station/cloudflare/paperweighthq/create', { method: 'POST', headers: auth.headers });
+      assert.equal(created.res.status, 200);
+      assert.equal(created.body.url, 'https://radio-test.paperweighthq.com');
+      assert.equal(created.body.tunnelToken, undefined);
+      assert.equal(created.body.restartRequired, false);
+      assert.ok(created.body.tunnelStatus);
+      assert.equal(config.station.cloudflareTunnel, true);
+      assert.equal(config.station.publicUrl, 'https://radio-test.paperweighthq.com');
+      assert.equal(lastRequest.headers['x-telemetry-secret'], 'shh');
+      assert.equal(lastRequest.body.slug, 'radio-test');
+
+      const row = db.prepare('SELECT url FROM station_registry WHERE id = 1').get();
+      assert.equal(row.url, 'https://radio-test.paperweighthq.com');
+
+      config.station.slug = 'taken-slug';
+      const conflict = await request(baseUrl, '/api/dashboard/station/cloudflare/paperweighthq/create', { method: 'POST', headers: auth.headers });
+      assert.equal(conflict.res.status, 409);
+
+      config.platform = 'web';
+      const webBlocked = await request(baseUrl, '/api/dashboard/station/cloudflare/paperweighthq/create', { method: 'POST', headers: auth.headers });
+      assert.equal(webBlocked.res.status, 403);
+    });
+  } finally {
+    require('../src/runtime/tunnel-supervisor').stop();
+    stub.close();
+    config.platform = originalPlatform;
+    config.station.slug = originalSlug;
+    config.station.cloudflareTunnel = originalTunnel;
+    config.station.publicUrl = originalPublicUrl;
+    config.telemetry.secretConfigured = originalSecretConfigured;
+    config.telemetry.url = originalTelemetryUrl;
+    if (originalSecretEnv === undefined) delete process.env.PAPE_TELEMETRY_SECRET;
+    else process.env.PAPE_TELEMETRY_SECRET = originalSecretEnv;
   }
 });
 

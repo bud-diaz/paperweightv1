@@ -1,19 +1,42 @@
 #panel-stack {
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 #stack-sections {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .stack-card {
   border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex-shrink: 0;
+  transition: flex-grow .28s var(--ease-out-macos);
 }
 
 .stack-card:last-child {
   border-bottom: none;
+}
+
+#stack-card-stack {
+  order: 1;
+}
+
+#stack-card-stash {
+  order: 2;
+}
+
+.stack-card.open {
+  flex: 1 1 0;
+  min-height: 120px;
+}
+
+.stack-card:not(.open) {
+  flex: 0 0 auto;
 }
 
 .stack-card-head {
@@ -27,6 +50,7 @@
   cursor: pointer;
   color: inherit;
   user-select: none;
+  flex-shrink: 0;
   transition: background-color var(--dur-fast) var(--ease-out-macos);
 }
 
@@ -44,10 +68,43 @@
   text-align: left;
   text-transform: uppercase;
   text-shadow: 0 0 8px rgba(240,240,244,.35);
+  display: flex;
+  align-items: center;
+  gap: 9px;
 }
 
 .stack-card:not(.open) .stack-card-title {
   text-align: center;
+  justify-content: center;
+}
+
+.stack-card-badge,
+.stack-card-peek {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: .05em;
+  color: var(--t4);
+  text-shadow: none;
+}
+
+.stack-card-badge.stash-count,
+#stack-card-stash .stack-card-peek {
+  color: #39ff14;
+  opacity: .85;
+}
+
+.stack-card-peek {
+  display: none;
+  text-transform: none;
+}
+
+.stack-card:not(.open) .stack-card-badge {
+  display: none;
+}
+
+.stack-card:not(.open) .stack-card-peek {
+  display: inline;
 }
 
 .stack-card-chevron {
@@ -64,9 +121,20 @@
 }
 
 .stack-card-body {
-  height: 0;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
-  transition: height .28s var(--ease-out-macos);
+  transition: flex-grow .28s var(--ease-out-macos);
+}
+
+.stack-card.open .stack-card-body {
+  overflow-y: auto;
+}
+
+.stack-card:not(.open) .stack-card-body {
+  display: none;
+  flex: 0;
+  height: 0;
 }
 
 .stack-card-content {
@@ -257,6 +325,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .stack-row-actions {
@@ -281,6 +352,31 @@
   font-family: 'Space Mono', monospace;
   font-size: 13px;
   letter-spacing: .12em;
+}
+
+.tier-chip {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: .05em;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+
+.tier-chip.supporter {
+  color: var(--t3);
+  border-color: var(--border-strong);
+}
+
+.tier-chip.vault {
+  color: #39ff14;
+  border-color: rgba(57,255,20,.3);
+  background: rgba(57,255,20,.06);
 }
 
 .stack-btn {
@@ -316,7 +412,14 @@
 .stack-btn-stash.saved {
   color: #39ff14;
   border-color: rgba(57, 255, 20, .4);
-  cursor: default;
+}
+
+.stack-btn-unlock {
+  min-width: 64px;
+}
+
+.stack-btn-edit {
+  min-width: 48px;
 }
 
 .stack-btn-remove {
@@ -329,6 +432,60 @@
   font-size: 11px;
   letter-spacing: .1em;
   color: var(--t4);
+}
+
+.stash-recent-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stash-recent-item {
+  flex: 0 0 64px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.stash-recent-art {
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.008)),
+    var(--raised);
+  position: relative;
+  overflow: hidden;
+}
+
+.stash-recent-art::after {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 50%;
+}
+
+.stash-recent-title {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Space Mono', monospace;
+  font-size: 8px;
+  color: var(--t3);
+  text-align: center;
+}
+
+.stack-card:not(.open) .stack-card-head {
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
 
 @media (max-width: 430px) {

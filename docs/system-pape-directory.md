@@ -69,6 +69,62 @@ to per-station secrets (dashboard restart is required either way for a
 station to pick up a newly-registered secret, so this can be phased with a
 deprecation window rather than a hard cutover).
 
+## Hosted Tunnel Provisioning (Proposed)
+
+Today `<slug>.paperweighthq.com` in the telemetry payload's `publicUrl` is
+just a derived display string (`src/telemetry/reporter.js` `buildPayload()`)
+— nothing actually serves traffic there. For a station that doesn't own its
+own domain, system.pape should also be able to provision a real Cloudflare
+Tunnel on `paperweighthq.com` on the station's behalf, so that hostname
+resolves to the station for real.
+
+```http
+POST https://system.paperweighthq.com/api/modules/paperweight/tunnel/create
+```
+
+Auth: `x-telemetry-secret`, the same per-station secret minted by
+`/register` above — no new credential type. Body:
+
+```json
+{ "stationKey": "station-or-install-key", "slug": "station-slug" }
+```
+
+This must run entirely server-side on system.pape, using a Cloudflare API
+token scoped to the `paperweighthq.com` zone that only system.pape holds.
+That token can never be handed to a station's own install (self-hosted
+binary or Electron app) — anyone who extracted it could create or delete
+tunnels and DNS records anywhere in the account, including hijacking another
+station's slug. A station only ever receives back a connector token scoped
+to its own single tunnel, the same narrow-credential shape
+`src/runtime/cloudflare.js` already documents for the creator-supplied
+`CLOUDFLARE_API_TOKEN` flow, just inverted (system.pape holds the powerful
+token; the station holds only a per-tunnel connector token).
+
+**Semantics:**
+
+- `409` if `slug` is not currently claimed by this `stationKey` (same
+  ownership check `ingest`/`register` already apply).
+- If a tunnel already exists for this slug: **rotate** — issue a fresh
+  connector token for the existing tunnel rather than creating a duplicate.
+  This mirrors `/register`'s existing same-`stationKey` rotation semantics,
+  so a station that loses its `.env` or reinstalls can recover without a
+  manual reset.
+- Otherwise: create a Named Tunnel in system.pape's Cloudflare account,
+  create the DNS CNAME `<slug>.paperweighthq.com` →
+  `<tunnelId>.cfargotunnel.com` in the `paperweighthq.com` zone, and respond:
+
+  ```json
+  { "ok": true, "tunnelToken": "...", "hostname": "rolling-woods-radio.paperweighthq.com" }
+  ```
+
+- Rate-limit per station/IP — same reasoning already given for `/register`
+  (a rogue caller could spam tunnel and DNS record creation).
+
+A companion `DELETE https://system.paperweighthq.com/api/modules/paperweight/tunnel`
+(auth and body shape the same) should tear down the tunnel and DNS record
+when a station stops using this option, so disabled stations don't leave
+live tunnels running in system.pape's account indefinitely.
+
 The telemetry payload includes:
 
 ```json

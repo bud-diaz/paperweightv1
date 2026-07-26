@@ -1,0 +1,66 @@
+name: PR Check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  release-check:
+    name: release:check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare release-check environment
+        run: |
+          cat > .env <<'ENV'
+          STATION_NAME=Paperweight CI
+          STATION_IDENTITY=creator
+          CREATOR_NAME=
+          CREATOR_DESC=
+          PORT=3000
+          VAULT_PATH=./vault
+          VAULT_MODE=hybrid
+          DASHBOARD_TOKEN=ci-dashboard-token-change-me
+          DOWNLOAD_SIGNING_SECRET=ci-download-secret-change-me
+          HTTPS=false
+          STATION_SLUG=
+          STATION_PUBLIC_URL=
+          CLOUDFLARE_TUNNEL_TOKEN=
+          STRIPE_SECRET_KEY=
+          STRIPE_WEBHOOK_SECRET=
+          STRIPE_PRICE_SUBSCRIBER=
+          STRIPE_PRICE_PRO=
+          STRIPE_PRICE_ALL_ACCESS=
+          PAYPAL_CLIENT_ID=
+          PAYPAL_CLIENT_SECRET=
+          PAYPAL_PLAN_PRO=
+          PAYPAL_PLAN_ALL_ACCESS=
+          PAYPAL_WEBHOOK_ID=
+          PAPERWEIGHT_CLOUD=false
+          DATA_PATH=./data
+          HLS_OUTPUT_PATH=./hls_output
+          LOG_PATH=./logs
+          DOWNLOAD_TOKEN_TTL_HOURS=48
+          ENV
+
+      - name: release:check
+        run: npm run release:check

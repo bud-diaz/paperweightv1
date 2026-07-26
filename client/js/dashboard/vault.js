@@ -3,7 +3,7 @@
  */
 
 import * as api from '../api.js';
-import { el, esc, trackColor } from '../utils.js';
+import { el, esc, trackColor, isValidCentsInput } from '../utils.js';
 import { isDesktopPlatform } from './index.js';
 
 // ── Module-local state ─────────────────────────────────────────────────────────
@@ -20,6 +20,13 @@ function toLocalDatetimeValue(sqliteUtc) {
   const d = parseUtcDatetime(sqliteUtc);
   const pad = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Pricing UI is CSS-hidden for radio-host/anonymous stations (dashboard.css); treat
+// vault tracks as free in that case instead of enforcing now-unreachable price fields.
+function monetizationHidden() {
+  return document.body.classList.contains('radio-host-mode') ||
+         document.body.classList.contains('anonymous-mode');
 }
 
 // ── Injected callbacks ─────────────────────────────────────────────────────────
@@ -82,6 +89,21 @@ export function openVaultPanel(name) {
   else if (name === 'tokens') loadDashTokens();
 }
 
+export async function openTrackEditor(trackId) {
+  if (_activeVaultPanel !== 'tracks') openVaultPanel('tracks');
+  await loadDashLibrary();
+
+  const list = el('dash-lib-list');
+  const actionsPanel = list?.querySelector(`#more-panel-${trackId}`);
+  const editPanel = list?.querySelector(`#edit-panel-${trackId}`);
+  if (!actionsPanel || !editPanel) return false;
+
+  actionsPanel.hidden = false;
+  editPanel.hidden = false;
+  editPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  return true;
+}
+
 // ── Locked tracks ──────────────────────────────────────────────────────────────
 export async function loadDashLockedTracks() {
   try {
@@ -115,7 +137,7 @@ export async function toggleHighlight(btn, type, id) {
 }
 
 // ── Library item builder ───────────────────────────────────────────────────────
-export function buildDashLibItem(item, scopeType, scopeId, nested = false, highlight = null) {
+export function buildDashLibItem(item, scopeType, scopeId, nested = false, highlight = null, trackPrice = null) {
   const c    = trackColor(item.id);
   const isHighlighted = highlight?.highlight_type === 'track' && highlight?.highlight_id === item.id;
   const wrap = document.createElement('div');
@@ -149,6 +171,20 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
         <option value="vault"${item.visibility==='vault'?' selected':''}>VAULT</option>
       </select>
       <input type="datetime-local" class="dash-input dash-input-sm" id="release-${item.id}" value="${item.release_at ? toLocalDatetimeValue(item.release_at) : ''}" title="Auto-flip to PUBLIC at this time"/>
+      <div class="dash-vault-price-fields" id="price-fields-${item.id}"${item.visibility === 'vault' ? '' : ' hidden'} style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;margin-top:4px;">
+        <div>
+          <div class="dash-edit-label">SUGGESTED ($)</div>
+          <input class="dash-input-sm" id="price-sugg-${item.id}" type="number" step="0.01" min="0" value="${trackPrice ? (trackPrice.suggested_price / 100).toFixed(2) : ''}"/>
+        </div>
+        <div>
+          <div class="dash-edit-label">MINIMUM ($)</div>
+          <input class="dash-input-sm" id="price-min-${item.id}" type="number" step="0.01" min="0" value="${trackPrice ? (trackPrice.minimum_price / 100).toFixed(2) : ''}"/>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="price-free-${item.id}"${trackPrice?.allow_free ? ' checked' : ''}/>
+          <span style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.4);">Allow free / pay-what-you-want</span>
+        </label>
+      </div>
       <button class="mgmt-btn" id="save-${item.id}">SAVE</button>
       <button class="mgmt-btn" id="edit-tog-${item.id}">✎ EDIT</button>
       <button class="mgmt-btn${isHighlighted ? ' active' : ''}" id="hl-tog-${item.id}" data-highlighted="${isHighlighted ? '1' : '0'}">${isHighlighted ? '★ HIGHLIGHTED' : '☆ HIGHLIGHT'}</button>
@@ -221,21 +257,68 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
     panel.hidden = !panel.hidden;
   });
 
+  const visSelect    = wrap.querySelector(`#vis-${item.id}`);
+  const priceFields  = wrap.querySelector(`#price-fields-${item.id}`);
+  visSelect.addEventListener('change', () => {
+    priceFields.hidden = visSelect.value !== 'vault';
+  });
+
   const saveBtn = wrap.querySelector(`#save-${item.id}`);
   saveBtn.addEventListener('click', async () => {
-    const vis = wrap.querySelector(`#vis-${item.id}`).value;
+    const vis = visSelect.value;
     const releaseInput = wrap.querySelector(`#release-${item.id}`).value;
-    const body = { visibility: vis };
+    let releaseAt;
     if (releaseInput) {
-      body.release_at = new Date(releaseInput).toISOString();
+      releaseAt = new Date(releaseInput).toISOString();
     } else if (item.release_at) {
-      body.release_at = null; // field was cleared — cancel the pending schedule
+      releaseAt = null; // field was cleared — cancel the pending schedule
     }
+
     saveBtn.disabled = true;
+
+    if (vis === 'vault') {
+      const suggInput = wrap.querySelector(`#price-sugg-${item.id}`).value;
+      const minInput  = wrap.querySelector(`#price-min-${item.id}`).value;
+      const allowFree = wrap.querySelector(`#price-free-${item.id}`).checked;
+      if (!isValidCentsInput(suggInput) || !isValidCentsInput(minInput)) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Bad price';
+        setTimeout(() => { saveBtn.textContent = 'SAVE'; }, 1500);
+        return;
+      }
+      const hidePricing = monetizationHidden();
+      const suggRaw = parseFloat(suggInput) || 0;
+      const minRaw  = parseFloat(minInput)  || 0;
+      if (!hidePricing && !allowFree && minRaw < 0.01) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Min ≥ $0.01';
+        setTimeout(() => { saveBtn.textContent = 'SAVE'; }, 1500);
+        return;
+      }
+      const { res, data } = await api.dashboard.vault.pricingTrack(item.id, {
+        suggested_price: hidePricing ? 0 : Math.round(suggRaw * 100),
+        minimum_price:   hidePricing ? 0 : Math.round(minRaw  * 100),
+        allow_free:      hidePricing ? true : allowFree,
+        payment_type:    'one_time',
+      });
+      if (!res.ok) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = data.error || 'ERROR';
+        setTimeout(() => { saveBtn.textContent = 'SAVE'; }, 1500);
+        return;
+      }
+    } else if (item.visibility === 'vault') {
+      // Leaving Vault: clear any pricing row before setting the new visibility below.
+      await api.dashboard.vault.pricingTrack(item.id, {});
+    }
+
+    const body = { visibility: vis };
+    if (releaseAt !== undefined) body.release_at = releaseAt;
     const { res, data } = await api.dashboard.media.update(item.id, body);
     saveBtn.disabled = false;
     if (res.ok) {
-      item.release_at = body.release_at ?? item.release_at;
+      item.visibility  = vis;
+      item.release_at  = releaseAt ?? item.release_at;
       saveBtn.textContent = '✓';
     } else {
       saveBtn.textContent = data.error || 'ERROR';
@@ -449,6 +532,7 @@ export async function loadDashLibrary() {
       (pricing.projects || []).flatMap(p => (p.items || []).map(i => i.content_id))
     );
     const standalone = items.filter(it => !projectedIds.has(it.id));
+    const priceByTrack = new Map((pricing.trackPrices || []).map(p => [p.content_id, p]));
 
     list.innerHTML = '';
 
@@ -456,7 +540,7 @@ export async function loadDashLibrary() {
       list.appendChild(buildDashLibProject(proj, items, highlight));
     }
     for (const item of standalone) {
-      list.appendChild(buildDashLibItem(item, 'track', item.id, false, highlight));
+      list.appendChild(buildDashLibItem(item, 'track', item.id, false, highlight, priceByTrack.get(item.id) || null));
     }
 
     if (!items.length) {

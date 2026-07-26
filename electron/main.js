@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, session, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, session, Tray, Menu, nativeImage, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -8,9 +8,25 @@ const http = require('http');
 // Must happen before src/config.js (and src/index.js, which requires it) are
 // ever required — config.js reads process.env at module-load time.
 process.env.PAPERWEIGHT_ELECTRON = 'true';
-process.env.PAPERWEIGHT_DATA_ROOT = (!app.isPackaged && process.env.PAPERWEIGHT_DATA_ROOT)
-  ? path.resolve(process.env.PAPERWEIGHT_DATA_ROOT)
-  : app.getPath('userData');
+
+// The setup wizard lets the creator pick a custom data folder (see
+// electron/ipc/setup-handlers.js's setup:submit handler), which is recorded
+// as a pointer file at the fixed, OS-standard userData path since that's the
+// one location every future launch can always find without prior knowledge.
+const DEFAULT_DATA_ROOT = app.getPath('userData');
+
+function resolveDataRoot() {
+  if (!app.isPackaged && process.env.PAPERWEIGHT_DATA_ROOT) {
+    return path.resolve(process.env.PAPERWEIGHT_DATA_ROOT);
+  }
+  try {
+    const pointer = JSON.parse(fs.readFileSync(path.join(DEFAULT_DATA_ROOT, 'data-root.json'), 'utf8'));
+    if (pointer && pointer.dataRoot) return pointer.dataRoot;
+  } catch {}
+  return DEFAULT_DATA_ROOT;
+}
+
+process.env.PAPERWEIGHT_DATA_ROOT = resolveDataRoot();
 if (app.isPackaged) {
   process.env.PAPERWEIGHT_DESKTOP_RUNTIME = 'true';
 }
@@ -18,6 +34,44 @@ if (app.isPackaged) {
 const dataRoot = process.env.PAPERWEIGHT_DATA_ROOT;
 const envPath = path.join(dataRoot, '.env');
 const windowIcon = path.join(__dirname, 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png');
+
+// Last-resort surface for startup/runtime failures that would otherwise be
+// completely silent: a GUI app launched from the Start Menu has no attached
+// console, and nothing is persisted to disk unless we do it here ourselves.
+// Writes a timestamped line to <dataRoot>/logs/electron-main.log and shows a
+// native error dialog naming that file. Every step is wrapped defensively —
+// this *is* the crash-reporting path, so it must never itself throw or loop.
+function reportFatalError(context, err) {
+  const detail = err instanceof Error ? (err.stack || err.message) : String(err);
+  console.error(`[Paperweight] ${context}:`, err);
+
+  const logPath = path.join(dataRoot, 'logs', 'electron-main.log');
+  try {
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${context}: ${detail}\n`);
+  } catch {}
+
+  try {
+    dialog.showErrorBox(
+      'Paperweight failed to start',
+      `${context}: ${detail}\n\nDetails were written to:\n${logPath}`
+    );
+  } catch {}
+}
+
+// Electron requires src/index.js instead of running it directly, so its own
+// require.main === module -gated uncaughtException/unhandledRejection handlers
+// (see src/index.js) never register here — this is the equivalent for the
+// desktop entry point, registered as early as possible so it also covers
+// synchronous throws from the requires further down this file.
+process.on('uncaughtException', err => {
+  reportFatalError('Uncaught exception', err);
+  app.exit(1);
+});
+process.on('unhandledRejection', reason => {
+  reportFatalError('Unhandled rejection', reason);
+  app.exit(1);
+});
 
 // Keep Windows notifications, taskbar grouping, and development builds under
 // Paperweight's identity instead of Electron's default application identity.
@@ -97,9 +151,17 @@ async function openMainWindow() {
 
   await autoUnlockDashboard(config).catch(() => {});
 
+  // The player/dashboard card is a fixed-width widget (--panel-w: 560px,
+  // client/css/tokens.css) regardless of window size — a wide window just
+  // leaves empty margin on either side. Default to roughly that card's own
+  // footprint (560 wide + ~30px breathing room each side, ~747 tall plus
+  // topbar/credit chrome) instead. useContentSize makes width/height apply
+  // to the web content area, not the outer frame, so this stays accurate
+  // across platforms regardless of title-bar height. Still freely resizable.
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 860,
+    width: 620,
+    height: 900,
+    useContentSize: true,
     title: config.station.name || 'Paperweight',
     icon: windowIcon,
     webPreferences: {
@@ -245,7 +307,7 @@ function onSetupComplete() {
       });
     })
     .catch(err => {
-      console.error('[Paperweight] Failed to start after setup:', err);
+      reportFatalError('Failed to start after setup', err);
       app.quit();
     });
 }
@@ -253,7 +315,7 @@ function onSetupComplete() {
 function boot() {
   if (fs.existsSync(envPath)) {
     startServerAndOpenWindow().catch(err => {
-      console.error('[Paperweight] Failed to start:', err);
+      reportFatalError('Failed to start', err);
       app.quit();
     });
   } else {
