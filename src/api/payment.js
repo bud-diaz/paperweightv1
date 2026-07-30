@@ -10,6 +10,7 @@ const asyncHandler = require('../middleware/asyncHandler');
 const { publicBaseUrl } = require('../runtime/base-url');
 const { isEmailConfigured, sendMail } = require('../email');
 const paymentConfig = require('../payment/config');
+const { recordAudienceEvent, recordSubscriptionEvent } = require('../events');
 
 const VALID_TIERS = new Set(['subscriber', 'pro', 'all_access']);
 
@@ -162,7 +163,10 @@ function refreshExistingStripeSubscription(db, sub) {
 
 // Updates the listener's token tier and upserts the subscription record.
 // Called by both Stripe and PayPal webhook handlers on subscription activation.
-function activateSubscription(db, { providerSubscriptionId, provider, tier, currentPeriodEnd, listenerIdOrEmail }) {
+function activateSubscription(db, {
+  providerSubscriptionId, provider, tier, currentPeriodEnd, listenerIdOrEmail,
+  amountCents = null, currency = null, billingInterval = null, providerEventId = null,
+}) {
   // Resolve listener_id from email if needed
   let listenerId = listenerIdOrEmail;
   if (typeof listenerIdOrEmail === 'string' && listenerIdOrEmail.includes('@')) {
@@ -173,17 +177,20 @@ function activateSubscription(db, { providerSubscriptionId, provider, tier, curr
 
   // Upsert subscription record
   const existing = db.prepare(
-    'SELECT id FROM subscriptions WHERE listener_id = ? AND provider_subscription_id = ?'
+    'SELECT * FROM subscriptions WHERE listener_id = ? AND provider_subscription_id = ?'
   ).get(listenerId, providerSubscriptionId);
 
+  let subscriptionId;
   if (existing) {
     db.prepare(
-      "UPDATE subscriptions SET tier = ?, status = 'active', current_period_end = ? WHERE id = ?"
-    ).run(tier, currentPeriodEnd, existing.id);
+      "UPDATE subscriptions SET tier = ?, status = 'active', current_period_end = ?, amount_cents = COALESCE(?, amount_cents), currency = COALESCE(?, currency), billing_interval = COALESCE(?, billing_interval) WHERE id = ?"
+    ).run(tier, currentPeriodEnd, amountCents, currency, billingInterval, existing.id);
+    subscriptionId = existing.id;
   } else {
-    db.prepare(
-      'INSERT INTO subscriptions (listener_id, tier, provider, provider_subscription_id, status, current_period_end) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(listenerId, tier, provider, providerSubscriptionId, 'active', currentPeriodEnd);
+    const info = db.prepare(
+      'INSERT INTO subscriptions (listener_id, tier, provider, provider_subscription_id, status, current_period_end, amount_cents, currency, billing_interval) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(listenerId, tier, provider, providerSubscriptionId, 'active', currentPeriodEnd, amountCents, currency, billingInterval);
+    subscriptionId = Number(info.lastInsertRowid);
   }
 
   // Sync token tier
@@ -202,7 +209,34 @@ function activateSubscription(db, { providerSubscriptionId, provider, tier, curr
   ).run(listenerId);
   if (graceStarted.changes > 0) sendVerificationEmail(db, listenerId);
 
+  const lifecycleType = existing ? 'subscription_renewed' : 'subscription_started';
+  const lifecycleKey = `${provider}:${providerSubscriptionId}:${lifecycleType}:${currentPeriodEnd}`;
+  recordSubscriptionEvent(db, {
+    subscriptionId, listenerId, eventType: lifecycleType, tier, status: 'active',
+    amountCents, currency, billingInterval, provider, providerEventId,
+    providerSubscriptionId, dedupeKey: lifecycleKey,
+  });
+  recordAudienceEvent(lifecycleType, {
+    db, listenerId, source: 'webhook', valueCents: amountCents,
+    currency, dedupeKey: `audience:${lifecycleKey}`,
+    metadata: { tier, provider, billing_interval: billingInterval },
+  });
+
   return true;
+}
+
+function recordTipAudienceEvent(db, { amountCents, paymentIntentId, donorEmail }) {
+  const account = donorEmail
+    ? db.prepare('SELECT id FROM listener_accounts WHERE lower(email) = lower(?)').get(donorEmail)
+    : null;
+  recordAudienceEvent('tip_completed', {
+    db,
+    listenerId: account?.id,
+    source: 'webhook',
+    valueCents: Number(amountCents || 0),
+    currency: 'usd',
+    dedupeKey: `tip:${paymentIntentId}`,
+  });
 }
 
 function cancelSubscription(db, { providerSubscriptionId }) {
@@ -220,6 +254,19 @@ function cancelSubscription(db, { providerSubscriptionId }) {
   db.prepare(
     "UPDATE tokens SET tier = 'free' WHERE listener_id = ? AND is_active = 1"
   ).run(sub.listener_id);
+
+  const eventType = 'subscription_expired';
+  const key = `${sub.provider}:${providerSubscriptionId}:${eventType}:${sub.current_period_end}`;
+  recordSubscriptionEvent(db, {
+    subscriptionId: sub.id, listenerId: sub.listener_id, eventType,
+    tier: sub.tier, status: 'expired', amountCents: sub.amount_cents,
+    currency: sub.currency, billingInterval: sub.billing_interval,
+    provider: sub.provider, providerSubscriptionId, dedupeKey: key,
+  });
+  recordAudienceEvent(eventType, {
+    db, listenerId: sub.listener_id, source: 'webhook', dedupeKey: `audience:${key}`,
+    metadata: { tier: sub.tier, provider: sub.provider },
+  });
 
   return true;
 }
@@ -611,6 +658,10 @@ router.get('/checkout-url', paymentLimiter, asyncHandler(async (req, res) => {
     db.prepare(
       'INSERT INTO pending_checkouts (nonce, provider, stripe_session_id, listener_id, tier, expires_at) VALUES (?, ?, ?, ?, ?, ?)'
     ).run(nonce, 'stripe', session.id, listenerId, 'subscriber', expiresAt);
+    recordAudienceEvent('checkout_started', {
+      req, db, listenerId, source: 'checkout', dedupeKey: `subscription-checkout:${session.id}`,
+      metadata: { kind: 'subscription', tier: 'subscriber', provider: 'stripe' },
+    });
     res.json({ checkoutUrl: session.url });
   } catch {
     res.status(500).json({ error: 'Failed to create checkout session' });
@@ -767,6 +818,12 @@ router.post('/tip', paymentLimiter, asyncHandler(async (req, res) => {
       payment_intent_data:  { metadata: piMetadata },
     });
 
+    recordAudienceEvent('checkout_started', {
+      req, source: 'checkout', valueCents: amountCents, currency: 'usd',
+      dedupeKey: `tip-checkout:${session.id}`,
+      metadata: { kind: 'tip', provider: 'stripe' },
+    });
+
     res.json({ checkoutUrl: session.url });
   } catch (err) {
     log('error', 'payment', `Tip checkout failed: ${err.message}`);
@@ -868,6 +925,7 @@ router.get('/tip-success', asyncHandler(async (req, res) => {
         if (donorEmail) {
           grantTipAccessAndSignIn(req, res, db, { donorEmail, paymentIntentId: pi.id });
         }
+        recordTipAudienceEvent(db, { amountCents, paymentIntentId: pi.id, donorEmail });
       }
     } catch (err) {
       log('error', 'payment', `Tip-success redirect handling failed: ${err.message}`);
@@ -1211,6 +1269,7 @@ async function stripeWebhookHandler(req, res) {
           const { listenerId } = findOrCreateListenerByEmail(db, donorEmail);
           grantTipSupporterAccess(db, { listenerId, paymentIntentId: pi.id });
         }
+        recordTipAudienceEvent(db, { amountCents, paymentIntentId: pi.id, donorEmail });
       };
       break;
     }

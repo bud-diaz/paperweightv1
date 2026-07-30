@@ -458,6 +458,23 @@ export const posts = {
 
 // ── api.docs ───────────────────────────────────────────────────────────────────────
 
+// First-party behavioral signals used by Audience Memory. These requests are
+// intentionally fire-and-forget from the player so analytics never blocks
+// playback or listener actions.
+export const events = {
+  record(type, body = {}) {
+    return _send('/api/events', { type, ...body }).catch(() => null);
+  },
+};
+
+export const participation = {
+  active() { return _json('/api/participation'); },
+  upcoming() { return _json('/api/releases/upcoming'); },
+  request(mediaId, dedication) { return _send('/api/participation/requests', { mediaId, dedication }); },
+  vote(pollId, optionId) { return _send(`/api/participation/polls/${pollId}/vote`, { optionId }); },
+  remind(campaignId) { return _send('/api/participation/reminders', { campaignId }); },
+};
+
 export const docs = {
   /**
    * GET /api/docs — list of the Markdown/text docs the Docs modal can show
@@ -529,6 +546,52 @@ export const dashboard = {
    */
   accounts() {
     return _json('/api/dashboard/accounts');
+  },
+
+  today: {
+    get() { return _json('/api/dashboard/today'); },
+    setState(key, status, days) { return _send('/api/dashboard/today/state', { key, status, days }); },
+  },
+
+  audienceMemory: {
+    people(search = '') { return _json(`/api/dashboard/audience-memory/people?search=${encodeURIComponent(search)}`); },
+    person(id) { return _json(`/api/dashboard/audience-memory/people/${id}`); },
+    segments() { return _json('/api/dashboard/audience-memory/segments'); },
+    segment(key) { return _json(`/api/dashboard/audience-memory/segments/${encodeURIComponent(key)}`); },
+  },
+
+  releases: {
+    list() { return _json('/api/dashboard/releases'); },
+    get(id) { return _json(`/api/dashboard/releases/${id}`); },
+    create(body) { return _send('/api/dashboard/releases', body); },
+    update(id, body) { return _send(`/api/dashboard/releases/${id}`, body, 'PUT'); },
+    publish(id) { return _send(`/api/dashboard/releases/${id}/publish`, {}); },
+    cancel(id) { return _send(`/api/dashboard/releases/${id}/cancel`, {}); },
+    report(id) { return _json(`/api/dashboard/releases/${id}/report`); },
+  },
+
+  automations: {
+    get() { return _json('/api/dashboard/automations'); },
+    pause(paused) { return _send('/api/dashboard/automations/pause', { paused }, 'PUT'); },
+    updateRule(id, body) { return _send(`/api/dashboard/automations/rules/${id}`, body, 'PUT'); },
+    send(id) { return _send(`/api/dashboard/automations/runs/${id}/send`, {}); },
+    sweep() { return _send('/api/dashboard/automations/sweep', {}); },
+  },
+
+  ops: {
+    get() { return _json('/api/dashboard/ops'); },
+    check() { return _send('/api/dashboard/ops/check', {}); },
+    backup() { return _send('/api/dashboard/ops/backup', {}); },
+    verify(id) { return _send(`/api/dashboard/ops/backup/${id}/verify`, {}); },
+    settings(autoBackup) { return _send('/api/dashboard/ops/settings', { autoBackup }, 'PUT'); },
+  },
+
+  participation: {
+    requests() { return _json('/api/dashboard/participation/requests'); },
+    updateRequest(id, status) { return _send(`/api/dashboard/participation/requests/${id}`, { status }, 'PUT'); },
+    polls() { return _json('/api/dashboard/participation/polls'); },
+    createPoll(body) { return _send('/api/dashboard/participation/polls', body); },
+    setPollStatus(id, status) { return _send(`/api/dashboard/participation/polls/${id}/status`, { status }, 'PUT'); },
   },
 
   // ── Payment config (Stripe + PayPal) ──────────────────────────────────────────

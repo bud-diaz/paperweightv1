@@ -39,6 +39,7 @@ import * as docsModal    from './docs.js';
 import * as tour         from './tour.js';
 import * as tilt         from './tilt.js';
 import * as swipe        from './swipe.js';
+import * as participation from './participation.js';
 
 import * as dashIndex   from './dashboard/index.js';
 import * as station     from './dashboard/station.js';
@@ -64,6 +65,7 @@ import * as search      from './dashboard/search.js';
 import * as tools       from './dashboard/tools.js';
 import * as earnings    from './dashboard/earnings.js';
 import * as desktopControls from './dashboard/desktop-controls.js';
+import * as necessity    from './dashboard/necessity.js';
 
 // ── Cross-module callback wiring ─────────────────────────────────────────────
 
@@ -203,6 +205,7 @@ dashIndex.init({
   loadDashSchedulePreview: schedule.loadDashSchedulePreview,
   loadDashPosts:           dashPosts.loadDashPosts,
   loadDashSettings:        tools.loadDashSettings,
+  loadDashNecessity:       necessity.load,
 });
 
 vault.init({
@@ -266,6 +269,7 @@ devices.init();
 dashDrawers.init();
 tools.init();
 desktopControls.init();
+necessity.init();
 
 // ── Event handler wiring ───────────────────────────────────────────────────
 
@@ -278,6 +282,7 @@ libraryModal.initLibraryModalHandlers();
 docsModal.initDocsModalHandlers();
 payment.initPaymentHandlers();
 payment.initFloatingTip();
+participation.init();
 player.initShareHandlers();
 player.initMediaSessionHandlers();
 

@@ -6,6 +6,7 @@ const { paymentLimiter } = require('../middleware/rateLimiter');
 const config = require('../config');
 const asyncHandler = require('../middleware/asyncHandler');
 const paymentConfig = require('../payment/config');
+const { recordAudienceEvent } = require('../events');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -546,6 +547,14 @@ router.post('/unlock', paymentLimiter, asyncHandler(async (req, res) => {
     }
 
     log('info', 'vault', `Unlock checkout created: ${unlock_type} target=${targetId || 'all'} listener=${listenerId} amount=${amountCents}`);
+    recordAudienceEvent('checkout_started', {
+      req, db, listenerId,
+      mediaId: unlock_type === 'track' ? targetId : null,
+      projectId: unlock_type === 'project' ? targetId : null,
+      source: 'checkout', valueCents: amountCents, currency: 'usd',
+      dedupeKey: `vault-checkout:${session.id}`,
+      metadata: { unlock_type, payment_type },
+    });
     res.json({ checkoutUrl: session.url });
 
   } catch (err) {
@@ -632,6 +641,14 @@ function createVaultUnlock(db, { listenerId, unlockType, targetId, paymentType, 
   }
 
   log('info', 'vault', `Vault unlock created: ${unlockType} target=${targetId || 'all'} listener=${listenerId} id=${info.lastInsertRowid}`);
+  recordAudienceEvent('unlock_completed', {
+    db, listenerId,
+    mediaId: unlockType === 'track' ? targetId : null,
+    projectId: unlockType === 'project' ? targetId : null,
+    source: 'webhook', valueCents: paidAmount, currency: 'usd',
+    dedupeKey: `unlock:${info.lastInsertRowid}`,
+    metadata: { unlock_type: unlockType, payment_type: paymentType },
+  });
   return info.lastInsertRowid;
 }
 

@@ -17,7 +17,7 @@ function renderPost(p, rowClass) {
     ? `<div class="bio-message-title">${esc(p.title)}${badge}</div>`
     : (badge ? `<div>${badge}</div>` : '');
   return `
-    <div class="${rowClass}">
+    <div class="${rowClass}" data-post-id="${p.id}">
       ${title}
       <div class="bio-message-date">${esc(date)}</div>
       <div class="bio-message-body">${esc(p.body)}</div>
@@ -71,6 +71,7 @@ export async function loadPostsModal() {
     list.innerHTML = posts.length
       ? posts.map(p => renderPost(p, 'bio-message-row')).join('')
       : '<div class="posts-modal-empty">No posts yet.</div>';
+    posts.forEach(p => api.events.record('post_viewed', { postId:p.id, source:'post', dedupeKey:`post:${p.id}:modal:${new Date().toISOString().slice(0,10)}` }));
   } catch {
     list.innerHTML = '<div class="posts-modal-empty">Could not load posts.</div>';
   }

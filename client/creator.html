@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="/css/auth.css"/>
   <link rel="stylesheet" href="/css/dashboard.css"/>
   <link rel="stylesheet" href="/css/dashboard-drawers.css"/>
+  <link rel="stylesheet" href="/css/necessity.css"/>
   <link rel="stylesheet" href="/css/stack.css"/>
 </head>
 <body>
@@ -74,6 +75,16 @@
 
 <!-- Floating tip $ -->
 <div id="floating-tip">$</div>
+
+<!-- Listener participation signal -->
+<button id="fan-signal-btn" type="button" hidden>SIGNAL</button>
+<aside id="fan-signal-panel" hidden aria-label="Participate in this station">
+  <div class="fan-signal-head">
+    <div><span class="necessity-kicker">OPEN CHANNEL</span><strong>Signal the station</strong></div>
+    <button id="fan-signal-close" type="button" aria-label="Close">×</button>
+  </div>
+  <div id="fan-signal-content"><div class="necessity-empty">Checking the channel…</div></div>
+</aside>
 
 <!-- Support modal -->
 <div id="modal-backdrop">
@@ -768,6 +779,90 @@
               <button class="mgmt-btn" id="btn-dashboard-signup-dismiss">MAYBE LATER</button>
             </div>
             <div id="dashboard-signup-msg" style="font-family:'Space Mono',monospace;font-size:10px;margin-top:4px;"></div>
+          </div>
+
+          <!-- Outcome-oriented creator operating system -->
+          <div class="dash-section necessity-section" id="dash-today-section" data-drawer="today">
+            <div class="necessity-hero">
+              <div>
+                <div class="necessity-kicker">YOUR DAILY BRIEF</div>
+                <h2>What deserves your attention.</h2>
+              </div>
+              <button class="mgmt-btn" id="btn-today-refresh">REFRESH</button>
+            </div>
+            <div id="today-outcomes" class="necessity-outcomes"></div>
+            <div id="today-insights" class="necessity-card-list"><div class="necessity-empty">Building today’s brief…</div></div>
+          </div>
+
+          <div class="dash-section necessity-section" id="dash-audience-section" data-drawer="audience">
+            <div class="necessity-hero compact">
+              <div><div class="necessity-kicker">RELATIONSHIPS, NOT TRAFFIC</div><h2>Audience Memory</h2></div>
+              <input class="dash-input dash-input-sm necessity-search" id="audience-search" placeholder="Search people…"/>
+            </div>
+            <div id="audience-segments" class="necessity-chips"></div>
+            <div class="necessity-split">
+              <div id="audience-people" class="necessity-card-list"><div class="necessity-empty">Loading audience…</div></div>
+              <div id="audience-detail" class="necessity-detail"><div class="necessity-empty">Select a listener to see their relationship timeline.</div></div>
+            </div>
+          </div>
+
+          <div class="dash-section necessity-section" id="dash-releases-section" data-drawer="releases">
+            <div class="necessity-hero">
+              <div><div class="necessity-kicker">ONE SCHEDULE, EVERY ACTION</div><h2>Release Autopilot</h2></div>
+              <button class="mgmt-btn active" id="btn-release-new">NEW RELEASE</button>
+            </div>
+            <form id="release-form" class="necessity-form" hidden>
+              <div class="necessity-form-grid">
+                <label>RELEASE NAME<input class="dash-input" id="release-title" maxlength="160" required/></label>
+                <label>GO LIVE<input class="dash-input" type="datetime-local" id="release-at" required/></label>
+                <label>VISIBILITY<select class="dash-input" id="release-visibility"><option value="public">PUBLIC</option><option value="supporters_only">SUPPORTERS</option><option value="vault">VAULT</option></select></label>
+                <label>ANNOUNCEMENT TITLE<input class="dash-input" id="release-post-title" maxlength="160"/></label>
+              </div>
+              <label>TRACKS<select class="dash-input necessity-multiselect" id="release-items" multiple required></select></label>
+              <label>ANNOUNCEMENT<textarea class="dash-input necessity-textarea" id="release-post-body" placeholder="Optional release note…"></textarea></label>
+              <div class="necessity-checks">
+                <label><input type="checkbox" id="release-highlight" checked/> FEATURE IT</label>
+                <label><input type="checkbox" id="release-premiere"/> QUEUE PREMIERE</label>
+                <label><input type="checkbox" id="release-webhook" checked/> SEND WEBHOOK</label>
+                <label><input type="checkbox" id="release-supporters"/> EMAIL OPTED-IN SUPPORTERS</label>
+              </div>
+              <div class="necessity-actions"><button class="mgmt-btn active" type="submit">SCHEDULE RELEASE</button><button class="mgmt-btn" type="button" id="btn-release-cancel-form">CANCEL</button><span id="release-form-msg"></span></div>
+            </form>
+            <div id="release-list" class="necessity-card-list"><div class="necessity-empty">Loading release calendar…</div></div>
+          </div>
+
+          <div class="dash-section necessity-section" id="dash-automations-section" data-drawer="automations">
+            <div class="necessity-hero">
+              <div><div class="necessity-kicker">CONSENT-SAFE FOLLOW-THROUGH</div><h2>Automations</h2></div>
+              <label class="necessity-switch"><input type="checkbox" id="automations-paused"/> PAUSE ALL</label>
+            </div>
+            <div id="automation-rules" class="necessity-card-list"></div>
+            <div class="necessity-subhead"><span>RECENT DECISIONS</span><button class="mgmt-btn" id="btn-automation-sweep">FIND INACTIVE REGULARS</button></div>
+            <div id="automation-runs" class="necessity-card-list compact-list"></div>
+          </div>
+
+          <div class="dash-section necessity-section" id="dash-participation-section" data-drawer="community">
+            <div class="necessity-hero"><div><div class="necessity-kicker">FANS WITH A HAND ON THE STATION</div><h2>Participation</h2></div></div>
+            <div class="necessity-form inline-form">
+              <input class="dash-input" id="poll-question" placeholder="Ask your audience a question…"/>
+              <input class="dash-input" id="poll-options" placeholder="Options separated by commas"/>
+              <button class="mgmt-btn active" id="btn-poll-create">CREATE POLL</button>
+            </div>
+            <div class="necessity-subhead"><span>POLLS</span></div>
+            <div id="participation-polls" class="necessity-card-list compact-list"></div>
+            <div class="necessity-subhead"><span>TRACK REQUESTS</span></div>
+            <div id="participation-requests" class="necessity-card-list compact-list"></div>
+          </div>
+
+          <div class="dash-section necessity-section" id="dash-ops-section" data-drawer="ops">
+            <div class="necessity-hero">
+              <div><div class="necessity-kicker">QUIET CONFIDENCE</div><h2>Station Ops</h2></div>
+              <div class="necessity-actions"><button class="mgmt-btn" id="btn-ops-check">RUN CHECKS</button><button class="mgmt-btn active" id="btn-ops-backup">BACK UP NOW</button></div>
+            </div>
+            <div id="ops-summary" class="necessity-outcomes"></div>
+            <div id="ops-checks" class="necessity-card-list compact-list"></div>
+            <label class="necessity-switch ops-switch"><input type="checkbox" id="ops-auto-backup"/> AUTOMATIC VERIFIED BACKUPS</label>
+            <div id="ops-msg" class="necessity-note"></div>
           </div>
 
           <!-- Station -->

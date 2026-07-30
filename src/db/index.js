@@ -212,6 +212,41 @@ function runMigrations(database) {
       column: 'source',
       sql:    "ALTER TABLE download_leads ADD COLUMN source TEXT NOT NULL DEFAULT 'download_gate'",
     },
+    {
+      table: 'listen_events',
+      column: 'profile_id',
+      sql: 'ALTER TABLE listen_events ADD COLUMN profile_id INTEGER REFERENCES listener_profiles(id)',
+    },
+    {
+      table: 'listen_events',
+      column: 'listener_id',
+      sql: 'ALTER TABLE listen_events ADD COLUMN listener_id INTEGER REFERENCES listener_accounts(id)',
+    },
+    {
+      table: 'listen_events',
+      column: 'source',
+      sql: "ALTER TABLE listen_events ADD COLUMN source TEXT NOT NULL DEFAULT 'broadcast'",
+    },
+    {
+      table: 'listen_events',
+      column: 'completed_at',
+      sql: 'ALTER TABLE listen_events ADD COLUMN completed_at TEXT',
+    },
+    {
+      table: 'subscriptions',
+      column: 'amount_cents',
+      sql: 'ALTER TABLE subscriptions ADD COLUMN amount_cents INTEGER',
+    },
+    {
+      table: 'subscriptions',
+      column: 'currency',
+      sql: 'ALTER TABLE subscriptions ADD COLUMN currency TEXT',
+    },
+    {
+      table: 'subscriptions',
+      column: 'billing_interval',
+      sql: 'ALTER TABLE subscriptions ADD COLUMN billing_interval TEXT',
+    },
   ];
 
   for (const guard of alterGuards) {
@@ -271,10 +306,21 @@ function runMigrations(database) {
           provider_subscription_id TEXT    NOT NULL,
           status                   TEXT    NOT NULL CHECK(status IN ('active', 'cancelled', 'expired')),
           current_period_end       TEXT    NOT NULL,
-          created_at               TEXT    NOT NULL DEFAULT (datetime('now'))
+          created_at               TEXT    NOT NULL DEFAULT (datetime('now')),
+          amount_cents             INTEGER,
+          currency                 TEXT,
+          billing_interval         TEXT
         )
       `);
-      database.exec(`INSERT INTO subscriptions SELECT * FROM subscriptions_old`);
+      database.exec(`
+        INSERT INTO subscriptions (
+          id, listener_id, tier, provider, provider_subscription_id, status,
+          current_period_end, created_at, amount_cents, currency, billing_interval
+        )
+        SELECT id, listener_id, tier, provider, provider_subscription_id, status,
+          current_period_end, created_at, amount_cents, currency, billing_interval
+        FROM subscriptions_old
+      `);
       database.exec(`DROP TABLE subscriptions_old`);
     })();
   }
@@ -297,10 +343,21 @@ function runMigrations(database) {
           provider_subscription_id TEXT    NOT NULL,
           status                   TEXT    NOT NULL CHECK(status IN ('active', 'cancelled', 'expired')),
           current_period_end       TEXT    NOT NULL,
-          created_at               TEXT    NOT NULL DEFAULT (datetime('now'))
+          created_at               TEXT    NOT NULL DEFAULT (datetime('now')),
+          amount_cents             INTEGER,
+          currency                 TEXT,
+          billing_interval         TEXT
         )
       `);
-      database.exec(`INSERT INTO subscriptions SELECT * FROM subscriptions_old`);
+      database.exec(`
+        INSERT INTO subscriptions (
+          id, listener_id, tier, provider, provider_subscription_id, status,
+          current_period_end, created_at, amount_cents, currency, billing_interval
+        )
+        SELECT id, listener_id, tier, provider, provider_subscription_id, status,
+          current_period_end, created_at, amount_cents, currency, billing_interval
+        FROM subscriptions_old
+      `);
       database.exec(`DROP TABLE subscriptions_old`);
     })();
   }

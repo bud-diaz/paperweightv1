@@ -17,6 +17,12 @@ It is built for one creator or a small trusted team running one station on Windo
 - Stripe subscriptions, tips, and vault unlock checkout when configured — with listener self-service cancellation and Stripe billing portal.
 - PayPal subscriptions with verified webhooks when configured.
 - Creator dashboard for media, schedule, uploads, tokens, payments, and analytics.
+- A daily **Today** brief that turns audience, release, revenue, and station-health data into explainable next actions.
+- **Audience Memory** relationship timelines and useful cohorts such as returning listeners, buyers, inactive regulars, and gate visitors who did not purchase.
+- **Release Autopilot** for scheduling track visibility, an announcement post, supporter notifications, feature placement, and an optional station premiere as one durable campaign.
+- Consent-aware automations with recommendation and automatic modes, a delivery outbox, unsubscribe suppression, and an auditable explanation for every run.
+- Listener polls, premiere reminders, and creator-moderated track requests through the player’s **Signal** panel.
+- **Station Ops** health history plus optional automatic, checksum-verified local database backups.
 - CSV exports (subscribers, listeners, download leads) and one-click hot database backups.
 - Optional go-live / new-post announcements to a Discord-compatible webhook, and opt-in supporter email on new posts.
 - Optional public RSS/podcast feed of public media at `/feed.xml`.
@@ -178,6 +184,13 @@ src/
   auth/                 listener tokens, tiers, access checks
   broadcast/            FFmpeg HLS engine, playlist, scheduler
   db/                   SQLite migrations and helpers
+  events/               first-party audience and lifecycle events
+  jobs/                 durable local background-job runner
+  insights/             deterministic Today recommendations
+  releases/             coordinated release campaigns
+  automations/          consent-aware lifecycle recipes and delivery outbox
+  ops/                  station checks and verified backups
+  participation/        requests, polls, votes, and premiere reminders
   middleware/           CSRF and rate limit middleware
   scanner/              vault watcher, adapters, ffprobe metadata
   setup/                shared .env/folder provisioning (Electron wizard + setup.sh)

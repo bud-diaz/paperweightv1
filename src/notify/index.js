@@ -108,9 +108,9 @@ function supporterEmails(db) {
 // Called after a post is published. Always announces on the webhook (title
 // only — the post body may be supporters-only); optionally emails the full
 // post to active supporters when the creator asked for it.
-function postPublished(post, { emailSupporters = false } = {}) {
+function postPublished(post, { emailSupporters = false, webhook = true } = {}) {
   const title = post.title || 'New post';
-  fireWebhook(`📝 ${stationName()} posted: ${title} — ${stationUrl()}`, 'post');
+  if (webhook) fireWebhook(`📝 ${stationName()} posted: ${title} — ${stationUrl()}`, 'post');
 
   if (!emailSupporters) return;
   if (!isEmailConfigured()) {
@@ -147,9 +147,14 @@ function postPublished(post, { emailSupporters = false } = {}) {
 }
 
 // Called when a scheduled track's release time arrives and it flips to public.
-function mediaReleased(media) {
+function mediaReleased(media, { webhook = true } = {}) {
   const title = media.title || media.filename || 'New track';
-  fireWebhook(`📀 ${stationName()} released: ${title} — ${stationUrl()}`, 'media-release');
+  if (webhook) fireWebhook(`📀 ${stationName()} released: ${title} — ${stationUrl()}`, 'media-release');
 }
 
-module.exports = { liveStarted, liveVideoStarted, postPublished, mediaReleased, postWebhook, supporterEmails };
+function releasePublished(release) {
+  const title = release.title || 'New release';
+  fireWebhook(`📀 ${stationName()} released: ${title} — ${stationUrl()}`, 'release-campaign');
+}
+
+module.exports = { liveStarted, liveVideoStarted, postPublished, mediaReleased, releasePublished, postWebhook, supporterEmails };
