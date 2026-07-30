@@ -710,4 +710,242 @@ CREATE INDEX IF NOT EXISTS idx_landing_pageviews_created ON landing_pageviews(cr
 CREATE INDEX IF NOT EXISTS idx_landing_pageviews_path ON landing_pageviews(path, created_at);
 `,
   },
+  {
+    filename: "031_audience_events.sql",
+    sql: `CREATE TABLE IF NOT EXISTS audience_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_type TEXT NOT NULL,
+  profile_id INTEGER REFERENCES listener_profiles(id) ON DELETE SET NULL,
+  listener_id INTEGER REFERENCES listener_accounts(id) ON DELETE SET NULL,
+  media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
+  project_id INTEGER REFERENCES vault_projects(id) ON DELETE SET NULL,
+  post_id INTEGER REFERENCES creator_posts(id) ON DELETE SET NULL,
+  source TEXT,
+  value_cents INTEGER,
+  currency TEXT,
+  dedupe_key TEXT UNIQUE,
+  metadata TEXT,
+  occurred_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_audience_events_profile ON audience_events(profile_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audience_events_listener ON audience_events(listener_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audience_events_type ON audience_events(event_type, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audience_events_media ON audience_events(media_id, occurred_at DESC);`,
+  },
+  {
+    filename: "032_subscription_events.sql",
+    sql: `CREATE TABLE IF NOT EXISTS subscription_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  subscription_id INTEGER,
+  listener_id INTEGER NOT NULL REFERENCES listener_accounts(id),
+  event_type TEXT NOT NULL,
+  tier TEXT,
+  status TEXT,
+  amount_cents INTEGER,
+  currency TEXT,
+  billing_interval TEXT,
+  provider TEXT NOT NULL,
+  provider_event_id TEXT,
+  provider_subscription_id TEXT,
+  dedupe_key TEXT UNIQUE,
+  occurred_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_subscription_events_listener ON subscription_events(listener_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_subscription_events_type ON subscription_events(event_type, occurred_at DESC);`,
+  },
+  {
+    filename: "033_jobs_outbox.sql",
+    sql: `CREATE TABLE IF NOT EXISTS background_jobs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  job_type TEXT NOT NULL,
+  payload TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','running','completed','failed','cancelled')),
+  run_at TEXT NOT NULL DEFAULT (datetime('now')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  max_attempts INTEGER NOT NULL DEFAULT 5,
+  dedupe_key TEXT UNIQUE,
+  locked_at TEXT,
+  last_error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  completed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_background_jobs_due ON background_jobs(status, run_at);`,
+  },
+  {
+    filename: "034_insight_state.sql",
+    sql: `CREATE TABLE IF NOT EXISTS insight_state (
+  insight_key TEXT PRIMARY KEY,
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','dismissed','snoozed','completed')),
+  first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+  last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+  dismissed_until TEXT,
+  metadata TEXT
+);`,
+  },
+  {
+    filename: "035_release_campaigns.sql",
+    sql: `CREATE TABLE IF NOT EXISTS release_campaigns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  description TEXT,
+  project_id INTEGER REFERENCES vault_projects(id) ON DELETE SET NULL,
+  release_at TEXT NOT NULL,
+  visibility TEXT NOT NULL DEFAULT 'public' CHECK(visibility IN ('public','supporters_only','vault')),
+  post_title TEXT,
+  post_body TEXT,
+  post_visibility TEXT NOT NULL DEFAULT 'public' CHECK(post_visibility IN ('public','supporters_only')),
+  notify_webhook INTEGER NOT NULL DEFAULT 1,
+  notify_supporters INTEGER NOT NULL DEFAULT 0,
+  set_highlight INTEGER NOT NULL DEFAULT 1,
+  queue_premiere INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','scheduled','publishing','published','failed','cancelled')),
+  published_at TEXT,
+  last_error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS release_campaign_items (
+  campaign_id INTEGER NOT NULL REFERENCES release_campaigns(id) ON DELETE CASCADE,
+  media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (campaign_id, media_id)
+);
+CREATE INDEX IF NOT EXISTS idx_release_campaigns_due ON release_campaigns(status, release_at);`,
+  },
+  {
+    filename: "036_automations.sql",
+    sql: `CREATE TABLE IF NOT EXISTS automation_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  template_key TEXT NOT NULL UNIQUE,
+  enabled INTEGER NOT NULL DEFAULT 0,
+  mode TEXT NOT NULL DEFAULT 'draft' CHECK(mode IN ('draft','automatic')),
+  config TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS automation_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rule_id INTEGER NOT NULL REFERENCES automation_rules(id) ON DELETE CASCADE,
+  event_id INTEGER REFERENCES audience_events(id) ON DELETE SET NULL,
+  profile_id INTEGER REFERENCES listener_profiles(id) ON DELETE SET NULL,
+  listener_id INTEGER REFERENCES listener_accounts(id) ON DELETE SET NULL,
+  status TEXT NOT NULL CHECK(status IN ('recommended','queued','sent','skipped','failed')),
+  dedupe_key TEXT NOT NULL UNIQUE,
+  explanation TEXT,
+  last_error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  executed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS delivery_outbox (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  channel TEXT NOT NULL CHECK(channel IN ('email','webhook')),
+  profile_id INTEGER REFERENCES listener_profiles(id) ON DELETE SET NULL,
+  listener_id INTEGER REFERENCES listener_accounts(id) ON DELETE SET NULL,
+  recipient_email TEXT,
+  subject TEXT,
+  body TEXT NOT NULL,
+  payload TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','sending','sent','failed','cancelled','suppressed')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  max_attempts INTEGER NOT NULL DEFAULT 4,
+  run_at TEXT NOT NULL DEFAULT (datetime('now')),
+  dedupe_key TEXT UNIQUE,
+  last_error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  sent_at TEXT
+);
+CREATE TABLE IF NOT EXISTS email_suppressions (
+  email_hash TEXT PRIMARY KEY,
+  reason TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_automation_runs_status ON automation_runs(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_delivery_outbox_due ON delivery_outbox(status, run_at);
+INSERT OR IGNORE INTO automation_rules (template_key, enabled, mode) VALUES
+  ('welcome_listener',0,'draft'),('first_purchase_thanks',0,'draft'),('release_affinity',0,'draft'),
+  ('inactive_regular',0,'draft'),('post_live_followup',0,'draft');`,
+  },
+  {
+    filename: "037_ops_history.sql",
+    sql: `CREATE TABLE IF NOT EXISTS ops_checks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  check_type TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('ok','warning','error')),
+  latency_ms INTEGER,
+  details TEXT,
+  checked_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS backup_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  status TEXT NOT NULL CHECK(status IN ('running','completed','failed')),
+  encrypted INTEGER NOT NULL DEFAULT 0,
+  size_bytes INTEGER,
+  backup_path TEXT,
+  checksum TEXT,
+  started_at TEXT NOT NULL DEFAULT (datetime('now')),
+  completed_at TEXT,
+  verified_at TEXT,
+  last_error TEXT
+);
+CREATE TABLE IF NOT EXISTS update_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_version TEXT,
+  to_version TEXT,
+  status TEXT NOT NULL,
+  details TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_ops_checks_type ON ops_checks(check_type, checked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_backup_runs_started ON backup_runs(started_at DESC);`,
+  },
+  {
+    filename: "038_participation.sql",
+    sql: `CREATE TABLE IF NOT EXISTS listener_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  profile_id INTEGER REFERENCES listener_profiles(id) ON DELETE SET NULL,
+  listener_id INTEGER REFERENCES listener_accounts(id) ON DELETE SET NULL,
+  media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+  dedication TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','played','declined')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS polls (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  question TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','open','closed')),
+  opens_at TEXT,
+  closes_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS poll_options (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+  label TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS poll_votes (
+  poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+  option_id INTEGER NOT NULL REFERENCES poll_options(id) ON DELETE CASCADE,
+  profile_id INTEGER REFERENCES listener_profiles(id) ON DELETE CASCADE,
+  listener_id INTEGER REFERENCES listener_accounts(id) ON DELETE CASCADE,
+  identity_key TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (poll_id, identity_key)
+);
+CREATE TABLE IF NOT EXISTS premiere_reminders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  campaign_id INTEGER NOT NULL REFERENCES release_campaigns(id) ON DELETE CASCADE,
+  profile_id INTEGER REFERENCES listener_profiles(id) ON DELETE CASCADE,
+  listener_id INTEGER REFERENCES listener_accounts(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  sent_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(campaign_id, email)
+);
+CREATE INDEX IF NOT EXISTS idx_listener_requests_status ON listener_requests(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_polls_status ON polls(status, opens_at, closes_at);`,
+  },
 ];

@@ -93,6 +93,7 @@ export async function saveTrack(t) {
       savedAt: new Date().toISOString(),
       blob,
     }));
+    api.events.record('offline_saved', { mediaId: t.id, source: 'offline' });
     showToast('Saved for offline playback');
     return true;
   } catch {

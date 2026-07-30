@@ -5,6 +5,7 @@ const { requireDashboard } = require('../auth/middleware');
 const { formatItem, signDownloadUrl } = require('./library');
 const asyncHandler = require('../middleware/asyncHandler');
 const { publicBaseUrl } = require('../runtime/base-url');
+const { recordAudienceEvent } = require('../events');
 
 const dashRouter = require('express').Router();
 
@@ -77,6 +78,14 @@ router.get('/:token', asyncHandler(async (req, res) => {
   db.prepare(
     "UPDATE share_links SET open_count = open_count + 1, last_opened_at = datetime('now') WHERE id = ?"
   ).run(row.id);
+  recordAudienceEvent('share_opened', {
+    req,
+    db,
+    mediaId: row.target_type === 'track' ? row.target_id : null,
+    projectId: row.target_type === 'project' ? row.target_id : null,
+    source: 'share',
+    metadata: { share_id: row.id },
+  });
 
   res.json({
     label: row.label || null,

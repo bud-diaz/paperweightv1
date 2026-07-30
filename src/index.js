@@ -21,6 +21,7 @@ const { getFFmpegStatus } = require('./runtime/ffmpeg');
 const telemetry = require('./telemetry/reporter');
 const tunnelSupervisor = require('./runtime/tunnel-supervisor');
 const { recordMilestone } = require('./runtime/funnel');
+const jobRunner = require('./jobs/runner');
 
 const isPackaged = typeof process.pkg !== 'undefined';
 const isBundledRuntime = isPackaged || process.env.PAPERWEIGHT_DESKTOP_RUNTIME === 'true';
@@ -479,6 +480,9 @@ async function start() {
   }
 
   const app = createApp();
+  // createApp loads API modules, which register their durable job handlers.
+  require('./ops').ensureSchedules();
+  jobRunner.start();
   const configuredPort = config.port;
 
   // Try the configured port; if it's occupied, walk upward until a free one is
@@ -560,6 +564,7 @@ function shutdown() {
       liveVideo.stopLive();
       broadcast.stop();
       releaseScheduler.stop();
+      jobRunner.stop();
       tunnelSupervisor.stop();
 
       const cleanupTasks = [Promise.resolve(stopScanner())];

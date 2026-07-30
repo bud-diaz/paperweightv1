@@ -10,14 +10,19 @@ import { el, esc } from '../utils.js';
 import { openGoLiveModal } from './golive.js';
 
 const OPEN_STORAGE = 'pw_dash_section_open';
-const DEFAULT_OPEN = 'library';
+const DEFAULT_OPEN = 'today';
 
 const DRAWER_DEFS = [
+  { key: 'today',        title: 'TODAY' },
+  { key: 'audience',     title: 'AUDIENCE MEMORY' },
+  { key: 'releases',     title: 'RELEASE AUTOPILOT' },
+  { key: 'automations',  title: 'AUTOMATIONS' },
   { key: 'station',      title: 'STATION & BROADCAST' },
   { key: 'community',    title: 'COMMUNITY' },
   { key: 'library',      title: 'LIBRARY' },
   { key: 'monetization', title: 'MONETIZATION' },
   { key: 'analytics',    title: 'ANALYTICS' },
+  { key: 'ops',          title: 'STATION OPS' },
   { key: 'security',     title: 'SECURITY & DEVICES' },
 ];
 

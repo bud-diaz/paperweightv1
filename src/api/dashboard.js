@@ -610,7 +610,13 @@ router.get('/earnings', (req, res) => {
   ).all();
 
   const subStats = db.prepare(`
-    SELECT tier, COUNT(*) AS count FROM subscriptions
+    SELECT tier, COUNT(*) AS count,
+      COALESCE(SUM(CASE
+        WHEN lower(COALESCE(currency, 'usd')) != 'usd' THEN 0
+        WHEN billing_interval = 'year' THEN COALESCE(amount_cents, 0) / 12
+        ELSE COALESCE(amount_cents, 0)
+      END), 0) AS known_monthly_cents
+    FROM subscriptions
     WHERE status = 'active' AND datetime(current_period_end) > datetime('now')
     GROUP BY tier
   `).all();
@@ -633,11 +639,12 @@ router.get('/earnings', (req, res) => {
       todayUnitsSold: todayUnlockUnits,
       todayTipCount: todayTipStats.count,
       activeSubscriptions: subStats.reduce((sum, s) => sum + s.count, 0),
+      knownMonthlyRecurringCents: subStats.reduce((sum, s) => sum + Number(s.known_monthly_cents || 0), 0),
     },
     unlocks,
     todayUnlocks,
     tips: { count: tipStats.count, grossCents: tipStats.gross_cents, recent: recentTips },
-    subscriptions: subStats.map(s => ({ tier: s.tier, count: s.count })),
+    subscriptions: subStats.map(s => ({ tier: s.tier, count: s.count, knownMonthlyCents: s.known_monthly_cents || 0 })),
   });
 });
 
@@ -1698,6 +1705,9 @@ router.post('/live/start', (req, res) => {
   try {
     live.startLiveMic();
     require('../notify').liveStarted();
+    require('../events').recordAudienceEvent('live_broadcast_started', {
+      source: 'dashboard', dedupeKey: `live:${Date.now()}`,
+    });
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1734,7 +1744,13 @@ router.post('/live/chunk',
 
 // POST /api/dashboard/live/stop
 router.post('/live/stop', (req, res) => {
+  const wasLive = live.getLiveState().isLive;
   live.stopLive();
+  if (wasLive) {
+    require('../events').recordAudienceEvent('live_broadcast_ended', {
+      source: 'dashboard', dedupeKey: `live-ended:${Date.now()}`,
+    });
+  }
   res.json({ ok: true });
 });
 
