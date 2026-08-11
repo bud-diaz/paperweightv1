@@ -121,7 +121,7 @@ online itself — no terminal, no `cloudflared service install` step:
 
 1. Generate a Cloudflare API Token at
    [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)
-   scoped with **Cloudflare Tunnel: Edit** and **DNS: Edit** permissions. This
+   scoped with **Zone:Read**, **DNS:Edit**, and **Cloudflare Tunnel:Edit** permissions. This
    is a different token from the tunnel connector token described above —
    don't confuse the two, and treat it as equally sensitive.
 2. In the dashboard's Station panel, paste it into **Cloudflare Tunnel

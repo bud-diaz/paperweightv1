@@ -369,18 +369,22 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
   const originalPublicUrl = config.station.publicUrl;
   const originalBaseUrl = process.env.CLOUDFLARE_API_BASE_URL;
 
+  const stubCalls = [];
   const stub = http.createServer((req, res) => {
+    stubCalls.push(`${req.method} ${req.url}`);
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       if (req.url === '/user/tokens/verify') {
-        return res.end(JSON.stringify({ success: true, result: { status: 'active' } }));
+        res.statusCode = 403;
+        return res.end(JSON.stringify({ success: false, errors: [{ message: 'Token introspection is not allowed for this scoped token' }] }));
       }
       if (req.url === '/accounts') {
-        return res.end(JSON.stringify({ success: true, result: [{ id: 'acct1', name: 'Test Account' }] }));
+        res.statusCode = 403;
+        return res.end(JSON.stringify({ success: false, errors: [{ message: 'Account listing is not allowed for this scoped token' }] }));
       }
       if (req.url === '/zones') {
-        return res.end(JSON.stringify({ success: true, result: [{ id: 'zone1', name: 'example.com' }] }));
+        return res.end(JSON.stringify({ success: true, result: [{ id: 'zone1', name: 'example.com', account: { id: 'acct1', name: 'Test Account' } }] }));
       }
       if (req.method === 'POST' && req.url === '/accounts/acct1/cfd_tunnel') {
         return res.end(JSON.stringify({ success: true, result: { id: 'tunnel1' } }));
@@ -420,6 +424,9 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
       const zones = await request(baseUrl, '/api/dashboard/station/cloudflare/zones', auth);
       assert.equal(zones.res.status, 200);
       assert.deepEqual(zones.body.zones, [{ id: 'zone1', name: 'example.com' }]);
+
+      const stubCallsBeforeCreate = stubCalls.slice();
+      assert.equal(stubCallsBeforeCreate.includes('GET /user/tokens/verify'), false);
 
       db.prepare("INSERT INTO station_registry (id, slug, url) VALUES (1, 'radio-test', 'https://old.example.com')").run();
 

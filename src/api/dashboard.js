@@ -994,9 +994,18 @@ router.put('/station/cloudflare/token', requireDesktop, asyncHandler(async (req,
   }
   const cleanToken = apiToken.trim();
 
-  const verified = await cloudflareApi.verifyToken(cleanToken);
-  if (!verified.ok) {
-    return res.status(400).json({ error: verified.error || 'Could not verify Cloudflare API token' });
+  // Do not use Cloudflare's /user/tokens/verify endpoint as the gate here.
+  // Fresh scoped tokens can be valid for the tunnel flow while still being
+  // unable to introspect themselves. The flow's real prerequisite is that the
+  // token can list the zones Paperweight will offer in the picker.
+  const zones = await cloudflareApi.listZones(cleanToken);
+  if (!zones.ok) {
+    return res.status(400).json({
+      error: `${zones.error || 'Could not verify Cloudflare API token'} — make sure the token includes Zone:Read, DNS:Edit, and Cloudflare Tunnel:Edit permissions.`,
+    });
+  }
+  if (!Array.isArray(zones.result) || zones.result.length === 0) {
+    return res.status(400).json({ error: 'Cloudflare token verified, but it cannot see any zones. Add Zone:Read for the domain you want to use.' });
   }
 
   updateEnvKey('CLOUDFLARE_API_TOKEN', cleanToken);
@@ -1043,15 +1052,15 @@ router.post('/station/cloudflare/auto-tunnel', requireDesktop, asyncHandler(asyn
   }
   const cleanHostname = hostname.trim().toLowerCase();
 
-  const accounts = await cloudflareApi.listAccounts(token);
-  if (!accounts.ok) {
-    return res.status(502).json({ error: accounts.error || 'Could not list Cloudflare accounts' });
+  const zones = await cloudflareApi.listZones(token);
+  if (!zones.ok) {
+    return res.status(502).json({ error: zones.error || 'Could not list Cloudflare zones' });
   }
-  if (!accounts.result || accounts.result.length !== 1) {
-    const count = accounts.result ? accounts.result.length : 0;
-    return res.status(409).json({ error: `Expected exactly one Cloudflare account for this token, found ${count}` });
+  const selectedZone = (zones.result || []).find(zone => zone && zone.id === zoneId);
+  const accountId = selectedZone && selectedZone.account && selectedZone.account.id;
+  if (!accountId) {
+    return res.status(409).json({ error: 'Could not determine the Cloudflare account for that zone. Make sure the token has Zone:Read for the selected domain.' });
   }
-  const accountId = accounts.result[0].id;
 
   const tunnelName = `paperweight-${(config.station.slug || 'station').slice(0, 40)}`;
   const tunnel = await cloudflareApi.createTunnel(token, accountId, tunnelName);
