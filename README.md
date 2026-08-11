@@ -113,6 +113,7 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for details.
 - macOS: [SETUP_MACOS.md](SETUP_MACOS.md)
 - Linux / Raspberry Pi: [SETUP_LINUX_PI.md](SETUP_LINUX_PI.md)
 - Cloudflare Tunnel (public access): [CLOUDFLARE_SETUP.md](CLOUDFLARE_SETUP.md)
+- Tailscale (private remote access): [TAILSCALE_SETUP.md](TAILSCALE_SETUP.md)
 - Operations: [OPERATIONS.md](OPERATIONS.md)
 - Security: [SECURITY.md](SECURITY.md)
 - Troubleshooting: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)

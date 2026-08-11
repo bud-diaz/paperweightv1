@@ -1,3 +1,4 @@
+const os = require('os');
 const config = require('../config');
 
 function originFrom(raw) {
@@ -15,9 +16,25 @@ function configuredPublicOrigin() {
   return originFrom(config.station.publicUrl);
 }
 
+// First non-internal IPv4 address bound to this machine, or null if there
+// isn't one (e.g. a sandboxed/offline environment). Used only as a fallback
+// for building a phone-reachable URL when the server is bound to all
+// interfaces and no STATION_PUBLIC_URL is configured — a best-effort guess,
+// not authoritative (a machine with multiple adapters may have several LAN
+// IPs; set STATION_PUBLIC_URL explicitly for a stable, correct address).
+function lanIPv4() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+    }
+  }
+  return null;
+}
+
 function localOrigin() {
   const host = config.host === '0.0.0.0' || config.host === '::'
-    ? 'localhost'
+    ? (lanIPv4() || 'localhost')
     : config.host;
   const needsBrackets = host.includes(':') && !host.startsWith('[');
   const hostname = needsBrackets ? `[${host}]` : host;
