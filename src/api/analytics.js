@@ -157,4 +157,47 @@ router.get('/funnel', (req, res) => {
   res.json({ days, releaseId, attribution: 'last eligible station interaction within reporting window', stages, revenueCents: revenue });
 });
 
+// GET /api/analytics/activity?limit=10
+// Merged, reverse-chronological feed of recent tips, vault unlocks, and new
+// subscriptions — backs the Studio Overview "Recent activity" panel.
+router.get('/activity', (req, res) => {
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
+
+  const rows = getDb().prepare(`
+    SELECT * FROM (
+      SELECT 'tip' AS type,
+             COALESCE(donor_name, 'Someone') || ' sent a tip' AS title,
+             '$' || printf('%.2f', amount_cents / 100.0) AS detail,
+             created_at AS occurred_at
+      FROM tips
+
+      UNION ALL
+
+      SELECT 'unlock' AS type,
+             CASE vu.unlock_type
+               WHEN 'all_access' THEN 'All-Access Vault unlocked'
+               WHEN 'project' THEN COALESCE(vp.name, 'A collection') || ' unlocked'
+               ELSE COALESCE(m.title, m.filename, 'A track') || ' unlocked'
+             END AS title,
+             '$' || printf('%.2f', vu.amount_paid / 100.0) AS detail,
+             vu.created_at AS occurred_at
+      FROM vault_unlocks vu
+      LEFT JOIN media m ON vu.unlock_type = 'track' AND m.id = vu.target_id
+      LEFT JOIN vault_projects vp ON vu.unlock_type = 'project' AND vp.id = vu.target_id
+
+      UNION ALL
+
+      SELECT 'subscription' AS type,
+             'New ' || tier || ' subscriber' AS title,
+             'Recurring support started' AS detail,
+             created_at AS occurred_at
+      FROM subscriptions
+    )
+    ORDER BY occurred_at DESC
+    LIMIT :limit
+  `).all({ limit });
+
+  res.json(rows);
+});
+
 module.exports = router;

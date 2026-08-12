@@ -8,15 +8,7 @@ import {
   TrendingUp, UserRound, Users, Wallet,
 } from 'lucide-react';
 
-import type { Track, ViewKey } from '@/types';
-
-export const tracks: Track[] = [
-  { id: 1, title: 'Night Bloom', artist: 'Luna Vale', collection: 'Afterimage', duration: '3:42', plays: '184.2K', color: '#a9d647' },
-  { id: 2, title: 'Body Language', artist: 'Luna Vale', collection: 'Afterimage', duration: '4:06', plays: '92.8K', color: '#ff816e' },
-  { id: 3, title: 'Slow Motion', artist: 'Luna Vale', collection: 'Afterimage', duration: '3:18', plays: '67.4K', color: '#818cf3' },
-  { id: 4, title: 'Nocturne FM — 042', artist: 'Luna Vale', collection: 'Nocturne FM', duration: '58:00', plays: '11.3K', kind: 'Broadcast', color: '#e7a85b' },
-  { id: 5, title: 'Glasshouse', artist: 'Luna Vale', collection: 'Sketchbook', duration: '2:54', plays: '8.6K', kind: 'Demo', color: '#6dc0bd' },
-];
+import type { ViewKey } from '@/types';
 
 export const collections = [
   { id: 1, title: 'Afterimage', type: 'EP · 2025', count: '3 tracks', tone: 'lime', note: 'The light stays after the room is empty.' },

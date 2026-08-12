@@ -12,6 +12,8 @@ type StationData = {
   telemetryConfigured?: boolean;
   paperweighthqTunnelAvailable?: boolean;
   cloudflareTunnelPaused?: boolean;
+  cloudflareApiConfigured?: boolean;
+  cloudflareTunnelManaged?: boolean;
   requirements?: { cloudflareTunnel?: boolean; publicUrlSet?: boolean };
 };
 type Health = { reachable?: boolean; latencyMs?: number; error?: string };
@@ -37,8 +39,8 @@ export function Station({ onNotify }: { onNotify: (message: string) => void }) {
   const { data, isLoading } = useQuery<StationData>({ queryKey: ['dashboard', 'station'], queryFn: () => api.dashboard.station.get() });
   const { data: health, refetch: refetchHealth, isFetching: healthFetching } = useQuery<Health>({ queryKey: ['dashboard', 'station', 'health'], queryFn: () => api.dashboard.station.health(), enabled: !!data?.url });
   const { data: setup } = useQuery<SetupProgress>({ queryKey: ['dashboard', 'setup-progress'], queryFn: () => api.dashboard.setupProgress() });
-  const { data: zonesData } = useQuery<{ zones: Zone[] }>({ queryKey: ['dashboard', 'station', 'cloudflare', 'zones'], queryFn: () => api.dashboard.station.cloudflareZones(), retry: false });
-  const { data: tunnelStatus } = useQuery<{ status?: string; lastError?: string | null; running?: boolean }>({ queryKey: ['dashboard', 'station', 'tunnel-status'], queryFn: () => api.dashboard.station.getTunnelStatus(), refetchInterval: 5000 });
+  const { data: zonesData } = useQuery<{ zones: Zone[] }>({ queryKey: ['dashboard', 'station', 'cloudflare', 'zones'], queryFn: () => api.dashboard.station.cloudflareZones(), retry: false, enabled: !!data?.cloudflareApiConfigured });
+  const { data: tunnelStatus } = useQuery<{ status?: string; lastError?: string | null; running?: boolean }>({ queryKey: ['dashboard', 'station', 'tunnel-status'], queryFn: () => api.dashboard.station.getTunnelStatus(), refetchInterval: 5000, enabled: !!(data?.cloudflareApiConfigured || data?.cloudflareTunnelManaged) });
   const [publicUrl, setPublicUrl] = useState('');
   const [apiToken, setApiToken] = useState('');
   const [zoneId, setZoneId] = useState('');

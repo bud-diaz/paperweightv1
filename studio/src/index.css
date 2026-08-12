@@ -148,7 +148,7 @@
 .input-studio { background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.15); color: hsl(var(--foreground)); outline: none; box-shadow: inset 0 1px rgba(255,255,255,.07); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .input-studio:focus { border-color: rgba(190,255,61,.58); box-shadow: 0 0 0 3px rgba(190,255,61,.09), inset 0 1px rgba(255,255,255,.1); }
 .sidebar-scroll { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.22) transparent; }
-.glass-header { background: rgba(0, 0, 0, .48); border-color: rgba(255,255,255,.11); box-shadow: 0 12px 60px rgba(0,0,0,.34), inset 0 -1px rgba(255,255,255,.055); backdrop-filter: blur(28px) saturate(155%); -webkit-backdrop-filter: blur(28px) saturate(155%); }
+.glass-header { background: rgba(0, 0, 0, .8); border-color: rgba(255,255,255,.11); box-shadow: 0 12px 60px rgba(0,0,0,.34), inset 0 -1px rgba(255,255,255,.055); backdrop-filter: blur(28px) saturate(155%); -webkit-backdrop-filter: blur(28px) saturate(155%); }
 .mode-main { max-width: 1240px; margin: 0 auto; }
 .mode-content { padding-top: 3rem; }
 .sidebar-hidden { display: none; }
@@ -157,7 +157,7 @@
 .mode-option { display: inline-flex; align-items: center; gap: 7px; min-height: 29px; padding: 0 10px; border-radius: 999px; color: rgba(225,230,255,.62); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: .13em; transition: color .2s, background .2s, box-shadow .2s, transform .2s; }
 .mode-option:hover { color: rgba(239,243,255,.94); background: rgba(255,255,255,.08); transform: translateY(-1px); }
 .mode-option.active { color: #000; background: rgba(190,255,61,.78); border: 1px solid rgba(233,255,160,.55); box-shadow: 0 5px 24px rgba(190,255,61,.2), inset 0 1px rgba(255,255,255,.35); }
-.mode-caption { display: none; font-family: 'Manrope', sans-serif; font-size: 9px; letter-spacing: 0; opacity: .7; }
+.mode-option.active .mode-label { font-size: 12px; font-weight: 700; }
 .mode-view-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.25rem; margin-bottom: 2rem; }
 .stack-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(290px, .8fr); gap: 1.25rem; }
 .stack-card-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 16px 19px; color: inherit; text-align: left; border-bottom: 1px solid rgba(255,255,255,.12); }
@@ -201,6 +201,9 @@
 .player-play-button:hover { transform: scale(1.05); background: rgba(213,255,110,.86); box-shadow: 0 14px 42px rgba(190,255,61,.3), inset 0 1px rgba(255,255,255,.4); }
 .player-lower-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(290px, .8fr); gap: 1.25rem; margin-top: 1.25rem; }
 .glass-dock:hover { color: hsl(var(--foreground)); background: rgba(255,255,255,.13); }
+.floating-tip { position: fixed; right: 20px; bottom: 20px; z-index: 85; display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 24px; color: hsl(var(--primary)); background: rgba(0,0,0,.62); border: 1px solid rgba(190,255,61,.45); box-shadow: 0 0 16px rgba(190,255,61,.3), 0 10px 30px rgba(0,0,0,.35); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); transition: transform .2s, box-shadow .2s; animation: tip-glow 2.6s ease-in-out infinite; }
+.floating-tip:hover { transform: scale(1.08); box-shadow: 0 0 26px rgba(190,255,61,.5), 0 14px 36px rgba(0,0,0,.4); }
+@keyframes tip-glow { 0%, 100% { box-shadow: 0 0 16px rgba(190,255,61,.3), 0 10px 30px rgba(0,0,0,.35); } 50% { box-shadow: 0 0 26px rgba(190,255,61,.55), 0 10px 30px rgba(0,0,0,.35); } }
 
 @media (max-width: 767px) {
   .mobile-drawer { transform: translateX(-100%); transition: transform .25s ease; }
@@ -210,6 +213,7 @@
   .mode-switcher { margin-left: -4px; }
   .mode-switcher-mark { display: none; }
   .mode-option { padding: 0 8px; font-size: 9px; gap: 5px; }
+  .mode-option.active .mode-label { font-size: 11px; font-weight: 700; }
   .mode-view-intro { align-items: flex-start; flex-direction: column; }
   .mode-view-intro > .flex { width: 100%; }
   .mode-view-intro > .flex > button { flex: 1; justify-content: center; }
@@ -220,6 +224,3 @@
   .player-wave { margin-top: 2rem; }
 }
 
-@media (min-width: 768px) {
-  .mode-option.active .mode-caption { display: inline; }
-}

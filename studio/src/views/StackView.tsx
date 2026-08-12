@@ -75,7 +75,6 @@ export function StackView({ engine, onNotify, onLockedTrack }: { engine: PlayerE
       <div className="mode-view-intro">
         <div>
           <p className="font-mono-ui text-[10px] uppercase tracking-[.24em] text-primary">Stack / Library</p>
-          <h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-[-.06em] title-gradient">Everything they’ve made.</h1>
           <p className="text-muted-foreground mt-3 max-w-lg">Releases, broadcasts, and sketches — browse the catalog, or head to Play to tune into the live station.</p>
         </div>
         <div className="flex gap-2">
@@ -86,7 +85,7 @@ export function StackView({ engine, onNotify, onLockedTrack }: { engine: PlayerE
         <section className="panel stack-panel rounded-3xl overflow-hidden">
           <button type="button" className="stack-card-head" onClick={() => setExpanded(expanded === 'library' ? 'stash' : 'library')} aria-expanded={expanded === 'library'}>
             <span className="stack-card-glyph"><Disc3 size={15} /></span>
-            <span className="stack-card-title">LIBRARY <span className="stack-card-badge">{String(allTracks.length).padStart(2, '0')} PIECES</span></span>
+            <span className="stack-card-title">STACK <span className="stack-card-badge">{String(allTracks.length).padStart(2, '0')} PIECES</span></span>
             <span className="stack-card-peek">Your catalog</span>
             <ChevronDown size={15} className={cn('stack-card-chevron', expanded === 'library' && 'open')} />
           </button>
