@@ -151,16 +151,17 @@ async function openMainWindow() {
 
   await autoUnlockDashboard(config).catch(() => {});
 
-  // The player/dashboard card is a fixed-width widget (--panel-w: 560px,
-  // client/css/tokens.css) regardless of window size — a wide window just
-  // leaves empty margin on either side. Default to roughly that card's own
-  // footprint (560 wide + ~30px breathing room each side, ~747 tall plus
-  // topbar/credit chrome) instead. useContentSize makes width/height apply
-  // to the web content area, not the outer frame, so this stays accurate
-  // across platforms regardless of title-bar height. Still freely resizable.
+  // The Studio dashboard is a full sidebar + content layout (studio/src/AppShell.tsx,
+  // fixed 248px sidebar, content up to max-w-[1480px]) that collapses to a
+  // mobile drawer below Tailwind's md: breakpoint (768px) — default well
+  // above that so the desktop app opens showing the real sidebar layout, not
+  // the mobile nav. Still freely resizable down to the mobile layout.
+  // useContentSize makes width/height apply to the web content area, not the
+  // outer frame, so this stays accurate across platforms regardless of
+  // title-bar height.
   mainWindow = new BrowserWindow({
-    width: 620,
-    height: 900,
+    width: 1280,
+    height: 860,
     useContentSize: true,
     title: config.station.name || 'Paperweight',
     icon: windowIcon,
@@ -191,7 +192,7 @@ async function openMainWindow() {
     mainWindow.hide();
   });
 
-  mainWindow.loadURL(`http://${config.host}:${config.port}/creator.html?desktop=1`);
+  mainWindow.loadURL(`http://${config.host}:${config.port}/`);
 }
 
 async function startServerAndOpenWindow() {

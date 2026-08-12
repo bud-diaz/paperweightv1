@@ -4,11 +4,17 @@ const { ipcMain, shell } = require('electron');
 
 const { checkForUpdates } = require('../../src/updates/checkForUpdates');
 
-// Wires the desktop power/update/uninstall controls (see client/js/dashboard/
-// desktop-controls.js + electron/preload.js's window.desktopAPI) to the
-// Electron main process. Business logic stays in src/ modules — this file
-// only adapts them to ipcMain, matching how electron/ipc/setup-handlers.js
-// delegates to src/setup/provision.js.
+// Wires the desktop power/update/uninstall controls to the Electron main
+// process via electron/preload.js's window.desktopAPI bridge. Business logic
+// stays in src/ modules — this file only adapts them to ipcMain, matching
+// how electron/ipc/setup-handlers.js delegates to src/setup/provision.js.
+//
+// The Studio dashboard (studio/, client/app/) has no frontend UI calling
+// window.desktopAPI yet — the vanilla-JS UI that called it
+// (client/js/dashboard/desktop-controls.js) was retired in the
+// creator.html -> Studio cutover without a replacement. This bridge is kept
+// wired and ready; a future pass needs to add the equivalent controls to
+// studio/src (see CLAUDE.md's Creator Studio section for the tracked gap).
 function registerAppHandlers({ serverApp, config, quitApp, restartApp, autostartFile, desktopPath }) {
   ipcMain.handle('app:quit', () => {
     quitApp();

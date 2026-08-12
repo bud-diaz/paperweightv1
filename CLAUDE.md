@@ -31,7 +31,7 @@ Paperweight is a single-process Express server with four boot-time subsystems:
 - Broadcast engine (`src/broadcast/`): spawns FFmpeg, reads a concat manifest, writes HLS output to `hls_output/stream/`, and writes now-playing state to `hls_output/state.json`.
 - Vault scanner (`src/scanner/`): watches `vault/` with chokidar, probes files with ffprobe, and upserts media rows.
 - Release scheduler (`src/release/scheduler.js`): a 30s `setInterval` poll that flips scheduled `media.visibility` to `public` once `release_at` passes and fires the deferred notify for creator posts scheduled via `published_at`. Unrelated to `src/broadcast/scheduler.js` (weekly dayparting for the live broadcast, checked by `npm run check:scheduler`) — different subsystem, same name coincidence.
-- HTTP server (`src/index.js` -> `src/api/router.js`): all API routes live under `/api`; the single-file frontend is `client/creator.html`. Four public non-API routes are mounted directly in `src/index.js`: `/feed.xml` + `/feed/enclosure/:id` (creator-enabled RSS feed, `src/api/feed.js`), `/embed` (frameable mini player, `client/embed.html` + `client/js/embed.js`), and `/pair` (mobile Studio device-pairing confirmation page, `client/pair.html` + `client/js/pair.js`).
+- HTTP server (`src/index.js` -> `src/api/router.js`): all API routes live under `/api`; the frontend is the Studio SPA build (`studio/`, built to `client/app/` — see "Creator Studio" below). Public non-API routes mounted directly in `src/index.js`: `/feed.xml` + `/feed/enclosure/:id` (creator-enabled RSS feed, `src/api/feed.js`), `/embed` (frameable mini player, `client/embed.html` + `client/js/embed.js`), and `/pair` (mobile Studio device-pairing confirmation page, `client/pair.html` + `client/js/pair.js`) — these three are standalone entry points, not served by the Studio SPA.
 
 Supporting modules:
 
@@ -85,17 +85,30 @@ Vault access for `visibility = 'vault'` uses scoped tokens, all-access inclusion
 
 ## Frontend
 
-`client/creator.html` is the main player and dashboard UI. It is a large single-file vanilla JS frontend. Avoid adding new local JS files unless you are intentionally changing the serving model.
+The frontend is the Studio SPA (`studio/`, built to `client/app/`) — see "Creator Studio" below. The old single-file vanilla-JS `client/creator.html` (and its `client/js/`, `client/css/`) was retired in the creator.html -> Studio cutover and no longer exists in the tree; don't recreate files under those paths.
 
-Key frontend state variables include `stationName`, `LIBRARY`, `LIBRARY_STRUCTURE`, and `state`.
+`client/js/embed.js` and `client/js/pair.js` are the two vanilla-JS files that do still exist — they back the standalone `/embed` and `/pair` entry points (see Architecture above), not the Studio app, and are fully self-contained (no shared imports from the rest of `client/js/`, which is why they survived the retirement).
 
 Library data comes from `GET /api/library/structure`.
 
-### Creator Studio (`studio/`) — in-progress replacement frontend
+### Creator Studio (`studio/`) — the frontend
 
-`studio/` is a React + Vite + Tailwind + shadcn/radix rewrite of the creator dashboard and listener player, ported from the `bud-diaz/Paperplate` "Creator Studio" mockup and being wired up feature-by-feature to the same backend and endpoints `creator.html` already uses (no backend changes — this is a pure front-end migration). It is its own isolated npm workspace so its dependency tree never touches the pkg-bundled server; build it with `npm run build:studio` (also runs automatically as part of `npm run build:exe`). The build output is committed to `client/app/` — same "generated but committed" convention as `src/client-bundle.js` — and is served side-by-side with the existing dashboard at `GET /studio` (see `sendCreatorHtml`-style route in `src/index.js`), so `creator.html` keeps working unmodified until parity is reached and it cuts over. `npm run dev:studio` runs the Vite dev server standalone (proxies `/api`, `/vendor`, `/favicon.png` to the Express server on `PAPERWEIGHT_API_PROXY`, default `http://localhost:3000`).
+`studio/` is a React + Vite + Tailwind + shadcn/radix rewrite of the creator dashboard and listener player, ported from the `bud-diaz/Paperplate` "Creator Studio" mockup and wired to the same backend and endpoints the old `creator.html` used (no backend changes — this was a pure front-end migration). It is its own isolated npm workspace so its dependency tree never touches the pkg-bundled server; build it with `npm run build:studio` (also runs automatically as part of `npm run build:exe`). The build output is committed to `client/app/` — same "generated but committed" convention as `src/client-bundle.js`. `npm run dev:studio` runs the Vite dev server standalone (proxies `/api`, `/vendor`, `/favicon.png` to the Express server on `PAPERWEIGHT_API_PROXY`, default `http://localhost:3000`).
 
-Fonts (Manrope, Space Grotesk, DM Mono) are self-hosted in `client/vendor/fonts/` like the rest of the frontend, not pulled from Google Fonts — the app's CSP (`font-src 'self'`) requires it. Data fetching reuses `client/js/api.js` rather than a separate client, since it already covers every endpoint both the dashboard and listener sides call.
+`sendAppHtml()` in `src/index.js` serves `client/app/index.html` (override next to the exe -> packaged bundle -> disk, same three-tier precedence used everywhere else) for `/`, any unmatched non-API/non-hls path (the catch-all), and `/share/:token`. There is no dedicated `/studio` route anymore — it, `/creator.html`, and any other stray path all resolve through the same catch-all to the same SPA; old bookmarks to either keep working as plain aliases (not redirects). Client-side routing is `wouter` (`studio/src/App.tsx`): `/share/:token` renders `studio/src/pages/Share.tsx` (a standalone, unauthenticated view — share links are opened by people with no dashboard or listener session), and the fallback route (no `path`, matches anything else) renders `AuthGate`, which itself branches on dashboard-session state between the creator's own `AppShell` and the public `ListenerShell` — this mirrors how `creator.html` always served both audiences off one HTML file with no server-side routing.
+
+Fonts (Manrope, Space Grotesk, DM Mono) are self-hosted in `client/vendor/fonts/`, not pulled from Google Fonts — the app's CSP (`font-src 'self'`) requires it. Data fetching goes through `studio/src/lib/api.js`, ported from the old `client/js/api.js` and kept in sync by hand (see that file's header comment).
+
+**Known gaps — real dashboard features with no Studio UI yet.** The creator.html -> Studio cutover shipped with these areas from the old dashboard (`client/js/dashboard/*.js`, now deleted) not yet ported to `studio/src`. `studio/src/lib/api.js` still has the client methods for all of them (ported verbatim, unused) — only the UI is missing. This is not decorative-effect-tier deferred scope (like the ASCII canvas/tilt effects cut in Phase 3) — several of these are core to running a self-hosted paid station, so treat porting them as a priority, not a someday-maybe:
+
+- **Station panel** — public tunnel/Cloudflare setup, station searchability toggle, telemetry secret. `ViewKey` (`studio/src/types.ts`) has no `station` entry at all — this needs both a nav slot and a view, not just wiring. Without it a self-hosted creator has no dashboard UI to make their station reachable from outside the LAN.
+- **Vault access-token management** — create/assign/revoke/set-tier for scoped tokens (`api.dashboard.tokens.*`). This is the mechanism paid listeners use to unlock vault content; only pricing is wired in `Vault.tsx`, not token issuance.
+- **Schedule / dayparting** (`api.dashboard.schedule.*`, distinct from the release scheduler) and **Smart playlists** (`api.dashboard.schedule.smartPlaylists.*`) — no UI anywhere.
+- **Audience CRM / automations / participation (polls & requests) / station search & radio-host toggle** (old `necessity.js` + `search.js`) — no UI anywhere.
+- **Desktop-only Electron IPC controls** — quit app, restart server, check for updates, uninstall, and native-folder-picker vault import (`window.desktopAPI`, `electron/preload.js`). The IPC bridge and main-process handlers (`electron/ipc/app-handlers.js`, `electron/ipc/vault-handlers.js`) are untouched and ready; no `studio/src` component calls `window.desktopAPI` yet. Not verifiable by Playwright in a sandbox without an Electron runtime.
+- **Docs modal** — `api.docs.list()`/`api.docs.get()` exist in the ported api.js but nothing renders them; `/api/docs/*` stays live server-side regardless.
+- Smaller gaps: post edit/delete (only create/list wired in `ActivityView.tsx`/`AppShell.tsx`), collection delete/reorder (`Vault.tsx` has add/remove/update track but not `deleteCollection`/`reorderCollectionTracks`), vault highlight (`getHighlight`/`setHighlight`) and artwork upload, creator-side tip-preset config (`api.dashboard.tipConfig`, distinct from the listener-facing `api.payment.tipConfig()` already used in `CheckoutModal.tsx`), analytics playcounts and the separate `audience()` earnings breakdown, and dashboard listener-account tools (`accounts`, `resetLink`) beyond the share-link management already in `Tools.tsx`.
+- `Overview.tsx` still renders two of its four metric tiles, both analytics charts, and its "Recent activity" list from `studio/src/mock/mockData.ts` rather than real data (`Wired in a later pass` in the source) — real wiring for these got missed in the Phase 2 pass that otherwise wired the rest of that view.
 
 ## Runtime Paths
 
@@ -112,7 +125,7 @@ Runtime data:
 - `logs/`
 - `hls_output/`
 
-The SPA fallback checks `dataRoot/client/creator.html` before the bundled frontend so users can override frontend files next to the executable.
+The SPA fallback checks `dataRoot/client/app/index.html` before the bundled frontend so users can override frontend files next to the executable.
 
 `PUT /api/dashboard/station/searchable` is desktop-only and verifies Cloudflare tunnel configuration, public URL registration, and external reachability before enabling directory searchability.
 

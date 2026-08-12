@@ -81,10 +81,11 @@ function bundledStaticMiddleware() {
   };
 }
 
-// Strict Content-Security-Policy for the app + dashboard. creator.html loads no
-// inline scripts and no inline event handlers, so script-src can stay 'self'.
-// 'unsafe-inline' is kept only for style-src (the frontend uses inline style="…"
-// attributes); style injection is far lower risk than script injection.
+// Strict Content-Security-Policy for the app + dashboard. The Studio SPA build
+// loads no inline scripts and no inline event handlers, so script-src can stay
+// 'self'. 'unsafe-inline' is kept only for style-src (React sets some inline
+// style="…" attributes); style injection is far lower risk than script
+// injection.
 const APP_CSP_DIRECTIVES = {
   defaultSrc: ["'self'"],
   scriptSrc:  ["'self'"],
@@ -218,18 +219,22 @@ function createApp() {
     });
   }
 
-  function sendCreatorHtml(res) {
-    const override = path.join(config.paths.root, 'client', 'creator.html');
+  // Serves the Studio SPA build (studio/, built to client/app/) — the sole
+  // frontend as of the creator.html -> Studio cutover. Same override (files
+  // placed next to the exe) -> bundle (packaged/Electron) -> disk precedence
+  // creator.html always used, just repointed at client/app/index.html.
+  function sendAppHtml(res) {
+    const override = path.join(config.paths.root, 'client', 'app', 'index.html');
     if (fs.existsSync(override)) return sendHtmlFile(res, override);
     if (isBundledRuntime) {
-      const entry = require('./client-bundle')['/creator.html'];
+      const entry = require('./client-bundle')['/app/index.html'];
       if (entry) {
         const html = devReload ? devReload.injectHtml(entry.data.toString('utf8')) : entry.data;
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         return res.end(html);
       }
     }
-    return sendHtmlFile(res, path.join(config.paths.app, 'client', 'creator.html'));
+    return sendHtmlFile(res, path.join(config.paths.app, 'client', 'app', 'index.html'));
   }
 
   app.use('/hls/stream', express.static(path.join(config.paths.hlsOutput, 'stream')));
@@ -270,8 +275,8 @@ function createApp() {
   app.use('/api', apiRouter);
 
   if (devReload) {
-    app.get(['/', '/creator.html'], (req, res) => {
-      sendCreatorHtml(res);
+    app.get(['/', '/creator.html', '/studio'], (req, res) => {
+      sendAppHtml(res);
     });
   }
 
@@ -322,28 +327,15 @@ function createApp() {
     sendHtmlFile(res, path.join(config.paths.app, 'client', 'pair.html'));
   });
 
-  // New Creator Studio frontend (studio/, built to client/app/) — served
-  // side-by-side with the existing /creator.html while it's wired up
-  // feature-by-feature. Static assets (client/app/assets/*) are already
-  // reachable through the client/ static middleware below; this route only
-  // serves the SPA's index.html, same override-then-bundle-then-app-files
-  // precedence as /embed and /pair above.
-  app.get('/studio', (req, res) => {
-    const override = path.join(config.paths.root, 'client', 'app', 'index.html');
-    if (fs.existsSync(override)) return sendHtmlFile(res, override);
-    if (isBundledRuntime) {
-      const entry = require('./client-bundle')['/app/index.html'];
-      if (entry) {
-        const html = devReload ? devReload.injectHtml(entry.data.toString('utf8')) : entry.data;
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.end(html);
-      }
-    }
-    sendHtmlFile(res, path.join(config.paths.app, 'client', 'app', 'index.html'));
-  });
+  // /studio is no longer a distinct route: it was the side-by-side preview
+  // path while the Studio SPA (studio/, built to client/app/) was being wired
+  // up feature-by-feature. Now that it's the only frontend, /studio (and any
+  // other unmatched path, including old /creator.html bookmarks) falls
+  // through to the catch-all below, which serves the exact same SPA — no
+  // separate route needed to keep old links working.
 
   app.get('/landing', (req, res) => {
-    res.redirect('/creator.html');
+    res.redirect('/');
   });
 
   // Legal pages — serve from the client bundle in packaged mode since
@@ -435,15 +427,18 @@ function createApp() {
     res.send(svg);
   });
 
+  // Studio-side routing for /share/:token lives in studio/src/pages/Share.tsx
+  // (wouter route registered in studio/src/App.tsx) — this just serves the
+  // same SPA shell so client-side routing can take over.
   app.get('/share/:token', (req, res) => {
-    sendCreatorHtml(res);
+    sendAppHtml(res);
   });
 
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/hls')) {
       return res.status(404).json({ error: 'Not found' });
     }
-    sendCreatorHtml(res);
+    sendAppHtml(res);
   });
 
   app.use((err, req, res, next) => {

@@ -2,24 +2,29 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>Creator Studio</title>
-    <meta name="description" content="Paperweight Creator Studio — manage your station, releases, and audience." />
-    <meta name="robots" content="noindex, nofollow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon.png" />
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <title>Paperweight Player</title>
+    <meta name="description" content="Listen, support, and manage your Paperweight station." />
     <!-- Self-hosted (client/vendor/fonts/) — no runtime CDN dependency, required by
          the app's Content-Security-Policy (font-src 'self'). See client/vendor/README.md. -->
     <link rel="stylesheet" href="/vendor/fonts/fonts.css" />
-    <!-- Same dependency-free vendored qrcode-generator client/creator.html uses
-         for device pairing (client/js/dashboard/devices.js) — loaded as a
-         classic script so it attaches window.qrcode. -->
+    <!-- Dependency-free vendored qrcode-generator for device pairing
+         (studio/src/components dashboard views) — loaded as a classic script
+         so it attaches window.qrcode. -->
     <script src="/vendor/qrcode.js"></script>
-    <!-- Same hls.js build client/creator.html uses for HLS playback — loaded as
-         a classic script so it attaches window.Hls, for the live-broadcast
+    <!-- hls.js build for HLS playback — loaded as a classic script so it
+         attaches window.Hls, for station playback and the live-broadcast
          on-air waveform/preview taps (studio/src/components/LiveBroadcastModal.tsx). -->
     <script src="/vendor/hls.min.js"></script>
-    <script type="module" crossorigin src="/app/assets/index-Cf0Usryb.js"></script>
-    <link rel="stylesheet" crossorigin href="/app/assets/index-DYDGT79F.css">
+    <script type="module" crossorigin src="/app/assets/index-D2regnin.js"></script>
+    <link rel="stylesheet" crossorigin href="/app/assets/index-P3i_w3dy.css">
   </head>
   <body>
     <div id="root"></div>

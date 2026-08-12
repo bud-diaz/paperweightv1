@@ -641,7 +641,7 @@ router.get('/checkout-url', paymentLimiter, asyncHandler(async (req, res) => {
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${base}/api/payment/web-success?session_id={CHECKOUT_SESSION_ID}&nonce=${nonce}`,
-      cancel_url:  `${base}/creator.html#library`,
+      cancel_url:  `${base}/#library`,
       metadata: {
         listener_id: String(listenerId),
         tier: 'subscriber',
@@ -676,7 +676,7 @@ router.get('/web-success', asyncHandler(async (req, res) => {
   const { session_id, nonce } = req.query;
 
   if (!session_id || !nonce || !paymentConfig.stripeSecretKey()) {
-    return res.redirect('/creator.html#library');
+    return res.redirect('/#library');
   }
 
   try {
@@ -685,7 +685,7 @@ router.get('/web-success', asyncHandler(async (req, res) => {
       "SELECT * FROM pending_checkouts WHERE nonce = ? AND provider = 'stripe' AND consumed_at IS NULL"
     ).get(String(nonce));
     if (!pending || pending.stripe_session_id !== String(session_id) || new Date(pending.expires_at) < new Date()) {
-      return res.redirect('/creator.html#library');
+      return res.redirect('/#library');
     }
 
     const stripe = require('stripe')(paymentConfig.stripeSecretKey());
@@ -696,7 +696,7 @@ router.get('/web-success', asyncHandler(async (req, res) => {
     const sub   = session.subscription;
     const metadataListenerId = parseInt(session.metadata?.listener_id || sub?.metadata?.listener_id, 10);
     if (metadataListenerId !== pending.listener_id || session.metadata?.nonce !== String(nonce)) {
-      return res.redirect('/creator.html#library');
+      return res.redirect('/#library');
     }
 
     if (sub && sub.id && isStripeSubscriptionActive(sub) && currentPeriodEndIso(sub)) {
@@ -730,7 +730,7 @@ router.get('/web-success', asyncHandler(async (req, res) => {
     }
   } catch { /* log but don't block redirect — webhook is the authoritative record */ }
 
-  res.redirect('/creator.html?subscribed=1#library');
+  res.redirect('/?subscribed=1#library');
 }));
 
 // ─── Tip flow ────────────────────────────────────────────────────────────────
@@ -753,8 +753,9 @@ router.get('/tip-config', (req, res) => {
 // defensively — Stripe metadata values are capped at 500 chars each anyway.
 // NOTE: this strips control characters only, not HTML — it is not safe to
 // insert into markup via innerHTML. Any future UI that displays donor_name
-// must escape it at render time (e.g. textContent or the esc() helper in
-// client/js/utils.js), the same as every other creator/listener-supplied string.
+// must escape it at render time (JSX text content auto-escapes; a raw DOM
+// consumer would need textContent or an equivalent helper), the same as
+// every other creator/listener-supplied string.
 function cleanDonorName(raw) {
   if (raw === undefined || raw === null || raw === '') return null;
   if (typeof raw !== 'string') return undefined; // signals "invalid" to the caller
@@ -933,7 +934,7 @@ router.get('/tip-success', asyncHandler(async (req, res) => {
     }
   }
 
-  res.redirect('/creator.html?tipped=1#player');
+  res.redirect('/?tipped=1#player');
 }));
 
 // ─── Webhooks ─────────────────────────────────────────────────────────────────

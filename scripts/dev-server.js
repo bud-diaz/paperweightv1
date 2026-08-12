@@ -11,7 +11,7 @@ function browserHost(host) {
 }
 
 app.start().then(() => {
-  const url = `http://${browserHost(config.host)}:${config.port}/creator.html`;
+  const url = `http://${browserHost(config.host)}:${config.port}/`;
   console.log(`[Paperweight dev] Server ready: ${url}`);
   console.log('[Paperweight dev] Backend changes restart the server; frontend changes reload open browser tabs.');
 }).catch(err => {
