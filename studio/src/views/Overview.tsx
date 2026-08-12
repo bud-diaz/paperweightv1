@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 
 import { Metric, TrackRow } from '@/components/primitives';
-import { activity } from '@/data/mockData';
+import { activity } from '@/mock/mockData';
 import * as api from '@/lib/api';
 import { useStationIdentity } from '@/lib/hooks/useStationIdentity';
 import { toDisplayTracks, type LibraryStructure } from '@/lib/library';

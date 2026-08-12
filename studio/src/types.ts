@@ -35,12 +35,3 @@ export type Track = {
   kind?: string;
   color: string;
 };
-
-export type Profile = {
-  name: string;
-  handle: string;
-  bio: string;
-  city: string;
-  instagram: string;
-  youtube: string;
-};

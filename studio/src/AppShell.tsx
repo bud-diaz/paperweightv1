@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Bell, ChevronDown, ChevronRight, CloudUpload, Copy, Eye, FileImage, Globe2,
+  Bell, ChevronDown, ChevronRight, CloudUpload, Copy, Eye, Globe2,
   Heart, LockKeyhole, LogOut, Menu, Mic2, Music2, Radio, Search, Settings as SettingsIcon,
   Share2, ShieldCheck, Users, Video, X, Check,
 } from 'lucide-react';
@@ -9,7 +10,8 @@ import {
   Avatar, EmptyState, Field, IconButton, Modal, ModeSwitcher, TrackRow,
 } from '@/components/primitives';
 import { Logo } from '@/components/Logo';
-import { navGroups } from '@/data/mockData';
+import { navGroups } from '@/mock/mockData';
+import * as api from '@/lib/api';
 import { useDashboardAuth } from '@/lib/auth/DashboardAuthContext';
 import { useStationIdentity } from '@/lib/hooks/useStationIdentity';
 import { cn } from '@/lib/utils';
@@ -27,7 +29,7 @@ import { StackView } from '@/views/StackView';
 import { Tools } from '@/views/Tools';
 import { Vault } from '@/views/Vault';
 import type { ModalKey, ModeKey, Track, ViewKey } from '@/types';
-import { tracks } from '@/data/mockData';
+import { tracks } from '@/mock/mockData';
 
 export function AppShell() {
   const { logout } = useDashboardAuth();
@@ -43,11 +45,25 @@ export function AppShell() {
   const [search, setSearch] = useState('');
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadType, setUploadType] = useState('Audio');
+  const [postBody, setPostBody] = useState('');
+  const [postVisibility, setPostVisibility] = useState<'public' | 'supporters_only'>('public');
   const filteredTracks = useMemo(() => tracks.filter((track) => `${track.title} ${track.collection}`.toLowerCase().includes(search.toLowerCase())), [search]);
+  const queryClient = useQueryClient();
 
   useEffect(() => { if (modal) setMobileMenu(false); }, [modal]);
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2800); };
   const navigate = (next: ViewKey) => { setView(next); setMobileMenu(false); };
+  const publishPost = useMutation({
+    mutationFn: () => api.dashboard.posts.create({ body: postBody.trim(), visibility: postVisibility }),
+    onSuccess: ({ res, data: result }: { res: Response; data: { error?: string } }) => {
+      if (!res.ok) { notify(result.error || 'Failed to publish post.'); return; }
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'posts'] });
+      setPostBody('');
+      notify('Post published to your activity feed.');
+      setModal(null);
+    },
+    onError: () => notify('Failed to publish post.'),
+  });
   const closeModal = () => setModal(null);
 
   const modalContent = () => {
@@ -64,7 +80,7 @@ export function AppShell() {
     }
     if (modal === 'share') return <Modal title="Send them somewhere good." eyebrow="Share" onClose={closeModal}><div className="panel-subtle rounded-xl p-5"><div className="flex items-center gap-3"><div className="h-12 w-12 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#a9d647,#ff816e)' }}><Music2 size={19} className="text-black" /></div><div><p className="font-medium">{stationName} — Radio</p><p className="text-xs text-muted-foreground mt-1">Your station's public listening link</p></div></div></div>{/* Copy link/share actions are still placeholders — real share links are wired in a later pass (see plan: Releases/Vault -> share links). */}<div className="grid grid-cols-2 gap-3 mt-5"><button type="button" data-testid="button-copy-share-link" onClick={() => { notify('Share link copied.'); closeModal(); }} className="lime-button rounded-xl py-3 text-sm font-semibold flex items-center justify-center gap-2"><Copy size={15} /> Copy link</button><button type="button" data-testid="button-share-social" onClick={() => { notify('Native share sheet opened.'); closeModal(); }} className="ghost-button rounded-xl py-3 text-sm flex items-center justify-center gap-2"><Share2 size={15} /> More options</button></div><div className="mt-6 flex items-center justify-between text-xs text-muted-foreground"><span>Public sharing</span><span className="text-primary flex items-center gap-1"><Globe2 size={13} /> On</span></div></Modal>;
     if (modal === 'library') return <Modal title="Find the next piece." eyebrow="Library / Browse" onClose={closeModal} width="max-w-2xl"><div className="relative"><Search size={16} className="absolute left-3 top-3 text-muted-foreground" /><input autoFocus type="search" value={search} onChange={(event) => setSearch(event.target.value)} data-testid="input-search-library" placeholder="Search tracks, collections, and broadcasts" className="input-studio w-full rounded-xl py-2.5 pl-9 pr-3 text-sm" /></div><div className="flex items-center justify-between mt-6 mb-2"><p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">Your library</p><button type="button" data-testid="button-import-external" onClick={() => notify('Paste a SoundCloud, Bandcamp, or Drive link to import.')} className="text-xs text-primary flex gap-1 items-center">Import external</button></div>{filteredTracks.length ? filteredTracks.map((track, i) => <TrackRow key={track.id} track={track} index={i} playing={false} onPlay={() => notify(`${track.title} is now playing.`)} onAdd={() => { setQueue([...queue, track]); notify(`${track.title} added to queue.`); }} />) : <EmptyState icon={Search} title="Nothing in that frequency" body="Try another title or import something from elsewhere." action="Clear search" onClick={() => setSearch('')} />}<div className="mt-5 pt-4 border-t border-white/[.08] flex items-center gap-2"><span className="text-xs text-muted-foreground">{queue.length + 1} tracks in queue</span><button type="button" data-testid="button-clear-queue" onClick={() => { setQueue([]); notify('Queue cleared.'); }} className="ml-auto text-xs text-destructive">Clear queue</button></div></Modal>;
-    if (modal === 'posts') return <Modal title="Say something true." eyebrow="Activity / Post" onClose={closeModal}><Field label="Post" value="" onChange={() => undefined} placeholder="A note for the people listening..." multiline /><div className="flex items-center gap-2 mt-5 text-xs text-muted-foreground"><button type="button" data-testid="button-attach-post-image" onClick={() => notify('Image attachment picker opened.')} className="ghost-button rounded-lg px-2.5 py-2 flex gap-1.5 items-center"><FileImage size={14} /> Add image</button><span className="ml-auto">Visible to public followers</span></div><div className="flex justify-end mt-6"><button type="button" data-testid="button-publish-post" onClick={() => { notify('Post published to your activity feed.'); closeModal(); }} className="lime-button rounded-lg px-4 py-2 text-xs font-semibold">Publish post</button></div></Modal>;
+    if (modal === 'posts') return <Modal title="Say something true." eyebrow="Activity / Post" onClose={closeModal}><Field label="Post" value={postBody} onChange={setPostBody} placeholder="A note for the people listening..." multiline /><label className="flex items-center gap-2 mt-5 text-xs text-muted-foreground">Visible to<select data-testid="select-post-visibility" value={postVisibility} onChange={(event) => setPostVisibility(event.target.value as 'public' | 'supporters_only')} className="input-studio rounded-lg px-2 py-1.5 ml-2"><option value="public">Everyone</option><option value="supporters_only">Supporters only</option></select></label><div className="flex justify-end mt-6"><button type="button" data-testid="button-publish-post" onClick={() => publishPost.mutate()} disabled={publishPost.isPending || !postBody.trim()} className="lime-button rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50">{publishPost.isPending ? 'Publishing…' : 'Publish post'}</button></div></Modal>;
     if (modal === 'vault') return <Modal title="Control the inner room." eyebrow="Vault / Access" onClose={closeModal}><div className="flex items-center justify-between panel-subtle rounded-xl p-4"><div><p className="text-sm font-medium">Default access</p><p className="text-xs text-muted-foreground mt-1">New vault items start private.</p></div><span className="font-mono-ui text-xs text-primary">Private</span></div><div className="space-y-4 mt-5"><label className="block text-sm">Link expiry<select data-testid="select-vault-expiry" className="input-studio w-full rounded-xl px-3.5 py-3 mt-2"><option>Never</option><option>7 days</option><option>30 days</option></select></label><label className="flex gap-3 items-center text-sm"><input type="checkbox" defaultChecked data-testid="checkbox-vault-downloads" className="accent-primary" /> Allow downloads for trusted listeners</label><label className="flex gap-3 items-center text-sm"><input type="checkbox" data-testid="checkbox-vault-forwarding" className="accent-primary" /> Disable link forwarding</label></div><div className="flex justify-end mt-7"><button type="button" data-testid="button-save-vault-policy" onClick={() => { notify('Vault access policy saved.'); closeModal(); }} className="lime-button rounded-lg px-4 py-2 text-xs font-semibold">Save policy</button></div></Modal>;
     if (modal === 'settings') return <Modal title="Keep the practical things tidy." eyebrow="Account / Preferences" onClose={closeModal}><div className="space-y-4">{[['Billing', 'Creator Pro · $12 / month'], ['Payout method', '•••• 2841 · verified'], ['Email', 'you@example.com']].map(([label, value], i) => <button type="button" key={label} data-testid={`button-account-setting-${i}`} onClick={() => notify(`${label} editor opened.`)} className="w-full panel-subtle rounded-xl p-4 flex items-center text-left"><span className="flex-1"><p className="text-sm">{label}</p><p className="text-xs text-muted-foreground mt-1">{value}</p></span></button>)}</div><button type="button" data-testid="button-close-settings" onClick={closeModal} className="w-full ghost-button rounded-xl py-2.5 text-xs mt-6">Done</button></Modal>;
     return null;

@@ -1,11 +1,50 @@
-import {
-  ArrowUpRight, ChevronRight, Send, SlidersHorizontal, Sparkles, Wallet,
-} from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Globe2, MessageSquareText, Send, Users } from 'lucide-react';
 
 import { Avatar, ViewHeader } from '@/components/primitives';
-import { activity, defaultProfile } from '@/data/mockData';
+import { useStationIdentity } from '@/lib/hooks/useStationIdentity';
+import * as api from '@/lib/api';
 import type { ModalKey } from '@/types';
 
+type CreatorPost = { id: number; title: string | null; body: string; visibility: 'public' | 'supporters_only'; published_at: string };
+
+function formatPublishedAt(iso: string) {
+  try {
+    const normalized = iso.includes('T') ? iso : `${iso.replace(' ', 'T')}Z`;
+    const date = new Date(normalized);
+    return date > new Date() ? `Scheduled · ${date.toLocaleString()}` : date.toLocaleString();
+  } catch {
+    return iso;
+  }
+}
+
 export function ActivityView({ onOpen }: { onOpen: (modal: ModalKey) => void }) {
-  return <div className="animate-enter"><ViewHeader eyebrow="Studio / Activity" title="Everything in motion." description="A running log of listeners, releases, and little signals worth noticing." action={<button type="button" data-testid="button-post-update" onClick={() => onOpen('posts')} className="lime-button rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2"><Send size={15} /> Post an update</button>} /><div className="grid lg:grid-cols-[1.15fr_.85fr] gap-6"><section className="panel rounded-2xl p-5 sm:p-6"><div className="flex justify-between items-center mb-3"><h2 className="font-display text-xl font-semibold">Latest signals</h2><button type="button" data-testid="button-filter-activity" className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2"><SlidersHorizontal size={14} /> Filter</button></div>{activity.concat([{ icon: Sparkles, title: 'Profile spotlight was viewed 2,400 times', detail: 'Mar 17 · from Creator Directory', color: 'lime' }]).map((item, i) => { const Icon = item.icon; return <div key={i} className="flex gap-4 py-5 border-b border-white/[.07] last:border-0"><span className={item.color === 'lime' ? 'h-10 w-10 rounded-xl flex items-center justify-center text-primary bg-primary/10' : item.color === 'coral' ? 'h-10 w-10 rounded-xl flex items-center justify-center text-accent bg-accent/10' : 'h-10 w-10 rounded-xl flex items-center justify-center text-[#91a4ff] bg-[#91a4ff]/10'}><Icon size={17} /></span><div className="flex-1"><p className="text-sm">{item.title}</p><p className="text-xs text-muted-foreground mt-1">{item.detail}</p></div><ArrowUpRight size={15} className="text-muted-foreground" /></div>; })}</section><div className="space-y-6"><section className="panel rounded-2xl p-5 sm:p-6"><p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-primary">Inbox</p><h2 className="font-display text-xl font-semibold mt-2">4 things need you.</h2><div className="mt-5 space-y-3">{['Review your new subscriber welcome note', 'Approve the Afterimage cover crop', 'Finish payout verification', 'Schedule this Sunday’s preview'].map((item, i) => <button type="button" key={item} data-testid={`button-inbox-item-${i}`} onClick={() => onOpen(i === 2 ? 'settings' : i === 3 ? 'live' : 'posts')} className="w-full text-left flex gap-3 items-start p-3 rounded-xl panel-subtle hover:bg-white/[.06]"><span className="h-5 w-5 rounded-full border border-primary/60 mt-0.5 flex items-center justify-center text-primary">{i === 2 ? <Wallet size={11} /> : <span className="h-1.5 w-1.5 rounded-full bg-primary" />}</span><span className="text-xs leading-relaxed">{item}</span><ChevronRight size={14} className="ml-auto text-muted-foreground mt-0.5" /></button>)}</div></section><section className="panel rounded-2xl p-5 sm:p-6"><div className="flex items-center gap-3"><Avatar name={defaultProfile.name} size="sm" /><div><p className="text-sm font-medium">{defaultProfile.handle}</p><p className="text-[11px] text-muted-foreground">Public profile</p></div><button type="button" data-testid="button-share-profile" onClick={() => onOpen('share')} className="ml-auto text-xs text-primary">Share</button></div><p className="text-sm text-muted-foreground mt-4">“making a little more room for the night.”</p></section></div></div></div>;
+  const { stationName } = useStationIdentity();
+  const { data: posts, isLoading } = useQuery<CreatorPost[]>({ queryKey: ['dashboard', 'posts'], queryFn: () => api.dashboard.posts.list() });
+
+  return <div className="animate-enter"><ViewHeader eyebrow="Studio / Activity" title="Everything in motion." description="A running log of the notes you've published for your listeners." action={<button type="button" data-testid="button-post-update" onClick={() => onOpen('posts')} className="lime-button rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2"><Send size={15} /> Post an update</button>} />
+    <div className="grid lg:grid-cols-[1.15fr_.85fr] gap-6">
+      <section className="panel rounded-2xl p-5 sm:p-6">
+        <div className="flex justify-between items-center mb-3"><h2 className="font-display text-xl font-semibold">Posts</h2></div>
+        {isLoading ? <p className="text-sm text-muted-foreground py-6">Loading…</p> : posts && posts.length ? posts.map((post) => (
+          <div key={post.id} data-testid={`row-post-${post.id}`} className="flex gap-4 py-5 border-b border-white/[.07] last:border-0">
+            <span className="h-10 w-10 rounded-xl flex items-center justify-center text-primary bg-primary/10 shrink-0"><MessageSquareText size={17} /></span>
+            <div className="flex-1 min-w-0">
+              {post.title && <p className="text-sm font-medium">{post.title}</p>}
+              <p className="text-sm whitespace-pre-wrap">{post.body}</p>
+              <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
+                <span>{formatPublishedAt(post.published_at)}</span>
+                <span className="flex items-center gap-1">{post.visibility === 'public' ? <><Globe2 size={11} /> Public</> : <><Users size={11} /> Supporters</>}</span>
+              </div>
+            </div>
+          </div>
+        )) : <div className="py-10 text-center"><p className="text-sm text-muted-foreground">No posts yet.</p><button type="button" data-testid="button-first-post" onClick={() => onOpen('posts')} className="text-xs text-primary mt-2">Write your first update</button></div>}
+      </section>
+      <div className="space-y-6">
+        <section className="panel rounded-2xl p-5 sm:p-6">
+          <div className="flex items-center gap-3"><Avatar name={stationName} size="sm" /><div><p className="text-sm font-medium">{stationName}</p><p className="text-[11px] text-muted-foreground">Public profile</p></div><button type="button" data-testid="button-share-profile" onClick={() => onOpen('share')} className="ml-auto text-xs text-primary">Share</button></div>
+        </section>
+      </div>
+    </div>
+  </div>;
 }

@@ -1,7 +1,7 @@
 import { ArrowDownToLine, ArrowUpRight, Check, Settings } from 'lucide-react';
 
 import { ViewHeader } from '@/components/primitives';
-import { supportOptionsEarnings } from '@/data/mockData';
+import { supportOptionsEarnings } from '@/mock/mockData';
 import type { ModalKey } from '@/types';
 
 export function Earnings({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void }) {

@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 
 import { EmptyState, TrackRow } from '@/components/primitives';
-import { collections, tracks } from '@/data/mockData';
+import { collections, tracks } from '@/mock/mockData';
 import { cn } from '@/lib/utils';
 import type { ModalKey, Track } from '@/types';
 

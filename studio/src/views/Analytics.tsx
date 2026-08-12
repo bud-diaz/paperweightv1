@@ -1,7 +1,7 @@
 import { ArrowUpRight, CirclePlay, Download, Heart, ListMusic, Users } from 'lucide-react';
 
 import { Metric, TrackRow, ViewHeader } from '@/components/primitives';
-import { tracks } from '@/data/mockData';
+import { tracks } from '@/mock/mockData';
 import { cn } from '@/lib/utils';
 
 export function Analytics({ onNotify }: { onNotify: (message: string) => void }) {
