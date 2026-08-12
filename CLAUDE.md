@@ -91,6 +91,12 @@ Key frontend state variables include `stationName`, `LIBRARY`, `LIBRARY_STRUCTUR
 
 Library data comes from `GET /api/library/structure`.
 
+### Creator Studio (`studio/`) — in-progress replacement frontend
+
+`studio/` is a React + Vite + Tailwind + shadcn/radix rewrite of the creator dashboard and listener player, ported from the `bud-diaz/Paperplate` "Creator Studio" mockup and being wired up feature-by-feature to the same backend and endpoints `creator.html` already uses (no backend changes — this is a pure front-end migration). It is its own isolated npm workspace so its dependency tree never touches the pkg-bundled server; build it with `npm run build:studio` (also runs automatically as part of `npm run build:exe`). The build output is committed to `client/app/` — same "generated but committed" convention as `src/client-bundle.js` — and is served side-by-side with the existing dashboard at `GET /studio` (see `sendCreatorHtml`-style route in `src/index.js`), so `creator.html` keeps working unmodified until parity is reached and it cuts over. `npm run dev:studio` runs the Vite dev server standalone (proxies `/api`, `/vendor`, `/favicon.png` to the Express server on `PAPERWEIGHT_API_PROXY`, default `http://localhost:3000`).
+
+Fonts (Manrope, Space Grotesk, DM Mono) are self-hosted in `client/vendor/fonts/` like the rest of the frontend, not pulled from Google Fonts — the app's CSP (`font-src 'self'`) requires it. Data fetching reuses `client/js/api.js` rather than a separate client, since it already covers every endpoint both the dashboard and listener sides call.
+
 ## Runtime Paths
 
 `src/config.js` distinguishes:

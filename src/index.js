@@ -322,6 +322,26 @@ function createApp() {
     sendHtmlFile(res, path.join(config.paths.app, 'client', 'pair.html'));
   });
 
+  // New Creator Studio frontend (studio/, built to client/app/) — served
+  // side-by-side with the existing /creator.html while it's wired up
+  // feature-by-feature. Static assets (client/app/assets/*) are already
+  // reachable through the client/ static middleware below; this route only
+  // serves the SPA's index.html, same override-then-bundle-then-app-files
+  // precedence as /embed and /pair above.
+  app.get('/studio', (req, res) => {
+    const override = path.join(config.paths.root, 'client', 'app', 'index.html');
+    if (fs.existsSync(override)) return sendHtmlFile(res, override);
+    if (isBundledRuntime) {
+      const entry = require('./client-bundle')['/app/index.html'];
+      if (entry) {
+        const html = devReload ? devReload.injectHtml(entry.data.toString('utf8')) : entry.data;
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.end(html);
+      }
+    }
+    sendHtmlFile(res, path.join(config.paths.app, 'client', 'app', 'index.html'));
+  });
+
   app.get('/landing', (req, res) => {
     res.redirect('/creator.html');
   });

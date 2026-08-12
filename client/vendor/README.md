@@ -34,9 +34,14 @@ Latin `woff2` files sourced from the `@fontsource` packages (Google Fonts):
 - `space-mono-latin-{400,700}-normal.woff2` — `@fontsource/space-mono`
 - `inter-latin-{400,500,600,700}-normal.woff2` — `@fontsource/inter`
 - `dm-mono-latin-{400,500}-normal.woff2` — `@fontsource/dm-mono`
+- `manrope-latin-{400,500,600,700,800}-normal.woff2` — `@fontsource/manrope`
+- `space-grotesk-latin-{500,600,700}-normal.woff2` — `@fontsource/space-grotesk`
 
-`fonts.css` declares the `@font-face` rules used by `client/creator.html` and
-the split creator stylesheets under `client/css/`.
+`fonts.css` declares the `@font-face` rules used by `client/creator.html`,
+the split creator stylesheets under `client/css/`, and the `studio/` Creator
+Studio frontend (Manrope/Space Grotesk/DM Mono — the same three families the
+Paperplate mockup pulled from Google Fonts, now self-hosted for the same
+no-runtime-CDN reason as everything else in this directory).
 
 To refresh: `npm install @fontsource/<family>`, copy the needed
 `files/*-latin-*-normal.woff2` here, and keep the `@font-face` declarations in

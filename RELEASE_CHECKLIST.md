@@ -173,3 +173,4 @@ Manual QA before publishing:
 - Runtime frontend depends on a CDN.
 - Payment provider configuration is partial.
 - The dashboard token appears in screenshots, logs, or support material.
+- `client/app/` (the built `studio/` frontend) is stale relative to `studio/src/` — rebuild with `npm run build:studio` (also runs automatically inside `npm run build:exe`) and commit the result.

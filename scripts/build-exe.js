@@ -163,6 +163,7 @@ async function main(args = process.argv.slice(2)) {
   const pkgCli = require.resolve('@yao-pkg/pkg/lib-es5/bin.js', { paths: [ROOT] });
 
   console.log(`Paperweight executable targets: ${targets.map(target => target.key).join(', ')}`);
+  run(npm, ['run', 'build:studio']);
   run(process.execPath, [path.join(ROOT, 'scripts', 'generate-client-bundle.js')]);
   run(npm, ['run', 'release:check']);
   fs.mkdirSync(BUILD_WORK, { recursive: true });
