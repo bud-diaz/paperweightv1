@@ -28,7 +28,9 @@
     "check:clean": "node scripts/check-release-clean.js",
     "release:check": "node scripts/check-release-clean.js && npm test && node scripts/preflight.js && node scripts/check-migrations.js && node scripts/check-scheduler.js && node scripts/check-analytics.js && node scripts/check-package-assets.js && node scripts/check-dashboard-contract.js && npm audit --omit=dev",
     "fetch:ffmpeg": "node scripts/fetch-ffmpeg.js",
-    "build:exe": "node scripts/build-exe.js"
+    "build:exe": "node scripts/build-exe.js",
+    "build:studio": "npm --prefix studio install && npm --prefix studio run build",
+    "dev:studio": "npm --prefix studio run dev"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
