@@ -365,7 +365,7 @@ export function initStationHandlers() {
     result.hidden = true;
     button.disabled = true;
     try {
-      const { res, data } = await api.dashboard.station.createPaperweighthqTunnel();
+      const { res, data } = await api.dashboard.station.createFrpPaperweighthqTunnel();
       if (res.ok) {
         msg.className   = 'dash-success-msg';
         msg.textContent = `Tunnel created for ${data.url}. Connecting…`;

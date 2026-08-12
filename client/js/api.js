@@ -802,6 +802,10 @@ export const dashboard = {
     createPaperweighthqTunnel() {
       return _send('/api/dashboard/station/cloudflare/paperweighthq/create', {}, 'POST');
     },
+
+    createFrpPaperweighthqTunnel() {
+      return _send('/api/dashboard/station/frp/paperweighthq/create', {}, 'POST');
+    },
   },
 
   /**

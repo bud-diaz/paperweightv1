@@ -20,6 +20,8 @@ const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCo
 const { getFFmpegStatus } = require('../runtime/ffmpeg');
 const cloudflareApi = require('../runtime/cloudflare');
 const tunnelSupervisor = require('../runtime/tunnel-supervisor');
+const frpSupervisor = require('../runtime/frp-supervisor');
+const { writeFrpcConfig } = require('../runtime/frp-config');
 const { recordMilestone, getMilestones } = require('../runtime/funnel');
 const telemetryReporter = require('../telemetry/reporter');
 const asyncHandler = require('../middleware/asyncHandler');
@@ -1248,6 +1250,94 @@ router.post('/station/telemetry/register', requireDesktop, asyncHandler(async (r
     ok: true,
     restartRequired: true,
     note: 'Restart Paperweight for telemetry reporting (and your paperweighthq.com vanity URL) to start working.',
+  });
+}));
+
+// POST /api/dashboard/station/frp/paperweighthq/create
+// Paperweight-owned vanity tunnel flow backed by the FRP gateway. This is the
+// preferred path for <slug>.paperweighthq.com because it avoids handing creators
+// Cloudflare credentials or requiring them to own a domain.
+router.post('/station/frp/paperweighthq/create', requireDesktop, asyncHandler(async (req, res) => {
+  if (!config.station.slug) {
+    return res.status(409).json({ error: 'Claim a station slug first' });
+  }
+  if (!config.telemetry.secretConfigured) {
+    return res.status(409).json({ error: 'Register with system.pape telemetry first' });
+  }
+
+  const stationKey = telemetryReporter.getStationKey();
+  let response;
+  try {
+    response = await fetch(new NodeURL('/api/modules/paperweight/frp/tunnel/create', config.telemetry.url), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-telemetry-secret': process.env.PAPE_TELEMETRY_SECRET },
+      body: JSON.stringify({ slug: config.station.slug, stationKey }),
+    });
+  } catch (err) {
+    return res.status(502).json({ error: `Could not reach system.pape: ${err.message}` });
+  }
+
+  if (response.status === 409) {
+    const body = await response.json().catch(() => ({}));
+    return res.status(409).json({ error: body.error || 'Slug not claimed by this station' });
+  }
+  if (!response.ok) {
+    return res.status(502).json({ error: `system.pape FRP tunnel creation failed (HTTP ${response.status})` });
+  }
+
+  const body = await response.json().catch(() => ({}));
+  for (const key of ['hostname', 'serverAddr', 'serverPort', 'authToken', 'proxyName', 'subdomain']) {
+    if (!body[key]) return res.status(502).json({ error: 'system.pape returned an unexpected FRP response' });
+  }
+
+  const configPath = writeFrpcConfig(config.paths.root, {
+    serverAddr: body.serverAddr,
+    serverPort: body.serverPort,
+    authToken: body.authToken,
+    proxyName: body.proxyName,
+    subdomain: body.subdomain,
+    localPort: config.port,
+  });
+  const publicUrl = `https://${body.hostname}`;
+
+  updateEnvKey('PAPERWEIGHT_TUNNEL_PROVIDER', 'frp');
+  updateEnvKey('FRP_SERVER_ADDR', body.serverAddr);
+  updateEnvKey('FRP_SERVER_PORT', body.serverPort);
+  updateEnvKey('FRP_TUNNEL_TOKEN', body.authToken);
+  updateEnvKey('FRP_PROXY_NAME', body.proxyName);
+  updateEnvKey('FRP_SUBDOMAIN', body.subdomain);
+  updateEnvKey('FRP_CONFIG_PATH', configPath);
+  updateEnvKey('STATION_PUBLIC_URL', publicUrl);
+  updateEnvKey('HTTPS', 'true');
+  updateEnvKey('TRUST_PROXY', 'loopback');
+
+  config.station.tunnelProvider = 'frp';
+  config.station.publicUrl = publicUrl;
+  config.station.frpTunnel = true;
+  config.station.frp = {
+    serverAddr: body.serverAddr,
+    serverPort: Number(body.serverPort),
+    token: body.authToken,
+    proxyName: body.proxyName,
+    subdomain: body.subdomain,
+    configPath,
+  };
+
+  const db = getDb();
+  const existing = db.prepare('SELECT id FROM station_registry WHERE id = 1').get();
+  if (existing) {
+    db.prepare("UPDATE station_registry SET url = ?, updated_at = datetime('now') WHERE id = 1").run(publicUrl);
+  }
+
+  log('info', 'dashboard', `FRP tunnel created for ${body.hostname}`);
+  frpSupervisor.start(configPath);
+
+  res.json({
+    ok: true,
+    provider: 'frp',
+    url: publicUrl,
+    restartRequired: false,
+    tunnelStatus: frpSupervisor.getStatus(),
   });
 }));
 
