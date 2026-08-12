@@ -10,6 +10,10 @@
     <!-- Self-hosted (client/vendor/fonts/) — no runtime CDN dependency, required by
          the app's Content-Security-Policy (font-src 'self'). See client/vendor/README.md. -->
     <link rel="stylesheet" href="/vendor/fonts/fonts.css" />
+    <!-- Same dependency-free vendored qrcode-generator client/creator.html uses
+         for device pairing (client/js/dashboard/devices.js) — loaded as a
+         classic script so it attaches window.qrcode. -->
+    <script src="/vendor/qrcode.js"></script>
   </head>
   <body>
     <div id="root"></div>
