@@ -1,6 +1,14 @@
 import type { Track } from '@/types';
 
-export type LibraryItem = { id: number; title: string; artist: string | null; category: string | null; duration: number | null };
+export type LibraryItem = {
+  id: number; title: string; artist: string | null; category: string | null; duration: number | null;
+  // Present on the listener-facing GET /api/library/structure response
+  // (src/api/library.js formatItem()); optional here since the dashboard
+  // side's callers of this type don't need them.
+  visibility?: 'public' | 'supporters_only' | 'vault';
+  unlocked?: boolean;
+  isExternal?: boolean;
+};
 export type LibraryProject = { id: number; name: string; description: string | null; tracks: LibraryItem[] };
 export type LibraryStructure = { projects: LibraryProject[]; standalone: LibraryItem[] };
 

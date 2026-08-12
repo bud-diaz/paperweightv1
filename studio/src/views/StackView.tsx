@@ -1,24 +1,28 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ArrowUpRight, ChevronDown, Disc3, ListMusic, Play, Search,
+  ArrowUpRight, ChevronDown, Disc3, ListMusic, LockKeyhole, Pause, Play, Search,
 } from 'lucide-react';
 
 import { EmptyState } from '@/components/primitives';
 import * as api from '@/lib/api';
-import { formatDuration, swatchFor, type LibraryStructure } from '@/lib/library';
+import { formatDuration, swatchFor, type LibraryItem, type LibraryStructure } from '@/lib/library';
 import { cn } from '@/lib/utils';
-import type { PlayerEngine } from '@/lib/hooks/usePlayerEngine';
+import { isPlayableTrack, type PlayerEngine } from '@/lib/hooks/usePlayerEngine';
 import type { ModalKey } from '@/types';
 
-function TrackRowReal({ id, title, artist, collection, duration, onNotify }: { id: number; title: string; artist?: string | null; collection: string; duration: number | null; onNotify: (message: string) => void }) {
+type StackTrack = LibraryItem & { collection: string };
+
+function TrackRowReal({ track, collection, active, playing, isPaid, onSelect }: { track: StackTrack; collection: string; active: boolean; playing: boolean; isPaid: boolean; onSelect: () => void }) {
+  const locked = !isPlayableTrack({ ...track, visibility: track.visibility || 'public' }, isPaid);
   return (
-    <div data-testid={`row-track-${id}`} className="group flex items-center gap-3 py-3 border-b border-white/[.07] last:border-0">
-      <button type="button" aria-label={`Play ${title}`} data-testid={`button-play-track-${id}`} onClick={() => onNotify('On-demand playback is wired in a later pass — tune into the live station from Play.')} className="relative h-9 w-9 shrink-0 rounded-md flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${swatchFor(id)}, rgba(255,255,255,.1))` }}>
-        <Play size={14} fill="currentColor" className="text-[#1b1d2a]" />
+    <div data-testid={`row-track-${track.id}`} className={cn('group flex items-center gap-3 py-3 border-b border-white/[.07] last:border-0', active && 'text-primary')}>
+      <button type="button" aria-label={`Play ${track.title}`} data-testid={`button-play-track-${track.id}`} onClick={onSelect} className="relative h-9 w-9 shrink-0 rounded-md flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${swatchFor(track.id)}, rgba(255,255,255,.1))` }}>
+        {active && playing ? <Pause size={14} fill="currentColor" className="text-[#1b1d2a]" /> : <Play size={14} fill="currentColor" className="text-[#1b1d2a]" />}
       </button>
-      <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{title}</p><p className="truncate text-xs text-muted-foreground">{[artist, collection].filter(Boolean).join(' · ')}</p></div>
-      <span className="font-mono-ui text-[11px] text-muted-foreground w-10 text-right">{formatDuration(duration)}</span>
+      <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{track.title}</p><p className="truncate text-xs text-muted-foreground">{[track.artist, collection].filter(Boolean).join(' · ')}</p></div>
+      {locked && <LockKeyhole size={13} className="text-muted-foreground shrink-0" />}
+      <span className="font-mono-ui text-[11px] text-muted-foreground w-10 text-right">{formatDuration(track.duration)}</span>
     </div>
   );
 }
@@ -75,7 +79,7 @@ export function StackView({ engine, onNotify }: { engine: PlayerEngine; onOpen: 
               </button>)}
             </div>}
             <div className="stack-section-label">ALL WORKS</div>
-            {isLoading ? <p className="text-sm text-muted-foreground py-6">Loading catalog…</p> : <div>{filtered.map((track) => <TrackRowReal key={track.id} id={track.id} title={track.title} artist={track.artist} collection={track.collection} duration={track.duration} onNotify={onNotify} />)}</div>}
+            {isLoading ? <p className="text-sm text-muted-foreground py-6">Loading catalog…</p> : <div>{filtered.map((track) => <TrackRowReal key={track.id} track={track} collection={track.collection} active={engine.track?.id === track.id} playing={engine.playing} isPaid={engine.isPaid} onSelect={() => engine.selectTrack({ id: track.id, title: track.title, artist: track.artist, category: track.category, duration: track.duration, visibility: track.visibility || 'public', unlocked: track.unlocked, isExternal: track.isExternal })} />)}</div>}
             {!isLoading && !filtered.length && <EmptyState icon={Search} title="Nothing in that frequency" body="Try another title, or check back once something's been released." action="Clear search" onClick={() => setSearch('')} />}
           </div></div>}
         </section>
@@ -91,7 +95,7 @@ export function StackView({ engine, onNotify }: { engine: PlayerEngine; onOpen: 
           </div></div>}
         </section>
       </div>
-      <div className="stack-footer-glass"><div className="flex items-center gap-3"><span className={cn('h-2 w-2 rounded-full', engine.playing ? 'bg-primary animate-pulse' : 'bg-white/20')} /><span className="font-mono-ui text-[10px] uppercase tracking-[.18em]">{engine.playing ? 'Signal active' : 'Signal paused'}</span></div><button type="button" data-testid="button-stack-open-player" onClick={engine.toggle} className="text-xs text-primary flex items-center gap-1">{engine.playing ? 'Pause signal' : 'Play signal'} <Play size={12} fill="currentColor" /></button></div>
+      <div className="stack-footer-glass"><div className="flex items-center gap-3 min-w-0"><span className={cn('h-2 w-2 rounded-full shrink-0', engine.playing ? 'bg-primary animate-pulse' : 'bg-white/20')} /><span className="font-mono-ui text-[10px] uppercase tracking-[.18em] truncate">{engine.track ? `${engine.isPreview ? 'Preview' : 'Playing'}: ${engine.track.title}` : engine.playing ? 'Signal active' : 'Signal paused'}</span></div><button type="button" data-testid="button-stack-open-player" onClick={engine.track ? () => engine.goLive(true) : engine.toggle} className="text-xs text-primary flex items-center gap-1 shrink-0">{engine.track ? 'Back to live' : engine.playing ? 'Pause signal' : 'Play signal'} <Play size={12} fill="currentColor" /></button></div>
     </div>
   );
 }

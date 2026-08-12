@@ -26,10 +26,9 @@ function ListenerApp({ onRequestDashboardLogin }: { onRequestDashboardLogin: () 
   const [accountModal, setAccountModal] = useState<{ tab: 'login' | 'register'; email?: string } | null>(null);
   const [welcomeDismissed, setWelcomeDismissed] = useState(isWelcomeDismissed());
   const { stationName } = useStationIdentity();
-  const engine = usePlayerEngine();
   const auth = useListenerAuth();
-
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2800); };
+  const engine = usePlayerEngine({ onNotify: notify });
 
   // Mirrors client/js/welcome.js's maybeShowWelcome(): once a visitor is
   // known to be logged in, the welcome overlay never shows again on this

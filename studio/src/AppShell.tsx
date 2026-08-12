@@ -65,7 +65,7 @@ export function AppShell() {
   useEffect(() => { if (modal) setMobileMenu(false); }, [modal]);
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2800); };
   const liveBroadcast = useLiveBroadcast(notify);
-  const playerEngine = usePlayerEngine();
+  const playerEngine = usePlayerEngine({ isCreatorSession: true, onNotify: notify });
   const navigate = (next: ViewKey) => { setView(next); setMobileMenu(false); };
   const publishPost = useMutation({
     mutationFn: () => api.dashboard.posts.create({ body: postBody.trim(), visibility: postVisibility }),
