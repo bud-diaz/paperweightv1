@@ -99,10 +99,6 @@ Library data comes from `GET /api/library/structure`.
 
 Fonts (Manrope, Space Grotesk, DM Mono) are self-hosted in `client/vendor/fonts/`, not pulled from Google Fonts — the app's CSP (`font-src 'self'`) requires it. Data fetching goes through `studio/src/lib/api.js`, ported from the old `client/js/api.js` and kept in sync by hand (see that file's header comment).
 
-**Known gaps — real dashboard features with no Studio UI yet.** The creator.html -> Studio cutover shipped with some old dashboard areas (`client/js/dashboard/*.js`, now deleted) not yet ported to `studio/src`. `studio/src/lib/api.js` still has the client methods for all of them (ported verbatim, unused) — only the UI is missing. This is not decorative-effect-tier deferred scope (like the ASCII canvas/tilt effects cut in Phase 3), so keep this list current as gaps are closed:
-
-- Smaller gaps: post edit/delete (only create/list wired in `ActivityView.tsx`/`AppShell.tsx`), creator-side tip-preset config (`api.dashboard.tipConfig`, distinct from the listener-facing `api.payment.tipConfig()` already used in `CheckoutModal.tsx`), analytics playcounts and the separate `audience()` earnings breakdown, and dashboard listener-account reset-link tools (`accounts`, `resetLink`) beyond access-token assignment and share-link management.
-
 ## Runtime Paths
 
 `src/config.js` distinguishes:

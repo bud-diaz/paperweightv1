@@ -57,7 +57,7 @@ export function Earnings({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => vo
     <section className="panel rounded-2xl p-5 sm:p-6">
       <div className="flex items-center justify-between mb-5">
         <div><p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">Support, your way</p><h2 className="font-display text-xl font-semibold mt-1">Turn attention into momentum.</h2></div>
-        <button type="button" data-testid="button-configure-tips" onClick={() => onOpen('support')} className="lime-button rounded-lg px-3 py-2 text-xs font-semibold">Configure tips</button>
+        <button type="button" data-testid="button-configure-tips" onClick={() => onOpen('tipConfig')} className="lime-button rounded-lg px-3 py-2 text-xs font-semibold">Configure tips</button>
       </div>
       <div className="grid md:grid-cols-3 gap-3">
         <div className="panel-subtle rounded-xl p-4"><span className="text-primary"><Heart size={17} /></span><p className="font-medium text-sm mt-4">Tips</p><p className="text-xs text-muted-foreground mt-1">{data?.tips.count ?? 0} tips received</p><p className="font-mono-ui text-xs mt-4 text-primary">{formatCents(data?.tips.grossCents ?? 0)}</p></div>

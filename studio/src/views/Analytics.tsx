@@ -1,9 +1,10 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CirclePlay, Download, Headphones, TrendingUp, Users } from 'lucide-react';
 
 import { Metric, ViewHeader } from '@/components/primitives';
 import * as api from '@/lib/api';
-import { formatDuration } from '@/lib/library';
+import { formatDuration, toDisplayTracks, type LibraryStructure } from '@/lib/library';
 
 type LiveStats = { currentListeners: number; peakToday: number };
 type HistoryRow = { date: string; unique_listeners: number; total_listen_sec: number };
@@ -15,11 +16,19 @@ export function Analytics({ onNotify }: { onNotify: (message: string) => void })
   const { data: history } = useQuery<HistoryRow[]>({ queryKey: ['dashboard', 'analytics', 'history'], queryFn: () => api.dashboard.analytics.history(30) });
   const { data: top } = useQuery<TopTrack[]>({ queryKey: ['dashboard', 'analytics', 'top'], queryFn: () => api.dashboard.analytics.top(6, '7d') });
   const { data: subscribers } = useQuery<SubscriberStats>({ queryKey: ['dashboard', 'analytics', 'subscribers'], queryFn: () => api.dashboard.analytics.subscribers(30) });
+  const { data: playcounts } = useQuery<Record<string, number>>({ queryKey: ['dashboard', 'analytics', 'playcounts'], queryFn: () => api.dashboard.analytics.playcounts() });
+  const { data: catalog } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure() });
 
   const days = history || [];
   const maxListeners = Math.max(1, ...days.map((d) => d.unique_listeners));
   const totalListenersRange = days.reduce((sum, d) => sum + d.unique_listeners, 0);
   const newSubscribersInRange = (subscribers?.rows || []).reduce((sum, r) => sum + r.new_subscribers, 0);
+
+  const allTimePlays = useMemo(() => toDisplayTracks(catalog)
+    .map((track) => ({ ...track, allTimePlays: playcounts?.[track.id] ?? 0 }))
+    .filter((track) => track.allTimePlays > 0)
+    .sort((a, b) => b.allTimePlays - a.allTimePlays)
+    .slice(0, 20), [catalog, playcounts]);
 
   return <div className="animate-enter">
     <ViewHeader eyebrow="Signal / Analytics" title="Know what resonates." description="The useful version of the numbers: where people found you, what they stayed for, and when they come back." action={<button type="button" data-testid="button-export-analytics" onClick={() => onNotify('Analytics export is wired in a later pass.')} className="ghost-button rounded-xl px-4 py-2.5 text-sm flex items-center gap-2"><Download size={15} /> Export report</button>} />
@@ -57,6 +66,16 @@ export function Analytics({ onNotify }: { onNotify: (message: string) => void })
           <span className="font-mono-ui text-[11px] text-muted-foreground w-14 text-right">{formatDuration(track.total_seconds)}</span>
         </div>
       )) : <p className="text-sm text-muted-foreground py-6 text-center">No plays in the last 7 days.</p>}
+    </section>
+    <section className="panel rounded-2xl p-5 sm:p-6 mt-6">
+      <div className="flex items-center justify-between mb-4"><div><p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">All time</p><h2 className="font-display text-xl font-semibold mt-1">Most played, ever</h2></div></div>
+      {allTimePlays.length ? allTimePlays.map((track) => (
+        <div key={track.id} data-testid={`row-all-time-track-${track.id}`} className="flex items-center gap-3 py-3 border-b border-white/[.07] last:border-0">
+          <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{track.title}</p>{track.artist && <p className="truncate text-xs text-muted-foreground">{track.artist}</p>}</div>
+          <span className="font-mono-ui text-[11px] text-muted-foreground">{track.allTimePlays} plays</span>
+          <span className="font-mono-ui text-[11px] text-muted-foreground w-14 text-right">{track.duration}</span>
+        </div>
+      )) : <p className="text-sm text-muted-foreground py-6 text-center">No plays recorded yet.</p>}
     </section>
   </div>;
 }

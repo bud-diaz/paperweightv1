@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Bell, DownloadCloud, FolderInput, Palette, Power, RefreshCw, Rss, Settings, Trash2 } from 'lucide-react';
+import { BookOpen, Bell, Copy, DownloadCloud, FolderInput, KeyRound, Palette, Power, RefreshCw, Rss, Settings, Trash2 } from 'lucide-react';
 
 import { Modal, ViewHeader } from '@/components/primitives';
 import * as api from '@/lib/api';
@@ -62,6 +62,42 @@ function DocsSection() {
     <div className="flex items-center gap-3 mb-5"><BookOpen size={18} className="text-primary" /><h2 className="font-display text-xl font-semibold">Docs</h2></div>
     <div className="grid sm:grid-cols-2 gap-3">{data?.docs?.map((doc) => <button type="button" key={doc.id} data-testid={`button-open-doc-${doc.id}`} onClick={() => setSelectedDoc(doc.id)} className="panel-subtle rounded-xl p-4 text-left hover:bg-white/[.06]"><p className="text-sm font-medium">{doc.title}</p><p className="text-[11px] text-muted-foreground mt-1">{doc.id}</p></button>)}</div>
     {selectedDoc && <Modal title={selectedTitle} eyebrow="Docs" onClose={() => setSelectedDoc(null)} width="max-w-3xl"><pre className="whitespace-pre-wrap text-xs leading-6 text-muted-foreground font-mono-ui">{isLoading ? 'Loading...' : docText}</pre></Modal>}
+  </section>;
+}
+
+function AccountRecoverySection({ onNotify }: { onNotify: (message: string) => void }) {
+  const { data: accounts } = useQuery<{ id: number; email: string; created_at: string }[]>({ queryKey: ['dashboard', 'accounts'], queryFn: () => api.dashboard.accounts() });
+  const [email, setEmail] = useState('');
+  const [result, setResult] = useState<{ url: string; email: string; expiresAt: string } | null>(null);
+
+  const generate = useMutation({
+    mutationFn: (accountId: number) => api.dashboard.resetLink(accountId),
+    onSuccess: ({ res, data }: { res: Response; data: { url?: string; email?: string; expiresAt?: string; error?: string } }) => {
+      if (!res.ok || !data.url) { onNotify(data.error || 'Could not generate a reset link.'); return; }
+      setResult({ url: data.url, email: data.email || email, expiresAt: data.expiresAt || '' });
+    },
+    onError: () => onNotify('Failed to generate reset link — connection error.'),
+  });
+
+  const handleGenerate = () => {
+    const match = accounts?.find((account) => account.email.toLowerCase() === email.trim().toLowerCase());
+    if (!match) { onNotify('No active listener account with that email.'); return; }
+    setResult(null);
+    generate.mutate(match.id);
+  };
+
+  return <section className="panel rounded-2xl p-5 sm:p-6">
+    <div className="flex items-center gap-3 mb-5"><KeyRound size={18} className="text-primary" /><h2 className="font-display text-xl font-semibold">Listener account recovery</h2></div>
+    <p className="text-xs text-muted-foreground mb-4">Generate a password reset link to hand a listener directly — works even when email delivery isn't configured.</p>
+    <div className="flex flex-wrap gap-2 items-center">
+      <input list="dashboard-accounts-list" value={email} onChange={(event) => setEmail(event.target.value)} data-testid="input-reset-link-email" placeholder="listener email…" className="input-studio flex-1 min-w-[200px] rounded-xl px-3.5 py-3 text-sm" />
+      <datalist id="dashboard-accounts-list">{accounts?.map((account) => <option key={account.id} value={account.email} />)}</datalist>
+      <button type="button" data-testid="button-generate-reset-link" onClick={handleGenerate} disabled={!email.trim() || generate.isPending} className="lime-button rounded-lg px-4 py-2.5 text-xs font-semibold disabled:opacity-50">{generate.isPending ? 'Generating…' : 'Generate reset link'}</button>
+    </div>
+    {result && <div className="panel-subtle rounded-xl p-4 mt-4">
+      <p className="text-xs text-primary">Reset link for {result.email}{result.expiresAt ? ` — valid until ${new Date(result.expiresAt).toLocaleString()}` : ''}.</p>
+      <button type="button" data-testid="button-copy-reset-link" onClick={() => { navigator.clipboard?.writeText(result.url).catch(() => undefined); onNotify('Reset link copied.'); }} className="text-xs break-all text-left mt-2 flex gap-2"><Copy size={13} className="shrink-0 text-primary" />{result.url}</button>
+    </div>}
   </section>;
 }
 
@@ -190,6 +226,7 @@ export function SettingsView({ onNotify }: { onNotify: (message: string) => void
             <button type="button" data-testid="button-save-glow-color" onClick={() => save.mutate({ trackGlowColor: draft.trackGlowColor })} disabled={save.isPending || isLoading} className="ghost-button rounded-lg px-3 py-2 text-xs disabled:opacity-50">{save.isPending ? 'Saving…' : 'Save'}</button>
           </div>
         </section>
+        <AccountRecoverySection onNotify={onNotify} />
         <DocsSection />
         <DesktopSection onNotify={onNotify} />
       </div>

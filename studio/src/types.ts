@@ -25,9 +25,12 @@ export type ModalKey =
   | 'newShareLink'
   | 'library'
   | 'posts'
+  | 'tipConfig'
   | 'settings'
   | 'vault'
   | null;
+
+export type CreatorPost = { id: number; title: string | null; body: string; visibility: 'public' | 'supporters_only'; published_at: string };
 
 export type Track = {
   id: number;
