@@ -103,15 +103,15 @@ export function ActionCard({ icon: Icon, title, body, onClick }: { icon: typeof 
 // this is not the brand mark. The actual Paperweight logo lives in the
 // sidebar header (see Logo.tsx / AppShell.tsx).
 export function ModeSwitcher({ mode, onChange }: { mode: ModeKey; onChange: (mode: ModeKey) => void }) {
-  const modes: { id: ModeKey; label: string; caption: string; icon: typeof Play }[] = [
-    { id: 'stack', label: 'STACK', caption: 'Library', icon: Boxes },
-    { id: 'play', label: 'PLAY', caption: 'Player', icon: Headphones },
-    { id: 'studio', label: 'STUDIO', caption: 'Dashboard', icon: LayoutDashboard },
+  const modes: { id: ModeKey; label: string; icon: typeof Play }[] = [
+    { id: 'stack', label: 'STACK', icon: Boxes },
+    { id: 'play', label: 'PLAY', icon: Headphones },
+    { id: 'studio', label: 'STUDIO', icon: LayoutDashboard },
   ];
   return (
     <div className="mode-switcher" role="tablist" aria-label="Workspace view">
       <span className="mode-switcher-mark" aria-hidden="true"><Aperture size={13} /></span>
-      {modes.map(({ id, label, caption, icon: Icon }) => (
+      {modes.map(({ id, label, icon: Icon }) => (
         <button
           key={id}
           type="button"
@@ -123,7 +123,6 @@ export function ModeSwitcher({ mode, onChange }: { mode: ModeKey; onChange: (mod
         >
           <Icon size={13} />
           <span className="mode-label">{label}</span>
-          <span className="mode-caption">{caption}</span>
         </button>
       ))}
     </div>

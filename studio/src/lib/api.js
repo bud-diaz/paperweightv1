@@ -1379,6 +1379,15 @@ export const dashboard = {
     subscribers(days = 90) {
       return _json(`/api/analytics/subscribers?days=${days}`);
     },
+
+    /**
+     * GET /api/analytics/activity?limit={limit}
+     * @param {number} [limit=10]
+     * @returns {Array<{ type: 'tip'|'unlock'|'subscription', title: string, detail: string, occurred_at: string }>}
+     */
+    activity(limit = 10) {
+      return _json(`/api/analytics/activity?limit=${limit}`);
+    },
   },
 
   // ── 2FA ────────────────────────────────────────────────────────────────────────

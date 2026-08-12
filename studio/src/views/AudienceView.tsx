@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bot, Mail, Megaphone, Radio, Search, Send, Users } from 'lucide-react';
+import { Bot, Download, Mail, Megaphone, Radio, Search, Send, Users } from 'lucide-react';
 
 import { Field, ViewHeader } from '@/components/primitives';
 import * as api from '@/lib/api';
@@ -11,6 +11,10 @@ type Person = { profile_id: number; display_name?: string | null; email?: string
 type Automations = { paused?: boolean; rules?: { id: number; name: string; description: string; trigger: string; enabled: boolean; mode: string; marketing?: boolean }[]; runs?: { id: number; display_name?: string; template_key?: string; explanation?: string; status: string; last_error?: string | null }[] };
 type Poll = { id: number; question: string; status: string; options?: { label: string; votes: number }[] };
 type Request = { id: number; media_title: string; listener_name?: string; dedication?: string | null; status: string };
+type Contact = { email: string; name: string | null; source: 'listener_profile' | 'download_lead'; created_at: string };
+type MarketingContacts = { total: number; bySource: Record<string, number>; contacts: Contact[] };
+
+const SOURCE_LABEL: Record<string, string> = { listener_profile: 'Listener account', download_lead: 'Download lead' };
 
 function money(cents?: number) {
   return `$${((Number(cents) || 0) / 100).toFixed(2)}`;
@@ -33,6 +37,7 @@ export function AudienceView({ onNotify }: { onNotify: (message: string) => void
   const { data: today } = useQuery<Today>({ queryKey: ['dashboard', 'today'], queryFn: () => api.dashboard.today.get() });
   const { data: segments } = useQuery<{ segments: Segment[] }>({ queryKey: ['dashboard', 'audience', 'segments'], queryFn: () => api.dashboard.audienceMemory.segments() });
   const { data: people } = useQuery<{ people: Person[] }>({ queryKey: ['dashboard', 'audience', 'people', search, segment], queryFn: () => segment ? api.dashboard.audienceMemory.segment(segment) : api.dashboard.audienceMemory.people(search) });
+  const { data: contacts } = useQuery<MarketingContacts>({ queryKey: ['dashboard', 'marketing-contacts'], queryFn: () => api.dashboard.audience() });
   const { data: automations } = useQuery<Automations>({ queryKey: ['dashboard', 'automations'], queryFn: () => api.dashboard.automations.get() });
   const { data: polls } = useQuery<{ polls: Poll[] }>({ queryKey: ['dashboard', 'participation', 'polls'], queryFn: () => api.dashboard.participation.polls() });
   const { data: requests } = useQuery<{ requests: Request[] }>({ queryKey: ['dashboard', 'participation', 'requests'], queryFn: () => api.dashboard.participation.requests() });
@@ -74,6 +79,12 @@ export function AudienceView({ onNotify }: { onNotify: (message: string) => void
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5"><div className="flex items-center gap-3"><Mail size={18} className="text-primary" /><h2 className="font-display text-xl font-semibold">Audience memory</h2></div><div className="relative"><Search size={14} className="absolute left-3 top-3 text-muted-foreground" /><input value={search} onChange={(event) => { setSearch(event.target.value); setSegment(''); }} placeholder="Search people" className="input-studio rounded-xl py-2.5 pl-9 pr-3 text-sm" /></div></div>
           <div className="flex gap-2 overflow-x-auto pb-2"><button type="button" onClick={() => setSegment('')} className={`ghost-button rounded-lg px-3 py-2 text-xs ${!segment ? 'text-primary' : ''}`}>All</button>{segments?.segments?.map((item) => <button type="button" key={item.key} onClick={() => setSegment(item.key)} className={`ghost-button rounded-lg px-3 py-2 text-xs whitespace-nowrap ${segment === item.key ? 'text-primary' : ''}`}>{item.label} {item.count}</button>)}</div>
           <div className="grid md:grid-cols-2 gap-3 mt-4">{people?.people?.length ? people.people.map((person) => <div key={person.profile_id} className="panel-subtle rounded-xl p-4"><p className="font-medium text-sm">{person.display_name || person.email || 'Listener'}</p><p className="text-xs text-muted-foreground mt-1">{person.listen_count || 0} sessions · {Math.round((person.listen_seconds || 0) / 60)} minutes · {person.active_subscriptions ? 'Subscriber' : money(person.purchase_cents)}</p><p className="text-[11px] text-muted-foreground mt-2">{person.favorite_title ? `Favorite: ${person.favorite_title} · ` : ''}Last seen {when(person.last_listen_at || person.last_seen_at)}</p></div>) : <p className="text-xs text-muted-foreground">No listeners match this view yet.</p>}</div>
+        </section>
+
+        <section className="panel rounded-2xl p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5"><div className="flex items-center gap-3"><Megaphone size={18} className="text-primary" /><h2 className="font-display text-xl font-semibold">Marketing contacts</h2></div><a href="/api/dashboard/export/audience.csv" data-testid="link-export-audience-csv" className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2"><Download size={13} /> Download CSV</a></div>
+          <p className="text-xs text-muted-foreground mb-4">{contacts?.total ?? 0} people opted in to updates{contacts?.bySource && Object.keys(contacts.bySource).length ? ` — ${Object.entries(contacts.bySource).map(([source, count]) => `${count} via ${SOURCE_LABEL[source] || source}`).join(', ')}` : ''}.</p>
+          <div className="grid md:grid-cols-2 gap-3">{contacts?.contacts?.length ? contacts.contacts.map((contact) => <div key={contact.email} className="panel-subtle rounded-xl p-4"><p className="font-medium text-sm truncate">{contact.name || contact.email}</p>{contact.name && <p className="text-xs text-muted-foreground mt-1 truncate">{contact.email}</p>}<p className="text-[11px] text-muted-foreground mt-2">{SOURCE_LABEL[contact.source] || contact.source} · {when(contact.created_at)}</p></div>) : <p className="text-xs text-muted-foreground">No opted-in contacts yet.</p>}</div>
         </section>
 
         <section className="panel rounded-2xl p-5 sm:p-6">
