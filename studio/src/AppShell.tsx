@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Bell, ChevronDown, ChevronRight, CloudUpload, Copy, Eye, Globe2,
   Heart, LockKeyhole, LogOut, Menu, Mic2, Music2, Radio, Search, Settings as SettingsIcon,
@@ -14,6 +14,7 @@ import { navGroups } from '@/mock/mockData';
 import * as api from '@/lib/api';
 import { useDashboardAuth } from '@/lib/auth/DashboardAuthContext';
 import { useStationIdentity } from '@/lib/hooks/useStationIdentity';
+import type { LibraryStructure } from '@/lib/library';
 import { cn } from '@/lib/utils';
 import { ActivityView } from '@/views/ActivityView';
 import { Analytics } from '@/views/Analytics';
@@ -49,10 +50,15 @@ export function AppShell() {
   const [uploadVisibility, setUploadVisibility] = useState('public');
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
   const [collectionNote, setCollectionNote] = useState('');
+  const [shareTargetType, setShareTargetType] = useState<'track' | 'project'>('track');
+  const [shareTargetId, setShareTargetId] = useState('');
+  const [shareLabel, setShareLabel] = useState('');
+  const [shareExpiresHours, setShareExpiresHours] = useState('');
   const [postBody, setPostBody] = useState('');
   const [postVisibility, setPostVisibility] = useState<'public' | 'supporters_only'>('public');
   const filteredTracks = useMemo(() => tracks.filter((track) => `${track.title} ${track.collection}`.toLowerCase().includes(search.toLowerCase())), [search]);
   const queryClient = useQueryClient();
+  const { data: shareStructure } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure(), enabled: modal === 'newShareLink' });
 
   useEffect(() => { if (modal) setMobileMenu(false); }, [modal]);
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2800); };
@@ -108,11 +114,41 @@ export function AppShell() {
     },
     onError: () => notify('Failed to create collection — connection error.'),
   });
+  const resetShareForm = () => { setShareTargetId(''); setShareLabel(''); setShareExpiresHours(''); };
+  const createShareLinkMutation = useMutation({
+    mutationFn: () => api.dashboard.share.create({
+      target_type: shareTargetType,
+      target_id: parseInt(shareTargetId, 10),
+      label: shareLabel.trim() || undefined,
+      expires_in_hours: shareExpiresHours ? parseFloat(shareExpiresHours) : undefined,
+    }),
+    onSuccess: ({ res, data }: { res: Response; data: { error?: string; url?: string } }) => {
+      if (!res.ok) { notify(data.error || 'Failed to create share link.'); return; }
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'share'] });
+      if (data.url) navigator.clipboard?.writeText(data.url).catch(() => undefined);
+      notify(data.url ? 'Share link created and copied.' : 'Share link created.');
+      resetShareForm();
+      closeModal();
+    },
+    onError: () => notify('Failed to create share link — connection error.'),
+  });
   const closeModal = () => setModal(null);
 
   const modalContent = () => {
     if (modal === 'upload') return <Modal title="Bring something into the room." eyebrow="Library / Upload" onClose={closeModal}><input ref={uploadFileInputRef} type="file" accept="audio/*,video/*" data-testid="input-upload-file" className="hidden" onChange={(event) => { const file = event.target.files?.[0] || null; setUploadFile(file); if (file && !uploadTitle.trim()) setUploadTitle(file.name.replace(/\.[^.]+$/, '')); }} /><div onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const file = event.dataTransfer.files?.[0] || null; if (file) { setUploadFile(file); if (!uploadTitle.trim()) setUploadTitle(file.name.replace(/\.[^.]+$/, '')); } }} className="rounded-2xl border border-dashed border-primary/40 bg-primary/[.04] py-9 text-center"><CloudUpload className="mx-auto text-primary" size={26} /><p className="font-display text-lg font-semibold mt-4 px-4 truncate">{uploadFile ? uploadFile.name : 'Drop audio or video here'}</p><p className="text-xs text-muted-foreground mt-2">{uploadFile ? `${(uploadFile.size / (1024 * 1024)).toFixed(1)} MB` : 'WAV, MP3, MOV, or MP4 · up to 2GB'}</p><button type="button" data-testid="button-choose-upload-file" onClick={() => uploadFileInputRef.current?.click()} className="lime-button rounded-lg px-3 py-2 text-xs font-semibold mt-5">{uploadFile ? 'Choose a different file' : 'Choose a file'}</button></div><div className="space-y-4 mt-6"><Field label="Title" value={uploadTitle} onChange={setUploadTitle} placeholder="Name this work" /><div className="grid sm:grid-cols-2 gap-4"><label className="text-sm text-muted-foreground">Category<select value={uploadCategory} onChange={(event) => setUploadCategory(event.target.value)} data-testid="select-upload-category" className="input-studio w-full rounded-xl px-3.5 py-3 mt-2"><option value="music">Music</option><option value="beats">Beats</option><option value="podcasts">Podcasts / interviews</option><option value="videos">Videos</option><option value="drafts">Drafts / demos</option><option value="live_sessions">Live sessions</option></select></label><label className="text-sm text-muted-foreground">Visibility<select value={uploadVisibility} onChange={(event) => setUploadVisibility(event.target.value)} data-testid="select-upload-visibility" className="input-studio w-full rounded-xl px-3.5 py-3 mt-2"><option value="public">Public</option><option value="supporters_only">Supporters only</option><option value="vault">Private vault</option></select></label></div></div><div className="flex justify-end gap-2 mt-7"><button type="button" data-testid="button-cancel-upload" onClick={() => { setUploadFile(null); setUploadTitle(''); closeModal(); }} className="ghost-button rounded-lg px-3 py-2 text-xs">Cancel</button><button type="button" data-testid="button-finish-upload" onClick={() => uploadMutation.mutate()} disabled={!uploadFile || uploadMutation.isPending} className="lime-button rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50">{uploadMutation.isPending ? 'Uploading…' : 'Add to library'}</button></div></Modal>;
     if (modal === 'collection') return <Modal title="Give it a shape." eyebrow="Catalog / Collection" onClose={closeModal}><div className="space-y-5"><Field label="Collection name" value={uploadTitle} onChange={setUploadTitle} placeholder="e.g. Songs for the long way home" /><Field label="One-line note" value={collectionNote} onChange={setCollectionNote} placeholder="What should this collection feel like?" /><p className="text-xs text-muted-foreground">Pricing and track order can be set from the collection once it exists.</p></div><div className="flex justify-end gap-2 mt-7"><button type="button" data-testid="button-cancel-collection" onClick={() => { setUploadTitle(''); setCollectionNote(''); closeModal(); }} className="ghost-button rounded-lg px-3 py-2 text-xs">Cancel</button><button type="button" data-testid="button-save-collection" onClick={() => createCollectionMutation.mutate()} disabled={!uploadTitle.trim() || createCollectionMutation.isPending} className="lime-button rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50">{createCollectionMutation.isPending ? 'Creating…' : 'Create collection'}</button></div></Modal>;
+    if (modal === 'newShareLink') {
+      const shareProjects = shareStructure?.projects || [];
+      const shareTracks = shareStructure?.standalone || [];
+      const options = shareTargetType === 'track' ? shareTracks.map((track) => ({ id: track.id, label: track.title })) : shareProjects.map((project) => ({ id: project.id, label: project.name }));
+      return <Modal title="Send them somewhere good." eyebrow="Share / New link" onClose={() => { resetShareForm(); closeModal(); }}><div className="space-y-5">
+        <label className="block text-sm text-muted-foreground">What are you sharing?<select value={shareTargetType} onChange={(event) => { setShareTargetType(event.target.value as 'track' | 'project'); setShareTargetId(''); }} data-testid="select-share-target-type" className="input-studio w-full rounded-xl px-3.5 py-3 mt-2"><option value="track">A track</option><option value="project">A collection</option></select></label>
+        <label className="block text-sm text-muted-foreground">{shareTargetType === 'track' ? 'Track' : 'Collection'}<select value={shareTargetId} onChange={(event) => setShareTargetId(event.target.value)} data-testid="select-share-target-id" className="input-studio w-full rounded-xl px-3.5 py-3 mt-2"><option value="">Choose one…</option>{options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
+        <Field label="Label (optional)" value={shareLabel} onChange={setShareLabel} placeholder="e.g. For the playlist curator" />
+        <label className="block text-sm text-muted-foreground">Expires<select value={shareExpiresHours} onChange={(event) => setShareExpiresHours(event.target.value)} data-testid="select-share-expiry" className="input-studio w-full rounded-xl px-3.5 py-3 mt-2"><option value="">Never</option><option value="168">7 days</option><option value="720">30 days</option></select></label>
+        {!options.length && <p className="text-xs text-muted-foreground">{shareTargetType === 'track' ? 'No standalone tracks yet — upload one first.' : 'No collections yet — create one from Releases first.'}</p>}
+      </div><div className="flex justify-end gap-2 mt-7"><button type="button" data-testid="button-cancel-new-share-link" onClick={() => { resetShareForm(); closeModal(); }} className="ghost-button rounded-lg px-3 py-2 text-xs">Cancel</button><button type="button" data-testid="button-create-share-link" onClick={() => createShareLinkMutation.mutate()} disabled={!shareTargetId || createShareLinkMutation.isPending} className="lime-button rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50">{createShareLinkMutation.isPending ? 'Creating…' : 'Create link'}</button></div></Modal>;
+    }
     if (modal === 'live') return <Modal title={live ? 'The room is open.' : 'Set the room.'} eyebrow="Signal / Broadcast" onClose={closeModal}><div className="panel-subtle rounded-xl p-4 flex gap-3 items-start"><Radio className="text-primary mt-0.5" size={18} /><div><p className="text-sm font-medium">{live ? 'You are broadcasting now' : 'Ready to broadcast'}</p><p className="text-xs text-muted-foreground mt-1">{live ? '58 listeners are currently in your room.' : 'Choose a source, give the session a name, and press go.'}</p></div></div><div className="space-y-5 mt-6"><Field label="Session title" value={uploadTitle || 'Nocturne FM — 043'} onChange={setUploadTitle} /><div className="grid grid-cols-2 gap-3"><button type="button" data-testid="button-live-audio-source" onClick={() => notify('Audio source selected.')} className="panel-subtle rounded-xl p-4 text-left ring-1 ring-primary"><Mic2 className="text-primary" size={18} /><p className="text-sm mt-3">Audio room</p><p className="text-[11px] text-muted-foreground mt-1">Mic + line in</p></button><button type="button" data-testid="button-live-video-source" onClick={() => notify('OBS video source selected.')} className="panel-subtle rounded-xl p-4 text-left"><Video className="text-accent" size={18} /><p className="text-sm mt-3">Video room</p><p className="text-[11px] text-muted-foreground mt-1">OBS Studio</p></button></div><label className="flex gap-3 items-center text-sm"><input type="checkbox" defaultChecked data-testid="checkbox-live-notify-subscribers" className="accent-primary" /> Notify subscribers when I go live</label></div><div className="flex justify-end gap-2 mt-7"><button type="button" data-testid="button-cancel-live" onClick={closeModal} className="ghost-button rounded-lg px-3 py-2 text-xs">{live ? 'Keep broadcasting' : 'Cancel'}</button><button type="button" data-testid="button-confirm-live" onClick={() => { setLive(!live); notify(live ? 'Broadcast ended.' : 'You are live. Your room is open.'); closeModal(); }} className={cn('rounded-lg px-4 py-2 text-xs font-semibold', live ? 'bg-destructive text-white' : 'lime-button')}>{live ? 'End broadcast' : 'Go live now'}</button></div></Modal>;
     if (modal === 'support') {
       const supportOptions: { name: string; body: string; price: string; icon: typeof Heart; }[] = [

@@ -5,7 +5,7 @@ import { ViewHeader } from '@/components/primitives';
 import * as api from '@/lib/api';
 import type { ModalKey } from '@/types';
 
-type ShareLink = { token: string; target_type: 'track' | 'project'; target_label: string | null; url: string; expires_at: string | null; created_at: string };
+type ShareLink = { token: string; target_type: 'track' | 'project'; target_label: string | null; label: string | null; url: string; expires_at: string | null; created_at: string };
 
 function ShareLinksSection({ onNotify, onOpen }: { onNotify: (message: string) => void; onOpen: (modal: ModalKey) => void }) {
   const queryClient = useQueryClient();
@@ -19,11 +19,11 @@ function ShareLinksSection({ onNotify, onOpen }: { onNotify: (message: string) =
     <section className="panel rounded-2xl p-5 sm:p-6">
       <div className="flex items-center justify-between mb-4">
         <div><h2 className="font-display text-xl font-semibold">Share links</h2><p className="text-xs text-muted-foreground mt-1">Focused links to a single track or collection.</p></div>
-        <button type="button" data-testid="button-new-share-link" onClick={() => onOpen('share')} className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2"><Share2 size={14} /> New link</button>
+        <button type="button" data-testid="button-new-share-link" onClick={() => onOpen('newShareLink')} className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2"><Share2 size={14} /> New link</button>
       </div>
       {isLoading ? <p className="text-xs text-muted-foreground">Loading…</p> : links && links.length ? links.map((link) => (
         <div key={link.token} data-testid={`row-share-link-${link.token}`} className="flex items-center gap-3 py-3 border-b border-white/[.07] last:border-0">
-          <div className="min-w-0 flex-1"><p className="text-sm truncate">{link.target_label || `${link.target_type} #${link.token.slice(0, 8)}`}</p><p className="text-xs text-muted-foreground truncate mt-1">{link.url}{link.expires_at ? ` · expires ${new Date(link.expires_at).toLocaleDateString()}` : ''}</p></div>
+          <div className="min-w-0 flex-1"><p className="text-sm truncate">{link.label ? `${link.label} — ${link.target_label || link.target_type}` : link.target_label || `${link.target_type} #${link.token.slice(0, 8)}`}</p><p className="text-xs text-muted-foreground truncate mt-1">{link.url}{link.expires_at ? ` · expires ${new Date(link.expires_at).toLocaleDateString()}` : ''}</p></div>
           <button type="button" aria-label="Copy link" data-testid={`button-copy-share-link-${link.token}`} onClick={() => { navigator.clipboard?.writeText(link.url); onNotify('Link copied.'); }} className="text-muted-foreground hover:text-primary"><Copy size={14} /></button>
           <button type="button" aria-label="Remove link" data-testid={`button-remove-share-link-${link.token}`} onClick={() => remove.mutate(link.token)} className="text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
         </div>

@@ -19,6 +19,7 @@ export type ModalKey =
   | 'live'
   | 'support'
   | 'share'
+  | 'newShareLink'
   | 'library'
   | 'posts'
   | 'settings'
