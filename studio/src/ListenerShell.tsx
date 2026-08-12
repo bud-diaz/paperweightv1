@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react';
 import { Check, ChevronRight, UserRound } from 'lucide-react';
 
 import { AccountModal } from '@/components/AccountModal';
+import { CheckoutModal } from '@/components/CheckoutModal';
 import { EmailLinkHandler } from '@/components/EmailLinkHandler';
 import { Logo } from '@/components/Logo';
 import { PostsTicker } from '@/components/PostsTicker';
 import { IconButton, ModeSwitcher } from '@/components/primitives';
+import { VaultGateModal } from '@/components/VaultGateModal';
 import { isWelcomeDismissed, markWelcomeDismissed, WelcomeOverlay } from '@/components/WelcomeOverlay';
 import { ListenerAuthProvider, useListenerAuth } from '@/lib/auth/ListenerAuthContext';
-import { usePlayerEngine } from '@/lib/hooks/usePlayerEngine';
+import { usePlayerEngine, type OnDemandTrack } from '@/lib/hooks/usePlayerEngine';
 import { useStationIdentity } from '@/lib/hooks/useStationIdentity';
 import { PlayerView } from '@/views/PlayerView';
 import { StackView } from '@/views/StackView';
@@ -24,11 +26,31 @@ function ListenerApp({ onRequestDashboardLogin }: { onRequestDashboardLogin: () 
   const [mode, setMode] = useState<'stack' | 'play'>('play');
   const [toast, setToast] = useState('');
   const [accountModal, setAccountModal] = useState<{ tab: 'login' | 'register'; email?: string } | null>(null);
+  const [checkoutModal, setCheckoutModal] = useState<{ tab?: 'tip' | 'subscribe' | 'all-access'; thankYou?: boolean } | null>(null);
+  const [vaultGateTrack, setVaultGateTrack] = useState<OnDemandTrack | null>(null);
   const [welcomeDismissed, setWelcomeDismissed] = useState(isWelcomeDismissed());
   const { stationName } = useStationIdentity();
   const auth = useListenerAuth();
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2800); };
   const engine = usePlayerEngine({ onNotify: notify });
+
+  const openAccount = (tab: 'login' | 'register', email?: string) => setAccountModal({ tab, email });
+
+  // Mirrors client/js/payment.js's handleTippedParam(): Stripe redirects here
+  // with ?tipped=1 after a successful tip checkout.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('tipped')) return;
+    params.delete('tipped');
+    const clean = window.location.pathname + (params.toString() ? `?${params}` : '') + window.location.hash;
+    window.history.replaceState(null, '', clean);
+    setCheckoutModal({ thankYou: true });
+  }, []);
+
+  const handleLockedTrack = (track: OnDemandTrack) => {
+    if (track.visibility === 'vault') { setVaultGateTrack(track); return; }
+    if (track.visibility === 'supporters_only') { setCheckoutModal({ tab: 'subscribe' }); }
+  };
 
   // Mirrors client/js/welcome.js's maybeShowWelcome(): once a visitor is
   // known to be logged in, the welcome overlay never shows again on this
@@ -51,6 +73,7 @@ function ListenerApp({ onRequestDashboardLogin }: { onRequestDashboardLogin: () 
       notify('Station link copied.');
       return;
     }
+    if (modal === 'support') { setCheckoutModal({}); return; }
     notify('That feature is wired in a later pass.');
   };
 
@@ -65,7 +88,7 @@ function ListenerApp({ onRequestDashboardLogin }: { onRequestDashboardLogin: () 
           <div className="ml-auto"><IconButton label="Account" onClick={() => setAccountModal({ tab: 'login' })}><UserRound size={16} /></IconButton></div>
         </header>
         <div className="p-5 sm:p-8 lg:p-10 max-w-[1480px] mx-auto mode-content pb-24">
-          {mode === 'stack' ? <StackView engine={engine} onOpen={handleOpen} onNotify={notify} /> : <PlayerView engine={engine} onOpen={handleOpen} onNotify={notify} />}
+          {mode === 'stack' ? <StackView engine={engine} onOpen={handleOpen} onNotify={notify} onLockedTrack={handleLockedTrack} /> : <PlayerView engine={engine} onOpen={handleOpen} onNotify={notify} />}
         </div>
       </main>
       <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[80] w-[min(90vw,420px)]"><PostsTicker /></div>
@@ -78,6 +101,8 @@ function ListenerApp({ onRequestDashboardLogin }: { onRequestDashboardLogin: () 
         />
       )}
       {accountModal && <AccountModal onClose={() => setAccountModal(null)} onNotify={notify} initialTab={accountModal.tab} initialEmail={accountModal.email} />}
+      {checkoutModal && <CheckoutModal stationName={stationName} initialTab={checkoutModal.tab} thankYou={checkoutModal.thankYou} onClose={() => setCheckoutModal(null)} onNotify={notify} onOpenAccount={openAccount} />}
+      {vaultGateTrack && <VaultGateModal track={vaultGateTrack} onClose={() => setVaultGateTrack(null)} onNotify={notify} onOpenAccount={openAccount} />}
       <EmailLinkHandler onNotify={notify} />
     </div>
   );

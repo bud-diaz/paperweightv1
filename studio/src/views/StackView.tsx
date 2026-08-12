@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/primitives';
 import * as api from '@/lib/api';
 import { formatDuration, swatchFor, type LibraryItem, type LibraryStructure } from '@/lib/library';
 import { cn } from '@/lib/utils';
-import { isPlayableTrack, type PlayerEngine } from '@/lib/hooks/usePlayerEngine';
+import { isPlayableTrack, type OnDemandTrack, type PlayerEngine } from '@/lib/hooks/usePlayerEngine';
 import type { ModalKey } from '@/types';
 
 type StackTrack = LibraryItem & { collection: string };
@@ -27,7 +27,7 @@ function TrackRowReal({ track, collection, active, playing, isPaid, onSelect }: 
   );
 }
 
-export function StackView({ engine, onNotify }: { engine: PlayerEngine; onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void }) {
+export function StackView({ engine, onNotify, onLockedTrack }: { engine: PlayerEngine; onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void; onLockedTrack?: (track: OnDemandTrack) => void }) {
   const [expanded, setExpanded] = useState<'library' | 'stash'>('library');
   const [search, setSearch] = useState('');
   const { data: structure, isLoading } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure() });
@@ -79,7 +79,13 @@ export function StackView({ engine, onNotify }: { engine: PlayerEngine; onOpen: 
               </button>)}
             </div>}
             <div className="stack-section-label">ALL WORKS</div>
-            {isLoading ? <p className="text-sm text-muted-foreground py-6">Loading catalog…</p> : <div>{filtered.map((track) => <TrackRowReal key={track.id} track={track} collection={track.collection} active={engine.track?.id === track.id} playing={engine.playing} isPaid={engine.isPaid} onSelect={() => engine.selectTrack({ id: track.id, title: track.title, artist: track.artist, category: track.category, duration: track.duration, visibility: track.visibility || 'public', unlocked: track.unlocked, isExternal: track.isExternal })} />)}</div>}
+            {isLoading ? <p className="text-sm text-muted-foreground py-6">Loading catalog…</p> : <div>{filtered.map((track) => {
+              const onDemandTrack: OnDemandTrack = { id: track.id, title: track.title, artist: track.artist, category: track.category, duration: track.duration, visibility: track.visibility || 'public', unlocked: track.unlocked, isExternal: track.isExternal };
+              return <TrackRowReal key={track.id} track={track} collection={track.collection} active={engine.track?.id === track.id} playing={engine.playing} isPaid={engine.isPaid} onSelect={() => {
+                engine.selectTrack(onDemandTrack);
+                if (!isPlayableTrack(onDemandTrack, engine.isPaid)) onLockedTrack?.(onDemandTrack);
+              }} />;
+            })}</div>}
             {!isLoading && !filtered.length && <EmptyState icon={Search} title="Nothing in that frequency" body="Try another title, or check back once something's been released." action="Clear search" onClick={() => setSearch('')} />}
           </div></div>}
         </section>
