@@ -4,7 +4,7 @@
 // — see the migration plan for the view-by-view checklist. Nothing in this
 // file should still be imported once those phases are complete.
 import {
-  Activity, BarChart3, Boxes, Disc3, Heart, LayoutDashboard, LockKeyhole, Radio,
+  Activity, BarChart3, Boxes, CalendarClock, Disc3, Globe2, Heart, LayoutDashboard, LockKeyhole, Radio,
   TrendingUp, UserRound, Users, Wallet,
 } from 'lucide-react';
 
@@ -40,6 +40,9 @@ export const navGroups: { label: string; items: { id: ViewKey; label: string; ic
     { id: 'vault', label: 'Vault', icon: LockKeyhole },
   ] },
   { label: 'Signal', items: [
+    { id: 'station', label: 'Station', icon: Globe2 },
+    { id: 'schedule', label: 'Schedule', icon: CalendarClock },
+    { id: 'audience', label: 'Audience', icon: Users },
     { id: 'broadcast', label: 'Live broadcast', icon: Radio },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'earnings', label: 'Earnings', icon: Wallet },
