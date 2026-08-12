@@ -49,9 +49,3 @@ export const navGroups: { label: string; items: { id: ViewKey; label: string; ic
     { id: 'tools', label: 'Creator tools', icon: Boxes },
   ] },
 ];
-
-export const supportOptionsEarnings: { title: string; body: string; amount: string; icon: typeof Heart }[] = [
-  { title: 'Tips', body: 'Let listeners leave a little love.', amount: '$98.30', icon: Heart },
-  { title: 'Subscribe', body: 'A monthly room for regulars.', amount: '$286.40', icon: Users },
-  { title: 'All-access', body: 'Deep access to the full vault.', amount: '$44.00', icon: LockKeyhole },
-];

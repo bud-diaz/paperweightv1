@@ -1,9 +1,62 @@
-import { ArrowUpRight, CirclePlay, Download, Heart, ListMusic, Users } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { CirclePlay, Download, Headphones, TrendingUp, Users } from 'lucide-react';
 
-import { Metric, TrackRow, ViewHeader } from '@/components/primitives';
-import { tracks } from '@/mock/mockData';
-import { cn } from '@/lib/utils';
+import { Metric, ViewHeader } from '@/components/primitives';
+import * as api from '@/lib/api';
+import { formatDuration } from '@/lib/library';
+
+type LiveStats = { currentListeners: number; peakToday: number };
+type HistoryRow = { date: string; unique_listeners: number; total_listen_sec: number };
+type TopTrack = { id: number; title: string; filename: string; artist: string | null; play_count: number; total_seconds: number };
+type SubscriberStats = { activeTotal: number; rows: { date: string; new_subscribers: number }[] };
 
 export function Analytics({ onNotify }: { onNotify: (message: string) => void }) {
-  return <div className="animate-enter"><ViewHeader eyebrow="Signal / Analytics" title="Know what resonates." description="The useful version of the numbers: where people found you, what they stayed for, and when they come back." action={<button type="button" data-testid="button-export-analytics" onClick={() => onNotify('Analytics export prepared as a CSV.')} className="ghost-button rounded-xl px-4 py-2.5 text-sm flex items-center gap-2"><Download size={15} /> Export report</button>} /><div className="flex gap-2 overflow-x-auto pb-1 mb-5">{['Last 30 days', 'Last 90 days', 'This year'].map((range, i) => <button type="button" data-testid={`button-range-${i}`} key={range} className={cn('rounded-lg px-3 py-2 text-xs whitespace-nowrap', i === 0 ? 'bg-primary text-[#171a28] font-semibold' : 'ghost-button')}>{range}</button>)}</div><div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6"><Metric label="Unique listeners" value="48,209" change="+19.6%" icon={Users} /><Metric label="Avg. completion" value="72.4%" change="+4.2%" icon={CirclePlay} accent="coral" /><Metric label="Saves" value="12,846" change="+1,032" icon={Heart} accent="blue" /><Metric label="Playlist adds" value="2,104" change="+8.9%" icon={ListMusic} /></div><div className="grid lg:grid-cols-[1.3fr_.7fr] gap-6"><section className="panel rounded-2xl p-5 sm:p-6"><div className="flex items-start justify-between"><div><p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">Audience over time</p><h2 className="font-display text-2xl font-semibold mt-1">48,209 listeners</h2></div><span className="text-xs text-primary font-mono-ui">+19.6%</span></div><div className="h-52 mt-8 flex items-end gap-[5px] sm:gap-2 border-b border-l border-white/[.1] pl-3 pb-0">{[25,31,29,45,38,52,48,61,54,68,65,71,76,69,83,80,91,87,100,94,96,89,98,100].map((h, i) => <div key={i} className="flex-1 rounded-t-sm bg-gradient-to-t from-[#91a4ff]/20 to-[#a9d647]" style={{ height: `${h}%`, opacity: .52 + (i / 50) }} />)}</div><div className="flex justify-between text-[10px] font-mono-ui text-muted-foreground pt-3"><span>Feb 20</span><span>Mar 01</span><span>Mar 10</span><span>Mar 21</span></div></section><section className="panel rounded-2xl p-5 sm:p-6"><p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">Top sources</p><h2 className="font-display text-xl font-semibold mt-1">Discovery paths</h2><div className="space-y-5 mt-7">{[['Creator playlists', '42.8%', 86], ['Direct profile', '27.4%', 61], ['Social sharing', '18.2%', 45], ['Search', '11.6%', 28]].map(([label, value, width]) => <div key={String(label)}><div className="flex justify-between text-xs mb-2"><span>{label}</span><span className="font-mono-ui text-muted-foreground">{value}</span></div><div className="h-2 rounded-full bg-white/[.07] overflow-hidden"><div className="h-full rounded-full bg-primary" style={{ width: `${width}%` }} /></div></div>)}</div><button type="button" data-testid="button-audience-breakdown" onClick={() => onNotify('Audience breakdown opened — 64% of listeners are returning this month.')} className="text-xs text-primary flex items-center gap-1 mt-7">See audience breakdown <ArrowUpRight size={14} /></button></section></div><section className="panel rounded-2xl p-5 sm:p-6 mt-6"><div className="flex items-center justify-between mb-4"><div><p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">Catalog performance</p><h2 className="font-display text-xl font-semibold mt-1">The songs people return to</h2></div><button type="button" data-testid="button-compare-tracks" onClick={() => onNotify('Comparison mode enabled. Select a track to compare.')} className="ghost-button rounded-lg px-3 py-2 text-xs">Compare</button></div>{tracks.slice(0, 4).map((track, i) => <TrackRow key={track.id} track={track} index={i} playing={false} onPlay={() => onNotify(`${track.title} is queued in your signal.`)} />)}</section></div>;
+  const { data: live } = useQuery<LiveStats>({ queryKey: ['dashboard', 'analytics', 'live'], queryFn: () => api.dashboard.analytics.live(), refetchInterval: 10000 });
+  const { data: history } = useQuery<HistoryRow[]>({ queryKey: ['dashboard', 'analytics', 'history'], queryFn: () => api.dashboard.analytics.history(30) });
+  const { data: top } = useQuery<TopTrack[]>({ queryKey: ['dashboard', 'analytics', 'top'], queryFn: () => api.dashboard.analytics.top(6, '7d') });
+  const { data: subscribers } = useQuery<SubscriberStats>({ queryKey: ['dashboard', 'analytics', 'subscribers'], queryFn: () => api.dashboard.analytics.subscribers(30) });
+
+  const days = history || [];
+  const maxListeners = Math.max(1, ...days.map((d) => d.unique_listeners));
+  const totalListenersRange = days.reduce((sum, d) => sum + d.unique_listeners, 0);
+  const newSubscribersInRange = (subscribers?.rows || []).reduce((sum, r) => sum + r.new_subscribers, 0);
+
+  return <div className="animate-enter">
+    <ViewHeader eyebrow="Signal / Analytics" title="Know what resonates." description="The useful version of the numbers: where people found you, what they stayed for, and when they come back." action={<button type="button" data-testid="button-export-analytics" onClick={() => onNotify('Analytics export is wired in a later pass.')} className="ghost-button rounded-xl px-4 py-2.5 text-sm flex items-center gap-2"><Download size={15} /> Export report</button>} />
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <Metric label="Listening now" value={String(live?.currentListeners ?? 0)} change="Live" icon={Headphones} />
+      <Metric label="Peak today" value={String(live?.peakToday ?? 0)} change="Unique listeners" icon={TrendingUp} accent="coral" />
+      <Metric label="Active subscribers" value={String(subscribers?.activeTotal ?? 0)} change={`+${newSubscribersInRange} in 30 days`} icon={Users} accent="blue" />
+      <Metric label="Listeners, 30 days" value={String(totalListenersRange)} change="Summed daily uniques" icon={CirclePlay} />
+    </div>
+    <div className="grid lg:grid-cols-[1.3fr_.7fr] gap-6">
+      <section className="panel rounded-2xl p-5 sm:p-6">
+        <div className="flex items-start justify-between"><div><p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">Audience over time</p><h2 className="font-display text-2xl font-semibold mt-1">Last 30 days</h2></div></div>
+        {days.length ? <>
+          <div className="h-52 mt-8 flex items-end gap-[3px] sm:gap-1 border-b border-l border-white/[.1] pl-3 pb-0">{days.map((d, i) => <div key={d.date} className="flex-1 rounded-t-sm bg-gradient-to-t from-[#91a4ff]/20 to-[#a9d647]" style={{ height: `${Math.max(2, (d.unique_listeners / maxListeners) * 100)}%`, opacity: .52 + (i / (days.length * 2)) }} title={`${d.date}: ${d.unique_listeners}`} />)}</div>
+          <div className="flex justify-between text-[10px] font-mono-ui text-muted-foreground pt-3"><span>{days[0]?.date}</span><span>{days[days.length - 1]?.date}</span></div>
+        </> : <p className="text-sm text-muted-foreground py-10 text-center">No listening data yet.</p>}
+      </section>
+      <section className="panel rounded-2xl p-5 sm:p-6">
+        <p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">Subscriber growth</p>
+        <h2 className="font-display text-xl font-semibold mt-1">{subscribers?.activeTotal ?? 0} active</h2>
+        <div className="space-y-3 mt-6">
+          {(subscribers?.rows || []).filter((r) => r.new_subscribers > 0).slice(-5).map((row) => (
+            <div key={row.date}><div className="flex justify-between text-xs mb-1"><span>{row.date}</span><span className="font-mono-ui text-primary">+{row.new_subscribers}</span></div></div>
+          ))}
+          {!(subscribers?.rows || []).some((r) => r.new_subscribers > 0) && <p className="text-xs text-muted-foreground">No new subscribers in the last 30 days.</p>}
+        </div>
+      </section>
+    </div>
+    <section className="panel rounded-2xl p-5 sm:p-6 mt-6">
+      <div className="flex items-center justify-between mb-4"><div><p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">Catalog performance</p><h2 className="font-display text-xl font-semibold mt-1">Top tracks, last 7 days</h2></div></div>
+      {top && top.length ? top.map((track) => (
+        <div key={track.id} data-testid={`row-top-track-${track.id}`} className="flex items-center gap-3 py-3 border-b border-white/[.07] last:border-0">
+          <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{track.title || track.filename}</p>{track.artist && <p className="truncate text-xs text-muted-foreground">{track.artist}</p>}</div>
+          <span className="font-mono-ui text-[11px] text-muted-foreground">{track.play_count} plays</span>
+          <span className="font-mono-ui text-[11px] text-muted-foreground w-14 text-right">{formatDuration(track.total_seconds)}</span>
+        </div>
+      )) : <p className="text-sm text-muted-foreground py-6 text-center">No plays in the last 7 days.</p>}
+    </section>
+  </div>;
 }
