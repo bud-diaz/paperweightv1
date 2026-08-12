@@ -6,7 +6,8 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { AppShell } from '@/AppShell';
+import { AuthGate } from '@/AuthGate';
+import { DashboardAuthProvider } from '@/lib/auth/DashboardAuthContext';
 
 const queryClient = new QueryClient();
 
@@ -19,7 +20,7 @@ function Router() {
   return (
     <RoutedErrorBoundary>
       <Switch>
-        <Route path="/" component={AppShell} />
+        <Route path="/" component={AuthGate} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>
@@ -35,12 +36,14 @@ const ROUTER_BASE = '/studio';
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={ROUTER_BASE}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <DashboardAuthProvider>
+        <TooltipProvider>
+          <WouterRouter base={ROUTER_BASE}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </DashboardAuthProvider>
     </QueryClientProvider>
   );
 }
