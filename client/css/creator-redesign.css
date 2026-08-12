@@ -1,0 +1,586 @@
+/* Creator Studio redesign layer.
+   Target: mirror /paperplate/artifacts/creator-studio closely while preserving
+   Paperweight's real DOM, local assets, auth/player logic, and original dark
+   background/player identity. */
+
+:root {
+  --studio-bg: #000;
+  --studio-lime: #bbff42;
+  --studio-lime-2: #9dff30;
+  --studio-coral: #ff8071;
+  --studio-blue: #91a4ff;
+  --studio-ink: #171a28;
+  --studio-fg: #f0f3ff;
+  --studio-muted: rgba(225, 230, 255, .56);
+  --studio-faint: rgba(225, 230, 255, .34);
+  --studio-line: rgba(205, 213, 255, .14);
+  --studio-line-soft: rgba(205, 213, 255, .09);
+  --studio-panel: rgba(12, 12, 14, .58);
+  --studio-panel-deep: rgba(0, 0, 0, .62);
+  --studio-panel-soft: rgba(255, 255, 255, .04);
+  --studio-shell-max: 1240px;
+  --studio-header-h: 78px;
+  --studio-radius-xl: 32px;
+  --studio-radius-lg: 24px;
+  --studio-radius-md: 16px;
+  --studio-shadow: 0 24px 90px rgba(0,0,0,.22), inset 0 1px rgba(255,255,255,.06);
+  --studio-shadow-strong: 0 32px 100px rgba(0,0,0,.34), inset 0 1px rgba(255,255,255,.07);
+}
+
+body {
+  background-color: var(--studio-bg);
+  /* Keep Paperweight black. The glow is intentionally subtle; no blue canvas. */
+  background-image:
+    radial-gradient(circle at 78% -10%, rgba(157, 255, 48, .07), transparent 30rem),
+    radial-gradient(circle at 16% 72%, rgba(255, 106, 92, .045), transparent 34rem),
+    url('/img/bg-pape-logo.jpg');
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-position: center center, center center, center center;
+  background-attachment: fixed, fixed, fixed;
+  background-size: auto, auto, var(--panel-w) auto;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  opacity: .024;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.65'/%3E%3C/svg%3E");
+}
+
+#layout {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 22px clamp(14px, 3.2vw, 44px) 18px;
+}
+
+#player-wrap {
+  width: 100%;
+  max-width: var(--studio-shell-max);
+  justify-content: flex-start;
+}
+
+#player-card {
+  width: 100%;
+  min-height: calc(100dvh - 54px);
+  flex: 1 1 auto;
+  border-radius: var(--studio-radius-xl);
+  background: linear-gradient(145deg, rgba(255,255,255,.06), rgba(0,0,0,.58));
+  border: 1px solid var(--studio-line);
+  box-shadow: var(--studio-shadow-strong);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  backdrop-filter: blur(28px) saturate(140%);
+  overflow: hidden;
+}
+
+#player-card::after {
+  opacity: .035;
+  border-color: rgba(205, 213, 255, .7);
+  border-radius: var(--studio-radius-xl);
+}
+
+/* Header / mode switcher: the prototype's glass topbar, but retaining the
+   original STACK / PLAY / STUDIO pill and existing buttons. */
+#topbar {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  min-height: var(--studio-header-h);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-rows: auto;
+  align-items: center;
+  row-gap: 0;
+  padding: 17px clamp(18px, 2.4vw, 30px);
+  border-bottom: 1px solid rgba(205, 213, 255, .105);
+  background: rgba(0, 0, 0, .54);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  backdrop-filter: blur(26px) saturate(150%);
+}
+
+.pw-brand { grid-column: 1; grid-row: 1; display: flex; align-items: center; gap: 10px; }
+.pw-brand::before {
+  content: '';
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--studio-lime), #6e8a59);
+  box-shadow: 0 8px 26px rgba(187,255,66,.12);
+}
+.pw-wordmark {
+  max-width: 250px;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: -.045em;
+  color: var(--studio-fg);
+}
+#topbar-settings { grid-column: 3; grid-row: 1; }
+#topbar-left-controls,
+#topbar-right { grid-row: 1; }
+#topbar-left-controls { grid-column: 1; padding-left: 46px; }
+#topbar-right { grid-column: 3; }
+
+#view-toggle {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  padding: 4px;
+  gap: 3px;
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(205, 213, 255, .15);
+  border-radius: 999px;
+  box-shadow: inset 0 1px rgba(255,255,255,.08), 0 10px 40px rgba(0,0,0,.16);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+}
+
+.view-tab {
+  min-height: 31px;
+  padding: 0 12px;
+  font-size: 10px;
+  letter-spacing: .13em;
+  color: rgba(225, 230, 255, .52);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: color .18s var(--ease-out-macos), background .18s var(--ease-out-macos), box-shadow .18s var(--ease-out-macos), transform .18s var(--ease-out-macos);
+}
+.view-tab:hover:not(.active) { color: rgba(239,243,255,.9); transform: translateY(-1px); }
+.view-tab.active {
+  color: var(--studio-ink);
+  background: var(--studio-lime);
+  box-shadow: 0 5px 20px rgba(190,255,61,.23);
+}
+
+/* Seamless tab switcher: stop the old side-sliding panels from feeling like
+   separate apps. Panels now crossfade inside one fixed workspace shell. */
+#card-panels {
+  flex: 1 1 auto;
+  min-height: calc(100dvh - var(--studio-header-h) - 54px);
+  position: relative;
+  overflow: hidden;
+  display: block;
+}
+
+#panel-player,
+#panel-stack,
+#panel-dashboard {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transform: none !important;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .18s ease, visibility .18s ease;
+  touch-action: pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(165,174,218,.22) transparent;
+}
+#player-card:not(.stack-active):not(.dash-active):not(.bio-landing) #panel-player,
+#player-card.stack-active #panel-stack,
+#player-card.dash-active #panel-dashboard,
+#player-card.bio-landing #panel-bio {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+#card-panels.swiping #panel-player,
+#card-panels.swiping #panel-stack,
+#card-panels.swiping #panel-dashboard { transition: none; }
+
+/* Shared paperplate-style primitives over existing Paperweight components. */
+#panel-stack,
+#panel-dashboard { padding: clamp(22px, 3vw, 40px); }
+
+#credit {
+  position: fixed;
+  left: clamp(14px, 2.5vw, 28px);
+  bottom: clamp(14px, 2.5vw, 24px);
+  z-index: 92;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+  pointer-events: none;
+}
+
+#motion-toggle {
+  position: static;
+  transform: none;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.42);
+  border: 1px solid rgba(255,255,255,.16);
+  box-shadow: 0 12px 38px rgba(0,0,0,.32), inset 0 1px rgba(255,255,255,.07);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+
+body.stack-view #floating-tip,
+body.studio-view #floating-tip {
+  display: none !important;
+}
+
+body.play-view #floating-tip {
+  left: auto !important;
+  right: clamp(18px, 4vw, 54px) !important;
+  top: auto !important;
+  bottom: clamp(54px, 8vh, 86px) !important;
+  transform: none !important;
+  font-size: 24px;
+  z-index: 38;
+}
+
+#fan-signal-btn {
+  position: fixed;
+  z-index: 91;
+  right: -1px;
+  bottom: clamp(92px, 16vh, 156px);
+  min-width: 30px;
+  min-height: 104px;
+  padding: 12px 7px 12px 8px;
+  border: 1px solid rgba(187,255,66,.34);
+  border-right: 0;
+  border-radius: 12px 0 0 12px;
+  background: rgba(0,0,0,.56);
+  color: var(--studio-lime);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: .18em;
+  box-shadow: 0 18px 44px rgba(0,0,0,.42), inset 0 1px rgba(255,255,255,.08);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  backdrop-filter: blur(18px) saturate(145%);
+}
+
+#fan-signal-btn:hover { background: rgba(187,255,66,.10); }
+
+#fan-signal-panel {
+  right: 44px;
+  bottom: clamp(84px, 14vh, 140px);
+  background: rgba(0,0,0,.72);
+  border-color: rgba(255,255,255,.16);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+}
+
+
+.panelish,
+body.studio-view .console-status-strip,
+body.studio-view .studio-drawer-list,
+body.studio-view .dash-section,
+body.studio-view .vault-panel,
+body.studio-view .necessity-form,
+body.studio-view .necessity-detail,
+body.stack-view .stack-card,
+body.stack-view .stack-folder,
+body.stack-view .stash-recent-art,
+body.play-view #panel-player #art-wrap,
+body.play-view #panel-player #waveform-section,
+body.play-view #panel-player #controls,
+body.play-view #posts-ticker,
+body.play-view .drawer .drawer-inner {
+  background: linear-gradient(145deg, rgba(255,255,255,.075), rgba(0,0,0,.54));
+  border: 1px solid var(--studio-line);
+  box-shadow: var(--studio-shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(130%);
+  backdrop-filter: blur(24px) saturate(130%);
+}
+
+/* PLAY: same original real player, re-staged like the prototype's hero player.
+   This keeps the background/player panel identity but makes mode switches feel
+   like one workspace rather than a tiny listener card vs. dashboard jump. */
+body.play-view #panel-player {
+  padding: clamp(22px, 3vw, 44px);
+}
+body.play-view #panel-player #legacy-player-ui {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-content: center;
+  justify-content: center;
+  gap: 14px;
+  padding: clamp(20px, 4vw, 54px);
+  overflow: visible;
+}
+body.play-view #panel-player #legacy-player-ui::before {
+  content: '';
+  position: absolute;
+  inset: clamp(22px, 3vw, 44px);
+  pointer-events: none;
+  border-radius: var(--studio-radius-xl);
+  background: radial-gradient(circle at 25% 40%, rgba(188,255,66,.20), transparent 24%), radial-gradient(circle at 82% 75%, rgba(255,128,113,.13), transparent 25%);
+  opacity: .92;
+}
+body.play-view #panel-player #art-wrap { width: min(100%, 420px); border-radius: 30px; overflow: hidden; z-index: 1; }
+body.play-view #panel-player #spine { width: min(100%, 420px); z-index: 1; box-shadow: none; }
+body.play-view #panel-player .drawer { width: min(100%, 420px); }
+body.play-view #panel-player #posts-ticker { width: min(100%, 420px); z-index: 1; border-radius: var(--studio-radius-md); }
+body.play-view #panel-player #art-flip { height: clamp(300px, 34vw, 400px); }
+body.play-view #panel-player #art-svg,
+body.play-view #panel-player #video-el,
+body.play-view #panel-player #preview-video-el,
+body.play-view #panel-player #asci-wrap { height: 72%; }
+body.play-view #panel-player #art-meta { top: 72%; padding: 18px 20px; background: rgba(17,17,19,.84); }
+body.play-view #panel-player #track-title { font-size: clamp(28px, 4vw, 44px); letter-spacing: -.055em; }
+body.play-view #panel-player #track-creator,
+body.play-view #panel-player #track-station { font-size: 12px; color: var(--studio-muted); }
+body.play-view #panel-player #waveform-section { border-radius: var(--studio-radius-lg) var(--studio-radius-lg) 0 0; padding: 22px 24px 16px; }
+body.play-view #panel-player #waveform { height: 86px; }
+body.play-view #panel-player #wf-top { font-size: 10px; letter-spacing: .18em; color: var(--studio-muted); }
+body.play-view #panel-player #controls { border-radius: 0 0 var(--studio-radius-lg) var(--studio-radius-lg); padding: 20px 24px 24px; }
+body.play-view #panel-player #play-btn { width: 62px; height: 62px; background: var(--studio-lime); color: var(--studio-ink); box-shadow: 0 14px 42px rgba(190,255,61,.26); }
+body.play-view #panel-player .drawer-btn { border-radius: 14px; background: rgba(255,255,255,.035); border-color: rgba(205,213,255,.12); }
+body.play-view #panel-player .drawer-btn:hover { background: rgba(255,255,255,.075); }
+
+/* STACK: mimic /paperplate's library/stash two-panel workspace using the live
+   Paperweight stack tree. */
+body.stack-view #panel-stack::before,
+body.studio-view #dash-content::before {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--studio-lime);
+  font: 10px 'Space Mono', monospace;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+}
+body.stack-view #panel-stack,
+body.studio-view #dash-content {
+  display: flex;
+  flex-direction: column;
+}
+body.stack-view #panel-stack::before { content: 'STACK / LIBRARY'; order: 0; }
+body.stack-view #panel-stack::after {
+  content: 'Everything you’ve made.';
+  display: block;
+  margin: 0 0 26px;
+  color: transparent;
+  background: linear-gradient(110deg, #f0f3ff 12%, #c9d1ed 78%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(42px, 7vw, 72px);
+  line-height: .92;
+  letter-spacing: -.06em;
+  order: 1;
+}
+body.stack-view #stack-sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr);
+  gap: 20px;
+  align-items: start;
+  min-height: auto;
+  order: 2;
+}
+body.stack-view .stack-card {
+  min-height: 0;
+  border-radius: var(--studio-radius-lg);
+  overflow: hidden;
+  border-bottom: 1px solid var(--studio-line);
+}
+body.stack-view .stack-card.open { flex: none; }
+body.stack-view .stack-card:not(.open) { flex: none; }
+body.stack-view .stack-card:not(.open) .stack-card-body {
+  display: block;
+  height: auto;
+  max-height: 420px;
+  overflow-y: auto;
+}
+body.stack-view .stack-card-head {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--studio-line-soft);
+}
+body.stack-view .stack-card-head:hover { background: rgba(255,255,255,.04); }
+body.stack-view .stack-card-title {
+  font-size: 12px;
+  letter-spacing: .18em;
+  text-shadow: none;
+  justify-content: flex-start !important;
+}
+body.stack-view .stack-card-badge,
+body.stack-view .stack-card-peek {
+  display: inline !important;
+  color: var(--studio-lime);
+  opacity: .78;
+}
+body.stack-view .stack-card-content { padding: 18px 22px 22px; }
+body.stack-view .stack-folder {
+  margin-bottom: 10px;
+  border-radius: var(--studio-radius-md);
+  overflow: hidden;
+}
+body.stack-view .stack-folder-head { padding: 13px 14px; }
+body.stack-view .stack-row {
+  min-height: 62px;
+  border-radius: 14px;
+  transition: background .18s var(--ease-out-macos), transform .18s var(--ease-out-macos), border-color .18s var(--ease-out-macos);
+}
+body.stack-view .stack-row:hover { background: rgba(255,255,255,.06); transform: translateY(-1px); }
+body.stack-view .stack-row-title { color: var(--studio-fg); font-size: 20px; letter-spacing: -.02em; }
+body.stack-view .stack-btn { border-radius: 10px; background: rgba(255,255,255,.035); border-color: rgba(205,213,255,.12); }
+body.stack-view .stack-btn:hover { background: rgba(255,255,255,.075); }
+
+/* STUDIO: mirror the prototype's creator operating room surfaces. */
+body.studio-view #dash-content { padding: 0; }
+body.studio-view #dash-content::before { content: 'STUDIO / CREATOR OPERATING ROOM'; order: 0; }
+body.studio-view #dash-content::after {
+  content: 'What deserves your attention.';
+  display: block;
+  margin: 0 0 26px;
+  color: transparent;
+  background: linear-gradient(110deg, #f0f3ff 12%, #c9d1ed 78%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(42px, 7vw, 72px);
+  line-height: .92;
+  letter-spacing: -.06em;
+  order: 1;
+}
+body.studio-view #dash-content > * { order: 2; }
+body.studio-view .console-status-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 10px;
+  margin-bottom: 20px;
+  border-radius: var(--studio-radius-lg);
+  background: rgba(255,255,255,.035);
+}
+body.studio-view .console-status-cell {
+  min-height: 92px;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, .34);
+  border: 1px solid rgba(205, 213, 255, .10);
+}
+body.studio-view .console-status-value { font-size: 26px; letter-spacing: -.035em; }
+body.studio-view .console-status-label,
+body.studio-view .necessity-kicker,
+body.studio-view .dash-section-label { color: var(--studio-lime); }
+body.studio-view .studio-drawer-list {
+  border-radius: var(--studio-radius-lg);
+  overflow: hidden;
+}
+body.studio-view .studio-drawer { border-color: var(--studio-line-soft); }
+body.studio-view .studio-drawer-head { padding: 19px 24px; }
+body.studio-view .studio-drawer-head:hover,
+body.studio-view .studio-drawer.open .studio-drawer-head { background: rgba(255,255,255,.045); }
+body.studio-view .studio-drawer-title { font-size: 12px; letter-spacing: .18em; text-shadow: none; }
+body.studio-view .studio-drawer-content > .dash-section {
+  margin: 12px 16px 20px;
+  padding: 20px;
+  border-radius: var(--studio-radius-lg);
+}
+body.studio-view .dash-section-label { letter-spacing: .2em; }
+body.studio-view .dash-section-label::after { background: rgba(205,213,255,.12); }
+body.studio-view .necessity-hero h2,
+body.studio-view .necessity-card h3,
+body.studio-view .mgmt-title,
+body.studio-view .sched-title,
+body.studio-view .stat-val,
+body.studio-view .dash-gate-title { font-family: 'DM Serif Display', serif; }
+body.studio-view .necessity-hero h2 { font-size: clamp(28px, 4vw, 44px); letter-spacing: -.055em; }
+body.studio-view .mgmt-btn,
+body.studio-view .vault-stat-btn,
+body.studio-view .stat-card,
+body.studio-view .necessity-card,
+body.studio-view .bio-card {
+  background: rgba(255,255,255,.035);
+  border-color: rgba(205,213,255,.11);
+  border-radius: 16px;
+}
+body.studio-view .mgmt-btn:hover,
+body.studio-view .vault-stat-btn:hover,
+body.studio-view .necessity-card:hover { background: rgba(255,255,255,.075); border-color: rgba(205,213,255,.22); }
+body.studio-view .mgmt-btn.active,
+body.studio-view .dash-unlock-btn,
+body.studio-view #launch-continue:not(:disabled) {
+  background: var(--studio-lime);
+  color: var(--studio-ink);
+  border-color: transparent;
+  box-shadow: 0 8px 30px rgba(187, 255, 66, .13);
+}
+body.studio-view .dash-input,
+body.studio-view .dash-select,
+body.studio-view input[type="number"].dash-input-sm {
+  background: rgba(0,0,0,.46);
+  border-color: rgba(165,174,218,.15);
+  border-radius: 13px;
+}
+body.studio-view .dash-input:focus,
+body.studio-view .dash-select:focus {
+  border-color: var(--studio-lime);
+  box-shadow: 0 0 0 3px rgba(190,255,61,.09);
+}
+body.studio-view #dash-auth-gate,
+body.studio-view #dash-2fa-gate:not([hidden]) { min-height: min(600px, calc(100dvh - 150px)); }
+body.studio-view .dash-gate-title {
+  font-size: clamp(46px, 7vw, 82px);
+  line-height: .9;
+  letter-spacing: -.06em;
+  color: transparent;
+  background: linear-gradient(110deg, #f0f3ff 12%, #c9d1ed 78%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+body.studio-view .dash-gate-hint { color: var(--studio-lime); letter-spacing: .24em; }
+body.studio-view #dash-token-input,
+body.studio-view #dash-2fa-input { width: min(420px, 100%); padding: 13px 15px; }
+
+@media (max-width: 900px) {
+  #layout { padding: 10px 10px 0; }
+  #player-card { min-height: calc(100dvh - 16px); border-radius: 24px 24px 0 0; }
+  #topbar { grid-template-columns: 1fr auto; grid-template-rows: auto auto; row-gap: 12px; padding: 14px; }
+  #view-toggle { grid-column: 1 / -1; grid-row: 2; width: 100%; justify-content: center; }
+  .view-tab { flex: 1; }
+  #topbar-settings { grid-column: 2; }
+  #topbar-left-controls, #topbar-right { grid-row: 1; }
+  #topbar-left-controls { padding-left: 42px; }
+  #panel-stack, #panel-dashboard, body.play-view #panel-player { padding: 16px; }
+  body.play-view #panel-player #legacy-player-ui { padding: 16px; gap: 18px; align-content: start; justify-content: flex-start; }
+  body.play-view #panel-player #art-wrap, body.play-view #panel-player #spine, body.play-view #panel-player #posts-ticker { width: min(100%, 420px); }
+  body.play-view #panel-player #art-flip { height: 300px; }
+  body.stack-view #stack-sections { grid-template-columns: 1fr; }
+  body.studio-view .console-status-strip { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+@media (max-width: 520px) {
+  .pw-wordmark { font-size: 21px; max-width: 180px; }
+  #panel-stack, #panel-dashboard, body.play-view #panel-player { padding: 12px; }
+  body.play-view #panel-player #legacy-player-ui { padding: 8px; }
+  body.play-view #panel-player #art-flip { height: 260px; }
+  body.studio-view .console-status-strip { grid-template-columns: 1fr; }
+}
+
+@media (max-height: 700px) and (min-width: 901px) {
+  #layout { padding-top: 10px; }
+  #player-card { min-height: calc(100dvh - 20px); }
+  body.play-view #panel-player { padding: 8px 24px; }
+  body.play-view #panel-player #legacy-player-ui {
+    padding: 10px 32px 18px;
+    align-content: start;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+  body.play-view #panel-player #art-wrap,
+  body.play-view #panel-player #spine,
+  body.play-view #panel-player #posts-ticker,
+  body.play-view #panel-player .drawer { width: min(100%, 392px); }
+  body.play-view #panel-player #art-flip { height: 230px; }
+  body.play-view #panel-player #art-meta { padding: 12px 16px; }
+  body.play-view #panel-player #waveform-section { padding: 12px 16px 9px; }
+  body.play-view #panel-player #waveform { height: 40px; }
+  body.play-view #panel-player #controls { padding: 10px 16px 12px; }
+  body.play-view #panel-player #play-btn { width: 52px; height: 52px; }
+  body.play-view #panel-player #track-title { font-size: clamp(26px, 3.2vw, 36px); }
+}

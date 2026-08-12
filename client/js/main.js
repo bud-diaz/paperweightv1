@@ -361,10 +361,19 @@ el('real-video-tab-handle').addEventListener('click', () => {
   el('real-video-tab-handle').setAttribute('aria-expanded', String(open));
 });
 
-// ─── View toggle (PLAY / STUDIO) ────────────────────────────────────────────
+// ─── View toggle (STACK / PLAY / STUDIO) ────────────────────────────────────
+function setWorkspaceViewClass(view) {
+  document.body.classList.toggle('stack-view', view === 'stack');
+  document.body.classList.toggle('play-view', view === 'player');
+  document.body.classList.toggle('studio-view', view === 'dashboard');
+}
+
+setWorkspaceViewClass('player');
+
 document.querySelectorAll('.view-tab').forEach(btn => {
   btn.addEventListener('click', () => {
     const view = btn.dataset.view;
+    setWorkspaceViewClass(view);
     document.querySelectorAll('.view-tab').forEach(b => b.classList.toggle('active', b === btn));
 
     el('player-card').classList.remove('stack-active', 'dash-active');
@@ -398,6 +407,7 @@ document.querySelectorAll('.view-tab').forEach(btn => {
 
 function enterDashboard() {
   // Bio landing page is PLAY-only — STUDIO always bypasses it this session.
+  setWorkspaceViewClass('dashboard');
   window._bioSessionPassed = true;
   el('player-card').classList.remove('bio-landing');
 
