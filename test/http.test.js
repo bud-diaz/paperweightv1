@@ -1123,6 +1123,38 @@ test('dashboard upload rejects unsupported multipart file types', async () => {
   });
 });
 
+test('dashboard collection tracks can be reordered', async () => {
+  const db = freshDb();
+  const first = seedMedia(db, { title: 'First Ordered Track', filepath: '/vault/order-first.mp3' });
+  const second = seedMedia(db, { title: 'Second Ordered Track', filepath: '/vault/order-second.mp3' });
+  const project = db.prepare(
+    "INSERT INTO vault_projects (name, description, allow_free) VALUES ('Ordered Collection', 'Sortable', 1)"
+  ).run();
+  db.prepare('INSERT INTO vault_project_items (project_id, content_id, sort_order) VALUES (?, ?, ?)')
+    .run(project.lastInsertRowid, first.id, 0);
+  db.prepare('INSERT INTO vault_project_items (project_id, content_id, sort_order) VALUES (?, ?, ?)')
+    .run(project.lastInsertRowid, second.id, 1);
+
+  await withServer(async baseUrl => {
+    const reordered = await request(baseUrl, `/api/dashboard/vault/projects/${project.lastInsertRowid}/items/order`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Dashboard-Token': process.env.DASHBOARD_TOKEN,
+      },
+      body: JSON.stringify({ content_ids: [second.id, first.id] }),
+    });
+    assert.equal(reordered.res.status, 200);
+    assert.equal(reordered.body.ok, true);
+
+    const pricing = await request(baseUrl, '/api/dashboard/vault/pricing', {
+      headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+    });
+    assert.equal(pricing.res.status, 200);
+    assert.deepEqual(pricing.body.projects[0].items.map(item => item.content_id), [second.id, first.id]);
+  });
+});
+
 test('upload filenames are sanitized and collision-safe', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-upload-name-'));
   try {

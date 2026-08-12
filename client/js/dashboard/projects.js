@@ -24,6 +24,23 @@ function monetizationHidden() {
          document.body.classList.contains('anonymous-mode');
 }
 
+async function saveTrackOrder(proj, tracks, msgEl) {
+  const { res, data } = await api.dashboard.vault.reorderCollectionTracks(proj.id, {
+    content_ids: tracks.map(t => t.content_id),
+  });
+  if (!res.ok) {
+    msgEl.style.color = '#ff6b6b';
+    msgEl.textContent = data.error || 'Order save failed';
+    return false;
+  }
+  msgEl.style.color = 'rgba(255,255,255,.5)';
+  msgEl.textContent = 'Order saved';
+  setTimeout(() => { msgEl.textContent = ''; }, 1600);
+  _loadDashProjects();
+  _loadDashLibrary();
+  return true;
+}
+
 // ── Project list ───────────────────────────────────────────────────────────────
 export async function loadDashProjects() {
   try {
@@ -78,13 +95,15 @@ export function buildDashProjectCard(proj, allItems, unassigned, highlight = nul
 
   // Track list
   const tracks = proj.items || [];
+  const orderMsg = document.createElement('div');
+  orderMsg.style.cssText = 'padding:0 14px 4px;font-family:\'Space Mono\',monospace;font-size:10px;';
   if (tracks.length === 0) {
     const empty = document.createElement('div');
     empty.style.cssText = 'padding:6px 14px;font-family:\'Space Mono\',monospace;font-size:10px;color:rgba(255,255,255,.2);';
     empty.textContent = 'No tracks in this collection.';
     body.appendChild(empty);
   } else {
-    for (const t of tracks) {
+    tracks.forEach((t, index) => {
       const mediaItem = allItems.find(i => i.id === t.content_id) || {};
       const row = document.createElement('div');
       row.className = 'dash-proj-track-row';
@@ -92,10 +111,13 @@ export function buildDashProjectCard(proj, allItems, unassigned, highlight = nul
         <span style="font-size:11px;color:rgba(255,255,255,.25);flex-shrink:0;">${mediaItem.category==='videos'?'▶':'♪'}</span>
         <span class="dash-proj-track-title">${esc(t.title || mediaItem.title || mediaItem.filename || '')}</span>
         ${mediaItem.artist ? `<span class="dash-proj-track-artist">${esc(mediaItem.artist)}</span>` : ''}
+        <button class="mgmt-btn" data-move-track="${t.content_id}" data-dir="-1" ${index === 0 ? 'disabled' : ''} title="Move up" style="flex-shrink:0;">↑</button>
+        <button class="mgmt-btn" data-move-track="${t.content_id}" data-dir="1" ${index === tracks.length - 1 ? 'disabled' : ''} title="Move down" style="flex-shrink:0;">↓</button>
         <button class="mgmt-btn danger" data-remove-track="${t.content_id}" style="flex-shrink:0;">REMOVE</button>
       `;
       body.appendChild(row);
-    }
+    });
+    body.appendChild(orderMsg);
   }
 
   // Add track row
@@ -192,6 +214,21 @@ export function buildDashProjectCard(proj, allItems, unassigned, highlight = nul
       await api.dashboard.vault.removeCollectionTrack(proj.id, cid);
       _loadDashProjects();
       _loadDashLibrary();
+    });
+  });
+
+  // REORDER tracks
+  body.querySelectorAll('[data-move-track]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cid = parseInt(btn.dataset.moveTrack, 10);
+      const dir = parseInt(btn.dataset.dir, 10);
+      const idx = tracks.findIndex(t => t.content_id === cid);
+      const nextIdx = idx + dir;
+      if (idx < 0 || nextIdx < 0 || nextIdx >= tracks.length) return;
+      const nextTracks = tracks.slice();
+      [nextTracks[idx], nextTracks[nextIdx]] = [nextTracks[nextIdx], nextTracks[idx]];
+      btn.disabled = true;
+      await saveTrackOrder(proj, nextTracks, orderMsg);
     });
   });
 

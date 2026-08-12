@@ -1422,6 +1422,19 @@
             </div>
             <div class="dash-upload-form" id="dash-upload-form" hidden>
               <div id="dash-upload-queue"></div>
+              <div class="dash-form-row dash-upload-collection-row">
+                <select class="dash-select" id="dash-upload-collection-mode">
+                  <option value="none">No Collection</option>
+                  <option value="existing">Add to Collection</option>
+                  <option value="new">Create Collection</option>
+                </select>
+                <select class="dash-select" id="dash-upload-collection-existing" hidden>
+                  <option value="">Loading Collections...</option>
+                </select>
+                <input class="dash-input" id="dash-upload-collection-name" type="text" placeholder="Collection name" hidden/>
+                <input class="dash-input" id="dash-upload-title" type="text" placeholder="Title"/>
+                <input class="dash-input" id="dash-upload-artist" type="text" placeholder="Artist"/>
+              </div>
               <div class="dash-form-row dash-upload-actions">
                 <select class="dash-select" id="dash-upload-cat">
                   <option value="music">Music</option>

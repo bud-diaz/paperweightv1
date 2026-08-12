@@ -230,6 +230,7 @@ shareLinks.init({
 upload.init({
   loadDashVaultStats: vault.loadDashVaultStats,
   loadDashLibrary:    vault.loadDashLibrary,
+  loadDashProjects:   projects.loadDashProjects,
   loadLibrary:        library.loadLibrary,
 });
 

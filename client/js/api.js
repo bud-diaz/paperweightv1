@@ -1117,6 +1117,16 @@ export const dashboard = {
     },
 
     /**
+     * PUT /api/dashboard/vault/projects/{projId}/items/order
+     * @param {number} projId
+     * @param {{ content_ids: number[] }} body
+     * @returns {{ res: Response, data: object }}
+     */
+    reorderCollectionTracks(projId, body) {
+      return _send(`/api/dashboard/vault/projects/${projId}/items/order`, body, 'PUT');
+    },
+
+    /**
      * DELETE /api/dashboard/vault/projects/{projId}/items/{contentId}
      * @param {number} projId
      * @param {number} contentId

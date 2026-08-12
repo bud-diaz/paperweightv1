@@ -181,6 +181,9 @@ router.post('/upload', (req, res) => {
 
     const category   = VALID_CATEGORIES.has(req.body.category) ? req.body.category : 'music';
     const visibility = VALID_VISIBILITY.has(req.body.visibility) ? req.body.visibility : 'public';
+    const title      = String(req.body.title || '').trim() || null;
+    const artist     = String(req.body.artist || '').trim() || null;
+    const album      = String(req.body.album || '').trim() || null;
     const tmpFilepath = path.resolve(req.file.path);
 
     try {
@@ -206,19 +209,29 @@ router.post('/upload', (req, res) => {
     // Stamp visibility immediately so the scanner's later upsert (which doesn't
     // touch the visibility column) preserves the creator's chosen value.
     // Use path.resolve() so this matches the absolute path the watcher emits.
-    getDb().prepare(`
-      INSERT INTO media (filepath, filename, category, visibility, indexed_at, updated_at)
-      VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
-      ON CONFLICT(filepath) DO UPDATE SET visibility = excluded.visibility
-    `).run(absFilepath, finalFile.filename, category, visibility);
+    const db = getDb();
+    db.prepare(`
+      INSERT INTO media (filepath, filename, category, visibility, title, artist, album, indexed_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      ON CONFLICT(filepath) DO UPDATE SET
+        visibility = excluded.visibility,
+        title      = excluded.title,
+        artist     = excluded.artist,
+        album      = excluded.album
+    `).run(absFilepath, finalFile.filename, category, visibility, title, artist, album);
+    const media = db.prepare('SELECT id FROM media WHERE filepath = ?').get(absFilepath);
 
     log('info', 'dashboard', `Uploaded: ${finalFile.filename} -> ${destDir} [${visibility}]`);
     res.status(201).json({
+      id:         media?.id || null,
       filename:   finalFile.filename,
       filepath:   absFilepath,
       size:       req.file.size,
       category,
       visibility,
+      title,
+      artist,
+      album,
     });
   });
 });

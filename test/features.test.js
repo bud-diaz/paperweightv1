@@ -51,7 +51,7 @@ function seedAccount(db, email, password) {
   return info.lastInsertRowid;
 }
 
-test('scanner imports new media as vault but preserves pre-stamped visibility', () => {
+test('scanner imports new media as vault but preserves pre-stamped visibility and metadata', () => {
   const db = freshDb();
   const config = require('../src/config');
   const { upsert } = require('../src/scanner/sync');
@@ -66,13 +66,23 @@ test('scanner imports new media as vault but preserves pre-stamped visibility', 
     upsert(freshPath, 'music', { title: 'Fresh Scan', duration: 12, file_size: 5, mime_type: 'audio/mpeg' });
     assert.equal(db.prepare('SELECT visibility FROM media WHERE filepath = ?').get(path.resolve(freshPath)).visibility, 'vault');
 
-    db.prepare(
-      "INSERT INTO media (filepath, filename, category, title, visibility) VALUES (?, ?, 'music', 'Stamped', 'public')"
-    ).run(path.resolve(stampedPath), path.basename(stampedPath));
+    db.prepare(`
+      INSERT INTO media (filepath, filename, category, title, artist, album, visibility)
+      VALUES (?, ?, 'music', 'Stamped', 'Stamped Artist', 'Stamped Collection', 'public')
+    `).run(path.resolve(stampedPath), path.basename(stampedPath));
     upsert(stampedPath, 'music', { title: 'Updated Stamp', duration: 18, file_size: 7, mime_type: 'audio/mpeg' });
 
-    const stamped = db.prepare('SELECT title, visibility FROM media WHERE filepath = ?').get(path.resolve(stampedPath));
+    let stamped = db.prepare('SELECT title, artist, album, visibility FROM media WHERE filepath = ?').get(path.resolve(stampedPath));
     assert.equal(stamped.title, 'Updated Stamp');
+    assert.equal(stamped.artist, 'Stamped Artist');
+    assert.equal(stamped.album, 'Stamped Collection');
+    assert.equal(stamped.visibility, 'public');
+
+    upsert(stampedPath, 'music', { duration: 20, file_size: 8, mime_type: 'audio/mpeg' });
+    stamped = db.prepare('SELECT title, artist, album, visibility FROM media WHERE filepath = ?').get(path.resolve(stampedPath));
+    assert.equal(stamped.title, 'Updated Stamp');
+    assert.equal(stamped.artist, 'Stamped Artist');
+    assert.equal(stamped.album, 'Stamped Collection');
     assert.equal(stamped.visibility, 'public');
   } finally {
     try { fs.unlinkSync(freshPath); } catch {}
