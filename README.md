@@ -17,6 +17,12 @@ It is built for one creator or a small trusted team running one station on Windo
 - Stripe subscriptions, tips, and vault unlock checkout when configured — with listener self-service cancellation and Stripe billing portal.
 - PayPal subscriptions with verified webhooks when configured.
 - Creator dashboard for media, schedule, uploads, tokens, payments, and analytics.
+- A daily **Today** brief that turns audience, release, revenue, and station-health data into explainable next actions.
+- **Audience Memory** relationship timelines and useful cohorts such as returning listeners, buyers, inactive regulars, and gate visitors who did not purchase.
+- **Release Autopilot** for scheduling track visibility, an announcement post, supporter notifications, feature placement, and an optional station premiere as one durable campaign.
+- Consent-aware automations with recommendation and automatic modes, a delivery outbox, unsubscribe suppression, and an auditable explanation for every run.
+- Listener polls, premiere reminders, and creator-moderated track requests through the player’s **Signal** panel.
+- **Station Ops** health history plus optional automatic, checksum-verified local database backups.
 - CSV exports (subscribers, listeners, download leads) and one-click hot database backups.
 - Optional go-live / new-post announcements to a Discord-compatible webhook, and opt-in supporter email on new posts.
 - Optional public RSS/podcast feed of public media at `/feed.xml`.
@@ -34,8 +40,10 @@ It is built for one creator or a small trusted team running one station on Windo
 | Linux x64 server/headless | `scripts/install.sh`, then `scripts/setup.sh` |
 | Raspberry Pi 64-bit | `scripts/install.sh`, then `scripts/setup.sh` |
 
-FFmpeg and ffprobe are required on every platform. The Linux/Pi installers verify
-or install them; the desktop app's setup wizard checks for them on first run.
+FFmpeg and ffprobe are bundled with every distribution (the Linux/Pi executable and
+the Windows/macOS/Linux desktop app) — no separate install step is needed. If you're
+instead running from source with `npm start`, install them yourself and make sure
+they're on PATH; see `TROUBLESHOOTING.md`.
 
 The Electron app isn't code-signed yet, so Windows SmartScreen / macOS Gatekeeper
 will warn on first run — see [TROUBLESHOOTING.md](TROUBLESHOOTING.md). If you'd
@@ -176,6 +184,13 @@ src/
   auth/                 listener tokens, tiers, access checks
   broadcast/            FFmpeg HLS engine, playlist, scheduler
   db/                   SQLite migrations and helpers
+  events/               first-party audience and lifecycle events
+  jobs/                 durable local background-job runner
+  insights/             deterministic Today recommendations
+  releases/             coordinated release campaigns
+  automations/          consent-aware lifecycle recipes and delivery outbox
+  ops/                  station checks and verified backups
+  participation/        requests, polls, votes, and premiere reminders
   middleware/           CSRF and rate limit middleware
   scanner/              vault watcher, adapters, ffprobe metadata
   setup/                shared .env/folder provisioning (Electron wizard + setup.sh)
@@ -207,7 +222,6 @@ hls_output/
 - No listener email verification.
 - Password reset emails require SMTP configuration; without it, the creator generates reset links from the dashboard.
 - Payments require provider setup and verified webhooks.
-- FFmpeg/ffprobe remain external system dependencies.
 
 ## License
 

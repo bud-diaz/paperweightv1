@@ -6,6 +6,7 @@ const { paymentLimiter } = require('../middleware/rateLimiter');
 const config = require('../config');
 const asyncHandler = require('../middleware/asyncHandler');
 const paymentConfig = require('../payment/config');
+const { recordAudienceEvent } = require('../events');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -315,6 +316,43 @@ dashRouter.post('/projects/:id/items', (req, res) => {
   res.status(201).json({ ok: true });
 });
 
+// PUT /api/dashboard/vault/projects/:id/items/order
+// Body: { content_ids: number[] }
+dashRouter.put('/projects/:id/items/order', (req, res) => {
+  const db = getDb();
+  const projectId = parseInt(req.params.id, 10);
+  const project = db.prepare('SELECT id FROM vault_projects WHERE id = ?').get(projectId);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const contentIds = Array.isArray(req.body.content_ids)
+    ? req.body.content_ids.map(id => parseInt(id, 10)).filter(Boolean)
+    : [];
+  if (!contentIds.length) return res.status(400).json({ error: 'content_ids is required' });
+
+  const existing = db.prepare(
+    'SELECT content_id FROM vault_project_items WHERE project_id = ? ORDER BY sort_order, content_id'
+  ).all(projectId).map(r => r.content_id);
+
+  if (existing.length !== contentIds.length) {
+    return res.status(400).json({ error: 'content_ids must include every track in the collection' });
+  }
+  const existingSet = new Set(existing);
+  const requestedSet = new Set(contentIds);
+  if (requestedSet.size !== contentIds.length || existing.some(id => !requestedSet.has(id)) || contentIds.some(id => !existingSet.has(id))) {
+    return res.status(400).json({ error: 'content_ids must match the collection tracks exactly' });
+  }
+
+  const update = db.prepare(
+    'UPDATE vault_project_items SET sort_order = ? WHERE project_id = ? AND content_id = ?'
+  );
+  const tx = db.transaction(ids => {
+    ids.forEach((contentId, index) => update.run(index, projectId, contentId));
+  });
+  tx(contentIds);
+
+  res.json({ ok: true });
+});
+
 // DELETE /api/dashboard/vault/projects/:id/items/:content_id
 dashRouter.delete('/projects/:id/items/:content_id', (req, res) => {
   const db = getDb();
@@ -546,6 +584,14 @@ router.post('/unlock', paymentLimiter, asyncHandler(async (req, res) => {
     }
 
     log('info', 'vault', `Unlock checkout created: ${unlock_type} target=${targetId || 'all'} listener=${listenerId} amount=${amountCents}`);
+    recordAudienceEvent('checkout_started', {
+      req, db, listenerId,
+      mediaId: unlock_type === 'track' ? targetId : null,
+      projectId: unlock_type === 'project' ? targetId : null,
+      source: 'checkout', valueCents: amountCents, currency: 'usd',
+      dedupeKey: `vault-checkout:${session.id}`,
+      metadata: { unlock_type, payment_type },
+    });
     res.json({ checkoutUrl: session.url });
 
   } catch (err) {
@@ -632,6 +678,14 @@ function createVaultUnlock(db, { listenerId, unlockType, targetId, paymentType, 
   }
 
   log('info', 'vault', `Vault unlock created: ${unlockType} target=${targetId || 'all'} listener=${listenerId} id=${info.lastInsertRowid}`);
+  recordAudienceEvent('unlock_completed', {
+    db, listenerId,
+    mediaId: unlockType === 'track' ? targetId : null,
+    projectId: unlockType === 'project' ? targetId : null,
+    source: 'webhook', valueCents: paidAmount, currency: 'usd',
+    dedupeKey: `unlock:${info.lastInsertRowid}`,
+    metadata: { unlock_type: unlockType, payment_type: paymentType },
+  });
   return info.lastInsertRowid;
 }
 

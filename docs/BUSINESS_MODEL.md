@@ -5,6 +5,59 @@ the parts that hold up, cuts the parts that don't match what's actually shippabl
 12 months, and resolves the open risks the original draft left silent. Pair this with
 `Paperweight_ROADMAP.md` (feature sequencing) and `docs/PRODUCT_OVERVIEW.md` (what ships today).
 
+**This section supersedes the "Near-term priority" and "Revenue streams" sections below where
+they conflict** — those sections predate the decisions here and still frame Paperweight Mobile
+as a near-term line; it is now frozen (see Freeze, below).
+
+## The Wedge
+
+One sentence: **the easiest way for independent audio creators to operate an owned, always-on
+station and sell directly to listeners.**
+
+**Initial customer**: independent radio shows and music collectives that already have an
+audience and a catalog — they feel the "algorithm platform" pain today and can be broadcasting
+within the 10-minute activation target immediately, unlike a creator starting from zero.
+
+**Permanent commitments**:
+- The self-hosted core stays free, forever. No license fee to run it.
+- The creator-sales fee stays 0% — Paperweight never takes a cut of tips, subscriptions, or
+  vault unlocks. (Confirmed: no fee-taking logic exists anywhere in the Stripe/PayPal payment
+  paths — `src/api/payments.js` and related webhook handlers pass the full amount through.)
+- Station Ops (see below) is the one paid product, and it is optional infrastructure/support on
+  top of the free core, never a toll on using the core.
+
+**What we market**: only the three features that win the wedge — always-on station, owned
+audience, direct monetization. Every other shipped feature (device pairing, offline saves,
+smart playlists, etc.) keeps working and keeps shipping bug fixes, but none of it is the pitch
+for the next six months.
+
+## Six-Month Freeze
+
+No new work and no roadmap movement on these until the freeze lifts (tracked from the date this
+section was added):
+
+- Mobile apps (the roadmapped "Paperweight Mobile" listener/discovery app and any creator mobile
+  dashboard — distinct from the already-shipped in-app Studio device-pairing feature, which is
+  existing functionality, not new work, and is unaffected).
+- Manufactured/certified hardware (Lab, Broadcast, Certified Hardware Partners, Accessories).
+- Plugin architecture / marketplace.
+- Enterprise (LDAP/SSO/audit, etc.).
+- White-label.
+
+**Hardware as a distribution channel, not a business**: Paperweight Home (the Raspberry Pi
+appliance) is reclassified as a later packaging/distribution channel for the existing headless
+build (`scripts/build-exe.js`, Linux x64 / Pi ARM64) — not a primary business line, and not part
+of the freeze above, since it introduces no new product surface beyond an existing build target.
+
+## Station Ops — the one thing we're testing now
+
+A $29/month optional service, layered on the free self-hosted core: managed public URL,
+monitoring, automated updates, encrypted backup, and priority support. Scope for the initial
+test (see `docs/STATION_OPS_MODEL.md` for the CAC/margin model): a waitlist to gauge demand,
+plus the backup-encryption and basic monitoring pieces that are cheap to build on top of
+existing infrastructure (`scripts/backup.js`, `src/runtime/net-guard.js`) — not full managed
+fulfillment yet.
+
 ## Positioning
 
 "Own your server, get effortless discovery, keep built-in monetization" is a real gap versus
@@ -27,23 +80,20 @@ on top, and a creator can walk away from them without losing anything that matte
 that way instead of implying zero central component; it's a stronger and more defensible claim
 than the original framing.
 
-## Near-term priority (next 12 months)
+## Near-term priority (next 6 months) — superseded by the Freeze above
 
-Everything else in the original pitch is reclassified as **Future** (see below). The two
-revenue lines worth building now are the two with an existing technical head start:
-
-1. **Paperweight Home** (Raspberry Pi appliance) — builds directly on the existing headless
-   exe path (`scripts/build-exe.js`, Linux x64 / Pi ARM64) and the Electron desktop app.
-2. **Paperweight Mobile / discovery** — builds directly on the existing station directory
-   (`/landing/listen`, `station_searchable`, the Cloudflare-tunnel reachability check in
-   `src/runtime/cloudflare.js` and `src/api/dashboard.js`).
+**Update**: this section originally named Paperweight Home and Paperweight Mobile as the two
+near-term revenue lines. Mobile is now frozen for six months (see Freeze, above) — it is not
+being built or sequenced right now, regardless of its technical head start. Home survives, but
+reclassified as a distribution channel rather than a revenue line in its own right (see above).
+The actual near-term priority for these six months is Station Ops (above) plus the activation
+and instrumentation work needed to make the free core convert well on its own.
 
 Lab, Broadcast, OS image, Premium Themes, Plugin Marketplace, Commercial Licensing,
 Enterprise, Cloud, white-label, and certified-hardware-partner are real future opportunities,
 but each implies its own go-to-market motion (manufacturing/support for hardware, an
-enterprise sales team for LDAP/SSO, a security review for third-party plugin code). Sequencing
-all of them alongside Home/Mobile understates how different those businesses are from the one
-that exists today.
+enterprise sales team for LDAP/SSO, a security review for third-party plugin code). All of them
+are outside the six-month freeze window; none are sequenced yet.
 
 ## Station reliability (Mobile discovery)
 
@@ -96,13 +146,21 @@ line item eventually gets prioritized.
 
 ## Revenue streams — revised sequencing
 
-**Now / near-term:**
-- Paperweight (free software) — adoption driver, unchanged.
-- Paperweight Home (Pi appliance).
-- Paperweight Mobile (listener discovery app).
+**Now / near-term (next 6 months):**
+- Paperweight (free software, 0% creator-sales fee) — adoption driver, unchanged.
+- Station Ops ($29/mo, waitlist + backup/monitoring test — see above).
 - Donations.
+- Paperweight Home (Pi appliance) continues shipping as a distribution channel, not a
+  standalone revenue push.
 
-**Future (unsequenced, revisit after Home + Mobile prove out):**
+**Frozen for six months (no work, no roadmap movement):**
+- Paperweight Mobile (listener discovery app).
+- Plugin Marketplace.
+- Enterprise.
+- White label.
+- Certified Hardware Partners / manufactured hardware generally.
+
+**Future (unsequenced, revisit after the freeze lifts and Station Ops proves out):**
 - Paperweight Lab / Broadcast (professional & commercial hardware).
 - Paperweight OS (downloadable appliance image).
 - Premium Themes.

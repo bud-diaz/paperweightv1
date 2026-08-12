@@ -30,6 +30,7 @@ const broadcast = require('../broadcast');
 const { getListenerCount } = require('../api/stream');
 const config = require('../config');
 const { getBoolSetting } = require('../db/settings');
+const { getMilestones } = require('../runtime/funnel');
 
 const PAPE_URL = process.env.PAPE_URL;
 const PAPE_TELEMETRY_SECRET = process.env.PAPE_TELEMETRY_SECRET;
@@ -136,6 +137,11 @@ async function buildPayload() {
     broadcasting,
     currentTrack,
     grossCents: revenueStats.grossCents || 0,
+    // Activation-funnel milestones (migration 029) — at most 4 rows, so this
+    // stays cheap. Only reported at all when telemetry itself is configured
+    // (see isConfigured()), so aggregate funnel numbers only ever reflect
+    // opted-in installs.
+    funnelMilestones: getMilestones(),
   };
 }
 

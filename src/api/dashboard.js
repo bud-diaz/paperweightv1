@@ -19,6 +19,10 @@ const { probe } = require('../scanner/probe');
 const { generateSecret, verifyTOTP, getOtpauthUri, generateRecoveryCodes, hashCode } = require('../auth/totp');
 const { getFFmpegStatus } = require('../runtime/ffmpeg');
 const cloudflareApi = require('../runtime/cloudflare');
+const tunnelSupervisor = require('../runtime/tunnel-supervisor');
+const frpSupervisor = require('../runtime/frp-supervisor');
+const { writeFrpcConfig } = require('../runtime/frp-config');
+const { recordMilestone, getMilestones } = require('../runtime/funnel');
 const telemetryReporter = require('../telemetry/reporter');
 const asyncHandler = require('../middleware/asyncHandler');
 const { clearArtworkCache, ARTWORK_DIR } = require('./library');
@@ -177,6 +181,9 @@ router.post('/upload', (req, res) => {
 
     const category   = VALID_CATEGORIES.has(req.body.category) ? req.body.category : 'music';
     const visibility = VALID_VISIBILITY.has(req.body.visibility) ? req.body.visibility : 'public';
+    const title      = String(req.body.title || '').trim() || null;
+    const artist     = String(req.body.artist || '').trim() || null;
+    const album      = String(req.body.album || '').trim() || null;
     const tmpFilepath = path.resolve(req.file.path);
 
     try {
@@ -202,19 +209,29 @@ router.post('/upload', (req, res) => {
     // Stamp visibility immediately so the scanner's later upsert (which doesn't
     // touch the visibility column) preserves the creator's chosen value.
     // Use path.resolve() so this matches the absolute path the watcher emits.
-    getDb().prepare(`
-      INSERT INTO media (filepath, filename, category, visibility, indexed_at, updated_at)
-      VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
-      ON CONFLICT(filepath) DO UPDATE SET visibility = excluded.visibility
-    `).run(absFilepath, finalFile.filename, category, visibility);
+    const db = getDb();
+    db.prepare(`
+      INSERT INTO media (filepath, filename, category, visibility, title, artist, album, indexed_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      ON CONFLICT(filepath) DO UPDATE SET
+        visibility = excluded.visibility,
+        title      = excluded.title,
+        artist     = excluded.artist,
+        album      = excluded.album
+    `).run(absFilepath, finalFile.filename, category, visibility, title, artist, album);
+    const media = db.prepare('SELECT id FROM media WHERE filepath = ?').get(absFilepath);
 
     log('info', 'dashboard', `Uploaded: ${finalFile.filename} -> ${destDir} [${visibility}]`);
     res.status(201).json({
+      id:         media?.id || null,
       filename:   finalFile.filename,
       filepath:   absFilepath,
       size:       req.file.size,
       category,
       visibility,
+      title,
+      artist,
+      album,
     });
   });
 });
@@ -608,7 +625,13 @@ router.get('/earnings', (req, res) => {
   ).all();
 
   const subStats = db.prepare(`
-    SELECT tier, COUNT(*) AS count FROM subscriptions
+    SELECT tier, COUNT(*) AS count,
+      COALESCE(SUM(CASE
+        WHEN lower(COALESCE(currency, 'usd')) != 'usd' THEN 0
+        WHEN billing_interval = 'year' THEN COALESCE(amount_cents, 0) / 12
+        ELSE COALESCE(amount_cents, 0)
+      END), 0) AS known_monthly_cents
+    FROM subscriptions
     WHERE status = 'active' AND datetime(current_period_end) > datetime('now')
     GROUP BY tier
   `).all();
@@ -631,11 +654,12 @@ router.get('/earnings', (req, res) => {
       todayUnitsSold: todayUnlockUnits,
       todayTipCount: todayTipStats.count,
       activeSubscriptions: subStats.reduce((sum, s) => sum + s.count, 0),
+      knownMonthlyRecurringCents: subStats.reduce((sum, s) => sum + Number(s.known_monthly_cents || 0), 0),
     },
     unlocks,
     todayUnlocks,
     tips: { count: tipStats.count, grossCents: tipStats.gross_cents, recent: recentTips },
-    subscriptions: subStats.map(s => ({ tier: s.tier, count: s.count })),
+    subscriptions: subStats.map(s => ({ tier: s.tier, count: s.count, knownMonthlyCents: s.known_monthly_cents || 0 })),
   });
 });
 
@@ -768,10 +792,12 @@ router.get('/station', (req, res) => {
   const cloudflareTunnelManaged = !!(getSetting('cloudflare_tunnel_id') && getSetting('cloudflare_account_id'));
   const cloudflareTunnelPaused = getBoolSetting('cloudflare_tunnel_paused', false);
 
+  const publicTunnelConfigured = !!(config.station.frpTunnel || config.station.cloudflareTunnel);
+
   // Whether the dashboard can offer the "get a free paperweighthq.com
-  // address" tunnel option — needs a claimed slug and a registered telemetry
-  // secret (system.pape uses that secret to authenticate the request).
-  const paperweighthqTunnelAvailable = !!(config.telemetry.secretConfigured && config.station.slug);
+  // address" tunnel option. The FRP one-click route can register telemetry as
+  // part of the same request, so a claimed slug is enough to show the control.
+  const paperweighthqTunnelAvailable = !!config.station.slug;
 
   if (!row) {
     return res.json({
@@ -781,7 +807,7 @@ router.get('/station', (req, res) => {
       updatedAt: null,
       searchable: getBoolSetting('station_searchable', false),
       requirements: {
-        cloudflareTunnel: config.station.cloudflareTunnel,
+        cloudflareTunnel: publicTunnelConfigured,
         publicUrlSet: false,
       },
       cloudflareApiConfigured,
@@ -799,7 +825,7 @@ router.get('/station', (req, res) => {
     updatedAt: row.updated_at,
     searchable: getBoolSetting('station_searchable', false),
     requirements: {
-      cloudflareTunnel: config.station.cloudflareTunnel,
+      cloudflareTunnel: publicTunnelConfigured,
       publicUrlSet: !!(row && row.url),
     },
     cloudflareApiConfigured,
@@ -819,6 +845,58 @@ router.get('/runtime', (req, res) => {
     trustProxy: config.trustProxy,
     ffmpeg: getFFmpegStatus(),
   });
+});
+
+// GET /api/dashboard/setup-progress
+// Local activation-funnel checklist (migration 029, src/runtime/funnel.js) —
+// works identically whether or not opt-in telemetry is configured, since it
+// reads straight from this station's own DB rather than anything reported
+// upstream.
+router.get('/setup-progress', (req, res) => {
+  const milestones = {};
+  for (const row of getMilestones()) {
+    milestones[row.event_type] = row.occurred_at;
+  }
+  res.json({ milestones, signupDismissed: getBoolSetting('dashboard_signup_dismissed', false) });
+});
+
+// POST /api/dashboard/signup/dismiss
+// "Maybe later" — never show the post-activation signup prompt again.
+router.post('/signup/dismiss', (req, res) => {
+  setSetting('dashboard_signup_dismissed', '1');
+  res.json({ ok: true });
+});
+
+// POST /api/dashboard/signup
+// Body: { email, updatesOptIn? }
+// Optional, post-activation alternative to the (now-optional) pre-download
+// email gate on landing/download.html — shown once in-dashboard after the
+// creator's first broadcast/first-public moment, dismissible forever.
+// Reuses download_leads' existing table and dedup-by-email logic, tagged with
+// source='dashboard_signup' to stay distinguishable from download-gate leads.
+const SIGNUP_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_SIGNUP_EMAIL_LENGTH = 254;
+router.post('/signup', (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  const updatesOptIn = req.body?.updatesOptIn === true ? 1 : 0;
+
+  if (!SIGNUP_EMAIL_RE.test(email) || email.length > MAX_SIGNUP_EMAIL_LENGTH) {
+    return res.status(400).json({ error: 'Valid email is required' });
+  }
+
+  const db = getDb();
+  const existing = db.prepare('SELECT id FROM download_leads WHERE email = ? LIMIT 1').get(email);
+  if (existing) {
+    if (updatesOptIn) {
+      db.prepare('UPDATE download_leads SET updates_opt_in = 1 WHERE email = ?').run(email);
+    }
+    return res.json({ ok: true });
+  }
+
+  db.prepare(
+    "INSERT INTO download_leads (email, platform, updates_opt_in, source) VALUES (?, NULL, ?, 'dashboard_signup')"
+  ).run(email, updatesOptIn);
+  res.json({ ok: true });
 });
 
 // PUT /api/dashboard/station/url
@@ -893,7 +971,7 @@ router.put('/station/searchable', requireDesktop, asyncHandler(async (req, res) 
   const row = getDb().prepare('SELECT url FROM station_registry WHERE id = 1').get();
   const publicUrl = (row && row.url) || config.station.publicUrl || null;
   const checks = {
-    cloudflareTunnel: config.station.cloudflareTunnel,
+    cloudflareTunnel: !!(config.station.frpTunnel || config.station.cloudflareTunnel),
     publicUrlSet: !!publicUrl,
     reachable: false,
   };
@@ -910,6 +988,7 @@ router.put('/station/searchable', requireDesktop, asyncHandler(async (req, res) 
 
   setSetting('station_searchable', '1');
   log('info', 'dashboard', 'Station directory searchability enabled');
+  recordMilestone('went_public');
   res.json({ ok: true, searchable: true, checks });
 }));
 
@@ -932,9 +1011,18 @@ router.put('/station/cloudflare/token', requireDesktop, asyncHandler(async (req,
   }
   const cleanToken = apiToken.trim();
 
-  const verified = await cloudflareApi.verifyToken(cleanToken);
-  if (!verified.ok) {
-    return res.status(400).json({ error: verified.error || 'Could not verify Cloudflare API token' });
+  // Do not use Cloudflare's /user/tokens/verify endpoint as the gate here.
+  // Fresh scoped tokens can be valid for the tunnel flow while still being
+  // unable to introspect themselves. The flow's real prerequisite is that the
+  // token can list the zones Paperweight will offer in the picker.
+  const zones = await cloudflareApi.listZones(cleanToken);
+  if (!zones.ok) {
+    return res.status(400).json({
+      error: `${zones.error || 'Could not verify Cloudflare API token'} — make sure the token includes Zone:Read, DNS:Edit, and Cloudflare Tunnel:Edit permissions.`,
+    });
+  }
+  if (!Array.isArray(zones.result) || zones.result.length === 0) {
+    return res.status(400).json({ error: 'Cloudflare token verified, but it cannot see any zones. Add Zone:Read for the domain you want to use.' });
   }
 
   updateEnvKey('CLOUDFLARE_API_TOKEN', cleanToken);
@@ -981,15 +1069,15 @@ router.post('/station/cloudflare/auto-tunnel', requireDesktop, asyncHandler(asyn
   }
   const cleanHostname = hostname.trim().toLowerCase();
 
-  const accounts = await cloudflareApi.listAccounts(token);
-  if (!accounts.ok) {
-    return res.status(502).json({ error: accounts.error || 'Could not list Cloudflare accounts' });
+  const zones = await cloudflareApi.listZones(token);
+  if (!zones.ok) {
+    return res.status(502).json({ error: zones.error || 'Could not list Cloudflare zones' });
   }
-  if (!accounts.result || accounts.result.length !== 1) {
-    const count = accounts.result ? accounts.result.length : 0;
-    return res.status(409).json({ error: `Expected exactly one Cloudflare account for this token, found ${count}` });
+  const selectedZone = (zones.result || []).find(zone => zone && zone.id === zoneId);
+  const accountId = selectedZone && selectedZone.account && selectedZone.account.id;
+  if (!accountId) {
+    return res.status(409).json({ error: 'Could not determine the Cloudflare account for that zone. Make sure the token has Zone:Read for the selected domain.' });
   }
-  const accountId = accounts.result[0].id;
 
   const tunnelName = `paperweight-${(config.station.slug || 'station').slice(0, 40)}`;
   const tunnel = await cloudflareApi.createTunnel(token, accountId, tunnelName);
@@ -1031,14 +1119,29 @@ router.post('/station/cloudflare/auto-tunnel', requireDesktop, asyncHandler(asyn
   }
 
   log('info', 'dashboard', `Cloudflare tunnel auto-created for ${cleanHostname}`);
+
+  // Start the bundled, supervised cloudflared connector immediately (see
+  // src/runtime/tunnel-supervisor.js) instead of asking the owner to run
+  // `cloudflared service install <token>` in a terminal themselves — this is
+  // what makes this flow genuinely one-click. src/index.js also starts the
+  // supervisor on boot if CLOUDFLARE_TUNNEL_TOKEN is already set, so the
+  // tunnel survives a restart without repeating this route.
+  tunnelSupervisor.start(tunnelToken.result);
+
   res.json({
     ok: true,
     url: publicUrl,
-    tunnelToken: tunnelToken.result,
-    restartRequired: true,
-    note: 'Run `cloudflared service install <token>` with the tunnelToken above (see CLOUDFLARE_SETUP.md), then restart Paperweight.',
+    restartRequired: false,
+    tunnelStatus: tunnelSupervisor.getStatus(),
   });
 }));
+
+// GET /api/dashboard/station/cloudflare/tunnel/status
+// Live status of the supervised cloudflared connector (connecting/connected/
+// error), for the dashboard to poll after auto-tunnel or on page load.
+router.get('/station/cloudflare/tunnel/status', requireDesktop, (req, res) => {
+  res.json(tunnelSupervisor.getStatus());
+});
 
 // ─── Cloudflare tunnel connect/disconnect (dashboard power button) ────────────
 // Toggles public routing through the tunnel created above, via the same
@@ -1136,21 +1239,10 @@ router.post('/station/telemetry/register', requireDesktop, asyncHandler(async (r
 
   let response;
   try {
-    response = await fetch(new NodeURL('/api/modules/paperweight/register', config.telemetry.url), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug: config.station.slug, stationKey, secret }),
-    });
+    await registerTelemetrySecretForSlug(stationKey, secret);
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     return res.status(502).json({ error: `Could not reach system.pape: ${err.message}` });
-  }
-
-  if (response.status === 409) {
-    const body = await response.json().catch(() => ({}));
-    return res.status(409).json({ error: body.error || 'Slug already registered by another station' });
-  }
-  if (!response.ok) {
-    return res.status(502).json({ error: `system.pape registration failed (HTTP ${response.status})` });
   }
 
   updateEnvKey('PAPE_TELEMETRY_SECRET', secret);
@@ -1162,6 +1254,94 @@ router.post('/station/telemetry/register', requireDesktop, asyncHandler(async (r
     ok: true,
     restartRequired: true,
     note: 'Restart Paperweight for telemetry reporting (and your paperweighthq.com vanity URL) to start working.',
+  });
+}));
+
+// POST /api/dashboard/station/frp/paperweighthq/create
+// Paperweight-owned vanity tunnel flow backed by the FRP gateway. This is the
+// preferred path for <slug>.paperweighthq.com because it avoids handing creators
+// Cloudflare credentials or requiring them to own a domain.
+router.post('/station/frp/paperweighthq/create', requireDesktop, asyncHandler(async (req, res) => {
+  if (!config.station.slug) {
+    return res.status(409).json({ error: 'Claim a station slug first' });
+  }
+  if (!config.telemetry.secretConfigured) {
+    return res.status(409).json({ error: 'Register with system.pape telemetry first' });
+  }
+
+  const stationKey = telemetryReporter.getStationKey();
+  let body;
+  try {
+    body = await createFrpTunnelWithSecret(stationKey, process.env.PAPE_TELEMETRY_SECRET);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return res.status(502).json({ error: `Could not reach system.pape: ${err.message}` });
+  }
+
+  const { configPath, publicUrl } = persistFrpTunnel(body);
+
+  log('info', 'dashboard', `FRP tunnel created for ${body.hostname}`);
+  frpSupervisor.start(configPath);
+
+  res.json({
+    ok: true,
+    provider: 'frp',
+    url: publicUrl,
+    restartRequired: false,
+    tunnelStatus: frpSupervisor.getStatus(),
+  });
+}));
+
+// POST /api/dashboard/station/frp/paperweighthq/register-and-create
+// One-click public setup: if telemetry is not configured yet, register this
+// station first, then immediately ask system.pape for FRP tunnel credentials and
+// start bundled frpc. Existing telemetry installs skip the registration step.
+router.post('/station/frp/paperweighthq/register-and-create', requireDesktop, asyncHandler(async (req, res) => {
+  if (!config.station.slug) {
+    return res.status(409).json({ error: 'Claim a station slug first' });
+  }
+  if (!ensureEnvWritable()) {
+    return res.status(409).json({ error: 'Paperweight cannot persist tunnel settings because .env is missing' });
+  }
+
+  const stationKey = telemetryReporter.getStationKey();
+  let secret = process.env.PAPE_TELEMETRY_SECRET;
+  let registeredTelemetry = false;
+
+  if (!config.telemetry.secretConfigured || !secret) {
+    secret = crypto.randomBytes(32).toString('hex');
+    try {
+      await registerTelemetrySecretForSlug(stationKey, secret);
+    } catch (err) {
+      if (err.status) return res.status(err.status).json({ error: err.message });
+      return res.status(502).json({ error: `Could not reach system.pape: ${err.message}` });
+    }
+    updateEnvKey('PAPE_TELEMETRY_SECRET', secret);
+    updateEnvKey('PAPE_URL', config.telemetry.url);
+    process.env.PAPE_TELEMETRY_SECRET = secret;
+    config.telemetry.secretConfigured = true;
+    registeredTelemetry = true;
+  }
+
+  let body;
+  try {
+    body = await createFrpTunnelWithSecret(stationKey, secret);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return res.status(502).json({ error: `Could not reach system.pape: ${err.message}` });
+  }
+
+  const { configPath, publicUrl } = persistFrpTunnel(body);
+  log('info', 'dashboard', `FRP tunnel created for ${body.hostname}`);
+  frpSupervisor.start(configPath);
+
+  res.json({
+    ok: true,
+    provider: 'frp',
+    url: publicUrl,
+    registeredTelemetry,
+    restartRequired: false,
+    tunnelStatus: frpSupervisor.getStatus(),
   });
 }));
 
@@ -1224,12 +1404,16 @@ router.post('/station/cloudflare/paperweighthq/create', requireDesktop, asyncHan
   }
 
   log('info', 'dashboard', `paperweighthq.com tunnel created for ${body.hostname}`);
+
+  // Same immediate-supervision behavior as the auto-tunnel route above — no
+  // restart, no manual cloudflared step.
+  tunnelSupervisor.start(body.tunnelToken);
+
   res.json({
     ok: true,
     url: publicUrl,
-    tunnelToken: body.tunnelToken,
-    restartRequired: true,
-    note: 'Run `cloudflared service install <token>` with the tunnelToken above (see CLOUDFLARE_SETUP.md), then restart Paperweight.',
+    restartRequired: false,
+    tunnelStatus: tunnelSupervisor.getStatus(),
   });
 }));
 
@@ -1273,6 +1457,103 @@ async function pingUrl(baseUrl) {
 // Rejects values carrying CR/LF/# so a caller can never inject additional .env
 // lines. The replacement uses a function (not a string) so special replacement
 // patterns in `value` ($&, $', $`, $n) can't corrupt the file.
+function ensureEnvWritable() {
+  return fs.existsSync(path.join(config.paths.root, '.env'));
+}
+
+async function registerTelemetrySecretForSlug(stationKey, secret) {
+  const response = await fetch(new NodeURL('/api/modules/paperweight/register', config.telemetry.url), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: config.station.slug, stationKey, secret }),
+  });
+
+  if (response.status === 409) {
+    const body = await response.json().catch(() => ({}));
+    const err = new Error(body.error || 'Slug already registered by another station');
+    err.status = 409;
+    throw err;
+  }
+  if (!response.ok) {
+    const err = new Error(`system.pape registration failed (HTTP ${response.status})`);
+    err.status = 502;
+    throw err;
+  }
+}
+
+async function createFrpTunnelWithSecret(stationKey, secret) {
+  const response = await fetch(new NodeURL('/api/modules/paperweight/frp/tunnel/create', config.telemetry.url), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-telemetry-secret': secret },
+    body: JSON.stringify({ slug: config.station.slug, stationKey }),
+  });
+
+  if (response.status === 409) {
+    const body = await response.json().catch(() => ({}));
+    const err = new Error(body.error || 'Slug not claimed by this station');
+    err.status = 409;
+    throw err;
+  }
+  if (!response.ok) {
+    const err = new Error(`system.pape FRP tunnel creation failed (HTTP ${response.status})`);
+    err.status = 502;
+    throw err;
+  }
+
+  const body = await response.json().catch(() => ({}));
+  for (const key of ['hostname', 'serverAddr', 'serverPort', 'authToken', 'proxyName', 'subdomain']) {
+    if (!body[key]) {
+      const err = new Error('system.pape returned an unexpected FRP response');
+      err.status = 502;
+      throw err;
+    }
+  }
+  return body;
+}
+
+function persistFrpTunnel(body) {
+  const configPath = writeFrpcConfig(config.paths.root, {
+    serverAddr: body.serverAddr,
+    serverPort: body.serverPort,
+    authToken: body.authToken,
+    proxyName: body.proxyName,
+    subdomain: body.subdomain,
+    localPort: config.port,
+  });
+  const publicUrl = `https://${body.hostname}`;
+
+  updateEnvKey('PAPERWEIGHT_TUNNEL_PROVIDER', 'frp');
+  updateEnvKey('FRP_SERVER_ADDR', body.serverAddr);
+  updateEnvKey('FRP_SERVER_PORT', body.serverPort);
+  updateEnvKey('FRP_TUNNEL_TOKEN', body.authToken);
+  updateEnvKey('FRP_PROXY_NAME', body.proxyName);
+  updateEnvKey('FRP_SUBDOMAIN', body.subdomain);
+  updateEnvKey('FRP_CONFIG_PATH', configPath);
+  updateEnvKey('STATION_PUBLIC_URL', publicUrl);
+  updateEnvKey('HTTPS', 'true');
+  updateEnvKey('TRUST_PROXY', 'loopback');
+
+  config.station.tunnelProvider = 'frp';
+  config.station.publicUrl = publicUrl;
+  config.station.frpTunnel = true;
+  config.station.frp = {
+    serverAddr: body.serverAddr,
+    serverPort: Number(body.serverPort),
+    token: body.authToken,
+    proxyName: body.proxyName,
+    subdomain: body.subdomain,
+    configPath,
+  };
+
+  const db = getDb();
+  const existing = db.prepare('SELECT id FROM station_registry WHERE id = 1').get();
+  if (existing) {
+    db.prepare("UPDATE station_registry SET url = ?, updated_at = datetime('now') WHERE id = 1").run(publicUrl);
+  }
+
+  return { configPath, publicUrl };
+}
+
 function updateEnvKey(key, value) {
   const val = String(value ?? '');
   if (/[\r\n#]/.test(val)) {
@@ -1624,6 +1905,9 @@ router.post('/live/start', (req, res) => {
   try {
     live.startLiveMic();
     require('../notify').liveStarted();
+    require('../events').recordAudienceEvent('live_broadcast_started', {
+      source: 'dashboard', dedupeKey: `live:${Date.now()}`,
+    });
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1660,7 +1944,13 @@ router.post('/live/chunk',
 
 // POST /api/dashboard/live/stop
 router.post('/live/stop', (req, res) => {
+  const wasLive = live.getLiveState().isLive;
   live.stopLive();
+  if (wasLive) {
+    require('../events').recordAudienceEvent('live_broadcast_ended', {
+      source: 'dashboard', dedupeKey: `live-ended:${Date.now()}`,
+    });
+  }
   res.json({ ok: true });
 });
 

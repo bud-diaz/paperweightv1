@@ -45,6 +45,7 @@ let _loadDashSmartPlaylists = () => {};
 let _loadDashSchedulePreview = () => {};
 let _loadDashPosts          = () => {};
 let _loadDashSettings       = () => {};
+let _loadDashNecessity      = () => {};
 let _loadLibrary            = () => {};
 
 export function init(callbacks = {}) {
@@ -77,6 +78,7 @@ export function init(callbacks = {}) {
   if (callbacks.loadDashSchedulePreview) _loadDashSchedulePreview = callbacks.loadDashSchedulePreview;
   if (callbacks.loadDashPosts)          _loadDashPosts          = callbacks.loadDashPosts;
   if (callbacks.loadDashSettings)       _loadDashSettings       = callbacks.loadDashSettings;
+  if (callbacks.loadDashNecessity)      _loadDashNecessity      = callbacks.loadDashNecessity;
   if (callbacks.loadLibrary)            _loadLibrary            = callbacks.loadLibrary;
 }
 
@@ -384,6 +386,7 @@ export async function loadDashboard() {
   _loadDashTipConfig();
   _loadDashBio();
   _loadPlayCounts();
+  _loadDashNecessity();
 }
 
 // ── Gate event handlers ────────────────────────────────────────────────────────

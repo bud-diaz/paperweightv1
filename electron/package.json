@@ -1,5 +1,6 @@
 {
   "name": "paperweight-desktop",
+  "productName": "Paperweight",
   "version": "1.5.1",
   "private": true,
   "description": "Paperweight desktop app (Windows, macOS & Linux)",
@@ -27,6 +28,7 @@
     "directories": {
       "output": "dist"
     },
+    "publish": null,
     "asar": true,
     "files": [
       "**/*",
@@ -38,7 +40,11 @@
     "extraResources": [
       { "from": "stage/src", "to": "src" },
       { "from": "stage/node_modules", "to": "node_modules" },
-      { "from": "stage/package.json", "to": "package.json" }
+      { "from": "stage/package.json", "to": "package.json" },
+      { "from": "stage/bin", "to": "bin" },
+      { "from": "../CONTENT RESPONSIBILITY.txt", "to": "CONTENT RESPONSIBILITY.txt" },
+      { "from": "../LICENSE.txt", "to": "LICENSE.txt" },
+      { "from": "../THIRD-PARTY NOTICE.txt", "to": "THIRD-PARTY NOTICE.txt" }
     ],
     "mac": {
       "target": ["dmg", "zip"],

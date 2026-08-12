@@ -127,4 +127,34 @@ router.get('/playcounts', (req, res) => {
   res.json(map);
 });
 
+// GET /api/analytics/funnel?days=30&releaseId=1
+// Discrete first-party conversion funnel. Payment stages come only from
+// server-authoritative checkout/webhook instrumentation.
+router.get('/funnel', (req, res) => {
+  const days = Math.min(365, Math.max(1, parseInt(req.query.days, 10) || 30));
+  const releaseId = Number.parseInt(req.query.releaseId, 10) || null;
+  const db = getDb();
+  let mediaIds = null;
+  if (releaseId) {
+    mediaIds = db.prepare('SELECT media_id FROM release_campaign_items WHERE campaign_id = ?').all(releaseId).map(r => r.media_id);
+    if (!mediaIds.length) return res.status(404).json({ error: 'Release not found or has no tracks' });
+  }
+  const mediaFilter = mediaIds ? ` AND media_id IN (${mediaIds.map(() => '?').join(',')})` : '';
+  const queryCount = type => db.prepare(`
+    SELECT COUNT(*) AS n, COUNT(DISTINCT COALESCE('p:' || profile_id, 'l:' || listener_id, 'e:' || id)) AS people
+    FROM audience_events WHERE event_type = ? AND occurred_at >= datetime('now', ?)${mediaFilter}
+  `).get(type, `-${days} days`, ...(mediaIds || []));
+  const stages = [
+    ['plays', 'on_demand_started'],
+    ['gateViews', 'vault_gate_viewed'],
+    ['checkouts', 'checkout_started'],
+    ['unlocks', 'unlock_completed'],
+  ].reduce((out, [key, type]) => { out[key] = queryCount(type); return out; }, {});
+  const revenue = db.prepare(`
+    SELECT COALESCE(SUM(value_cents), 0) AS cents FROM audience_events
+    WHERE event_type='unlock_completed' AND occurred_at >= datetime('now', ?)${mediaFilter}
+  `).get(`-${days} days`, ...(mediaIds || [])).cents || 0;
+  res.json({ days, releaseId, attribution: 'last eligible station interaction within reporting window', stages, revenueCents: revenue });
+});
+
 module.exports = router;

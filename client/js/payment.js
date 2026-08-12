@@ -251,6 +251,7 @@ export async function checkVaultGate(t) {
     const d = await api.payment.vaultUnlockOptions(t.id);
     if (!d.isVault || d.alreadyUnlocked) return false;
     _showVaultGate(t, d.unlockOptions || {});
+    api.events.record('vault_gate_viewed', { mediaId: t.id, source: 'library' });
     return true;
   } catch { return false; }
 }

@@ -587,6 +587,7 @@ function playPreview(t) {
     stopPreview();
     goLive();
   }, PREVIEW_SECS * 1000);
+  api.events.record('preview_started', { mediaId: t.id, source: 'library' });
 }
 
 export async function startGatedPreview(t) {
@@ -648,6 +649,8 @@ async function handleOnDemandError({ nextUp = false } = {}) {
 }
 
 function playNextAfterOnDemand() {
+  const completedTrack = state.track ? { ...state.track } : null;
+  if (completedTrack?.id) api.events.record('on_demand_completed', { mediaId: completedTrack.id, source: 'library' });
   stopOnDemand();
   if (isPaidTier()) {
     const next = _takeNextQueueTrack();
@@ -706,6 +709,7 @@ export async function playOnDemand(t, { nextUp = false } = {}) {
   try {
     await onDemandMedia.play();
     state.playing = true;
+    api.events.record('on_demand_started', { mediaId: t.id, source: nextUp ? 'broadcast' : 'library' });
     render();
     loadQuota().then(render);
   } catch {

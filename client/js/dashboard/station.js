@@ -20,7 +20,7 @@ function renderSearchableControls(data) {
   msg.textContent = '';
   msg.className = '';
 
-  if (!requirements.cloudflareTunnel) missing.push('a Cloudflare tunnel token in .env');
+  if (!requirements.cloudflareTunnel) missing.push('a public tunnel connection');
   if (!requirements.publicUrlSet) missing.push('a registered public URL');
 
   toggle.disabled = missing.length > 0;
@@ -41,7 +41,7 @@ function renderTelemetryStatus(configured, hasSlug) {
   const registerBtn = el('btn-register-pape');
   if (!status) return;
   if (configured) {
-    status.textContent = 'Configured — reporting to system.pape.';
+    status.textContent = 'Configured — registered with PaperweightHQ.';
   } else if (!hasSlug) {
     status.textContent = 'Claim a station slug first to register.';
   } else {
@@ -52,19 +52,61 @@ function renderTelemetryStatus(configured, hasSlug) {
 
 function describeFailedChecks(checks = {}) {
   const failed = [];
-  if (checks.cloudflareTunnel === false) failed.push('Cloudflare tunnel token missing');
+  if (checks.cloudflareTunnel === false) failed.push('public tunnel missing');
   if (checks.publicUrlSet === false) failed.push('public URL missing');
   if (checks.reachable === false) failed.push('station unreachable');
   return failed.length ? ` (${failed.join(', ')})` : '';
 }
 
+const SETUP_STEPS = [
+  { key: 'install_completed',    label: 'Installed and running' },
+  { key: 'first_track_scanned',  label: 'First track added to your vault' },
+  { key: 'went_public',          label: 'Station went public' },
+  { key: 'first_listener',       label: 'First listener tuned in' },
+];
+
+export async function loadSetupProgress() {
+  const section = el('setup-progress-section');
+  const list = el('setup-progress-list');
+  const signupSection = el('dashboard-signup-section');
+  if (!section || !list) return;
+  try {
+    const { milestones, signupDismissed } = await api.dashboard.setupProgress();
+    // Hide once everything is checked off — this is a first-run nudge, not a
+    // permanent dashboard fixture.
+    const allDone = SETUP_STEPS.every(step => milestones[step.key]);
+    section.hidden = allDone;
+    if (!allDone) {
+      list.innerHTML = SETUP_STEPS.map(step => {
+        const done = !!milestones[step.key];
+        return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-family:'Space Mono',monospace;font-size:11px;color:${done ? '#39ff14' : 'rgba(255,255,255,.35)'};">
+          <span>${done ? '✓' : '○'}</span><span>${esc(step.label)}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // The optional signup prompt appears after the station's first real
+    // listener — a clear, universally-reachable high-intent moment. (Not
+    // "first broadcast start": broadcast.start('shuffle') runs automatically
+    // on every boot regardless of any creator action, so it wouldn't signal
+    // intent. Not "went public": that requires opting into search
+    // discoverability, which plenty of creators with their own existing
+    // audience may never enable.) Shown once, unless dismissed or already
+    // submitted.
+    if (signupSection) signupSection.hidden = signupDismissed || !milestones.first_listener;
+  } catch {
+    section.hidden = true;
+    if (signupSection) signupSection.hidden = true;
+  }
+}
+
 export async function loadDashStation() {
+  loadSetupProgress();
   try {
     const data = await api.dashboard.station.get();
     renderSearchableControls(data);
     renderTelemetryStatus(data.telemetryConfigured, !!data.slug);
     applyTunnelState(data);
-    if (data.cloudflareApiConfigured) loadCloudflareZones();
     const tunnelSection = el('paperweighthq-tunnel-section');
     if (tunnelSection) tunnelSection.hidden = !data.paperweighthqTunnelAvailable;
     if (!data.slug) {
@@ -131,8 +173,52 @@ export async function checkStationHealth() {
   }
 }
 
+// Polls the supervised cloudflared connector's status a few times after
+// auto-tunnel creation, since "connecting" -> "connected" happens
+// asynchronously in the background (src/runtime/tunnel-supervisor.js).
+// Stops early on a terminal state, or after a fixed number of tries so a
+// stuck connector doesn't poll forever.
+async function pollTunnelStatus(resultEl, attemptsLeft = 8) {
+  try {
+    const status = await api.dashboard.station.getTunnelStatus();
+    resultEl.textContent = status.status === 'connected'
+      ? 'Tunnel connected.'
+      : status.status === 'error'
+        ? `Tunnel error: ${status.lastError || 'unknown error'}`
+        : 'Connecting…';
+    if (status.status === 'connected' || status.status === 'error' || attemptsLeft <= 1) return;
+  } catch {
+    if (attemptsLeft <= 1) return;
+  }
+  setTimeout(() => pollTunnelStatus(resultEl, attemptsLeft - 1), 1500);
+}
+
 export function initStationHandlers() {
   el('btn-recheck-health').addEventListener('click', checkStationHealth);
+
+  el('btn-dashboard-signup').addEventListener('click', async () => {
+    const email = el('dashboard-signup-email').value.trim();
+    const msg = el('dashboard-signup-msg');
+    const btn = el('btn-dashboard-signup');
+    if (!email) return;
+    btn.disabled = true;
+    const { res, data } = await api.dashboard.signup(email, true);
+    btn.disabled = false;
+    if (res.ok) {
+      msg.style.color = '#39ff14';
+      msg.textContent = 'Thanks — you\'re signed up.';
+      await api.dashboard.dismissSignup();
+      setTimeout(() => { el('dashboard-signup-section').hidden = true; }, 1500);
+    } else {
+      msg.style.color = '#ff6b6b';
+      msg.textContent = data.error || 'Could not sign up';
+    }
+  });
+
+  el('btn-dashboard-signup-dismiss').addEventListener('click', async () => {
+    await api.dashboard.dismissSignup();
+    el('dashboard-signup-section').hidden = true;
+  });
 
   el('set-station-searchable').addEventListener('change', async () => {
     const toggle = el('set-station-searchable');
@@ -183,7 +269,8 @@ export function initStationHandlers() {
     }
   });
 
-  el('btn-save-cf-token').addEventListener('click', async () => {
+  const saveCloudflareButton = el('btn-save-cf-token');
+  if (saveCloudflareButton) saveCloudflareButton.addEventListener('click', async () => {
     const apiToken = el('cf-api-token-input').value.trim();
     const msg = el('cf-token-msg');
     if (!apiToken) return;
@@ -215,7 +302,7 @@ export function initStationHandlers() {
         renderTelemetryStatus(true, true);
       } else {
         msg.className   = 'dash-error-msg';
-        msg.textContent = data.error || 'Could not register with system.pape';
+        msg.textContent = data.error || 'Could not register with PaperweightHQ';
       }
     } finally {
       button.disabled = false;
@@ -240,7 +327,8 @@ export function initStationHandlers() {
     }
   });
 
-  el('btn-auto-tunnel').addEventListener('click', async () => {
+  const autoTunnelButton = el('btn-auto-tunnel');
+  if (autoTunnelButton) autoTunnelButton.addEventListener('click', async () => {
     const zoneId = el('cf-zone-select').value;
     const hostname = el('cf-hostname-input').value.trim();
     const msg = el('cf-tunnel-msg');
@@ -255,11 +343,11 @@ export function initStationHandlers() {
       const { res, data } = await api.dashboard.station.autoCreateTunnel(zoneId, hostname);
       if (res.ok) {
         msg.className   = 'dash-success-msg';
-        msg.textContent = `Tunnel created for ${data.url}.`;
+        msg.textContent = `Tunnel created for ${data.url}. Connecting…`;
         result.hidden = false;
-        result.textContent = `Connector token: ${data.tunnelToken} — ${data.note || ''}`;
         el('station-public-url').textContent = data.url;
         checkStationHealth();
+        pollTunnelStatus(result);
       } else {
         msg.className   = 'dash-error-msg';
         msg.textContent = data.error || 'Could not create tunnel';
@@ -278,14 +366,14 @@ export function initStationHandlers() {
     result.hidden = true;
     button.disabled = true;
     try {
-      const { res, data } = await api.dashboard.station.createPaperweighthqTunnel();
+      const { res, data } = await api.dashboard.station.createFrpPaperweighthqTunnelWithRegistration();
       if (res.ok) {
         msg.className   = 'dash-success-msg';
-        msg.textContent = `Tunnel created for ${data.url}.`;
+        msg.textContent = `Tunnel created for ${data.url}. Connecting…`;
         result.hidden = false;
-        result.textContent = `Connector token: ${data.tunnelToken} — ${data.note || ''}`;
         el('station-public-url').textContent = data.url;
         checkStationHealth();
+        pollTunnelStatus(result);
       } else {
         msg.className   = 'dash-error-msg';
         msg.textContent = data.error || 'Could not create tunnel';

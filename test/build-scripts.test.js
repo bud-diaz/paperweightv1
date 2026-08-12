@@ -10,7 +10,9 @@ const { ELF_MACHINE, assertLinuxElfArch, parseOptions } = require('../scripts/li
 const { TARGETS, prebuildArgsFor, readTargetArgs, selectTargets } = require('../scripts/build-exe');
 const { generateNativeBundle } = require('../scripts/generate-native-bundle');
 const { generateFfmpegBundle } = require('../scripts/generate-ffmpeg-bundle');
+const { generateFrpBundle } = require('../scripts/generate-frp-bundle');
 const { cleanDist, commandsFor, selectPlatform } = require('../electron/scripts/dist');
+const { PRODUCT_NAME, configureAppIdentity } = require('../electron/product');
 const { matchesPlatformDir, resourceDirsFromDist, resourceIssues } = require('../scripts/check-desktop-artifact');
 
 function elfBuffer(arch) {
@@ -65,23 +67,32 @@ test('bundle generators preserve explicit target metadata and inputs', t => {
   const dir = tempDir(t);
   const nativeInput = path.join(dir, 'better_sqlite3.node');
   const ffmpegDir = path.join(dir, 'ffmpeg');
+  const frpDir = path.join(dir, 'frp');
   const nativeOutput = path.join(dir, 'native-bundle.js');
   const ffmpegOutput = path.join(dir, 'ffmpeg-bundle.js');
+  const frpOutput = path.join(dir, 'frp-bundle.js');
   fs.mkdirSync(ffmpegDir);
+  fs.mkdirSync(frpDir);
   fs.writeFileSync(nativeInput, elfBuffer('arm64'));
   fs.writeFileSync(path.join(ffmpegDir, 'ffmpeg'), elfBuffer('arm64'));
   fs.writeFileSync(path.join(ffmpegDir, 'ffprobe'), elfBuffer('arm64'));
+  fs.writeFileSync(path.join(frpDir, 'frpc'), elfBuffer('arm64'));
 
   generateNativeBundle({ input: nativeInput, output: nativeOutput, platform: 'linux', arch: 'arm64', abi: '115' });
   generateFfmpegBundle({ inputDir: ffmpegDir, output: ffmpegOutput, platform: 'linux', arch: 'arm64' });
+  generateFrpBundle({ inputDir: frpDir, output: frpOutput, platform: 'linux', arch: 'arm64' });
   const native = require(nativeOutput);
   const ffmpeg = require(ffmpegOutput);
+  const frp = require(frpOutput);
   assert.equal(native.platform, 'linux');
   assert.equal(native.arch, 'arm64');
   assert.equal(native.abi, '115');
   assert.deepEqual(native.data, elfBuffer('arm64'));
   assert.equal(ffmpeg.platform, 'linux');
   assert.equal(ffmpeg.arch, 'arm64');
+  assert.equal(frp.platform, 'linux');
+  assert.equal(frp.arch, 'arm64');
+  assert.ok(Buffer.isBuffer(frp.frpc.data));
 });
 
 test('Electron dist dispatch is host-aware and maps every supported host', () => {
@@ -92,6 +103,35 @@ test('Electron dist dispatch is host-aware and maps every supported host', () =>
   assert.deepEqual(commandsFor('win32').at(-1)[1].slice(-2), ['--platform', 'win32']);
   assert.deepEqual(commandsFor('linux').at(-1)[1].slice(-2), ['--platform', 'linux']);
   assert.deepEqual(commandsFor('darwin').at(-1)[1].slice(-2), ['--platform', 'darwin']);
+  assert.ok(commandsFor('linux').some(([, args]) => args.some(arg => String(arg).endsWith('stage-electron-frp.js'))));
+});
+
+test('Electron runtime identity matches package and builder product names', () => {
+  const electronPackage = require('../electron/package.json');
+  const universalConfig = require('../electron/electron-builder.universal.json');
+  const calls = [];
+  const app = {
+    setName: value => calls.push(['name', value]),
+    setAppUserModelId: value => calls.push(['appId', value]),
+  };
+
+  configureAppIdentity(app, 'win32');
+
+  assert.equal(PRODUCT_NAME, 'Paperweight');
+  assert.equal(electronPackage.productName, electronPackage.build.productName);
+  assert.equal(electronPackage.productName, universalConfig.productName);
+  assert.deepEqual(calls, [
+    ['name', PRODUCT_NAME],
+    ['appId', 'com.paperweight.desktop'],
+  ]);
+});
+
+test('macOS universal merge permits staged Mach-O resources shared by both arches', () => {
+  const universalConfig = require('../electron/electron-builder.universal.json');
+  assert.equal(
+    universalConfig.mac.x64ArchFiles,
+    '**/{*.node,bin/cloudflared,bin/frpc,bin/ffmpeg,bin/ffprobe}'
+  );
 });
 
 test('desktop dist cleanup is confined to the exact output directory', t => {

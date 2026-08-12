@@ -369,18 +369,22 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
   const originalPublicUrl = config.station.publicUrl;
   const originalBaseUrl = process.env.CLOUDFLARE_API_BASE_URL;
 
+  const stubCalls = [];
   const stub = http.createServer((req, res) => {
+    stubCalls.push(`${req.method} ${req.url}`);
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       if (req.url === '/user/tokens/verify') {
-        return res.end(JSON.stringify({ success: true, result: { status: 'active' } }));
+        res.statusCode = 403;
+        return res.end(JSON.stringify({ success: false, errors: [{ message: 'Token introspection is not allowed for this scoped token' }] }));
       }
       if (req.url === '/accounts') {
-        return res.end(JSON.stringify({ success: true, result: [{ id: 'acct1', name: 'Test Account' }] }));
+        res.statusCode = 403;
+        return res.end(JSON.stringify({ success: false, errors: [{ message: 'Account listing is not allowed for this scoped token' }] }));
       }
       if (req.url === '/zones') {
-        return res.end(JSON.stringify({ success: true, result: [{ id: 'zone1', name: 'example.com' }] }));
+        return res.end(JSON.stringify({ success: true, result: [{ id: 'zone1', name: 'example.com', account: { id: 'acct1', name: 'Test Account' } }] }));
       }
       if (req.method === 'POST' && req.url === '/accounts/acct1/cfd_tunnel') {
         return res.end(JSON.stringify({ success: true, result: { id: 'tunnel1' } }));
@@ -421,6 +425,9 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
       assert.equal(zones.res.status, 200);
       assert.deepEqual(zones.body.zones, [{ id: 'zone1', name: 'example.com' }]);
 
+      const stubCallsBeforeCreate = stubCalls.slice();
+      assert.equal(stubCallsBeforeCreate.includes('GET /user/tokens/verify'), false);
+
       db.prepare("INSERT INTO station_registry (id, slug, url) VALUES (1, 'radio-test', 'https://old.example.com')").run();
 
       const autoTunnel = await request(baseUrl, '/api/dashboard/station/cloudflare/auto-tunnel', {
@@ -430,7 +437,13 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
       });
       assert.equal(autoTunnel.res.status, 200);
       assert.equal(autoTunnel.body.url, 'https://radio.example.com');
-      assert.equal(autoTunnel.body.tunnelToken, 'connector-token-xyz');
+      // The connector token is no longer echoed to the client — the dashboard
+      // route hands it straight to the supervised cloudflared child process
+      // (src/runtime/tunnel-supervisor.js) instead of asking the owner to run
+      // `cloudflared service install <token>` themselves.
+      assert.equal(autoTunnel.body.tunnelToken, undefined);
+      assert.equal(autoTunnel.body.restartRequired, false);
+      assert.ok(autoTunnel.body.tunnelStatus);
       assert.equal(config.station.cloudflareTunnel, true);
       assert.equal(config.station.publicUrl, 'https://radio.example.com');
 
@@ -442,6 +455,7 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
       assert.equal(webBlocked.res.status, 403);
     });
   } finally {
+    require('../src/runtime/tunnel-supervisor').stop();
     stub.close();
     config.platform = originalPlatform;
     config.station.cloudflareApiToken = originalApiToken;
@@ -503,7 +517,9 @@ test('paperweighthq.com tunnel route requires slug + telemetry, then persists wh
       const created = await request(baseUrl, '/api/dashboard/station/cloudflare/paperweighthq/create', { method: 'POST', headers: auth.headers });
       assert.equal(created.res.status, 200);
       assert.equal(created.body.url, 'https://radio-test.paperweighthq.com');
-      assert.equal(created.body.tunnelToken, 'pape-connector-token');
+      assert.equal(created.body.tunnelToken, undefined);
+      assert.equal(created.body.restartRequired, false);
+      assert.ok(created.body.tunnelStatus);
       assert.equal(config.station.cloudflareTunnel, true);
       assert.equal(config.station.publicUrl, 'https://radio-test.paperweighthq.com');
       assert.equal(lastRequest.headers['x-telemetry-secret'], 'shh');
@@ -521,6 +537,7 @@ test('paperweighthq.com tunnel route requires slug + telemetry, then persists wh
       assert.equal(webBlocked.res.status, 403);
     });
   } finally {
+    require('../src/runtime/tunnel-supervisor').stop();
     stub.close();
     config.platform = originalPlatform;
     config.station.slug = originalSlug;
@@ -1103,6 +1120,38 @@ test('dashboard upload rejects unsupported multipart file types', async () => {
     const body = await upload.json();
     assert.equal(upload.status, 400);
     assert.match(body.error, /Unsupported file type/);
+  });
+});
+
+test('dashboard collection tracks can be reordered', async () => {
+  const db = freshDb();
+  const first = seedMedia(db, { title: 'First Ordered Track', filepath: '/vault/order-first.mp3' });
+  const second = seedMedia(db, { title: 'Second Ordered Track', filepath: '/vault/order-second.mp3' });
+  const project = db.prepare(
+    "INSERT INTO vault_projects (name, description, allow_free) VALUES ('Ordered Collection', 'Sortable', 1)"
+  ).run();
+  db.prepare('INSERT INTO vault_project_items (project_id, content_id, sort_order) VALUES (?, ?, ?)')
+    .run(project.lastInsertRowid, first.id, 0);
+  db.prepare('INSERT INTO vault_project_items (project_id, content_id, sort_order) VALUES (?, ?, ?)')
+    .run(project.lastInsertRowid, second.id, 1);
+
+  await withServer(async baseUrl => {
+    const reordered = await request(baseUrl, `/api/dashboard/vault/projects/${project.lastInsertRowid}/items/order`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Dashboard-Token': process.env.DASHBOARD_TOKEN,
+      },
+      body: JSON.stringify({ content_ids: [second.id, first.id] }),
+    });
+    assert.equal(reordered.res.status, 200);
+    assert.equal(reordered.body.ok, true);
+
+    const pricing = await request(baseUrl, '/api/dashboard/vault/pricing', {
+      headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+    });
+    assert.equal(pricing.res.status, 200);
+    assert.deepEqual(pricing.body.projects[0].items.map(item => item.content_id), [second.id, first.id]);
   });
 });
 

@@ -3,6 +3,7 @@ const path = require('path');
 const { getDb, log } = require('../db');
 const { probe } = require('./probe');
 const config = require('../config');
+const { recordMilestone } = require('../runtime/funnel');
 
 function isExternalMediaPath(filepath) {
   return typeof filepath === 'string' && filepath.startsWith('external://');
@@ -24,10 +25,10 @@ const upsertStmt = `
   ON CONFLICT(filepath) DO UPDATE SET
     filename   = excluded.filename,
     category   = excluded.category,
-    title      = excluded.title,
-    artist     = excluded.artist,
-    album      = excluded.album,
-    genre      = excluded.genre,
+    title      = COALESCE(excluded.title, media.title),
+    artist     = COALESCE(excluded.artist, media.artist),
+    album      = COALESCE(excluded.album, media.album),
+    genre      = COALESCE(excluded.genre, media.genre),
     duration   = excluded.duration,
     bpm        = excluded.bpm,
     tags       = excluded.tags,
@@ -73,6 +74,7 @@ function upsert(filepath, category, probeData) {
     mime_type: probeData.mime_type || null,
     visibility: config.vault.defaultVisibility,
   });
+  recordMilestone('first_track_scanned');
 }
 
 function markInactive(filepath) {

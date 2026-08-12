@@ -31,6 +31,16 @@ node scripts/backup.js --keep=30     # keep more history (default keeps 14)
 
 The dashboard's STATION section also has a **DB BACKUP** button that downloads a consistent snapshot through the browser. Schedule `npm run backup` with cron/Task Scheduler for unattended installs, and copy `data/backups/` somewhere off the machine.
 
+The **STATION OPS** drawer adds a second local safety loop: it records service checks, can create and immediately restore-verify a hot backup, keeps the latest 14 operations backups, and can automatically create a new one when the last verified backup is more than 48 hours old. These files use the name `data/backups/paperweight-ops-<timestamp>.db`.
+
+To encrypt Station Ops backups at rest, add a 32-byte key as 64 hexadecimal characters and restart:
+
+```bash
+BACKUP_ENCRYPTION_KEY=<64 hex characters>
+```
+
+Encrypted operations backups end in `.db.enc` and are decrypted only into a short-lived local file during verification. Keep the key in your password manager and in your off-machine recovery material; an encrypted backup cannot be restored without it. Local backups do not protect against disk loss, so continue copying `.env`, `vault/`, and `data/backups/` to another device or backup service.
+
 Copying `data/paperweight.db` by hand is still fine — but stop the server first if you do it that way.
 
 ## Restore
@@ -74,7 +84,7 @@ Listeners with an active subscription can cancel it themselves from the player's
 
 ## Email (SMTP)
 
-Optional. When configured, Paperweight can email password reset links to listeners and (per post, opt-in) email new posts to active supporters. Add to `.env`:
+Optional. When configured, Paperweight can email password reset links, post notifications, premiere reminders, and consent-aware automation messages. Add to `.env`:
 
 ```bash
 SMTP_HOST=smtp.example.com

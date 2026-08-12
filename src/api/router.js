@@ -26,6 +26,22 @@ router.use('/tokens',    require('./tokens'));
 router.use('/schedule',  require('./schedule'));
 router.use('/dashboard', require('./dashboard'));
 router.use('/analytics', require('./analytics'));
+router.use('/events',    require('./events'));
+router.use('/dashboard/audience-memory', require('./audience'));
+router.use('/dashboard/today', require('./today'));
+
+const releasesModule = require('./releases');
+router.use('/releases', releasesModule);
+router.use('/dashboard/releases', releasesModule.dashRouter);
+
+const automationsModule = require('./automations');
+router.use('/automations', automationsModule);
+router.use('/dashboard/automations', automationsModule.dashRouter);
+router.use('/dashboard/ops', require('./ops'));
+
+const participationModule = require('./participation');
+router.use('/participation', participationModule);
+router.use('/dashboard/participation', participationModule.dashRouter);
 
 // v1.5 routes (new)
 router.use('/listener',  require('./listener'));
@@ -59,6 +75,9 @@ router.use('/system',    require('./system'));
 // Download page email/event capture (public, no auth required)
 router.use('/download-lead', require('./download-lead'));
 router.use('/download-events', require('./download-events'));
+
+// Landing page visit beacon (public, no auth required)
+router.use('/landing/pageview', require('./landing-pageview'));
 
 // downloads.js defines two routes:
 //   GET /library/:id/signed-url  (mounted at / so becomes /api/library/:id/signed-url)

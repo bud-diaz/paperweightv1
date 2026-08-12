@@ -5,6 +5,8 @@ const live = require('../broadcast/live');
 const liveVideo = require('../broadcast/liveVideo');
 const { getDb, log } = require('../db');
 const { getSetting } = require('../db/settings');
+const { recordMilestone } = require('../runtime/funnel');
+const { identityForRequest, recordAudienceEvent } = require('../events');
 
 // In-memory listener sessions keyed by anonymous listener hash.
 // Sessions expire after 60s with no ping.
@@ -17,6 +19,10 @@ let lastDailyStatsRefreshMs = 0;
 function listenerHash(req) {
   const raw = req.ip || req.socket?.remoteAddress || '';
   return crypto.createHash('sha256').update(raw).digest('hex');
+}
+
+function activeSessionKey(req) {
+  return `${listenerHash(req)}:${req.tokenRow?.id || 'anonymous'}`;
 }
 
 function pruneExpired(nowMs = Date.now()) {
@@ -79,7 +85,8 @@ function recordListenEvent(req, state, nowMs) {
 
   const db = getDb();
   const hash = listenerHash(req);
-  const existing = activeListeners.get(hash);
+  const sessionKey = activeSessionKey(req);
+  const existing = activeListeners.get(sessionKey);
 
   if (existing?.mediaId === mediaId && existing.eventId) {
     const deltaSec = Math.max(
@@ -91,19 +98,28 @@ function recordListenEvent(req, state, nowMs) {
       .run(deltaSec, existing.eventId);
     existing.lastPingMs = nowMs;
     existing.lastMediaStartedAt = state.nowPlaying.startedAt || null;
-    activeListeners.set(hash, existing);
+    activeListeners.set(sessionKey, existing);
     return { eventId: existing.eventId, secondsDelta: deltaSec };
   }
 
+  if (existing?.eventId) {
+    db.prepare("UPDATE listen_events SET completed_at = datetime('now') WHERE id = ? AND completed_at IS NULL").run(existing.eventId);
+  }
+  const identity = identityForRequest(req, db);
   const info = db.prepare(
-    'INSERT INTO listen_events (ip_hash, media_id, seconds, tier) VALUES (?, ?, ?, ?)'
-  ).run(hash, mediaId, 0, req.tier || 'free');
+    'INSERT INTO listen_events (ip_hash, media_id, seconds, tier, profile_id, listener_id, source) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(hash, mediaId, 0, req.tier || 'free', identity.profileId, identity.listenerId, 'broadcast');
+  recordMilestone('first_listener');
 
-  activeListeners.set(hash, {
+  activeListeners.set(sessionKey, {
     mediaId,
     eventId: info.lastInsertRowid,
     lastPingMs: nowMs,
     lastMediaStartedAt: state.nowPlaying.startedAt || null,
+  });
+
+  recordAudienceEvent('broadcast_started', {
+    req, db, mediaId, source: 'broadcast', dedupeKey: `broadcast-listen:${info.lastInsertRowid}`,
   });
 
   return { eventId: info.lastInsertRowid, secondsDelta: 0 };
@@ -111,7 +127,7 @@ function recordListenEvent(req, state, nowMs) {
 
 function recordPing(req) {
   const nowMs = Date.now();
-  const hash = listenerHash(req);
+  const sessionKey = activeSessionKey(req);
   pruneExpired(nowMs);
 
   const state = broadcast.getState();
@@ -120,9 +136,9 @@ function recordPing(req) {
     if (event?.eventId && event.secondsDelta > 0) {
       maybeRefreshDailyStats(nowMs);
     } else if (!event?.eventId) {
-      const session = activeListeners.get(hash) || {};
+      const session = activeListeners.get(sessionKey) || {};
       session.lastPingMs = nowMs;
-      activeListeners.set(hash, session);
+      activeListeners.set(sessionKey, session);
     }
   } catch (err) {
     log('warn', 'analytics', `Failed to record listen event: ${err.message}`);

@@ -234,6 +234,90 @@ if (fs.existsSync(ffmpegBundlePath)) {
   fail('ffmpeg bundle missing: src/ffmpeg-bundle.js not found (run node scripts/generate-ffmpeg-bundle.js)');
 }
 
+// cloudflared is embedded by scripts/generate-cloudflared-bundle.js into
+// src/cloudflared-bundle.js — same pkg.assets workaround as ffmpeg above.
+const cloudflaredBundlePath = path.join(ROOT, 'src/cloudflared-bundle.js');
+if (fs.existsSync(cloudflaredBundlePath)) {
+  try {
+    delete require.cache[require.resolve(cloudflaredBundlePath)];
+    const cloudflaredBundle = require(cloudflaredBundlePath);
+    const cloudflaredEntry = cloudflaredBundle.cloudflared;
+    if (isFfmpegBundleEntry(cloudflaredEntry)) {
+      pass('cloudflared bundle: src/cloudflared-bundle.js exists and contains the binary');
+      if (EXPECTED_PLATFORM && cloudflaredBundle.platform !== EXPECTED_PLATFORM) {
+        fail(`cloudflared bundle platform mismatch: ${cloudflaredBundle.platform || 'unknown'} !== ${EXPECTED_PLATFORM}`);
+      }
+      if (EXPECTED_ARCH && cloudflaredBundle.arch !== EXPECTED_ARCH) {
+        fail(`cloudflared bundle architecture mismatch: ${cloudflaredBundle.arch || 'unknown'} !== ${EXPECTED_ARCH}`);
+      }
+      try {
+        const encoded = Buffer.isBuffer(cloudflaredEntry.data) ? cloudflaredEntry.data : Buffer.from(Array.isArray(cloudflaredEntry.data) ? cloudflaredEntry.data.join('') : cloudflaredEntry.data, 'base64');
+        const raw = cloudflaredEntry.compressed === true || cloudflaredEntry.compression === 'gzip' ? zlib.gunzipSync(encoded) : encoded;
+        if (cloudflaredEntry.sha256 && crypto.createHash('sha256').update(raw).digest('hex') !== cloudflaredEntry.sha256) {
+          throw new Error('cloudflared bundle hash mismatch');
+        }
+        if (EXPECTED_PLATFORM === 'linux' && EXPECTED_ARCH) {
+          assertLinuxElfBufferArch(raw, EXPECTED_ARCH, 'cloudflared bundle');
+        }
+        pass(`cloudflared bundle validated${EXPECTED_ARCH ? ` for ${EXPECTED_ARCH}` : ''}`);
+      } catch (err) {
+        fail(err.message);
+      }
+    } else if (!REQUIRE_BINARY_BUNDLES) {
+      pass('cloudflared bundle optional: build:exe regenerates packaged binaries');
+    } else {
+      fail('cloudflared bundle malformed: missing cloudflared data');
+    }
+  } catch (err) {
+    fail(`cloudflared bundle load failed: ${err.message}`);
+  }
+} else if (!REQUIRE_BINARY_BUNDLES) {
+  pass('cloudflared bundle optional: generated during build:exe');
+} else {
+  fail('cloudflared bundle missing: src/cloudflared-bundle.js not found (run node scripts/generate-cloudflared-bundle.js)');
+}
+
+const frpBundlePath = path.join(ROOT, 'src', 'frp-bundle.js');
+if (fs.existsSync(frpBundlePath)) {
+  try {
+    delete require.cache[require.resolve(frpBundlePath)];
+    const frpBundle = require(frpBundlePath);
+    const frpcEntry = frpBundle.frpc;
+    if (isFfmpegBundleEntry(frpcEntry)) {
+      pass('frp bundle: src/frp-bundle.js exists and contains frpc');
+      if (EXPECTED_PLATFORM && frpBundle.platform !== EXPECTED_PLATFORM) {
+        fail(`frp bundle platform mismatch: ${frpBundle.platform || 'unknown'} !== ${EXPECTED_PLATFORM}`);
+      }
+      if (EXPECTED_ARCH && frpBundle.arch !== EXPECTED_ARCH) {
+        fail(`frp bundle architecture mismatch: ${frpBundle.arch || 'unknown'} !== ${EXPECTED_ARCH}`);
+      }
+      try {
+        const encoded = Buffer.isBuffer(frpcEntry.data) ? frpcEntry.data : Buffer.from(Array.isArray(frpcEntry.data) ? frpcEntry.data.join('') : frpcEntry.data, 'base64');
+        const raw = frpcEntry.compressed === true || frpcEntry.compression === 'gzip' ? zlib.gunzipSync(encoded) : encoded;
+        if (frpcEntry.sha256 && crypto.createHash('sha256').update(raw).digest('hex') !== frpcEntry.sha256) {
+          throw new Error('frpc bundle hash mismatch');
+        }
+        if (EXPECTED_PLATFORM === 'linux' && EXPECTED_ARCH) {
+          assertLinuxElfBufferArch(raw, EXPECTED_ARCH, 'frpc bundle');
+        }
+        pass(`frpc bundle validated${EXPECTED_ARCH ? ` for ${EXPECTED_ARCH}` : ''}`);
+      } catch (err) {
+        fail(err.message);
+      }
+    } else if (!REQUIRE_BINARY_BUNDLES) {
+      pass('frp bundle optional: build:exe regenerates packaged binaries');
+    } else {
+      fail('frp bundle malformed: missing frpc data');
+    }
+  } catch (err) {
+    fail(`frp bundle load failed: ${err.message}`);
+  }
+} else if (!REQUIRE_BINARY_BUNDLES) {
+  pass('frp bundle optional: generated during build:exe');
+} else {
+  fail('frp bundle missing: src/frp-bundle.js not found (run node scripts/generate-frp-bundle.js)');
+}
+
 for (const rel of [
   'client/creator.html',
   'node_modules/hls.js/dist/hls.min.js',

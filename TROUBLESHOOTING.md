@@ -2,6 +2,9 @@
 
 ## FFmpeg Or ffprobe Not Found
 
+FFmpeg/ffprobe are bundled with the packaged executable and the desktop app —
+this section only applies if you're running from source with `npm start`.
+
 Run:
 
 ```bash
@@ -111,6 +114,17 @@ damaged or from an unidentified developer. Either:
   next to the Paperweight warning.
 
 This is a one-time step per install; it does not recur on subsequent launches.
+
+## ffprobe Doesn't Run On An Apple Silicon Mac
+
+The bundled `ffmpeg` binary is native Apple Silicon; the bundled `ffprobe`
+binary currently runs under Rosetta 2 (a limitation of its upstream static
+build, not something Paperweight can avoid yet). Rosetta ships by default on
+most Macs, but if it was never installed, install it once with:
+
+```bash
+softwareupdate --install-rosetta --agree-to-license
+```
 
 ## Linux Desktop App Won't Launch Or Has No Tray Icon
 

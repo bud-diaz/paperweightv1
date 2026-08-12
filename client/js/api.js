@@ -458,6 +458,23 @@ export const posts = {
 
 // ── api.docs ───────────────────────────────────────────────────────────────────────
 
+// First-party behavioral signals used by Audience Memory. These requests are
+// intentionally fire-and-forget from the player so analytics never blocks
+// playback or listener actions.
+export const events = {
+  record(type, body = {}) {
+    return _send('/api/events', { type, ...body }).catch(() => null);
+  },
+};
+
+export const participation = {
+  active() { return _json('/api/participation'); },
+  upcoming() { return _json('/api/releases/upcoming'); },
+  request(mediaId, dedication) { return _send('/api/participation/requests', { mediaId, dedication }); },
+  vote(pollId, optionId) { return _send(`/api/participation/polls/${pollId}/vote`, { optionId }); },
+  remind(campaignId) { return _send('/api/participation/reminders', { campaignId }); },
+};
+
 export const docs = {
   /**
    * GET /api/docs — list of the Markdown/text docs the Docs modal can show
@@ -498,11 +515,83 @@ export const dashboard = {
   },
 
   /**
+   * GET /api/dashboard/setup-progress — local activation-funnel checklist.
+   * @returns {{ milestones: Record<string, string>, signupDismissed: boolean }}
+   */
+  setupProgress() {
+    return _json('/api/dashboard/setup-progress');
+  },
+
+  /**
+   * POST /api/dashboard/signup — optional post-activation email signup.
+   * @param {string} email
+   * @param {boolean} updatesOptIn
+   * @returns {{ res: Response, data: { error?: string } }}
+   */
+  signup(email, updatesOptIn) {
+    return _send('/api/dashboard/signup', { email, updatesOptIn }, 'POST');
+  },
+
+  /**
+   * POST /api/dashboard/signup/dismiss — "maybe later", never ask again.
+   * @returns {{ res: Response, data: { ok: boolean } }}
+   */
+  dismissSignup() {
+    return _send('/api/dashboard/signup/dismiss', {}, 'POST');
+  },
+
+  /**
    * GET /api/dashboard/accounts — all listener accounts (for typeahead).
    * @returns {Array<{ email: string }>}
    */
   accounts() {
     return _json('/api/dashboard/accounts');
+  },
+
+  today: {
+    get() { return _json('/api/dashboard/today'); },
+    setState(key, status, days) { return _send('/api/dashboard/today/state', { key, status, days }); },
+  },
+
+  audienceMemory: {
+    people(search = '') { return _json(`/api/dashboard/audience-memory/people?search=${encodeURIComponent(search)}`); },
+    person(id) { return _json(`/api/dashboard/audience-memory/people/${id}`); },
+    segments() { return _json('/api/dashboard/audience-memory/segments'); },
+    segment(key) { return _json(`/api/dashboard/audience-memory/segments/${encodeURIComponent(key)}`); },
+  },
+
+  releases: {
+    list() { return _json('/api/dashboard/releases'); },
+    get(id) { return _json(`/api/dashboard/releases/${id}`); },
+    create(body) { return _send('/api/dashboard/releases', body); },
+    update(id, body) { return _send(`/api/dashboard/releases/${id}`, body, 'PUT'); },
+    publish(id) { return _send(`/api/dashboard/releases/${id}/publish`, {}); },
+    cancel(id) { return _send(`/api/dashboard/releases/${id}/cancel`, {}); },
+    report(id) { return _json(`/api/dashboard/releases/${id}/report`); },
+  },
+
+  automations: {
+    get() { return _json('/api/dashboard/automations'); },
+    pause(paused) { return _send('/api/dashboard/automations/pause', { paused }, 'PUT'); },
+    updateRule(id, body) { return _send(`/api/dashboard/automations/rules/${id}`, body, 'PUT'); },
+    send(id) { return _send(`/api/dashboard/automations/runs/${id}/send`, {}); },
+    sweep() { return _send('/api/dashboard/automations/sweep', {}); },
+  },
+
+  ops: {
+    get() { return _json('/api/dashboard/ops'); },
+    check() { return _send('/api/dashboard/ops/check', {}); },
+    backup() { return _send('/api/dashboard/ops/backup', {}); },
+    verify(id) { return _send(`/api/dashboard/ops/backup/${id}/verify`, {}); },
+    settings(autoBackup) { return _send('/api/dashboard/ops/settings', { autoBackup }, 'PUT'); },
+  },
+
+  participation: {
+    requests() { return _json('/api/dashboard/participation/requests'); },
+    updateRequest(id, status) { return _send(`/api/dashboard/participation/requests/${id}`, { status }, 'PUT'); },
+    polls() { return _json('/api/dashboard/participation/polls'); },
+    createPoll(body) { return _send('/api/dashboard/participation/polls', body); },
+    setPollStatus(id, status) { return _send(`/api/dashboard/participation/polls/${id}/status`, { status }, 'PUT'); },
   },
 
   // ── Payment config (Stripe + PayPal) ──────────────────────────────────────────
@@ -649,12 +738,24 @@ export const dashboard = {
 
     /**
      * POST /api/dashboard/station/cloudflare/auto-tunnel
+     * Starts the bundled, supervised cloudflared connector immediately
+     * (src/runtime/tunnel-supervisor.js) — no restart or manual terminal step
+     * needed, unlike the paperweighthq/create route below.
      * @param {string} zoneId
      * @param {string} hostname
-     * @returns {{ res: Response, data: { error?: string, url?: string, tunnelToken?: string, note?: string } }}
+     * @returns {{ res: Response, data: { error?: string, url?: string, restartRequired?: boolean, tunnelStatus?: object } }}
      */
     autoCreateTunnel(zoneId, hostname) {
       return _send('/api/dashboard/station/cloudflare/auto-tunnel', { zoneId, hostname }, 'POST');
+    },
+
+    /**
+     * GET /api/dashboard/station/cloudflare/tunnel/status
+     * Live status of the supervised cloudflared connector.
+     * @returns {{ status: string, lastError: string|null, reconnectAttempts: number, running: boolean }}
+     */
+    getTunnelStatus() {
+      return _json('/api/dashboard/station/cloudflare/tunnel/status');
     },
 
     /**
@@ -694,10 +795,20 @@ export const dashboard = {
     /**
      * POST /api/dashboard/station/cloudflare/paperweighthq/create — provision a
      * tunnel on <slug>.paperweighthq.com via system.pape (no own domain needed).
-     * @returns {{ res: Response, data: { error?: string, url?: string, tunnelToken?: string, note?: string } }}
+     * Also starts the supervised cloudflared connector immediately, same as
+     * autoCreateTunnel above.
+     * @returns {{ res: Response, data: { error?: string, url?: string, restartRequired?: boolean, tunnelStatus?: object } }}
      */
     createPaperweighthqTunnel() {
       return _send('/api/dashboard/station/cloudflare/paperweighthq/create', {}, 'POST');
+    },
+
+    createFrpPaperweighthqTunnel() {
+      return _send('/api/dashboard/station/frp/paperweighthq/create', {}, 'POST');
+    },
+
+    createFrpPaperweighthqTunnelWithRegistration() {
+      return _send('/api/dashboard/station/frp/paperweighthq/register-and-create', {}, 'POST');
     },
   },
 
@@ -940,6 +1051,18 @@ export const dashboard = {
     },
 
     /**
+     * PUT /api/dashboard/vault/pricing/track/{contentId}
+     * Body: { suggested_price, minimum_price, allow_free, payment_type, recurring_interval }
+     * Pass {} to remove vault pricing for a standalone track (resets visibility to 'public').
+     * @param {number} contentId
+     * @param {object} body
+     * @returns {{ res: Response, data: object }}
+     */
+    pricingTrack(contentId, body) {
+      return _send(`/api/dashboard/vault/pricing/track/${contentId}`, body, 'PUT');
+    },
+
+    /**
      * POST /api/dashboard/vault/projects
      * @param {object} body
      * @returns {{ res: Response, data: object }}
@@ -991,6 +1114,16 @@ export const dashboard = {
 
     addCollectionTrack(projId, body) {
       return _send(`/api/dashboard/vault/projects/${projId}/items`, body);
+    },
+
+    /**
+     * PUT /api/dashboard/vault/projects/{projId}/items/order
+     * @param {number} projId
+     * @param {{ content_ids: number[] }} body
+     * @returns {{ res: Response, data: object }}
+     */
+    reorderCollectionTracks(projId, body) {
+      return _send(`/api/dashboard/vault/projects/${projId}/items/order`, body, 'PUT');
     },
 
     /**

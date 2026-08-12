@@ -19,6 +19,10 @@ const { csrfCheck } = require('./middleware/csrfCheck');
 const asyncHandler = require('./middleware/asyncHandler');
 const { getFFmpegStatus } = require('./runtime/ffmpeg');
 const telemetry = require('./telemetry/reporter');
+const tunnelSupervisor = require('./runtime/tunnel-supervisor');
+const frpSupervisor = require('./runtime/frp-supervisor');
+const { recordMilestone } = require('./runtime/funnel');
+const jobRunner = require('./jobs/runner');
 
 const isPackaged = typeof process.pkg !== 'undefined';
 const isBundledRuntime = isPackaged || process.env.PAPERWEIGHT_DESKTOP_RUNTIME === 'true';
@@ -342,6 +346,12 @@ function createApp() {
   app.get('/landing/content-responsibility', relaxCspForLandingEmbeddable, serveLanding('/landing/content-responsibility.html', 'content-responsibility.html'));
   app.get('/landing/download',               relaxCspForLanding, serveLanding('/landing/download.html',               'download.html'));
   app.get('/landing/listen',                 relaxCspForListen,  serveLanding('/landing/listen.html',                 'listen.html'));
+  app.get('/landing/privacy',                relaxCspForLanding, serveLanding('/landing/privacy.html',                'privacy.html'));
+  app.get('/landing/terms',                  relaxCspForLanding, serveLanding('/landing/terms.html',                  'terms.html'));
+  app.get('/landing/support',                relaxCspForLanding, serveLanding('/landing/support.html',                'support.html'));
+  app.get('/landing/warranty',               relaxCspForLanding, serveLanding('/landing/warranty.html',               'warranty.html'));
+  app.get('/landing/refund',                 relaxCspForLanding, serveLanding('/landing/refund.html',                 'refund.html'));
+  app.get('/landing/station-ops',            relaxCspForLanding, serveLanding('/landing/station-ops.html',            'station-ops.html'));
 
   // Creator-mode "Docs" modal (client/js/docs.js) — README, per-platform
   // setup guides, and the Asciline third-party notice, none of which have a
@@ -450,6 +460,10 @@ function finishShutdown() {
 
 async function start() {
   initDb();
+  // First successful DB init is the closest cross-distribution proxy for
+  // "install completed" — INSERT OR IGNORE (migration 029) makes this a
+  // no-op after the very first boot, on every distribution path.
+  recordMilestone('install_completed');
   const ffmpegStatus = getFFmpegStatus();
   if (!ffmpegStatus.ok) {
     console.error(`[Paperweight] ${ffmpegStatus.message}`);
@@ -459,7 +473,20 @@ async function start() {
   releaseScheduler.start();
   broadcast.start('shuffle');
 
+  // Resume the supervised cloudflared connector across restarts (see
+  // src/runtime/tunnel-supervisor.js and the auto-tunnel dashboard route) —
+  // it's a child process of this one, so it doesn't survive on its own.
+  const provider = config.station.tunnelProvider;
+  if (provider === 'frp' && config.station.frpTunnel && config.station.frp.configPath) {
+    frpSupervisor.start(config.station.frp.configPath);
+  } else if ((provider === 'cloudflare' || !provider) && config.station.cloudflareTunnel && process.env.CLOUDFLARE_TUNNEL_TOKEN) {
+    tunnelSupervisor.start(process.env.CLOUDFLARE_TUNNEL_TOKEN);
+  }
+
   const app = createApp();
+  // createApp loads API modules, which register their durable job handlers.
+  require('./ops').ensureSchedules();
+  jobRunner.start();
   const configuredPort = config.port;
 
   // Try the configured port; if it's occupied, walk upward until a free one is
@@ -541,6 +568,9 @@ function shutdown() {
       liveVideo.stopLive();
       broadcast.stop();
       releaseScheduler.stop();
+      jobRunner.stop();
+      tunnelSupervisor.stop();
+      frpSupervisor.stop();
 
       const cleanupTasks = [Promise.resolve(stopScanner())];
       if (devReloadCleanup) {

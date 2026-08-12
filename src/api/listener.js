@@ -11,6 +11,7 @@ const { isEmailConfigured, sendMail } = require('../email');
 const { publicBaseUrl } = require('../runtime/base-url');
 const { listenerCookieOpts, clearListenerCookie } = require('../auth/cookies');
 const { isHigherTier } = require('../auth/access');
+const { recordAudienceEvent } = require('../events');
 
 const BCRYPT_ROUNDS = 10;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -241,6 +242,15 @@ router.post('/register', authLimiter, asyncHandler(async (req, res) => {
     })();
 
     const issued = issueToken(db, listenerId, 'free');
+    const profile = db.prepare('SELECT id FROM listener_profiles WHERE account_id = ? ORDER BY created_at DESC LIMIT 1').get(listenerId);
+    recordAudienceEvent('profile_created', {
+      db,
+      listenerId,
+      profileId: profile?.id,
+      source: 'library',
+      dedupeKey: `profile-created:${listenerId}`,
+      metadata: { marketing_opt_in: marketingOptIn === true },
+    });
 
     res.cookie('pw_token', issued.token, listenerCookieOpts(req));
     res.status(201).json({ token: issued.token, tier: issued.tier });
