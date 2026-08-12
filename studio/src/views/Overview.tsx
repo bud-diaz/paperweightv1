@@ -7,7 +7,8 @@ import {
 import { Metric, TrackRow } from '@/components/primitives';
 import { activity } from '@/data/mockData';
 import * as api from '@/lib/api';
-import type { ModalKey, Profile, Track, ViewKey } from '@/types';
+import { useStationIdentity } from '@/lib/hooks/useStationIdentity';
+import type { ModalKey, Track, ViewKey } from '@/types';
 
 type StreamStatus = {
   isLive: boolean;
@@ -15,7 +16,6 @@ type StreamStatus = {
   nowPlaying: { id: number; title: string; artist?: string; duration?: number } | null;
   listenerCount: number;
 };
-type HealthStatus = { station: string };
 type LibraryItem = { id: number; title: string; artist: string | null; category: string | null; duration: number | null };
 type LibraryStructure = { projects: { id: number; name: string; tracks: LibraryItem[] }[]; standalone: LibraryItem[] };
 
@@ -48,12 +48,11 @@ function toDisplayTracks(structure: LibraryStructure | undefined): Track[] {
   }));
 }
 
-export function Overview({ profile, onOpen, onPlay, playing, onNavigate }: { profile: Profile; onOpen: (modal: ModalKey) => void; onPlay: () => void; playing: boolean; onNavigate: (view: ViewKey) => void }) {
+export function Overview({ onOpen, onPlay, playing, onNavigate }: { onOpen: (modal: ModalKey) => void; onPlay: () => void; playing: boolean; onNavigate: (view: ViewKey) => void }) {
+  const { stationName } = useStationIdentity();
   const { data: status } = useQuery<StreamStatus>({ queryKey: ['stream', 'status'], queryFn: () => api.stream.status(), refetchInterval: 5000 });
-  const { data: health } = useQuery<HealthStatus>({ queryKey: ['stream', 'health'], queryFn: () => api.stream.health() });
   const { data: structure } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure() });
 
-  const stationName = health?.station || profile.name;
   const displayTracks = toDisplayTracks(structure);
   const catalogCount = displayTracks.length;
   const nowPlaying = status?.nowPlaying;
@@ -63,7 +62,7 @@ export function Overview({ profile, onOpen, onPlay, playing, onNavigate }: { pro
   return (
     <div className="animate-enter">
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 mb-8">
-        <div><p className="font-mono-ui text-[10px] uppercase tracking-[.25em] text-primary mb-3">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p><h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-[-.06em] title-gradient">Good evening, {profile.name.split(' ')[0]}.</h1><p className="text-muted-foreground mt-3 max-w-md">Your signal is clear. Here’s what moved while you were making things.</p></div>
+        <div><p className="font-mono-ui text-[10px] uppercase tracking-[.25em] text-primary mb-3">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p><h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-[-.06em] title-gradient">Good evening.</h1><p className="text-muted-foreground mt-3 max-w-md">Your signal is clear. Here’s what moved while you were making things.</p></div>
         <div className="flex items-center gap-2"><button type="button" data-testid="button-open-library" onClick={() => onOpen('library')} className="ghost-button rounded-xl px-4 py-2.5 text-sm flex items-center gap-2"><BookOpen size={16} /> Library</button><button type="button" data-testid="button-upload-audio" onClick={() => onOpen('upload')} className="lime-button rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2"><CloudUpload size={16} /> Upload</button></div>
       </div>
       <div className="panel rounded-3xl p-5 sm:p-7 relative overflow-hidden mb-6">
