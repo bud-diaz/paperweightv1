@@ -8,7 +8,8 @@ import { Metric, TrackRow } from '@/components/primitives';
 import { activity } from '@/data/mockData';
 import * as api from '@/lib/api';
 import { useStationIdentity } from '@/lib/hooks/useStationIdentity';
-import type { ModalKey, Track, ViewKey } from '@/types';
+import { toDisplayTracks, type LibraryStructure } from '@/lib/library';
+import type { ModalKey, ViewKey } from '@/types';
 
 type StreamStatus = {
   isLive: boolean;
@@ -16,37 +17,6 @@ type StreamStatus = {
   nowPlaying: { id: number; title: string; artist?: string; duration?: number } | null;
   listenerCount: number;
 };
-type LibraryItem = { id: number; title: string; artist: string | null; category: string | null; duration: number | null };
-type LibraryStructure = { projects: { id: number; name: string; tracks: LibraryItem[] }[]; standalone: LibraryItem[] };
-
-const SWATCHES = ['#a9d647', '#ff816e', '#818cf3', '#e7a85b', '#6dc0bd', '#8e8cf5'];
-
-function swatchFor(id: number) {
-  return SWATCHES[id % SWATCHES.length];
-}
-
-function formatDuration(seconds: number | null | undefined) {
-  if (!seconds || !Number.isFinite(seconds)) return '—:—';
-  const total = Math.round(seconds);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-function toDisplayTracks(structure: LibraryStructure | undefined): Track[] {
-  if (!structure) return [];
-  const fromProjects = structure.projects.flatMap((project) => project.tracks.map((track) => ({ ...track, collection: project.name })));
-  const fromStandalone = structure.standalone.map((track) => ({ ...track, collection: track.category || 'Library' }));
-  return [...fromProjects, ...fromStandalone].map((track) => ({
-    id: track.id,
-    title: track.title,
-    artist: track.artist || '',
-    collection: track.collection,
-    duration: formatDuration(track.duration),
-    plays: '—',
-    color: swatchFor(track.id),
-  }));
-}
 
 export function Overview({ onOpen, onPlay, playing, onNavigate }: { onOpen: (modal: ModalKey) => void; onPlay: () => void; playing: boolean; onNavigate: (view: ViewKey) => void }) {
   const { stationName } = useStationIdentity();
