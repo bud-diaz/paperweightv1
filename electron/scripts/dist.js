@@ -59,6 +59,7 @@ function commandsFor(platform) {
   commands.push([process.execPath, [path.join(ROOT, 'scripts', 'build-desktop-runtime.js')]]);
   commands.push([process.execPath, [path.join(ROOT, 'scripts', 'stage-electron-ffmpeg.js'), '--platform', platform]]);
   commands.push([process.execPath, [path.join(ROOT, 'scripts', 'stage-electron-cloudflared.js'), '--platform', platform]]);
+  commands.push([process.execPath, [path.join(ROOT, 'scripts', 'stage-electron-frp.js'), '--platform', platform]]);
   if (platform === 'darwin') {
     commands.push([process.execPath, [builderCli, '--config', 'electron-builder.universal.json', '--mac']]);
   } else {

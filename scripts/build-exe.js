@@ -7,9 +7,11 @@ const fs = require('fs');
 const { assertLinuxElfArch } = require('./lib/binary-target');
 const { fetchFfmpeg } = require('./fetch-ffmpeg');
 const { fetchCloudflared } = require('./fetch-cloudflared');
+const { fetchFrp } = require('./fetch-frp');
 const { generateNativeBundle } = require('./generate-native-bundle');
 const { generateFfmpegBundle } = require('./generate-ffmpeg-bundle');
 const { generateCloudflaredBundle } = require('./generate-cloudflared-bundle');
+const { generateFrpBundle } = require('./generate-frp-bundle');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
@@ -17,6 +19,7 @@ const BUILD_WORK = path.join(DIST, '.build');
 const NATIVE_BUNDLE = path.join(ROOT, 'src', 'native-bundle.js');
 const FFMPEG_BUNDLE = path.join(ROOT, 'src', 'ffmpeg-bundle.js');
 const CLOUDFLARED_BUNDLE = path.join(ROOT, 'src', 'cloudflared-bundle.js');
+const FRP_BUNDLE = path.join(ROOT, 'src', 'frp-bundle.js');
 
 const TARGETS = Object.freeze([
   { key: 'linux-x64', aliases: ['linux'], platform: 'linux', arch: 'x64', label: 'Linux x64', target: 'node20-linux-x64', nodeVersion: '20.18.1', abi: '115', out: 'paperweight-linux-x64' },
@@ -140,9 +143,14 @@ async function prepareTargetBundles(target, workDir) {
   const cloudflared = await fetchCloudflared({ platform: target.platform, arch: target.arch, dest: cloudflaredDir });
   assertLinuxElfArch(cloudflared.cloudflared, target.arch, 'cloudflared');
 
+  const frpDir = path.join(ROOT, 'vendor', 'frp', target.key);
+  const frp = await fetchFrp({ platform: target.platform, arch: target.arch, dest: frpDir });
+  assertLinuxElfArch(frp.frpc, target.arch, 'frpc');
+
   generateNativeBundle({ input: nativeBinding, output: NATIVE_BUNDLE, platform: target.platform, arch: target.arch, abi: target.abi });
   generateFfmpegBundle({ inputDir: ffmpegDir, output: FFMPEG_BUNDLE, platform: target.platform, arch: target.arch });
   generateCloudflaredBundle({ inputDir: cloudflaredDir, output: CLOUDFLARED_BUNDLE, platform: target.platform, arch: target.arch });
+  generateFrpBundle({ inputDir: frpDir, output: FRP_BUNDLE, platform: target.platform, arch: target.arch });
 }
 
 async function main(args = process.argv.slice(2)) {

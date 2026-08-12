@@ -277,6 +277,47 @@ if (fs.existsSync(cloudflaredBundlePath)) {
   fail('cloudflared bundle missing: src/cloudflared-bundle.js not found (run node scripts/generate-cloudflared-bundle.js)');
 }
 
+const frpBundlePath = path.join(ROOT, 'src', 'frp-bundle.js');
+if (fs.existsSync(frpBundlePath)) {
+  try {
+    delete require.cache[require.resolve(frpBundlePath)];
+    const frpBundle = require(frpBundlePath);
+    const frpcEntry = frpBundle.frpc;
+    if (isFfmpegBundleEntry(frpcEntry)) {
+      pass('frp bundle: src/frp-bundle.js exists and contains frpc');
+      if (EXPECTED_PLATFORM && frpBundle.platform !== EXPECTED_PLATFORM) {
+        fail(`frp bundle platform mismatch: ${frpBundle.platform || 'unknown'} !== ${EXPECTED_PLATFORM}`);
+      }
+      if (EXPECTED_ARCH && frpBundle.arch !== EXPECTED_ARCH) {
+        fail(`frp bundle architecture mismatch: ${frpBundle.arch || 'unknown'} !== ${EXPECTED_ARCH}`);
+      }
+      try {
+        const encoded = Buffer.isBuffer(frpcEntry.data) ? frpcEntry.data : Buffer.from(Array.isArray(frpcEntry.data) ? frpcEntry.data.join('') : frpcEntry.data, 'base64');
+        const raw = frpcEntry.compressed === true || frpcEntry.compression === 'gzip' ? zlib.gunzipSync(encoded) : encoded;
+        if (frpcEntry.sha256 && crypto.createHash('sha256').update(raw).digest('hex') !== frpcEntry.sha256) {
+          throw new Error('frpc bundle hash mismatch');
+        }
+        if (EXPECTED_PLATFORM === 'linux' && EXPECTED_ARCH) {
+          assertLinuxElfBufferArch(raw, EXPECTED_ARCH, 'frpc bundle');
+        }
+        pass(`frpc bundle validated${EXPECTED_ARCH ? ` for ${EXPECTED_ARCH}` : ''}`);
+      } catch (err) {
+        fail(err.message);
+      }
+    } else if (!REQUIRE_BINARY_BUNDLES) {
+      pass('frp bundle optional: build:exe regenerates packaged binaries');
+    } else {
+      fail('frp bundle malformed: missing frpc data');
+    }
+  } catch (err) {
+    fail(`frp bundle load failed: ${err.message}`);
+  }
+} else if (!REQUIRE_BINARY_BUNDLES) {
+  pass('frp bundle optional: generated during build:exe');
+} else {
+  fail('frp bundle missing: src/frp-bundle.js not found (run node scripts/generate-frp-bundle.js)');
+}
+
 for (const rel of [
   'client/creator.html',
   'node_modules/hls.js/dist/hls.min.js',

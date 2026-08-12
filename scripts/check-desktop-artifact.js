@@ -155,6 +155,7 @@ function checkStage() {
     checkMissing(path.join('bin', bin), `staged Electron FFmpeg binary (${bin})`);
   }
   checkMissing(path.join('bin', cloudflaredBinName(EXPECTED_PLATFORM)), 'staged Electron cloudflared binary');
+  checkMissing(path.join('bin', frpcBinName(EXPECTED_PLATFORM)), 'staged Electron frpc binary');
 
   checkAbsent('client', 'raw client directory');
   checkAbsent('landing', 'raw landing directory');
@@ -179,6 +180,10 @@ function ffmpegBinNames(platform) {
 
 function cloudflaredBinName(platform) {
   return (platform || process.platform) === 'win32' ? 'cloudflared.exe' : 'cloudflared';
+}
+
+function frpcBinName(platform) {
+  return (platform || process.platform) === 'win32' ? 'frpc.exe' : 'frpc';
 }
 
 function matchesPlatformDir(name, platform) {
@@ -245,6 +250,9 @@ function resourceIssues(dir, expectedPlatform = EXPECTED_PLATFORM) {
   }
   if (!fs.existsSync(path.join(dir, 'bin', cloudflaredBinName(expectedPlatform)))) {
     issues.push(`missing bundled cloudflared binary bin/${cloudflaredBinName(expectedPlatform)}`);
+  }
+  if (!fs.existsSync(path.join(dir, 'bin', frpcBinName(expectedPlatform)))) {
+    issues.push(`missing bundled frpc binary bin/${frpcBinName(expectedPlatform)}`);
   }
   for (const legalFile of ['CONTENT RESPONSIBILITY.txt', 'LICENSE.txt', 'THIRD-PARTY NOTICE.txt']) {
     if (!fs.existsSync(path.join(dir, legalFile))) issues.push(`missing bundled legal file ${legalFile}`);

@@ -15,7 +15,7 @@ import { closeSettingsDropdown } from '../settings.js';
 
 export function init() {}
 
-// Tunnel connect/disconnect — dulled until CLOUDFLARE_TUNNEL_TOKEN is set,
+// Tunnel connect/disconnect — dulled until a managed public tunnel is set,
 // fed by station.js's loadDashStation() (same GET /api/dashboard/station
 // response the Station panel already fetches, no extra round trip).
 let tunnelConfigured = false;
@@ -32,7 +32,7 @@ function updateTunnelButton() {
   if (!btn) return;
   btn.disabled = !tunnelConfigured;
   btn.textContent = tunnelPaused ? 'RECONNECT TUNNEL' : 'DISCONNECT TUNNEL';
-  btn.title = tunnelConfigured ? '' : 'Set up a Cloudflare tunnel in the Station panel first';
+  btn.title = tunnelConfigured ? '' : 'Set up a public tunnel in the Station panel first';
 }
 
 async function toggleTunnel() {

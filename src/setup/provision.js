@@ -40,7 +40,6 @@ function buildEnv({
   vaultPath = './vault',
   vaultMode = 'hybrid',
   initialVisibility = 'vault',
-  cfTunnelToken = '',
   publicUrl = '',
 }) {
   const cleanStationName = cleanEnvValue('Station name', stationName);
@@ -48,11 +47,10 @@ function buildEnv({
 
   const slugAuto = slugify(cleanStationName) || 'paperweight';
   const cleanSlug = cleanEnvValue('Station slug', slug || slugAuto) || slugAuto;
-  // STATION_PUBLIC_URL must be the station's actual reachable address (tunnel,
-  // reverse proxy, or public IP) — never the <slug>.paperweighthq.com vanity
-  // URL itself. system.pape's redirect for that vanity URL targets whatever
-  // is stored here, so setting it to itself creates a redirect loop and the
-  // anti-loop guard silently bounces visitors to the apex site instead.
+  // STATION_PUBLIC_URL is optional during first-run setup. Leave it blank for
+  // the PaperweightHQ FRP gateway flow; only set it here when the station
+  // already has its own custom domain, reverse proxy, or public IP URL. Never
+  // set it to the <slug>.paperweighthq.com vanity URL itself.
   const stationPublicUrl = cleanEnvValue('Station public URL', publicUrl);
 
   const stationIdentity = identityMode === 'creator' ? 'creator' : 'anonymous';
@@ -63,8 +61,8 @@ function buildEnv({
   const cleanVaultMode = ['hybrid', 'folder', 'metadata'].includes(vaultMode) ? vaultMode : 'hybrid';
   const cleanInitialVisibility = initialVisibility === 'public' ? 'public' : 'vault';
 
-  const cleanCfToken = cleanEnvValue('Tunnel token', cfTunnelToken);
-  const trustProxyValue = cleanCfToken ? 'loopback' : 'false';
+  const hasTunnelBootstrap = !!stationPublicUrl;
+  const trustProxyValue = hasTunnelBootstrap ? 'loopback' : 'false';
 
   const dashboardToken = crypto.randomBytes(32).toString('hex');
   const downloadSigningSecret = crypto.randomBytes(32).toString('hex');
@@ -90,7 +88,6 @@ function buildEnv({
     '',
     `STATION_SLUG=${cleanSlug}`,
     `STATION_PUBLIC_URL=${stationPublicUrl}`,
-    `CLOUDFLARE_TUNNEL_TOKEN=${cleanCfToken}`,
     'PAPERWEIGHT_TUNNEL_PROVIDER=',
     'FRP_SERVER_ADDR=',
     'FRP_SERVER_PORT=7000',

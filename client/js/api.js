@@ -806,6 +806,10 @@ export const dashboard = {
     createFrpPaperweighthqTunnel() {
       return _send('/api/dashboard/station/frp/paperweighthq/create', {}, 'POST');
     },
+
+    createFrpPaperweighthqTunnelWithRegistration() {
+      return _send('/api/dashboard/station/frp/paperweighthq/register-and-create', {}, 'POST');
+    },
   },
 
   /**

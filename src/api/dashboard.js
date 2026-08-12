@@ -779,10 +779,12 @@ router.get('/station', (req, res) => {
   const cloudflareTunnelManaged = !!(getSetting('cloudflare_tunnel_id') && getSetting('cloudflare_account_id'));
   const cloudflareTunnelPaused = getBoolSetting('cloudflare_tunnel_paused', false);
 
+  const publicTunnelConfigured = !!(config.station.frpTunnel || config.station.cloudflareTunnel);
+
   // Whether the dashboard can offer the "get a free paperweighthq.com
-  // address" tunnel option — needs a claimed slug and a registered telemetry
-  // secret (system.pape uses that secret to authenticate the request).
-  const paperweighthqTunnelAvailable = !!(config.telemetry.secretConfigured && config.station.slug);
+  // address" tunnel option. The FRP one-click route can register telemetry as
+  // part of the same request, so a claimed slug is enough to show the control.
+  const paperweighthqTunnelAvailable = !!config.station.slug;
 
   if (!row) {
     return res.json({
@@ -792,7 +794,7 @@ router.get('/station', (req, res) => {
       updatedAt: null,
       searchable: getBoolSetting('station_searchable', false),
       requirements: {
-        cloudflareTunnel: config.station.cloudflareTunnel,
+        cloudflareTunnel: publicTunnelConfigured,
         publicUrlSet: false,
       },
       cloudflareApiConfigured,
@@ -810,7 +812,7 @@ router.get('/station', (req, res) => {
     updatedAt: row.updated_at,
     searchable: getBoolSetting('station_searchable', false),
     requirements: {
-      cloudflareTunnel: config.station.cloudflareTunnel,
+      cloudflareTunnel: publicTunnelConfigured,
       publicUrlSet: !!(row && row.url),
     },
     cloudflareApiConfigured,
@@ -956,7 +958,7 @@ router.put('/station/searchable', requireDesktop, asyncHandler(async (req, res) 
   const row = getDb().prepare('SELECT url FROM station_registry WHERE id = 1').get();
   const publicUrl = (row && row.url) || config.station.publicUrl || null;
   const checks = {
-    cloudflareTunnel: config.station.cloudflareTunnel,
+    cloudflareTunnel: !!(config.station.frpTunnel || config.station.cloudflareTunnel),
     publicUrlSet: !!publicUrl,
     reachable: false,
   };
@@ -1224,21 +1226,10 @@ router.post('/station/telemetry/register', requireDesktop, asyncHandler(async (r
 
   let response;
   try {
-    response = await fetch(new NodeURL('/api/modules/paperweight/register', config.telemetry.url), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug: config.station.slug, stationKey, secret }),
-    });
+    await registerTelemetrySecretForSlug(stationKey, secret);
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     return res.status(502).json({ error: `Could not reach system.pape: ${err.message}` });
-  }
-
-  if (response.status === 409) {
-    const body = await response.json().catch(() => ({}));
-    return res.status(409).json({ error: body.error || 'Slug already registered by another station' });
-  }
-  if (!response.ok) {
-    return res.status(502).json({ error: `system.pape registration failed (HTTP ${response.status})` });
   }
 
   updateEnvKey('PAPE_TELEMETRY_SECRET', secret);
@@ -1266,68 +1257,15 @@ router.post('/station/frp/paperweighthq/create', requireDesktop, asyncHandler(as
   }
 
   const stationKey = telemetryReporter.getStationKey();
-  let response;
+  let body;
   try {
-    response = await fetch(new NodeURL('/api/modules/paperweight/frp/tunnel/create', config.telemetry.url), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-telemetry-secret': process.env.PAPE_TELEMETRY_SECRET },
-      body: JSON.stringify({ slug: config.station.slug, stationKey }),
-    });
+    body = await createFrpTunnelWithSecret(stationKey, process.env.PAPE_TELEMETRY_SECRET);
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     return res.status(502).json({ error: `Could not reach system.pape: ${err.message}` });
   }
 
-  if (response.status === 409) {
-    const body = await response.json().catch(() => ({}));
-    return res.status(409).json({ error: body.error || 'Slug not claimed by this station' });
-  }
-  if (!response.ok) {
-    return res.status(502).json({ error: `system.pape FRP tunnel creation failed (HTTP ${response.status})` });
-  }
-
-  const body = await response.json().catch(() => ({}));
-  for (const key of ['hostname', 'serverAddr', 'serverPort', 'authToken', 'proxyName', 'subdomain']) {
-    if (!body[key]) return res.status(502).json({ error: 'system.pape returned an unexpected FRP response' });
-  }
-
-  const configPath = writeFrpcConfig(config.paths.root, {
-    serverAddr: body.serverAddr,
-    serverPort: body.serverPort,
-    authToken: body.authToken,
-    proxyName: body.proxyName,
-    subdomain: body.subdomain,
-    localPort: config.port,
-  });
-  const publicUrl = `https://${body.hostname}`;
-
-  updateEnvKey('PAPERWEIGHT_TUNNEL_PROVIDER', 'frp');
-  updateEnvKey('FRP_SERVER_ADDR', body.serverAddr);
-  updateEnvKey('FRP_SERVER_PORT', body.serverPort);
-  updateEnvKey('FRP_TUNNEL_TOKEN', body.authToken);
-  updateEnvKey('FRP_PROXY_NAME', body.proxyName);
-  updateEnvKey('FRP_SUBDOMAIN', body.subdomain);
-  updateEnvKey('FRP_CONFIG_PATH', configPath);
-  updateEnvKey('STATION_PUBLIC_URL', publicUrl);
-  updateEnvKey('HTTPS', 'true');
-  updateEnvKey('TRUST_PROXY', 'loopback');
-
-  config.station.tunnelProvider = 'frp';
-  config.station.publicUrl = publicUrl;
-  config.station.frpTunnel = true;
-  config.station.frp = {
-    serverAddr: body.serverAddr,
-    serverPort: Number(body.serverPort),
-    token: body.authToken,
-    proxyName: body.proxyName,
-    subdomain: body.subdomain,
-    configPath,
-  };
-
-  const db = getDb();
-  const existing = db.prepare('SELECT id FROM station_registry WHERE id = 1').get();
-  if (existing) {
-    db.prepare("UPDATE station_registry SET url = ?, updated_at = datetime('now') WHERE id = 1").run(publicUrl);
-  }
+  const { configPath, publicUrl } = persistFrpTunnel(body);
 
   log('info', 'dashboard', `FRP tunnel created for ${body.hostname}`);
   frpSupervisor.start(configPath);
@@ -1336,6 +1274,59 @@ router.post('/station/frp/paperweighthq/create', requireDesktop, asyncHandler(as
     ok: true,
     provider: 'frp',
     url: publicUrl,
+    restartRequired: false,
+    tunnelStatus: frpSupervisor.getStatus(),
+  });
+}));
+
+// POST /api/dashboard/station/frp/paperweighthq/register-and-create
+// One-click public setup: if telemetry is not configured yet, register this
+// station first, then immediately ask system.pape for FRP tunnel credentials and
+// start bundled frpc. Existing telemetry installs skip the registration step.
+router.post('/station/frp/paperweighthq/register-and-create', requireDesktop, asyncHandler(async (req, res) => {
+  if (!config.station.slug) {
+    return res.status(409).json({ error: 'Claim a station slug first' });
+  }
+  if (!ensureEnvWritable()) {
+    return res.status(409).json({ error: 'Paperweight cannot persist tunnel settings because .env is missing' });
+  }
+
+  const stationKey = telemetryReporter.getStationKey();
+  let secret = process.env.PAPE_TELEMETRY_SECRET;
+  let registeredTelemetry = false;
+
+  if (!config.telemetry.secretConfigured || !secret) {
+    secret = crypto.randomBytes(32).toString('hex');
+    try {
+      await registerTelemetrySecretForSlug(stationKey, secret);
+    } catch (err) {
+      if (err.status) return res.status(err.status).json({ error: err.message });
+      return res.status(502).json({ error: `Could not reach system.pape: ${err.message}` });
+    }
+    updateEnvKey('PAPE_TELEMETRY_SECRET', secret);
+    updateEnvKey('PAPE_URL', config.telemetry.url);
+    process.env.PAPE_TELEMETRY_SECRET = secret;
+    config.telemetry.secretConfigured = true;
+    registeredTelemetry = true;
+  }
+
+  let body;
+  try {
+    body = await createFrpTunnelWithSecret(stationKey, secret);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return res.status(502).json({ error: `Could not reach system.pape: ${err.message}` });
+  }
+
+  const { configPath, publicUrl } = persistFrpTunnel(body);
+  log('info', 'dashboard', `FRP tunnel created for ${body.hostname}`);
+  frpSupervisor.start(configPath);
+
+  res.json({
+    ok: true,
+    provider: 'frp',
+    url: publicUrl,
+    registeredTelemetry,
     restartRequired: false,
     tunnelStatus: frpSupervisor.getStatus(),
   });
@@ -1453,6 +1444,103 @@ async function pingUrl(baseUrl) {
 // Rejects values carrying CR/LF/# so a caller can never inject additional .env
 // lines. The replacement uses a function (not a string) so special replacement
 // patterns in `value` ($&, $', $`, $n) can't corrupt the file.
+function ensureEnvWritable() {
+  return fs.existsSync(path.join(config.paths.root, '.env'));
+}
+
+async function registerTelemetrySecretForSlug(stationKey, secret) {
+  const response = await fetch(new NodeURL('/api/modules/paperweight/register', config.telemetry.url), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: config.station.slug, stationKey, secret }),
+  });
+
+  if (response.status === 409) {
+    const body = await response.json().catch(() => ({}));
+    const err = new Error(body.error || 'Slug already registered by another station');
+    err.status = 409;
+    throw err;
+  }
+  if (!response.ok) {
+    const err = new Error(`system.pape registration failed (HTTP ${response.status})`);
+    err.status = 502;
+    throw err;
+  }
+}
+
+async function createFrpTunnelWithSecret(stationKey, secret) {
+  const response = await fetch(new NodeURL('/api/modules/paperweight/frp/tunnel/create', config.telemetry.url), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-telemetry-secret': secret },
+    body: JSON.stringify({ slug: config.station.slug, stationKey }),
+  });
+
+  if (response.status === 409) {
+    const body = await response.json().catch(() => ({}));
+    const err = new Error(body.error || 'Slug not claimed by this station');
+    err.status = 409;
+    throw err;
+  }
+  if (!response.ok) {
+    const err = new Error(`system.pape FRP tunnel creation failed (HTTP ${response.status})`);
+    err.status = 502;
+    throw err;
+  }
+
+  const body = await response.json().catch(() => ({}));
+  for (const key of ['hostname', 'serverAddr', 'serverPort', 'authToken', 'proxyName', 'subdomain']) {
+    if (!body[key]) {
+      const err = new Error('system.pape returned an unexpected FRP response');
+      err.status = 502;
+      throw err;
+    }
+  }
+  return body;
+}
+
+function persistFrpTunnel(body) {
+  const configPath = writeFrpcConfig(config.paths.root, {
+    serverAddr: body.serverAddr,
+    serverPort: body.serverPort,
+    authToken: body.authToken,
+    proxyName: body.proxyName,
+    subdomain: body.subdomain,
+    localPort: config.port,
+  });
+  const publicUrl = `https://${body.hostname}`;
+
+  updateEnvKey('PAPERWEIGHT_TUNNEL_PROVIDER', 'frp');
+  updateEnvKey('FRP_SERVER_ADDR', body.serverAddr);
+  updateEnvKey('FRP_SERVER_PORT', body.serverPort);
+  updateEnvKey('FRP_TUNNEL_TOKEN', body.authToken);
+  updateEnvKey('FRP_PROXY_NAME', body.proxyName);
+  updateEnvKey('FRP_SUBDOMAIN', body.subdomain);
+  updateEnvKey('FRP_CONFIG_PATH', configPath);
+  updateEnvKey('STATION_PUBLIC_URL', publicUrl);
+  updateEnvKey('HTTPS', 'true');
+  updateEnvKey('TRUST_PROXY', 'loopback');
+
+  config.station.tunnelProvider = 'frp';
+  config.station.publicUrl = publicUrl;
+  config.station.frpTunnel = true;
+  config.station.frp = {
+    serverAddr: body.serverAddr,
+    serverPort: Number(body.serverPort),
+    token: body.authToken,
+    proxyName: body.proxyName,
+    subdomain: body.subdomain,
+    configPath,
+  };
+
+  const db = getDb();
+  const existing = db.prepare('SELECT id FROM station_registry WHERE id = 1').get();
+  if (existing) {
+    db.prepare("UPDATE station_registry SET url = ?, updated_at = datetime('now') WHERE id = 1").run(publicUrl);
+  }
+
+  return { configPath, publicUrl };
+}
+
 function updateEnvKey(key, value) {
   const val = String(value ?? '');
   if (/[\r\n#]/.test(val)) {
