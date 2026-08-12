@@ -1,10 +1,13 @@
-import { useState } from 'react';
-import { Check, ChevronRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Check, ChevronRight, UserRound } from 'lucide-react';
 
+import { AccountModal } from '@/components/AccountModal';
+import { EmailLinkHandler } from '@/components/EmailLinkHandler';
 import { Logo } from '@/components/Logo';
 import { PostsTicker } from '@/components/PostsTicker';
-import { ModeSwitcher } from '@/components/primitives';
-import { ListenerAuthProvider } from '@/lib/auth/ListenerAuthContext';
+import { IconButton, ModeSwitcher } from '@/components/primitives';
+import { isWelcomeDismissed, markWelcomeDismissed, WelcomeOverlay } from '@/components/WelcomeOverlay';
+import { ListenerAuthProvider, useListenerAuth } from '@/lib/auth/ListenerAuthContext';
 import { usePlayerEngine } from '@/lib/hooks/usePlayerEngine';
 import { useStationIdentity } from '@/lib/hooks/useStationIdentity';
 import { PlayerView } from '@/views/PlayerView';
@@ -20,10 +23,23 @@ import type { ModalKey, ModeKey } from '@/types';
 function ListenerApp({ onRequestDashboardLogin }: { onRequestDashboardLogin: () => void }) {
   const [mode, setMode] = useState<'stack' | 'play'>('play');
   const [toast, setToast] = useState('');
+  const [accountModal, setAccountModal] = useState<{ tab: 'login' | 'register'; email?: string } | null>(null);
+  const [welcomeDismissed, setWelcomeDismissed] = useState(isWelcomeDismissed());
   const { stationName } = useStationIdentity();
   const engine = usePlayerEngine();
+  const auth = useListenerAuth();
 
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2800); };
+
+  // Mirrors client/js/welcome.js's maybeShowWelcome(): once a visitor is
+  // known to be logged in, the welcome overlay never shows again on this
+  // browser, even across a future logout.
+  useEffect(() => {
+    if (auth.ready && auth.state.loggedIn && !welcomeDismissed) {
+      markWelcomeDismissed();
+      setWelcomeDismissed(true);
+    }
+  }, [auth.ready, auth.state.loggedIn, welcomeDismissed]);
 
   const handleModeChange = (next: ModeKey) => {
     if (next === 'studio') { onRequestDashboardLogin(); return; }
@@ -47,6 +63,7 @@ function ListenerApp({ onRequestDashboardLogin }: { onRequestDashboardLogin: () 
           <Logo size={28} />
           <ModeSwitcher mode={mode} onChange={handleModeChange} />
           <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground"><span>{stationName}</span><ChevronRight size={13} /><span className="text-foreground">{mode === 'stack' ? 'Library' : 'Player'}</span></div>
+          <div className="ml-auto"><IconButton label="Account" onClick={() => setAccountModal({ tab: 'login' })}><UserRound size={16} /></IconButton></div>
         </header>
         <div className="p-5 sm:p-8 lg:p-10 max-w-[1480px] mx-auto mode-content pb-24">
           {mode === 'stack' ? <StackView engine={engine} onOpen={handleOpen} onNotify={notify} /> : <PlayerView engine={engine} onOpen={handleOpen} onNotify={notify} />}
@@ -54,6 +71,15 @@ function ListenerApp({ onRequestDashboardLogin }: { onRequestDashboardLogin: () 
       </main>
       <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[80] w-[min(90vw,420px)]"><PostsTicker /></div>
       {toast && <div data-testid="status-toast" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[90] panel rounded-xl px-4 py-3 text-sm flex items-center gap-2 shadow-2xl animate-enter"><Check size={15} className="text-primary" /> {toast}</div>}
+      {!welcomeDismissed && auth.ready && !auth.state.loggedIn && (
+        <WelcomeOverlay
+          stationName={stationName}
+          onDismiss={() => setWelcomeDismissed(true)}
+          onOpenLogin={(prefillEmail) => { setWelcomeDismissed(true); setAccountModal({ tab: 'login', email: prefillEmail }); }}
+        />
+      )}
+      {accountModal && <AccountModal onClose={() => setAccountModal(null)} onNotify={notify} initialTab={accountModal.tab} initialEmail={accountModal.email} />}
+      <EmailLinkHandler onNotify={notify} />
     </div>
   );
 }
