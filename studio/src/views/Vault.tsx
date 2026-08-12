@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUpRight, Disc3, FileAudio, Link2, LockKeyhole, Plus, ShieldCheck, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpRight, Copy, Disc3, FileAudio, ImagePlus, Link2, LockKeyhole, Plus, ShieldCheck, Star, Trash2 } from 'lucide-react';
 
 import { EmptyState, Field, Modal, ViewHeader } from '@/components/primitives';
 import * as api from '@/lib/api';
@@ -11,6 +11,9 @@ type VaultTrackPrice = { content_id: number; title: string; filename: string; su
 type VaultProjectItem = { content_id: number; title: string; filename: string };
 type VaultProject = { id: number; name: string; description: string | null; suggested_price: number; minimum_price: number; allow_free: 0 | 1; payment_type: string; recurring_interval: string | null; items: VaultProjectItem[] };
 type VaultPricing = { trackPrices: VaultTrackPrice[]; projects: VaultProject[] };
+type VaultToken = { id: number; label: string | null; tier: string; is_active: boolean; last_used?: string | null; scope_type?: string | null; scope_id?: number | null };
+type TokenAssignment = { id: number; email: string; created_at?: string | null };
+type Highlight = { highlight_type: string | null; highlight_id: number | null };
 
 function formatPriceCents(cents: number, allowFree: boolean) {
   if (allowFree && cents === 0) return 'Free / pay-what-you-want';
@@ -130,6 +133,34 @@ function ProjectPriceModal({ project, availableTracks, onClose, onNotify }: { pr
     },
     onError: () => onNotify('Failed to remove track — connection error.'),
   });
+  const deleteProject = useMutation({
+    mutationFn: () => api.dashboard.vault.deleteCollection(project.id),
+    onSuccess: ({ res, data }: { res: Response; data: { error?: string } }) => {
+      if (!res.ok) { onNotify(data.error || 'Failed to delete collection.'); return; }
+      invalidate();
+      onNotify('Collection deleted.');
+      onClose();
+    },
+    onError: () => onNotify('Failed to delete collection — connection error.'),
+  });
+  const reorderTrack = useMutation({
+    mutationFn: (contentIds: number[]) => api.dashboard.vault.reorderCollectionTracks(project.id, { content_ids: contentIds }),
+    onSuccess: ({ res, data }: { res: Response; data: { error?: string } }) => {
+      if (!res.ok) { onNotify(data.error || 'Failed to reorder collection.'); return; }
+      invalidate();
+      onNotify('Collection order updated.');
+    },
+    onError: () => onNotify('Failed to reorder collection — connection error.'),
+  });
+  const moveTrack = (contentId: number, direction: -1 | 1) => {
+    const ids = project.items.map((item) => item.content_id);
+    const index = ids.indexOf(contentId);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= ids.length) return;
+    const next = [...ids];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    reorderTrack.mutate(next);
+  };
 
   return <Modal title={`Manage “${project.name}”`} eyebrow="Vault / Collection pricing" onClose={onClose} width="max-w-xl">
     <PricingFields suggestedPrice={suggestedPrice} setSuggestedPrice={setSuggestedPrice} minimumPrice={minimumPrice} setMinimumPrice={setMinimumPrice} allowFree={allowFree} setAllowFree={setAllowFree} paymentType={paymentType} setPaymentType={setPaymentType} recurringInterval={recurringInterval} setRecurringInterval={setRecurringInterval} />
@@ -138,6 +169,8 @@ function ProjectPriceModal({ project, availableTracks, onClose, onNotify }: { pr
       {project.items.length ? project.items.map((item) => (
         <div key={item.content_id} data-testid={`row-project-item-${item.content_id}`} className="flex items-center gap-3 py-2.5 border-b border-white/[.07] last:border-0">
           <span className="flex-1 text-sm truncate">{item.title || item.filename}</span>
+          <button type="button" aria-label={`Move ${item.title || item.filename} up`} data-testid={`button-move-project-item-up-${item.content_id}`} onClick={() => moveTrack(item.content_id, -1)} disabled={reorderTrack.isPending} className="text-muted-foreground hover:text-primary"><ArrowUp size={14} /></button>
+          <button type="button" aria-label={`Move ${item.title || item.filename} down`} data-testid={`button-move-project-item-down-${item.content_id}`} onClick={() => moveTrack(item.content_id, 1)} disabled={reorderTrack.isPending} className="text-muted-foreground hover:text-primary"><ArrowDown size={14} /></button>
           <button type="button" aria-label={`Remove ${item.title || item.filename}`} data-testid={`button-remove-project-item-${item.content_id}`} onClick={() => removeTrack.mutate(item.content_id)} disabled={removeTrack.isPending} className="text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
         </div>
       )) : <p className="text-sm text-muted-foreground py-2">No tracks yet — add one below.</p>}
@@ -150,6 +183,7 @@ function ProjectPriceModal({ project, availableTracks, onClose, onNotify }: { pr
       </div>}
     </div>
     <div className="flex justify-end gap-2 mt-7">
+      <button type="button" data-testid="button-delete-project" onClick={() => { if (window.confirm(`Delete "${project.name}"?`)) deleteProject.mutate(); }} disabled={deleteProject.isPending} className="mr-auto ghost-button rounded-lg px-3 py-2 text-xs text-destructive disabled:opacity-50">Delete collection</button>
       <button type="button" data-testid="button-cancel-project-price" onClick={onClose} className="ghost-button rounded-lg px-3 py-2 text-xs">Close</button>
       <button type="button" data-testid="button-save-project-price" onClick={() => save.mutate()} disabled={save.isPending} className="lime-button rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50">{save.isPending ? 'Saving…' : 'Save pricing'}</button>
     </div>
@@ -158,8 +192,74 @@ function ProjectPriceModal({ project, availableTracks, onClose, onNotify }: { pr
 
 type DashboardMediaItem = { id: number; title: string | null; filename: string; visibility: string };
 
+function TokenManager({ accounts, onNotify }: { accounts: { id?: number; email: string }[]; onNotify: (message: string) => void }) {
+  const queryClient = useQueryClient();
+  const { data: tokens = [] } = useQuery<VaultToken[]>({ queryKey: ['dashboard', 'tokens'], queryFn: () => api.dashboard.tokens.list() });
+  const [label, setLabel] = useState('');
+  const [tier, setTier] = useState('subscriber');
+  const [email, setEmail] = useState('');
+  const [createdToken, setCreatedToken] = useState('');
+  const [openTokenId, setOpenTokenId] = useState<number | null>(null);
+  const { data: assignments = [] } = useQuery<TokenAssignment[]>({ queryKey: ['dashboard', 'tokens', openTokenId, 'assignments'], queryFn: () => api.dashboard.tokens.assignments(openTokenId), enabled: openTokenId != null });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['dashboard', 'tokens'] });
+  const create = useMutation({
+    mutationFn: () => api.dashboard.tokens.create({ label: label.trim(), tier }),
+    onSuccess: async ({ res, data }: { res: Response; data: { error?: string; token?: string; id?: number } }) => {
+      if (!res.ok) { onNotify(data.error || 'Failed to create token.'); return; }
+      setCreatedToken(data.token || '');
+      if (email.trim() && data.id) await api.dashboard.tokens.assign(data.id, { email: email.trim() });
+      setLabel('');
+      setEmail('');
+      invalidate();
+      onNotify('Token created.');
+    },
+    onError: () => onNotify('Failed to create token.'),
+  });
+  const revoke = useMutation({ mutationFn: (id: number) => api.dashboard.tokens.revoke(id), onSuccess: () => { invalidate(); onNotify('Token revoked.'); } });
+  const updateTier = useMutation({ mutationFn: ({ id, nextTier }: { id: number; nextTier: string }) => api.dashboard.tokens.setTier(id, { tier: nextTier }), onSuccess: () => { invalidate(); onNotify('Token tier updated.'); } });
+  const assign = useMutation({ mutationFn: ({ id, nextEmail }: { id: number; nextEmail: string }) => api.dashboard.tokens.assign(id, { email: nextEmail }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['dashboard', 'tokens', openTokenId, 'assignments'] }); onNotify('Account assigned.'); } });
+  const unassign = useMutation({ mutationFn: ({ tokenId, assignmentId }: { tokenId: number; assignmentId: number }) => api.dashboard.tokens.unassign(tokenId, assignmentId), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['dashboard', 'tokens', openTokenId, 'assignments'] }); onNotify('Assignment removed.'); } });
+
+  return <section className="panel rounded-2xl p-5 sm:p-6 mt-6">
+    <div className="flex items-center gap-3 mb-5"><LockKeyhole size={18} className="text-primary" /><h2 className="font-display text-xl font-semibold">Access tokens</h2></div>
+    <div className="grid lg:grid-cols-[1fr_160px_1fr_auto] gap-3 items-end">
+      <Field label="Token label" value={label} onChange={setLabel} placeholder="July subscriber comp" />
+      <label className="text-sm text-muted-foreground">Tier<select value={tier} onChange={(event) => setTier(event.target.value)} className="input-studio w-full rounded-xl px-3.5 py-3 mt-2"><option value="subscriber">Subscriber</option><option value="pro">Pro</option><option value="all_access">All-access</option></select></label>
+      <label className="text-sm text-muted-foreground">Assign to account<input list="vault-token-accounts" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="listener@example.com" className="input-studio w-full rounded-xl px-3.5 py-3 mt-2" /></label>
+      <button type="button" data-testid="button-create-vault-token" onClick={() => create.mutate()} disabled={!label.trim() || create.isPending} className="lime-button rounded-xl px-4 py-3 text-xs font-semibold disabled:opacity-50">Create</button>
+    </div>
+    <datalist id="vault-token-accounts">{accounts.map((account) => <option key={account.email} value={account.email} />)}</datalist>
+    {createdToken && <div className="panel-subtle rounded-xl p-4 mt-4"><p className="text-xs text-primary">Share once — this token will not be shown again.</p><button type="button" onClick={() => { navigator.clipboard?.writeText(createdToken); onNotify('Token copied.'); }} className="text-xs break-all text-left mt-2 flex gap-2"><Copy size={13} className="shrink-0 text-primary" />{createdToken}</button></div>}
+    <div className="space-y-3 mt-5">{tokens.length ? tokens.map((token) => <div key={token.id} className="panel-subtle rounded-xl p-4">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3"><div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{token.label || 'Untitled token'}</p><p className="text-xs text-muted-foreground mt-1">{token.last_used ? `used ${token.last_used.slice(0, 10)}` : 'unused'} · {token.is_active ? 'active' : 'revoked'}{token.scope_type ? ` · ${token.scope_type} #${token.scope_id}` : ''}</p></div>{token.is_active && <select value={token.tier} onChange={(event) => updateTier.mutate({ id: token.id, nextTier: event.target.value })} className="input-studio rounded-lg px-2 py-2 text-xs"><option value="subscriber">Subscriber</option><option value="pro">Pro</option><option value="all_access">All-access</option></select>}<button type="button" onClick={() => setOpenTokenId(openTokenId === token.id ? null : token.id)} className="ghost-button rounded-lg px-3 py-2 text-xs">Assignments</button><button type="button" onClick={() => revoke.mutate(token.id)} disabled={!token.is_active || revoke.isPending} className="ghost-button rounded-lg px-3 py-2 text-xs text-destructive disabled:opacity-50">Revoke</button></div>
+      {openTokenId === token.id && <div className="pt-4 mt-4 border-t border-white/[.08]"><div className="flex gap-2"><input placeholder="listener@example.com" onKeyDown={(event) => { if (event.key === 'Enter' && event.currentTarget.value.trim()) { assign.mutate({ id: token.id, nextEmail: event.currentTarget.value.trim() }); event.currentTarget.value = ''; } }} className="input-studio flex-1 rounded-lg px-3 py-2 text-sm" /><button type="button" onClick={(event) => { const input = event.currentTarget.previousElementSibling as HTMLInputElement | null; if (input?.value.trim()) { assign.mutate({ id: token.id, nextEmail: input.value.trim() }); input.value = ''; } }} className="ghost-button rounded-lg px-3 py-2 text-xs">Assign</button></div><div className="space-y-2 mt-3">{assignments.length ? assignments.map((assignment) => <div key={assignment.id} className="flex items-center gap-2 text-xs"><span className="flex-1">{assignment.email}</span><button type="button" onClick={() => unassign.mutate({ tokenId: token.id, assignmentId: assignment.id })} className="text-destructive">Remove</button></div>) : <p className="text-xs text-muted-foreground">No account assignments yet.</p>}</div></div>}
+    </div>) : <p className="text-xs text-muted-foreground">No access tokens yet.</p>}</div>
+  </section>;
+}
+
+function TrackArtworkButton({ trackId, onNotify }: { trackId: number; onNotify: (message: string) => void }) {
+  const queryClient = useQueryClient();
+  const upload = useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData();
+      formData.append('artwork', file);
+      return api.dashboard.media.uploadArtwork(trackId, formData);
+    },
+    onSuccess: ({ res, data }: { res: Response; data: { error?: string } }) => {
+      if (!res.ok) { onNotify(data.error || 'Artwork upload failed.'); return; }
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'media'] });
+      onNotify('Artwork uploaded.');
+    },
+    onError: () => onNotify('Artwork upload failed.'),
+  });
+  return <label className="ghost-button h-8 px-2.5 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"><ImagePlus size={13} /> Art<input type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) upload.mutate(file); event.target.value = ''; }} /></label>;
+}
+
 export function Vault({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void }) {
+  const queryClient = useQueryClient();
   const { data, isLoading } = useQuery<VaultPricing>({ queryKey: ['dashboard', 'vault', 'pricing'], queryFn: () => api.dashboard.vault.pricing() });
+  const { data: highlight } = useQuery<Highlight>({ queryKey: ['dashboard', 'vault', 'highlight'], queryFn: () => api.dashboard.vault.getHighlight() });
+  const { data: accounts = [] } = useQuery<{ email: string }[]>({ queryKey: ['dashboard', 'accounts'], queryFn: () => api.dashboard.accounts() });
   const { data: structure } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure() });
   const { data: mediaList } = useQuery<DashboardMediaItem[]>({ queryKey: ['dashboard', 'media'], queryFn: () => api.dashboard.media.list() });
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
@@ -177,6 +277,18 @@ export function Vault({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => void;
   const hasAnything = trackPrices.length > 0 || projects.length > 0 || unpricedVaultTracks.length > 0;
   const editingTrack = allPriceableTracks.find((track) => track.content_id === editingTrackId) || null;
   const editingProject = projects.find((project) => project.id === editingProjectId) || null;
+  const setHighlight = useMutation({
+    mutationFn: (body: { type: 'track' | 'project' | null; id: number | null }) => api.dashboard.vault.setHighlight(body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'vault', 'highlight'] });
+      onNotify('Vault highlight updated.');
+    },
+    onError: () => onNotify('Failed to update vault highlight.'),
+  });
+  const toggleHighlight = (type: 'track' | 'project', id: number) => {
+    const active = highlight?.highlight_type === type && highlight?.highlight_id === id;
+    setHighlight.mutate(active ? { type: null, id: null } : { type, id });
+  };
 
   return <div className="animate-enter"><ViewHeader eyebrow="Studio / Vault" title="Keep some things close." description="Private works, subscriber previews, and the pieces that deserve a quieter room." action={<button type="button" data-testid="button-vault-access" onClick={() => onOpen('vault')} className="ghost-button rounded-xl px-4 py-2.5 text-sm flex items-center gap-2"><LockKeyhole size={15} /> Access control</button>} />
     <div className="panel rounded-2xl p-5 sm:p-6 mb-6">
@@ -198,6 +310,7 @@ export function Vault({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => void;
             <button type="button" key={project.id} data-testid={`button-manage-collection-${project.id}`} onClick={() => setEditingProjectId(project.id)} className="panel rounded-2xl p-4 flex gap-3 items-center text-left hover:bg-white/[.04]">
               <div className="h-12 w-12 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${swatchFor(project.id)}, #272a46)` }}><Disc3 size={17} className="text-[#161827]" /></div>
               <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{project.name}</p><p className="text-xs text-muted-foreground mt-1">{project.items.length} {project.items.length === 1 ? 'track' : 'tracks'} · {formatPriceCents(project.suggested_price, !!project.allow_free)}</p></div>
+              <Star size={14} className={highlight?.highlight_type === 'project' && highlight.highlight_id === project.id ? 'text-primary' : 'text-muted-foreground'} onClick={(event) => { event.stopPropagation(); toggleHighlight('project', project.id); }} />
               <ArrowUpRight size={14} className="text-muted-foreground" />
             </button>
           ))}
@@ -210,6 +323,8 @@ export function Vault({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => void;
             <div className="panel rounded-2xl p-4 flex gap-3 items-center" key={track.content_id}>
               <div className="h-12 w-12 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${swatchFor(track.content_id)}, #272a46)` }}><FileAudio size={17} className="text-[#161827]" /></div>
               <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{track.title || track.filename}</p><p className="text-xs text-muted-foreground mt-1">{formatPriceCents(track.suggested_price, !!track.allow_free)}</p></div>
+              <TrackArtworkButton trackId={track.content_id} onNotify={onNotify} />
+              <button type="button" data-testid={`button-highlight-track-${track.content_id}`} onClick={() => toggleHighlight('track', track.content_id)} className="ghost-button h-8 px-2.5 rounded-lg text-xs flex items-center gap-1.5"><Star size={13} className={highlight?.highlight_type === 'track' && highlight.highlight_id === track.content_id ? 'text-primary' : ''} /> Highlight</button>
               <button type="button" data-testid={`button-edit-track-price-${track.content_id}`} onClick={() => setEditingTrackId(track.content_id)} className="ghost-button h-8 px-2.5 rounded-lg text-xs flex items-center gap-1.5"><Link2 size={13} /> Edit price</button>
             </div>
           ))}
@@ -230,6 +345,7 @@ export function Vault({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => void;
     </> : (
       <EmptyState icon={LockKeyhole} title="Nothing priced yet" body="Set a price on a track or collection to add it to the vault." action="Open library" onClick={() => onOpen('library')} />
     )}
+    <TokenManager accounts={accounts} onNotify={onNotify} />
     <div className="panel rounded-2xl p-5 sm:p-6 mt-6"><div className="flex items-start gap-3"><ShieldCheck size={18} className="text-primary mt-0.5" /><div><h2 className="font-display text-lg font-semibold">A little privacy, by design.</h2><p className="text-xs text-muted-foreground mt-2 max-w-xl leading-relaxed">Vault links are encrypted and expire when you choose. Anyone with a link can listen, but downloads stay off unless you explicitly turn them on.</p><button type="button" data-testid="button-learn-vault" onClick={() => onOpen('vault')} className="text-xs text-primary mt-4">Manage vault policy <ArrowUpRight size={13} className="inline ml-1" /></button></div></div></div>
     {editingTrack && <TrackPriceModal track={editingTrack} onClose={() => setEditingTrackId(null)} onNotify={onNotify} />}
     {editingProject && <ProjectPriceModal project={editingProject} availableTracks={availableTracks} onClose={() => setEditingProjectId(null)} onNotify={onNotify} />}
