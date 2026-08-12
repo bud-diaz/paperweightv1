@@ -31,7 +31,7 @@ export function Releases({ onOpen, onNotify, playing, onPlay }: { onOpen: (modal
     ? standalone.map((track) => toDisplayTrack(track, track.category || 'Standalone'))
     : (selectedProject?.tracks || []).map((track) => toDisplayTrack(track, selectedProject!.name));
 
-  return <div className="animate-enter"><ViewHeader eyebrow="Catalog / Releases" title="Your body of work." description="Shape the way people enter your world. Releases, broadcasts, and the fragments between." action={<button type="button" data-testid="button-create-collection" onClick={() => onNotify('Collection creation is wired in a later pass.')} className="lime-button rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2"><Plus size={16} /> New collection</button>} />
+  return <div className="animate-enter"><ViewHeader eyebrow="Catalog / Releases" title="Your body of work." description="Shape the way people enter your world. Releases, broadcasts, and the fragments between." action={<button type="button" data-testid="button-create-collection" onClick={() => onOpen('collection')} className="lime-button rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2"><Plus size={16} /> New collection</button>} />
 
     {isLoading ? <p className="text-sm text-muted-foreground py-6">Loading your catalog…</p> : !hasAnything ? (
       <EmptyState icon={Music2} title="Nothing in the vault yet" body="Upload a track to start your first release." action="Upload" onClick={() => onOpen('upload')} />
