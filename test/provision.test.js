@@ -104,11 +104,6 @@ test('buildEnv falls back to vault for an invalid initial import visibility', ()
   assert.equal(built.vaultDefaultVisibility, 'vault');
 });
 
-test('buildEnv sets TRUST_PROXY=loopback when a Cloudflare tunnel token is given', () => {
-  const built = buildEnv({ stationName: 'Test', cfTunnelToken: 'abc123' });
-  assert.match(built.contents, /^TRUST_PROXY=loopback$/m);
-});
-
 test('buildEnv leaves STATION_PUBLIC_URL blank by default instead of the self-referential vanity URL', () => {
   const built = buildEnv({ stationName: 'Test Station' });
   assert.match(built.contents, /^STATION_PUBLIC_URL=$/m);
@@ -116,8 +111,9 @@ test('buildEnv leaves STATION_PUBLIC_URL blank by default instead of the self-re
 });
 
 test('buildEnv writes an explicitly provided publicUrl as-is', () => {
-  const built = buildEnv({ stationName: 'Test Station', publicUrl: 'https://my-tunnel.trycloudflare.com' });
-  assert.match(built.contents, /^STATION_PUBLIC_URL=https:\/\/my-tunnel\.trycloudflare\.com$/m);
+  const built = buildEnv({ stationName: 'Test Station', publicUrl: 'https://radio.example.com' });
+  assert.match(built.contents, /^STATION_PUBLIC_URL=https:\/\/radio\.example\.com$/m);
+  assert.match(built.contents, /^TRUST_PROXY=loopback$/m);
 });
 
 test('provisionEnv writes .env and creates the expected directory tree', () => {

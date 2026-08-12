@@ -20,6 +20,7 @@ const asyncHandler = require('./middleware/asyncHandler');
 const { getFFmpegStatus } = require('./runtime/ffmpeg');
 const telemetry = require('./telemetry/reporter');
 const tunnelSupervisor = require('./runtime/tunnel-supervisor');
+const frpSupervisor = require('./runtime/frp-supervisor');
 const { recordMilestone } = require('./runtime/funnel');
 const jobRunner = require('./jobs/runner');
 
@@ -475,7 +476,10 @@ async function start() {
   // Resume the supervised cloudflared connector across restarts (see
   // src/runtime/tunnel-supervisor.js and the auto-tunnel dashboard route) —
   // it's a child process of this one, so it doesn't survive on its own.
-  if (config.station.cloudflareTunnel && process.env.CLOUDFLARE_TUNNEL_TOKEN) {
+  const provider = config.station.tunnelProvider;
+  if (provider === 'frp' && config.station.frpTunnel && config.station.frp.configPath) {
+    frpSupervisor.start(config.station.frp.configPath);
+  } else if ((provider === 'cloudflare' || !provider) && config.station.cloudflareTunnel && process.env.CLOUDFLARE_TUNNEL_TOKEN) {
     tunnelSupervisor.start(process.env.CLOUDFLARE_TUNNEL_TOKEN);
   }
 
@@ -566,6 +570,7 @@ function shutdown() {
       releaseScheduler.stop();
       jobRunner.stop();
       tunnelSupervisor.stop();
+      frpSupervisor.stop();
 
       const cleanupTasks = [Promise.resolve(stopScanner())];
       if (devReloadCleanup) {

@@ -20,7 +20,7 @@ function renderSearchableControls(data) {
   msg.textContent = '';
   msg.className = '';
 
-  if (!requirements.cloudflareTunnel) missing.push('a Cloudflare tunnel token in .env');
+  if (!requirements.cloudflareTunnel) missing.push('a public tunnel connection');
   if (!requirements.publicUrlSet) missing.push('a registered public URL');
 
   toggle.disabled = missing.length > 0;
@@ -41,7 +41,7 @@ function renderTelemetryStatus(configured, hasSlug) {
   const registerBtn = el('btn-register-pape');
   if (!status) return;
   if (configured) {
-    status.textContent = 'Configured — reporting to system.pape.';
+    status.textContent = 'Configured — registered with PaperweightHQ.';
   } else if (!hasSlug) {
     status.textContent = 'Claim a station slug first to register.';
   } else {
@@ -52,7 +52,7 @@ function renderTelemetryStatus(configured, hasSlug) {
 
 function describeFailedChecks(checks = {}) {
   const failed = [];
-  if (checks.cloudflareTunnel === false) failed.push('Cloudflare tunnel token missing');
+  if (checks.cloudflareTunnel === false) failed.push('public tunnel missing');
   if (checks.publicUrlSet === false) failed.push('public URL missing');
   if (checks.reachable === false) failed.push('station unreachable');
   return failed.length ? ` (${failed.join(', ')})` : '';
@@ -107,7 +107,6 @@ export async function loadDashStation() {
     renderSearchableControls(data);
     renderTelemetryStatus(data.telemetryConfigured, !!data.slug);
     applyTunnelState(data);
-    if (data.cloudflareApiConfigured) loadCloudflareZones();
     const tunnelSection = el('paperweighthq-tunnel-section');
     if (tunnelSection) tunnelSection.hidden = !data.paperweighthqTunnelAvailable;
     if (!data.slug) {
@@ -270,7 +269,8 @@ export function initStationHandlers() {
     }
   });
 
-  el('btn-save-cf-token').addEventListener('click', async () => {
+  const saveCloudflareButton = el('btn-save-cf-token');
+  if (saveCloudflareButton) saveCloudflareButton.addEventListener('click', async () => {
     const apiToken = el('cf-api-token-input').value.trim();
     const msg = el('cf-token-msg');
     if (!apiToken) return;
@@ -302,7 +302,7 @@ export function initStationHandlers() {
         renderTelemetryStatus(true, true);
       } else {
         msg.className   = 'dash-error-msg';
-        msg.textContent = data.error || 'Could not register with system.pape';
+        msg.textContent = data.error || 'Could not register with PaperweightHQ';
       }
     } finally {
       button.disabled = false;
@@ -327,7 +327,8 @@ export function initStationHandlers() {
     }
   });
 
-  el('btn-auto-tunnel').addEventListener('click', async () => {
+  const autoTunnelButton = el('btn-auto-tunnel');
+  if (autoTunnelButton) autoTunnelButton.addEventListener('click', async () => {
     const zoneId = el('cf-zone-select').value;
     const hostname = el('cf-hostname-input').value.trim();
     const msg = el('cf-tunnel-msg');
@@ -365,7 +366,7 @@ export function initStationHandlers() {
     result.hidden = true;
     button.disabled = true;
     try {
-      const { res, data } = await api.dashboard.station.createPaperweighthqTunnel();
+      const { res, data } = await api.dashboard.station.createFrpPaperweighthqTunnelWithRegistration();
       if (res.ok) {
         msg.className   = 'dash-success-msg';
         msg.textContent = `Tunnel created for ${data.url}. Connecting…`;

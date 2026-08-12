@@ -136,8 +136,31 @@ export async function toggleHighlight(btn, type, id) {
   btn.classList.toggle('active', !isHighlighted);
 }
 
+function changedSharedMetadata(item, body) {
+  return ['artist', 'album', 'genre', 'artwork_url'].reduce((acc, field) => {
+    const before = item[field] || null;
+    const after = body[field] || null;
+    if (before !== after) acc[field] = after;
+    return acc;
+  }, {});
+}
+
+function collectionSiblings(collectionContext, itemId) {
+  return (collectionContext?.tracks || []).filter(t => t.id !== itemId);
+}
+
+function sharedFieldLabel(fields) {
+  const labels = {
+    artist: 'Artist',
+    album: 'Album',
+    genre: 'Genre',
+    artwork_url: 'Art URL',
+  };
+  return Object.keys(fields).map(f => labels[f]).join(', ');
+}
+
 // ── Library item builder ───────────────────────────────────────────────────────
-export function buildDashLibItem(item, scopeType, scopeId, nested = false, highlight = null, trackPrice = null) {
+export function buildDashLibItem(item, scopeType, scopeId, nested = false, highlight = null, trackPrice = null, collectionContext = null) {
   const c    = trackColor(item.id);
   const isHighlighted = highlight?.highlight_type === 'track' && highlight?.highlight_id === item.id;
   const wrap = document.createElement('div');
@@ -346,14 +369,32 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
       artwork_url: wrap.querySelector(`#edit-art-${item.id}`).value.trim()     || null,
       offline_allowed: wrap.querySelector(`#edit-offline-${item.id}`).checked,
     };
+    const sharedBody = changedSharedMetadata(item, body);
+    const siblings = collectionSiblings(collectionContext, item.id);
     saveBtn.disabled = true; saveBtn.textContent = '…';
     try {
       const { res, data } = await api.dashboard.media.update(item.id, body);
       if (res.ok) {
         Object.assign(item, body);
         wrap.querySelector('.mgmt-title').textContent = body.title || item.filename;
+        if (siblings.length && Object.keys(sharedBody).length) {
+          const fields = sharedFieldLabel(sharedBody);
+          const ok = confirm(`Apply ${fields} to the other ${siblings.length} track${siblings.length === 1 ? '' : 's'} in "${collectionContext.name}"?`);
+          if (ok) {
+            let updated = 0;
+            for (const track of siblings) {
+              const { res: siblingRes } = await api.dashboard.media.update(track.id, sharedBody);
+              if (siblingRes.ok) {
+                Object.assign(track, sharedBody);
+                updated++;
+              }
+            }
+            msgEl.textContent = `Updated ${updated} collection track${updated === 1 ? '' : 's'}`;
+            msgEl.style.color = updated === siblings.length ? 'rgba(255,255,255,.5)' : '#ffb84d';
+          }
+        }
         saveBtn.textContent = '✓ SAVED';
-        msgEl.textContent = ''; msgEl.style.color = '';
+        if (!msgEl.textContent) { msgEl.textContent = ''; msgEl.style.color = ''; }
         setTimeout(() => { saveBtn.textContent = 'SAVE CHANGES'; }, 1800);
       } else {
         msgEl.textContent = data.error || 'Save failed';
@@ -394,14 +435,27 @@ export function buildDashLibItem(item, scopeType, scopeId, nested = false, highl
         artUploadBtn.textContent = '✓';
         const thumb = wrap.querySelector('.mgmt-thumb img');
         if (thumb) { thumb.src = data.artworkUrl + '?t=' + Date.now(); thumb.style.display = ''; }
+        const siblings = collectionSiblings(collectionContext, item.id);
+        if (siblings.length) {
+          const ok = confirm(`Apply this art upload to the other ${siblings.length} track${siblings.length === 1 ? '' : 's'} in "${collectionContext.name}"?`);
+          if (ok) {
+            for (const track of siblings) {
+              const siblingFd = new FormData();
+              siblingFd.append('artwork', f);
+              const { res: siblingRes, data: siblingData } = await api.dashboard.media.uploadArtwork(track.id, siblingFd);
+              if (!siblingRes.ok) throw new Error(siblingData.error || 'Collection art upload failed');
+            }
+            artUploadMsg.textContent = `✓ Art uploaded to ${siblings.length + 1} tracks`;
+          }
+        }
         setTimeout(() => { artUploadBtn.textContent = 'UPLOAD'; artUploadBtn.disabled = false; }, 2000);
       } else {
         artUploadMsg.textContent = data.error || 'Upload failed';
         artUploadMsg.style.color = '#ff6b6b';
         artUploadBtn.textContent = 'UPLOAD'; artUploadBtn.disabled = false;
       }
-    } catch {
-      artUploadMsg.textContent = 'Network error';
+    } catch (err) {
+      artUploadMsg.textContent = err.message || 'Network error';
       artUploadMsg.style.color = '#ff6b6b';
       artUploadBtn.textContent = 'UPLOAD'; artUploadBtn.disabled = false;
     }
@@ -489,7 +543,8 @@ export function buildDashLibProject(proj, allItems, highlight = null) {
   }
 
   wrap.appendChild(header);
-  tracks.forEach(item => wrap.appendChild(buildDashLibItem(item, 'track', item.id, true, highlight)));
+  const collectionContext = { id: proj.id, name: proj.name, tracks };
+  tracks.forEach(item => wrap.appendChild(buildDashLibItem(item, 'track', item.id, true, highlight, null, collectionContext)));
   return wrap;
 }
 

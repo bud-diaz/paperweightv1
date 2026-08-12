@@ -479,7 +479,7 @@
           <div id="desktop-power-items" data-desktop-only hidden>
             <button id="dp-stop-broadcast" class="pw-settings-dropdown-item desktop-power-dropdown-item">STOP BROADCAST</button>
             <button id="dp-restart-broadcast" class="pw-settings-dropdown-item desktop-power-dropdown-item">RESTART BROADCAST</button>
-            <button id="dp-toggle-tunnel" class="pw-settings-dropdown-item desktop-power-dropdown-item" title="Set up a Cloudflare tunnel in the Station panel first" disabled>DISCONNECT TUNNEL</button>
+            <button id="dp-toggle-tunnel" class="pw-settings-dropdown-item desktop-power-dropdown-item" title="Set up a public tunnel in the Station panel first" disabled>DISCONNECT TUNNEL</button>
             <button id="dp-stop-server" class="pw-settings-dropdown-item desktop-power-dropdown-item">STOP SERVER (QUITS APP)</button>
             <button id="dp-restart-server" class="pw-settings-dropdown-item desktop-power-dropdown-item">RESTART SERVER</button>
             <button id="dp-stop-both" class="pw-settings-dropdown-item desktop-power-dropdown-item">STOP BOTH</button>
@@ -895,27 +895,20 @@
               <div id="station-searchable-msg"></div>
             </div>
             <div data-desktop-only>
-              <div class="dash-edit-label" style="margin-top:14px;">CLOUDFLARE TUNNEL (OPTIONAL)</div>
+              <div class="dash-edit-label" style="margin-top:14px;">PAPERWEIGHTHQ GATEWAY (FRP)</div>
               <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;">
-                Save a Cloudflare API token to let Paperweight create the tunnel and DNS record for you. See CLOUDFLARE_SETUP.md.
+                Creates a managed FRP tunnel for your station at your paperweighthq.com slug — no Cloudflare account or domain required.
               </div>
-              <div class="station-update-row">
-                <input type="password" class="dash-input dash-input-sm" id="cf-api-token-input" placeholder="Cloudflare API token"/>
-                <button class="mgmt-btn" id="btn-save-cf-token">SAVE</button>
-              </div>
-              <div id="cf-token-msg"></div>
-              <div id="cf-tunnel-section" hidden>
+              <div id="paperweighthq-tunnel-section" hidden>
                 <div class="station-update-row">
-                  <select class="dash-input dash-input-sm" id="cf-zone-select"></select>
-                  <input type="text" class="dash-input dash-input-sm" id="cf-hostname-input" placeholder="radio.yoursite.com"/>
-                  <button class="mgmt-btn" id="btn-auto-tunnel">CREATE TUNNEL</button>
+                  <button class="mgmt-btn" id="btn-paperweighthq-tunnel">GET FREE ADDRESS</button>
                 </div>
-                <div id="cf-tunnel-msg"></div>
-                <div id="cf-tunnel-result" hidden style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.5);padding:4px 0;word-break:break-all;"></div>
+                <div id="paperweighthq-tunnel-msg"></div>
+                <div id="paperweighthq-tunnel-result" hidden style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.5);padding:4px 0;word-break:break-all;"></div>
               </div>
-              <div class="dash-edit-label" style="margin-top:14px;">SYSTEM.PAPE TELEMETRY (OPTIONAL)</div>
+              <div class="dash-edit-label" style="margin-top:14px;">PAPERWEIGHTHQ DIRECTORY (OPTIONAL)</div>
               <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;">
-                Required for your paperweighthq.com vanity URL and public directory listing to resolve.
+                Registers this station with PaperweightHQ so your vanity address and public directory listing can resolve.
               </div>
               <div class="station-update-row">
                 <button class="mgmt-btn" id="btn-register-pape">REGISTER</button>
@@ -929,17 +922,6 @@
                   <button class="mgmt-btn" id="btn-save-pape-secret">SAVE</button>
                 </div>
               </details>
-              <div id="paperweighthq-tunnel-section" hidden>
-                <div class="dash-edit-label" style="margin-top:14px;">PAPERWEIGHTHQ.COM TUNNEL (OPTIONAL)</div>
-                <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);padding:2px 0;">
-                  No domain of your own? Get a free tunnel on your station slug instead of using the Cloudflare token flow above.
-                </div>
-                <div class="station-update-row">
-                  <button class="mgmt-btn" id="btn-paperweighthq-tunnel">GET FREE ADDRESS</button>
-                </div>
-                <div id="paperweighthq-tunnel-msg"></div>
-                <div id="paperweighthq-tunnel-result" hidden style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.5);padding:4px 0;word-break:break-all;"></div>
-              </div>
             </div>
             <div class="dash-edit-label" style="margin-top:14px;">EXPORTS &amp; BACKUP</div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">
@@ -1440,6 +1422,19 @@
             </div>
             <div class="dash-upload-form" id="dash-upload-form" hidden>
               <div id="dash-upload-queue"></div>
+              <div class="dash-form-row dash-upload-collection-row">
+                <select class="dash-select" id="dash-upload-collection-mode">
+                  <option value="none">No Collection</option>
+                  <option value="existing">Add to Collection</option>
+                  <option value="new">Create Collection</option>
+                </select>
+                <select class="dash-select" id="dash-upload-collection-existing" hidden>
+                  <option value="">Loading Collections...</option>
+                </select>
+                <input class="dash-input" id="dash-upload-collection-name" type="text" placeholder="Collection name" hidden/>
+                <input class="dash-input" id="dash-upload-title" type="text" placeholder="Title"/>
+                <input class="dash-input" id="dash-upload-artist" type="text" placeholder="Artist"/>
+              </div>
               <div class="dash-form-row dash-upload-actions">
                 <select class="dash-select" id="dash-upload-cat">
                   <option value="music">Music</option>

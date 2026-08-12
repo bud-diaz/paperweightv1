@@ -94,7 +94,6 @@ form.addEventListener('submit', async e => {
     vaultPath: vaultPathInput.value,
     vaultMode: document.getElementById('vaultMode').value,
     initialVisibility,
-    cfTunnelToken: document.getElementById('cfTunnelToken').value,
     publicUrl: document.getElementById('publicUrl').value,
   };
 

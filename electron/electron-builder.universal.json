@@ -32,6 +32,6 @@
     ],
     "icon": "build/icon.icns",
     "category": "public.app-category.music",
-    "x64ArchFiles": "**/{*.node,bin/cloudflared,bin/ffmpeg,bin/ffprobe}"
+    "x64ArchFiles": "**/{*.node,bin/cloudflared,bin/frpc,bin/ffmpeg,bin/ffprobe}"
   }
 }

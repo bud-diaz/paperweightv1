@@ -242,7 +242,17 @@ const config = {
     creatorDesc: process.env.CREATOR_DESC        || '',
     slug:        process.env.STATION_SLUG        || '',
     publicUrl:   process.env.STATION_PUBLIC_URL  || '',
+    tunnelProvider: (process.env.PAPERWEIGHT_TUNNEL_PROVIDER || (process.env.FRP_TUNNEL_TOKEN ? 'frp' : process.env.CLOUDFLARE_TUNNEL_TOKEN ? 'cloudflare' : '')).trim(),
     cloudflareTunnel: !!(process.env.CLOUDFLARE_TUNNEL_TOKEN && process.env.CLOUDFLARE_TUNNEL_TOKEN.trim()),
+    frpTunnel: !!(process.env.FRP_TUNNEL_TOKEN && process.env.FRP_TUNNEL_TOKEN.trim()),
+    frp: {
+      serverAddr: (process.env.FRP_SERVER_ADDR || '').trim(),
+      serverPort: parseInt(process.env.FRP_SERVER_PORT || '7000', 10),
+      token: (process.env.FRP_TUNNEL_TOKEN || '').trim(),
+      proxyName: (process.env.FRP_PROXY_NAME || '').trim(),
+      subdomain: (process.env.FRP_SUBDOMAIN || '').trim(),
+      configPath: (process.env.FRP_CONFIG_PATH || '').trim(),
+    },
     // Separate from CLOUDFLARE_TUNNEL_TOKEN (the tunnel connector token): this
     // is a Cloudflare API token used only to let the dashboard create tunnels
     // and DNS records on the owner's behalf. See src/runtime/cloudflare.js.

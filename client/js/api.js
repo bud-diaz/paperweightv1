@@ -802,6 +802,14 @@ export const dashboard = {
     createPaperweighthqTunnel() {
       return _send('/api/dashboard/station/cloudflare/paperweighthq/create', {}, 'POST');
     },
+
+    createFrpPaperweighthqTunnel() {
+      return _send('/api/dashboard/station/frp/paperweighthq/create', {}, 'POST');
+    },
+
+    createFrpPaperweighthqTunnelWithRegistration() {
+      return _send('/api/dashboard/station/frp/paperweighthq/register-and-create', {}, 'POST');
+    },
   },
 
   /**
@@ -1106,6 +1114,16 @@ export const dashboard = {
 
     addCollectionTrack(projId, body) {
       return _send(`/api/dashboard/vault/projects/${projId}/items`, body);
+    },
+
+    /**
+     * PUT /api/dashboard/vault/projects/{projId}/items/order
+     * @param {number} projId
+     * @param {{ content_ids: number[] }} body
+     * @returns {{ res: Response, data: object }}
+     */
+    reorderCollectionTracks(projId, body) {
+      return _send(`/api/dashboard/vault/projects/${projId}/items/order`, body, 'PUT');
     },
 
     /**

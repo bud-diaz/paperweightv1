@@ -369,18 +369,22 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
   const originalPublicUrl = config.station.publicUrl;
   const originalBaseUrl = process.env.CLOUDFLARE_API_BASE_URL;
 
+  const stubCalls = [];
   const stub = http.createServer((req, res) => {
+    stubCalls.push(`${req.method} ${req.url}`);
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       if (req.url === '/user/tokens/verify') {
-        return res.end(JSON.stringify({ success: true, result: { status: 'active' } }));
+        res.statusCode = 403;
+        return res.end(JSON.stringify({ success: false, errors: [{ message: 'Token introspection is not allowed for this scoped token' }] }));
       }
       if (req.url === '/accounts') {
-        return res.end(JSON.stringify({ success: true, result: [{ id: 'acct1', name: 'Test Account' }] }));
+        res.statusCode = 403;
+        return res.end(JSON.stringify({ success: false, errors: [{ message: 'Account listing is not allowed for this scoped token' }] }));
       }
       if (req.url === '/zones') {
-        return res.end(JSON.stringify({ success: true, result: [{ id: 'zone1', name: 'example.com' }] }));
+        return res.end(JSON.stringify({ success: true, result: [{ id: 'zone1', name: 'example.com', account: { id: 'acct1', name: 'Test Account' } }] }));
       }
       if (req.method === 'POST' && req.url === '/accounts/acct1/cfd_tunnel') {
         return res.end(JSON.stringify({ success: true, result: { id: 'tunnel1' } }));
@@ -420,6 +424,9 @@ test('Cloudflare API-token routes: save token, list zones, auto-create tunnel', 
       const zones = await request(baseUrl, '/api/dashboard/station/cloudflare/zones', auth);
       assert.equal(zones.res.status, 200);
       assert.deepEqual(zones.body.zones, [{ id: 'zone1', name: 'example.com' }]);
+
+      const stubCallsBeforeCreate = stubCalls.slice();
+      assert.equal(stubCallsBeforeCreate.includes('GET /user/tokens/verify'), false);
 
       db.prepare("INSERT INTO station_registry (id, slug, url) VALUES (1, 'radio-test', 'https://old.example.com')").run();
 
@@ -1113,6 +1120,38 @@ test('dashboard upload rejects unsupported multipart file types', async () => {
     const body = await upload.json();
     assert.equal(upload.status, 400);
     assert.match(body.error, /Unsupported file type/);
+  });
+});
+
+test('dashboard collection tracks can be reordered', async () => {
+  const db = freshDb();
+  const first = seedMedia(db, { title: 'First Ordered Track', filepath: '/vault/order-first.mp3' });
+  const second = seedMedia(db, { title: 'Second Ordered Track', filepath: '/vault/order-second.mp3' });
+  const project = db.prepare(
+    "INSERT INTO vault_projects (name, description, allow_free) VALUES ('Ordered Collection', 'Sortable', 1)"
+  ).run();
+  db.prepare('INSERT INTO vault_project_items (project_id, content_id, sort_order) VALUES (?, ?, ?)')
+    .run(project.lastInsertRowid, first.id, 0);
+  db.prepare('INSERT INTO vault_project_items (project_id, content_id, sort_order) VALUES (?, ?, ?)')
+    .run(project.lastInsertRowid, second.id, 1);
+
+  await withServer(async baseUrl => {
+    const reordered = await request(baseUrl, `/api/dashboard/vault/projects/${project.lastInsertRowid}/items/order`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Dashboard-Token': process.env.DASHBOARD_TOKEN,
+      },
+      body: JSON.stringify({ content_ids: [second.id, first.id] }),
+    });
+    assert.equal(reordered.res.status, 200);
+    assert.equal(reordered.body.ok, true);
+
+    const pricing = await request(baseUrl, '/api/dashboard/vault/pricing', {
+      headers: { 'X-Dashboard-Token': process.env.DASHBOARD_TOKEN },
+    });
+    assert.equal(pricing.res.status, 200);
+    assert.deepEqual(pricing.body.projects[0].items.map(item => item.content_id), [second.id, first.id]);
   });
 });
 

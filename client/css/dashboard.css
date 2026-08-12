@@ -181,6 +181,9 @@ input[type="number"].dash-input-sm::-webkit-outer-spin-button { -webkit-appearan
 .dash-upload-label { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t3); letter-spacing: .08em; }
 .dash-upload-form { padding: 10px 0 0; }
 .dash-file-item { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--t3); margin-top: 4px; }
+.dash-upload-collection-row { margin-top: 10px; }
+.dash-upload-collection-row .dash-input,
+.dash-upload-collection-row .dash-select { min-width: 190px; }
 
 /* ── Tip config ── */
 .tip-cfg-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
