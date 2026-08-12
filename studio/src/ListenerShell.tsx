@@ -7,6 +7,7 @@ import { EmailLinkHandler } from '@/components/EmailLinkHandler';
 import { Logo } from '@/components/Logo';
 import { PostsTicker } from '@/components/PostsTicker';
 import { IconButton, ModeSwitcher } from '@/components/primitives';
+import { SettingsTour } from '@/components/SettingsTour';
 import { VaultGateModal } from '@/components/VaultGateModal';
 import { isWelcomeDismissed, markWelcomeDismissed, WelcomeOverlay } from '@/components/WelcomeOverlay';
 import { ListenerAuthProvider, useListenerAuth } from '@/lib/auth/ListenerAuthContext';
@@ -104,6 +105,7 @@ function ListenerApp({ onRequestDashboardLogin }: { onRequestDashboardLogin: () 
       {checkoutModal && <CheckoutModal stationName={stationName} initialTab={checkoutModal.tab} thankYou={checkoutModal.thankYou} onClose={() => setCheckoutModal(null)} onNotify={notify} onOpenAccount={openAccount} />}
       {vaultGateTrack && <VaultGateModal track={vaultGateTrack} onClose={() => setVaultGateTrack(null)} onNotify={notify} onOpenAccount={openAccount} />}
       <EmailLinkHandler onNotify={notify} />
+      <SettingsTour suppressed={!!accountModal} />
     </div>
   );
 }

@@ -8,6 +8,7 @@ export type LibraryItem = {
   visibility?: 'public' | 'supporters_only' | 'vault';
   unlocked?: boolean;
   isExternal?: boolean;
+  offlineAllowed?: boolean;
 };
 export type LibraryProject = { id: number; name: string; description: string | null; tracks: LibraryItem[] };
 export type LibraryStructure = { projects: LibraryProject[]; standalone: LibraryItem[] };

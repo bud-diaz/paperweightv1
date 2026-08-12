@@ -1,19 +1,25 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ArrowUpRight, ChevronDown, Disc3, ListMusic, LockKeyhole, Pause, Play, Search,
+  ArrowUpRight, Bookmark, BookmarkCheck, ChevronDown, Disc3, ListMusic, LockKeyhole, Pause, Play, Search, Trash2,
 } from 'lucide-react';
 
-import { EmptyState } from '@/components/primitives';
+import { EmptyState, IconButton } from '@/components/primitives';
 import * as api from '@/lib/api';
 import { formatDuration, swatchFor, type LibraryItem, type LibraryStructure } from '@/lib/library';
 import { cn } from '@/lib/utils';
 import { isPlayableTrack, type OnDemandTrack, type PlayerEngine } from '@/lib/hooks/usePlayerEngine';
+import { useOfflineSaves, type OfflineRecord } from '@/lib/hooks/useOfflineSaves';
 import type { ModalKey } from '@/types';
 
 type StackTrack = LibraryItem & { collection: string };
 
-function TrackRowReal({ track, collection, active, playing, isPaid, onSelect }: { track: StackTrack; collection: string; active: boolean; playing: boolean; isPaid: boolean; onSelect: () => void }) {
+function canStash(track: StackTrack, isPaid: boolean) {
+  const playable = isPlayableTrack({ ...track, visibility: track.visibility || 'public' }, isPaid);
+  return playable && (!!track.offlineAllowed || (track.visibility === 'vault' && track.unlocked === true));
+}
+
+function TrackRowReal({ track, collection, active, playing, isPaid, saved, onSelect, onStash }: { track: StackTrack; collection: string; active: boolean; playing: boolean; isPaid: boolean; saved: boolean; onSelect: () => void; onStash?: () => void }) {
   const locked = !isPlayableTrack({ ...track, visibility: track.visibility || 'public' }, isPaid);
   return (
     <div data-testid={`row-track-${track.id}`} className={cn('group flex items-center gap-3 py-3 border-b border-white/[.07] last:border-0', active && 'text-primary')}>
@@ -22,7 +28,21 @@ function TrackRowReal({ track, collection, active, playing, isPaid, onSelect }: 
       </button>
       <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{track.title}</p><p className="truncate text-xs text-muted-foreground">{[track.artist, collection].filter(Boolean).join(' · ')}</p></div>
       {locked && <LockKeyhole size={13} className="text-muted-foreground shrink-0" />}
+      {onStash && <IconButton label={saved ? `Remove ${track.title} from stash` : `Save ${track.title} to stash`} onClick={onStash} className="opacity-60 group-hover:opacity-100">{saved ? <BookmarkCheck size={14} className="text-primary" /> : <Bookmark size={14} />}</IconButton>}
       <span className="font-mono-ui text-[11px] text-muted-foreground w-10 text-right">{formatDuration(track.duration)}</span>
+    </div>
+  );
+}
+
+function StashRow({ record, track, active, playing, onSelect, onRemove }: { record: OfflineRecord; track: StackTrack | null; active: boolean; playing: boolean; onSelect: () => void; onRemove: () => void }) {
+  const title = track?.title || record.title;
+  return (
+    <div data-testid={`row-stash-${record.id}`} className={cn('group flex items-center gap-3 py-3 border-b border-white/[.07] last:border-0', active && 'text-primary')}>
+      <button type="button" aria-label={`Play ${title}`} data-testid={`button-play-stash-${record.id}`} onClick={onSelect} className="relative h-9 w-9 shrink-0 rounded-md flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${swatchFor(record.id)}, rgba(255,255,255,.1))` }}>
+        {active && playing ? <Pause size={14} fill="currentColor" className="text-[#1b1d2a]" /> : <Play size={14} fill="currentColor" className="text-[#1b1d2a]" />}
+      </button>
+      <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{title}</p><p className="truncate text-xs text-muted-foreground">{track?.artist || 'Saved for offline'}</p></div>
+      <IconButton label={`Remove ${title} from stash`} onClick={onRemove} className="opacity-60 group-hover:opacity-100"><Trash2 size={14} /></IconButton>
     </div>
   );
 }
@@ -31,6 +51,7 @@ export function StackView({ engine, onNotify, onLockedTrack }: { engine: PlayerE
   const [expanded, setExpanded] = useState<'library' | 'stash'>('library');
   const [search, setSearch] = useState('');
   const { data: structure, isLoading } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure() });
+  const offline = useOfflineSaves(onNotify);
 
   const allTracks = useMemo(() => {
     const projects = structure?.projects || [];
@@ -81,10 +102,12 @@ export function StackView({ engine, onNotify, onLockedTrack }: { engine: PlayerE
             <div className="stack-section-label">ALL WORKS</div>
             {isLoading ? <p className="text-sm text-muted-foreground py-6">Loading catalog…</p> : <div>{filtered.map((track) => {
               const onDemandTrack: OnDemandTrack = { id: track.id, title: track.title, artist: track.artist, category: track.category, duration: track.duration, visibility: track.visibility || 'public', unlocked: track.unlocked, isExternal: track.isExternal };
-              return <TrackRowReal key={track.id} track={track} collection={track.collection} active={engine.track?.id === track.id} playing={engine.playing} isPaid={engine.isPaid} onSelect={() => {
+              const saved = offline.savedIds.has(track.id);
+              return <TrackRowReal key={track.id} track={track} collection={track.collection} active={engine.track?.id === track.id} playing={engine.playing} isPaid={engine.isPaid} saved={saved} onSelect={() => {
+                offline.stop();
                 engine.selectTrack(onDemandTrack);
                 if (!isPlayableTrack(onDemandTrack, engine.isPaid)) onLockedTrack?.(onDemandTrack);
-              }} />;
+              }} onStash={canStash(track, engine.isPaid) ? () => (saved ? offline.remove(track.id) : offline.save(track)) : undefined} />;
             })}</div>}
             {!isLoading && !filtered.length && <EmptyState icon={Search} title="Nothing in that frequency" body="Try another title, or check back once something's been released." action="Clear search" onClick={() => setSearch('')} />}
           </div></div>}
@@ -92,12 +115,15 @@ export function StackView({ engine, onNotify, onLockedTrack }: { engine: PlayerE
         <section className="panel stack-panel rounded-3xl overflow-hidden">
           <button type="button" className="stack-card-head" onClick={() => setExpanded(expanded === 'stash' ? 'library' : 'stash')} aria-expanded={expanded === 'stash'}>
             <span className="stack-card-glyph coral"><ListMusic size={15} /></span>
-            <span className="stack-card-title">STASH</span>
+            <span className="stack-card-title">STASH <span className="stack-card-badge">{String(offline.records.length).padStart(2, '0')} SAVED</span></span>
             <span className="stack-card-peek">Offline saves</span>
             <ChevronDown size={15} className={cn('stack-card-chevron', expanded === 'stash' && 'open')} />
           </button>
           {expanded === 'stash' && <div className="stack-card-body"><div className="stack-card-content">
-            <EmptyState icon={ListMusic} title="Offline saves are wired in a later pass" body="Saving tracks for offline listening is coming soon." action="Browse library" onClick={() => setExpanded('library')} />
+            {offline.records.length ? offline.records.map((record) => {
+              const track = allTracks.find((t) => t.id === record.id) || null;
+              return <StashRow key={record.id} record={record} track={track} active={offline.playingId === record.id} playing={offline.playingId === record.id} onSelect={() => { engine.pause(); offline.play(record.id); }} onRemove={() => offline.remove(record.id)} />;
+            }) : <EmptyState icon={ListMusic} title="Nothing stashed yet" body="Save a track from the Library for offline playback — look for the bookmark icon." action="Browse library" onClick={() => setExpanded('library')} />}
           </div></div>}
         </section>
       </div>
