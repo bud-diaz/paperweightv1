@@ -5,7 +5,7 @@ import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import NotFound from '@/pages/not-found';
+import Share from '@/pages/Share';
 import { AuthGate } from '@/AuthGate';
 import { DashboardAuthProvider } from '@/lib/auth/DashboardAuthContext';
 
@@ -16,29 +16,31 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }
 
+// The fallback route (no `path`, matches anything not matched above) renders
+// AuthGate rather than a 404 page — this mirrors the Express catch-all in
+// src/index.js, which serves this same index.html for any non-API/non-hls
+// path, including old bookmarks to /creator.html or /studio. There is no
+// client-side deep linking within the dashboard/listener app itself (nav is
+// state-driven, not route-driven — see AppShell/ListenerShell), so any path
+// other than /share/:token should just render the normal app shell, exactly
+// like creator.html always did before this router existed.
 function Router() {
   return (
     <RoutedErrorBoundary>
       <Switch>
-        <Route path="/" component={AuthGate} />
-        <Route component={NotFound} />
+        <Route path="/share/:token" component={Share} />
+        <Route component={AuthGate} />
       </Switch>
     </RoutedErrorBoundary>
   );
 }
-
-// Wouter's `base` is the browser URL prefix the app is mounted at (the
-// Express route in src/index.js that serves this build's index.html) — not
-// to be confused with Vite's asset `base` in vite.config.ts, which is the
-// separate on-disk path (/app/) the built JS/CSS bundle files live under.
-const ROUTER_BASE = '/studio';
 
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <DashboardAuthProvider>
         <TooltipProvider>
-          <WouterRouter base={ROUTER_BASE}>
+          <WouterRouter>
             <Router />
           </WouterRouter>
           <Toaster />

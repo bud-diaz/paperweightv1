@@ -48,6 +48,23 @@ function ListenerApp({ onRequestDashboardLogin }: { onRequestDashboardLogin: () 
     setCheckoutModal({ thankYou: true });
   }, []);
 
+  // Mirrors client/js/main.js's ?subscribed=1 handling: Stripe redirects here
+  // after a checkout that creates/upgrades a listener account with no
+  // password set yet. AccountModal already shows a "set a password" prompt
+  // for any logged-in paid listener without one — this just opens it so
+  // they see it right away instead of only on their next manual visit.
+  useEffect(() => {
+    if (!auth.ready) return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('subscribed')) return;
+    params.delete('subscribed');
+    const clean = window.location.pathname + (params.toString() ? `?${params}` : '') + window.location.hash;
+    window.history.replaceState(null, '', clean);
+    if (auth.state.loggedIn && auth.state.tier !== 'free' && !auth.state.hasPassword) {
+      setAccountModal({ tab: 'login' });
+    }
+  }, [auth.ready]);
+
   const handleLockedTrack = (track: OnDemandTrack) => {
     if (track.visibility === 'vault') { setVaultGateTrack(track); return; }
     if (track.visibility === 'supporters_only') { setCheckoutModal({ tab: 'subscribe' }); }

@@ -319,7 +319,7 @@ if (fs.existsSync(frpBundlePath)) {
 }
 
 for (const rel of [
-  'client/creator.html',
+  'client/app/index.html',
   'node_modules/hls.js/dist/hls.min.js',
   'node_modules/matter-js/build/matter.min.js',
   'src/index.js',

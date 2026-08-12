@@ -3,10 +3,11 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 // Exposed to the setup wizard renderer only (electron/renderer/setup.html).
-// The main dashboard window loads the server's own creator.html directly and
-// does not need this bridge — it authenticates against the server like the
-// web build does, just automatically (see electron/main.js + dashboard auto-unlock
-// handled server-side via the existing dashboard session/token flow).
+// The main dashboard window loads the server's own Studio build directly and
+// does not need this bridge for auth — it authenticates against the server
+// like the web build does, just automatically (see electron/main.js +
+// dashboard auto-unlock handled server-side via the existing dashboard
+// session/token flow).
 const isSetupWindow =
   window.location.protocol === 'file:'
   && /\/renderer\/setup\.html$/i.test(window.location.pathname.replace(/\\/g, '/'));

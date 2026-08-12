@@ -15,8 +15,8 @@ function LoadingScreen() {
   );
 }
 
-// /studio serves two audiences off the same route, matching how
-// client/creator.html has always worked: the creator's own dashboard session
+// AuthGate serves two audiences off the same route, matching how
+// client/creator.html always worked: the creator's own dashboard session
 // (Overview/Releases/Vault/etc., plus their own Stack/Play preview) versus
 // everyone else — anonymous, free, or paid listeners — who get the public
 // player/catalog shell instead of a login prompt. `showDashboardLogin` is the

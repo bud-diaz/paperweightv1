@@ -64,7 +64,8 @@ test('health and local player assets are served', async () => {
 
     const creator = await request(baseUrl, '/');
     assert.equal(creator.res.status, 200);
-    assert.match(creator.text, /id="portrait-lock-overlay"/);
+    assert.match(creator.text, /<div id="root">/);
+    assert.match(creator.text, /\/app\/assets\//);
   });
 });
 
@@ -1245,10 +1246,13 @@ test('private share links resolve without listener auth and track opens', async 
     assert.match(created.body.url, /\/share\//);
     assert.ok(created.body.expiresAt);
 
+    // /share/:token serves the same Studio SPA shell as every other route —
+    // studio/src/pages/Share.tsx resolves the token client-side via
+    // GET /api/share/:token (asserted below), not server-rendered markup.
     const page = await request(baseUrl, `/share/${created.body.token}`);
     assert.equal(page.res.status, 200);
-    assert.match(page.text, /public-share-view/);
-    assert.match(page.text, /\/js\/main\.js/);
+    assert.match(page.text, /<div id="root">/);
+    assert.match(page.text, /\/app\/assets\//);
 
     const firstOpen = await request(baseUrl, `/api/share/${created.body.token}`);
     assert.equal(firstOpen.res.status, 200);
