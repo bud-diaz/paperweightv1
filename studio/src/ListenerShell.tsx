@@ -4,7 +4,6 @@ import { Check, ChevronRight, UserRound } from 'lucide-react';
 import { AccountModal } from '@/components/AccountModal';
 import { CheckoutModal } from '@/components/CheckoutModal';
 import { EmailLinkHandler } from '@/components/EmailLinkHandler';
-import { FloatingTipButton } from '@/components/FloatingTipButton';
 import { Logo } from '@/components/Logo';
 import { PostsTicker } from '@/components/PostsTicker';
 import { IconButton, ModeSwitcher } from '@/components/primitives';
@@ -123,9 +122,8 @@ function ListenerApp() {
           {mode === 'stack' ? <StackView engine={engine} onOpen={handleOpen} onNotify={notify} onLockedTrack={handleLockedTrack} onVideoTrackSelected={() => setMode('play')} /> : <PlayerView engine={engine} onOpen={handleOpen} onNotify={notify} onPlayButtonVisibilityChange={setPlayButtonVisible} />}
         </div>
       </main>
-      <StickyTransport engine={engine} visible={mode === 'play' && !playButtonVisible} onNotify={notify} />
+      <StickyTransport engine={engine} visible={mode !== 'play' || !playButtonVisible} onTip={() => setCheckoutModal({ tab: 'tip' })} onNotify={notify} />
       <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[80] w-[min(90vw,420px)]"><PostsTicker /></div>
-      <FloatingTipButton onClick={() => setCheckoutModal({ tab: 'tip' })} />
       {toast && <div data-testid="status-toast" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[90] panel rounded-xl px-4 py-3 text-sm flex items-center gap-2 shadow-2xl animate-enter"><Check size={15} className="text-primary" /> {toast}</div>}
       {!welcomeDismissed && auth.ready && !auth.state.loggedIn && (
         <WelcomeOverlay

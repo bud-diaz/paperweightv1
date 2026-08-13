@@ -14,11 +14,17 @@ function toOnDemandTrack(item: LibraryItem): OnDemandTrack {
 
 // A persistent playback bar that survives Stack/Play/Studio tab switches
 // (mounted alongside <main> in each shell, outside the mode-swapping
-// ternary), shown only while on the Play tab once the real player's own
-// play button has scrolled out of view (see PlayerView's IntersectionObserver
-// + onPlayButtonVisibilityChange). Reuses the shell's single PlayerEngine
-// instance rather than creating a second one.
-export function StickyTransport({ engine, visible, onNotify }: { engine: PlayerEngine; visible: boolean; onNotify: (message: string) => void }) {
+// ternary). Visible on the Stack and Studio tabs whenever there's a live or
+// on-demand track to control, and on the Play tab only once the real
+// player's own play button has scrolled out of view (see PlayerView's
+// IntersectionObserver + onPlayButtonVisibilityChange) — no need to show a
+// second set of controls on top of the ones already on screen there.
+// Reuses the shell's single PlayerEngine instance rather than creating a
+// second one. `offsetForSidebar` mirrors the mode-switcher pill's own fix
+// (AppShell.tsx): in Studio mode the creator sidebar reserves 248px on the
+// left, so this fixed, full-width bar needs the same compensation to stay
+// centered on the actual content area instead of the whole viewport.
+export function StickyTransport({ engine, visible, offsetForSidebar, onTip, onNotify }: { engine: PlayerEngine; visible: boolean; offsetForSidebar?: boolean; onTip?: () => void; onNotify: (message: string) => void }) {
   const { data: structure } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure() });
   const offline = useOfflineSaves(onNotify);
 
@@ -57,7 +63,7 @@ export function StickyTransport({ engine, visible, onNotify }: { engine: PlayerE
   const subtitle = activeTrack ? activeTrack.artist : (engine.nowPlaying?.artist || 'Live');
 
   return (
-    <div className={cn('sticky-transport', visible && 'visible')} aria-hidden={!visible}>
+    <div className={cn('sticky-transport', visible && 'visible', offsetForSidebar && 'sticky-transport-sidebar-offset')} aria-hidden={!visible}>
       <div className="sticky-transport-inner">
         <div className="sticky-transport-meta">
           <span className="sticky-transport-swatch" style={{ background: `linear-gradient(135deg, ${swatchFor(activeTrack?.id ?? 0)}, rgba(255,255,255,.1))` }} />
@@ -71,6 +77,9 @@ export function StickyTransport({ engine, visible, onNotify }: { engine: PlayerE
             <button type="button" aria-label={skipLocked ? 'Previous track (supporter perk)' : 'Previous track'} data-testid="button-sticky-back" onClick={() => skip(-1)} disabled={!skipLocked && !hasPrev} className={cn('ghost-button h-9 w-9 rounded-full inline-flex items-center justify-center disabled:opacity-40', skipLocked && 'opacity-60')}>
               {skipLocked ? <LockKeyhole size={13} /> : <SkipBack size={15} />}
             </button>
+          )}
+          {onTip && (
+            <button type="button" aria-label="Send a tip" data-testid="button-sticky-tip" onClick={onTip} className="sticky-transport-tip">$</button>
           )}
           <button type="button" aria-label={engine.playing ? 'Pause' : 'Play'} data-testid="button-sticky-toggle" onClick={engine.toggle} className="sticky-transport-play">
             {engine.playing ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" />}
