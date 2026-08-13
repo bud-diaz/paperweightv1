@@ -14,11 +14,17 @@ function toOnDemandTrack(item: LibraryItem): OnDemandTrack {
 
 // A persistent playback bar that survives Stack/Play/Studio tab switches
 // (mounted alongside <main> in each shell, outside the mode-swapping
-// ternary), shown only while on the Play tab once the real player's own
-// play button has scrolled out of view (see PlayerView's IntersectionObserver
-// + onPlayButtonVisibilityChange). Reuses the shell's single PlayerEngine
-// instance rather than creating a second one.
-export function StickyTransport({ engine, visible, onNotify }: { engine: PlayerEngine; visible: boolean; onNotify: (message: string) => void }) {
+// ternary). Visible on the Stack and Studio tabs whenever there's a live or
+// on-demand track to control, and on the Play tab only once the real
+// player's own play button has scrolled out of view (see PlayerView's
+// IntersectionObserver + onPlayButtonVisibilityChange) — no need to show a
+// second set of controls on top of the ones already on screen there.
+// Reuses the shell's single PlayerEngine instance rather than creating a
+// second one. `offsetForSidebar` mirrors the mode-switcher pill's own fix
+// (AppShell.tsx): in Studio mode the creator sidebar reserves 248px on the
+// left, so this fixed, full-width bar needs the same compensation to stay
+// centered on the actual content area instead of the whole viewport.
+export function StickyTransport({ engine, visible, offsetForSidebar, onNotify }: { engine: PlayerEngine; visible: boolean; offsetForSidebar?: boolean; onNotify: (message: string) => void }) {
   const { data: structure } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure() });
   const offline = useOfflineSaves(onNotify);
 
@@ -57,7 +63,7 @@ export function StickyTransport({ engine, visible, onNotify }: { engine: PlayerE
   const subtitle = activeTrack ? activeTrack.artist : (engine.nowPlaying?.artist || 'Live');
 
   return (
-    <div className={cn('sticky-transport', visible && 'visible')} aria-hidden={!visible}>
+    <div className={cn('sticky-transport', visible && 'visible', offsetForSidebar && 'sticky-transport-sidebar-offset')} aria-hidden={!visible}>
       <div className="sticky-transport-inner">
         <div className="sticky-transport-meta">
           <span className="sticky-transport-swatch" style={{ background: `linear-gradient(135deg, ${swatchFor(activeTrack?.id ?? 0)}, rgba(255,255,255,.1))` }} />
