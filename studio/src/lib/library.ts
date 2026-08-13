@@ -9,6 +9,8 @@ export type LibraryItem = {
   unlocked?: boolean;
   isExternal?: boolean;
   offlineAllowed?: boolean;
+  isVideo?: boolean;
+  mimeType?: string | null;
 };
 export type LibraryProject = { id: number; name: string; description: string | null; tracks: LibraryItem[] };
 export type LibraryStructure = { projects: LibraryProject[]; standalone: LibraryItem[] };

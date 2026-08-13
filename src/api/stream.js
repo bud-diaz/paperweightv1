@@ -155,6 +155,8 @@ router.get('/status', (req, res) => {
     ...state,
     liveActive: liveState.isLive,
     liveStartedAt: liveState.startedAt,
+    liveVideoActive: !!liveVideoState.isLive,
+    liveVideoSource: liveVideoState.isLive ? liveVideoState.source : null,
     videoLive: {
       active: liveVideoState.isLive,
       startedAt: liveVideoState.startedAt,

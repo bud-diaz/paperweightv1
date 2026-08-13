@@ -6,46 +6,51 @@ import { useListenerAuth } from '@/lib/auth/ListenerAuthContext';
 import { useMediaSession } from '@/lib/hooks/useMediaSession';
 import { useStationIdentity } from '@/lib/hooks/useStationIdentity';
 
-// Ports client/js/hls-client.js's station-playback core (station broadcast +
-// audio-only live override, HLS.js setup/retry, stream-status polling, the
-// 30s listener ping) plus client/js/player.js's on-demand/preview/quota
-// logic into a single hook with a persistent <audio> element for the live
-// station and a separate plain Audio() object for on-demand/preview tracks
-// — mirrors client/js/player.js exactly: on-demand playback has never shared
-// the live element with the HLS station stream, it just pauses it.
-//
-// Paid-tier live VIDEO playback and video-track on-demand/preview are still
-// out of scope (no <video> surface wired yet); the personal queue
-// (paid-tier "play next queued track on completion") is also deferred —
-// on-demand tracks here play once and revert to live, same as the free-tier
-// path in the original.
-//
-// Call this once per shell (AppShell for the creator's own Stack/Play modes,
-// ListenerShell for public visitors) and render `audioRef` at the shell root
-// so playback survives switching between views — mirrors why
-// useLiveBroadcast's capture engine lives above the modal that controls it.
+// Ports client/js/hls-client.js's station-playback core into the Studio SPA,
+// now with a media-aware surface: audio station/live streams stay on the
+// persistent shell-level <audio>, while video station/live/on-demand/preview
+// playback uses the visible <video> rendered by PlayerView. On-demand audio
+// still uses a separate Audio() object so it can pause/revert to live without
+// stealing the HLS station element.
 
 const HLS_URL = '/hls/stream/index.m3u8';
 const HLS_LIVE_URL = '/hls/live/index.m3u8';
+const HLS_LIVE_VIDEO_URL = '/hls/live-video/index.m3u8';
 const STATUS_POLL_MS = 10_000;
 const PING_INTERVAL_MS = 30_000;
 const HLS_RETRY_DELAYS_MS = [3000, 6000, 12000, 30000];
 const PREVIEW_SECS = 30;
 const REVERT_TO_LIVE_MS = 30_000;
 
-export type StationTrack = { id: number; title: string; artist: string | null; category: string | null; duration: number | null };
-type NowPlaying = StationTrack & { isVideo?: boolean; startedAt?: string | null };
+export type StationTrack = { id: number; title: string; artist: string | null; category: string | null; duration: number | null; isVideo?: boolean };
+type NowPlaying = StationTrack & { startedAt?: string | null };
+type PlaybackKind = 'audio' | 'video';
+type PlaybackSource = 'station' | 'live-audio' | 'live-video';
+type ActivePlayback = { source: PlaybackSource; kind: PlaybackKind; url: string };
 export type StreamStatus = {
   nowPlaying: NowPlaying | null;
   listenerCount: number;
   liveActive: boolean;
+  liveVideoActive?: boolean;
+  liveVideoSource?: 'browser' | 'rtmp' | null;
   isVideo: boolean;
   mode: 'shuffle' | 'scheduled';
   stationQueue: StationTrack[];
   recentlyPlayed: (StationTrack & { playedAt: string })[];
 };
 
-export type OnDemandTrack = { id: number; title: string; artist: string | null; category: string | null; duration: number | null; visibility: 'public' | 'supporters_only' | 'vault'; unlocked?: boolean; isExternal?: boolean };
+export type OnDemandTrack = {
+  id: number;
+  title: string;
+  artist: string | null;
+  category: string | null;
+  duration: number | null;
+  visibility: 'public' | 'supporters_only' | 'vault';
+  unlocked?: boolean;
+  isExternal?: boolean;
+  isVideo?: boolean;
+  mimeType?: string | null;
+};
 export type QuotaSnapshot = { limit: number | null; remaining: number | null; resetSec: number; nextUpAvailable?: boolean; emailRequired?: boolean; unlimited?: boolean };
 
 export function isPlayableTrack(track: OnDemandTrack, isPaid: boolean) {
@@ -59,9 +64,11 @@ export function isPlayableTrack(track: OnDemandTrack, isPaid: boolean) {
 export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?: (message: string) => void } = {}) {
   const { isCreatorSession = false, onNotify } = options;
   const audioRef = useRef<HTMLAudioElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<ReturnType<NonNullable<typeof window.Hls>['prototype']['constructor']> | null>(null);
   const retryTimerRef = useRef<number | null>(null);
   const retryAttemptRef = useRef(0);
+  const activeMediaRef = useRef<HTMLMediaElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
 
@@ -70,25 +77,49 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
   const isPaid = isCreatorSession || listenerAuth.tier !== 'free';
   const { data: status } = useQuery<StreamStatus>({ queryKey: ['stream', 'status'], queryFn: () => api.stream.status(), refetchInterval: STATUS_POLL_MS });
 
-  const activeUrl = status?.liveActive ? HLS_LIVE_URL : HLS_URL;
+  const stationIsVideo = !!(status?.isVideo || status?.nowPlaying?.isVideo);
+  const activePlayback = useMemo<ActivePlayback>(() => {
+    if (status?.liveVideoActive) return { source: 'live-video', kind: 'video', url: HLS_LIVE_VIDEO_URL };
+    if (status?.liveActive) return { source: 'live-audio', kind: 'audio', url: HLS_LIVE_URL };
+    return { source: 'station', kind: stationIsVideo ? 'video' : 'audio', url: HLS_URL };
+  }, [status?.liveVideoActive, status?.liveActive, stationIsVideo]);
+  const activePlaybackKey = `${activePlayback.source}:${activePlayback.kind}:${activePlayback.url}`;
 
   const clearRetry = useCallback(() => {
     if (retryTimerRef.current !== null) { window.clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
   }, []);
 
-  const attachHls = useCallback((url: string) => {
-    const audioEl = audioRef.current;
-    if (!audioEl) return;
+  const detachHls = useCallback(() => {
     if (hlsRef.current) { try { hlsRef.current.destroy(); } catch { /* already destroyed */ } hlsRef.current = null; }
+  }, []);
+
+  const mediaForKind = useCallback((kind: PlaybackKind): HTMLMediaElement | null => (
+    kind === 'video' ? videoRef.current : audioRef.current
+  ), []);
+
+  const stopInactiveElement = useCallback((kind: PlaybackKind) => {
+    const inactive = kind === 'video' ? audioRef.current : videoRef.current;
+    if (!inactive) return;
+    inactive.pause();
+    inactive.removeAttribute('src');
+    inactive.load?.();
+  }, []);
+
+  const attachHls = useCallback((playback: ActivePlayback) => {
+    const mediaEl = mediaForKind(playback.kind);
+    if (!mediaEl) return;
+    detachHls();
+    stopInactiveElement(playback.kind);
+    activeMediaRef.current = mediaEl;
     if (window.Hls && window.Hls.isSupported()) {
       const hls = new window.Hls({ lowLatencyMode: false });
-      hls.loadSource(url);
-      hls.attachMedia(audioEl);
+      hls.loadSource(playback.url);
+      hls.attachMedia(mediaEl);
       hlsRef.current = hls;
-    } else if (audioEl.canPlayType('application/vnd.apple.mpegurl')) {
-      audioEl.src = url;
+    } else if (mediaEl.canPlayType('application/vnd.apple.mpegurl')) {
+      mediaEl.src = playback.url;
     }
-  }, []);
+  }, [detachHls, mediaForKind, stopInactiveElement]);
 
   const scheduleRetry = useCallback(() => {
     if (retryTimerRef.current !== null) return;
@@ -97,24 +128,21 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
     retryAttemptRef.current++;
     retryTimerRef.current = window.setTimeout(() => {
       retryTimerRef.current = null;
-      attachHls(activeUrl);
-      if (playing) audioRef.current?.play().catch(() => undefined);
+      attachHls(activePlayback);
+      if (playing) activeMediaRef.current?.play().catch(() => undefined);
     }, delay);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeUrl, attachHls, playing]);
+  }, [activePlayback, attachHls, playing]);
 
-  // Mount: attach HLS once the audio element exists.
   useEffect(() => {
-    attachHls(activeUrl);
+    attachHls(activePlayback);
     return () => {
       clearRetry();
-      if (hlsRef.current) { try { hlsRef.current.destroy(); } catch { /* already destroyed */ } hlsRef.current = null; }
+      detachHls();
     };
+    // attach once on mount; later source/kind changes are handled below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Wire HLS.js error handling once the instance exists (re-runs whenever
-  // attachHls recreates it, e.g. after a station/live-override switch).
   useEffect(() => {
     const hls = hlsRef.current;
     const Hls = window.Hls;
@@ -127,32 +155,28 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
       hls.off(Hls.Events.MANIFEST_LOADED, onManifestLoaded);
       hls.off(Hls.Events.ERROR, onError);
     };
-  }, [status?.liveActive, clearRetry, scheduleRetry]);
+  }, [activePlaybackKey, clearRetry, scheduleRetry]);
 
-  // Station broadcast <-> live-audio-override switch while already playing.
-  const prevLiveActiveRef = useRef<boolean | undefined>(undefined);
+  const prevPlaybackKeyRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (prevLiveActiveRef.current === undefined) { prevLiveActiveRef.current = status?.liveActive; return; }
-    if (prevLiveActiveRef.current === status?.liveActive) return;
-    prevLiveActiveRef.current = status?.liveActive;
+    if (prevPlaybackKeyRef.current === undefined) { prevPlaybackKeyRef.current = activePlaybackKey; return; }
+    if (prevPlaybackKeyRef.current === activePlaybackKey) return;
+    prevPlaybackKeyRef.current = activePlaybackKey;
     clearRetry();
     retryAttemptRef.current = 0;
     setReconnecting(false);
-    if (hlsRef.current) {
-      hlsRef.current.loadSource(activeUrl);
-    } else if (audioRef.current) {
-      audioRef.current.src = activeUrl;
-    }
+    attachHls(activePlayback);
+    if (playing && !track) activeMediaRef.current?.play().catch(() => setPlaying(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status?.liveActive]);
+  }, [activePlaybackKey]);
 
-  // ── On-demand / preview playback (client/js/player.js) ─────────────────────
+  // ── On-demand / preview playback ────────────────────────────────────────────
   const [track, setTrack] = useState<OnDemandTrack | null>(null); // non-null = showing on-demand/preview, not live
   const [isPreview, setIsPreview] = useState(false);
   const [odProgress, setOdProgress] = useState(0);
   const [odElapsed, setOdElapsed] = useState(0);
   const [quota, setQuota] = useState<QuotaSnapshot | null>(null);
-  const odMediaRef = useRef<HTMLAudioElement | null>(null);
+  const odMediaRef = useRef<HTMLMediaElement | null>(null);
   const previewTimerRef = useRef<number | null>(null);
   const previewTickRef = useRef<number | null>(null);
   const revertTimerRef = useRef<number | null>(null);
@@ -188,9 +212,15 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
       media.onended = null;
       media.onerror = null;
       media.removeAttribute('src');
+      media.load?.();
       odMediaRef.current = null;
     }
   }, [clearOdTimers]);
+
+  const pauseLiveMedia = useCallback(() => {
+    audioRef.current?.pause();
+    videoRef.current?.pause();
+  }, []);
 
   const goLive = useCallback((resume = false) => {
     stopOnDemandMedia();
@@ -199,46 +229,18 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
     setOdProgress(0);
     setOdElapsed(0);
     refreshQuota();
+    attachHls(activePlayback);
     if (resume) {
-      audioRef.current?.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+      activeMediaRef.current?.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
     }
-  }, [stopOnDemandMedia, refreshQuota]);
+  }, [activePlayback, attachHls, stopOnDemandMedia, refreshQuota]);
 
-  const playPreview = useCallback((t: OnDemandTrack) => {
-    stopOnDemandMedia();
-    audioRef.current?.pause();
-    setTrack(t);
-    setIsPreview(true);
-    setOdProgress(0);
-    setOdElapsed(0);
-    setPlaying(false);
+  const mediaForOnDemand = useCallback((kind: PlaybackKind) => {
+    if (kind === 'video') return videoRef.current;
+    return new Audio();
+  }, []);
 
-    const media = new Audio(`/api/library/${t.id}/preview`);
-    odMediaRef.current = media;
-    media.play().catch(() => undefined);
-
-    let ticks = 0;
-    previewTickRef.current = window.setInterval(() => {
-      ticks += 0.25;
-      setOdElapsed(Math.min(Math.floor(ticks), PREVIEW_SECS));
-      setOdProgress(Math.min(ticks / PREVIEW_SECS, 1));
-    }, 250);
-    previewTimerRef.current = window.setTimeout(() => { stopOnDemandMedia(); goLive(); }, PREVIEW_SECS * 1000);
-    api.events.record('preview_started', { mediaId: t.id, source: 'library' }).catch(() => undefined);
-  }, [stopOnDemandMedia, goLive]);
-
-  const playOnDemand = useCallback(async (t: OnDemandTrack, isNextUp = false) => {
-    stopOnDemandMedia();
-    audioRef.current?.pause();
-    setTrack(t);
-    setIsPreview(false);
-    setOdProgress(0);
-    setOdElapsed(0);
-    setPlaying(false);
-
-    const media = new Audio(api.library.streamUrl(t.id, { nextUp: isNextUp }));
-    odMediaRef.current = media;
-
+  const configureOnDemandMedia = useCallback((media: HTMLMediaElement, t: OnDemandTrack) => {
     media.onloadedmetadata = () => {
       setOdElapsed(media.currentTime || 0);
       const dur = t.duration || media.duration || 0;
@@ -249,6 +251,52 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
       const dur = t.duration || media.duration || 0;
       setOdProgress(dur > 0 ? Math.min((media.currentTime || 0) / dur, 1) : 0);
     };
+  }, []);
+
+  const playPreview = useCallback((t: OnDemandTrack) => {
+    stopOnDemandMedia();
+    pauseLiveMedia();
+    const kind: PlaybackKind = t.isVideo ? 'video' : 'audio';
+    stopInactiveElement(kind);
+    setTrack(t);
+    setIsPreview(true);
+    setOdProgress(0);
+    setOdElapsed(0);
+    setPlaying(false);
+
+    const media = mediaForOnDemand(kind);
+    if (!media) { onNotify?.('Video player unavailable. Open Play and try again.'); return; }
+    media.src = `/api/library/${t.id}/preview`;
+    odMediaRef.current = media;
+    configureOnDemandMedia(media, t);
+    media.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+
+    let ticks = 0;
+    previewTickRef.current = window.setInterval(() => {
+      ticks += 0.25;
+      setOdElapsed(Math.min(Math.floor(ticks), PREVIEW_SECS));
+      setOdProgress(Math.min(ticks / PREVIEW_SECS, 1));
+    }, 250);
+    previewTimerRef.current = window.setTimeout(() => { stopOnDemandMedia(); goLive(); }, PREVIEW_SECS * 1000);
+    api.events.record('preview_started', { mediaId: t.id, source: 'library' }).catch(() => undefined);
+  }, [configureOnDemandMedia, goLive, mediaForOnDemand, onNotify, pauseLiveMedia, stopInactiveElement, stopOnDemandMedia]);
+
+  const playOnDemand = useCallback(async (t: OnDemandTrack, isNextUp = false) => {
+    stopOnDemandMedia();
+    pauseLiveMedia();
+    const kind: PlaybackKind = t.isVideo ? 'video' : 'audio';
+    stopInactiveElement(kind);
+    setTrack(t);
+    setIsPreview(false);
+    setOdProgress(0);
+    setOdElapsed(0);
+    setPlaying(false);
+
+    const media = mediaForOnDemand(kind);
+    if (!media) { onNotify?.('Video player unavailable. Open Play and try again.'); return; }
+    media.src = api.library.streamUrl(t.id, { nextUp: isNextUp });
+    odMediaRef.current = media;
+    configureOnDemandMedia(media, t);
     media.onended = () => {
       api.events.record('on_demand_completed', { mediaId: t.id, source: 'library' }).catch(() => undefined);
       stopOnDemandMedia();
@@ -285,7 +333,7 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
     } catch {
       setPlaying(false);
     }
-  }, [stopOnDemandMedia, goLive, refreshQuota, isPaid, onNotify]);
+  }, [configureOnDemandMedia, goLive, isPaid, mediaForOnDemand, onNotify, pauseLiveMedia, refreshQuota, stopInactiveElement, stopOnDemandMedia]);
 
   const selectTrack = useCallback(async (t: OnDemandTrack) => {
     if (t.isExternal) { onNotify?.('External imports are not playable in the web player yet.'); return; }
@@ -313,17 +361,16 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
   // ── Shared transport controls (live + on-demand) ────────────────────────────
   const play = useCallback(() => {
     if (track) { odMediaRef.current?.play().then(() => setPlaying(true)).catch(() => undefined); return; }
-    audioRef.current?.play().catch(() => undefined);
-    setPlaying(true);
+    activeMediaRef.current?.play().then(() => setPlaying(true)).catch(() => undefined);
   }, [track]);
   const pause = useCallback(() => {
     if (track) { odMediaRef.current?.pause(); setPlaying(false); return; }
-    audioRef.current?.pause();
+    activeMediaRef.current?.pause();
     setPlaying(false);
   }, [track]);
   const toggle = useCallback(() => { if (playing) pause(); else play(); }, [playing, play, pause]);
 
-  // Listener keep-alive ping, only while actually playing the live stream.
+  // Counts live station/live-video presence only. On-demand plays are recorded separately.
   useEffect(() => {
     if (!playing || track) return;
     api.stream.ping().catch(() => undefined);
@@ -332,6 +379,7 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
   }, [playing, track]);
 
   const nowPlaying = status?.nowPlaying || null;
+  const isVideoActive = track ? !!track.isVideo : activePlayback.kind === 'video';
   useMediaSession({
     playing,
     title: track?.title || nowPlaying?.title || stationName,
@@ -343,6 +391,7 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
 
   return useMemo(() => ({
     audioRef,
+    videoRef,
     playing,
     reconnecting,
     play,
@@ -352,6 +401,10 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
     nowPlaying,
     listenerCount: status?.listenerCount ?? 0,
     liveActive: !!status?.liveActive,
+    liveVideoActive: !!status?.liveVideoActive,
+    activePlayback,
+    activeKind: track ? (track.isVideo ? 'video' as const : 'audio' as const) : activePlayback.kind,
+    isVideoActive,
     stationQueue: status?.stationQueue || [],
     recentlyPlayed: status?.recentlyPlayed || [],
     track,
@@ -362,7 +415,7 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
     isPaid,
     selectTrack,
     goLive,
-  }), [playing, reconnecting, play, pause, toggle, stationName, nowPlaying, status,
+  }), [activePlayback, isVideoActive, playing, reconnecting, play, pause, toggle, stationName, nowPlaying, status,
     track, isPreview, odProgress, odElapsed, quota, isPaid, selectTrack, goLive]);
 }
 

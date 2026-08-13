@@ -107,7 +107,7 @@ function ListenerApp({ onRequestDashboardLogin }: { onRequestDashboardLogin: () 
           <div className="ml-auto"><IconButton label="Account" onClick={() => setAccountModal({ tab: 'login' })}><UserRound size={16} /></IconButton></div>
         </header>
         <div className="p-5 sm:p-8 lg:p-10 max-w-[1480px] mx-auto mode-content pb-24">
-          {mode === 'stack' ? <StackView engine={engine} onOpen={handleOpen} onNotify={notify} onLockedTrack={handleLockedTrack} /> : <PlayerView engine={engine} onOpen={handleOpen} onNotify={notify} />}
+          {mode === 'stack' ? <StackView engine={engine} onOpen={handleOpen} onNotify={notify} onLockedTrack={handleLockedTrack} onVideoTrackSelected={() => setMode('play')} /> : <PlayerView engine={engine} onOpen={handleOpen} onNotify={notify} />}
         </div>
       </main>
       <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[80] w-[min(90vw,420px)]"><PostsTicker /></div>

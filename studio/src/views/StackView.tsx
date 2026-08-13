@@ -47,7 +47,7 @@ function StashRow({ record, track, active, playing, onSelect, onRemove }: { reco
   );
 }
 
-export function StackView({ engine, onNotify, onLockedTrack }: { engine: PlayerEngine; onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void; onLockedTrack?: (track: OnDemandTrack) => void }) {
+export function StackView({ engine, onNotify, onLockedTrack, onVideoTrackSelected }: { engine: PlayerEngine; onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void; onLockedTrack?: (track: OnDemandTrack) => void; onVideoTrackSelected?: () => void }) {
   const [expanded, setExpanded] = useState<'library' | 'stash'>('library');
   const [search, setSearch] = useState('');
   const { data: structure, isLoading } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure() });
@@ -100,11 +100,12 @@ export function StackView({ engine, onNotify, onLockedTrack }: { engine: PlayerE
             </div>}
             <div className="stack-section-label">ALL WORKS</div>
             {isLoading ? <p className="text-sm text-muted-foreground py-6">Loading catalog…</p> : <div>{filtered.map((track) => {
-              const onDemandTrack: OnDemandTrack = { id: track.id, title: track.title, artist: track.artist, category: track.category, duration: track.duration, visibility: track.visibility || 'public', unlocked: track.unlocked, isExternal: track.isExternal };
+              const onDemandTrack: OnDemandTrack = { id: track.id, title: track.title, artist: track.artist, category: track.category, duration: track.duration, visibility: track.visibility || 'public', unlocked: track.unlocked, isExternal: track.isExternal, isVideo: track.isVideo, mimeType: track.mimeType };
               const saved = offline.savedIds.has(track.id);
               return <TrackRowReal key={track.id} track={track} collection={track.collection} active={engine.track?.id === track.id} playing={engine.playing} isPaid={engine.isPaid} saved={saved} onSelect={() => {
                 offline.stop();
-                engine.selectTrack(onDemandTrack);
+                if (track.isVideo) onVideoTrackSelected?.();
+                window.setTimeout(() => engine.selectTrack(onDemandTrack), track.isVideo ? 0 : 0);
                 if (!isPlayableTrack(onDemandTrack, engine.isPaid)) onLockedTrack?.(onDemandTrack);
               }} onStash={canStash(track, engine.isPaid) ? () => (saved ? offline.remove(track.id) : offline.save(track)) : undefined} />;
             })}</div>}

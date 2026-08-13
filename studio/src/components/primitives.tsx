@@ -48,11 +48,13 @@ export function Modal({ title, eyebrow, onClose, children, width = 'max-w-lg' }:
     <div className="fixed inset-0 z-[70] modal-backdrop flex items-end sm:items-center justify-center p-0 sm:p-5" role="dialog" aria-modal="true">
       <button type="button" aria-label="Close dialog backdrop" data-testid="button-close-dialog-backdrop" className="absolute inset-0 cursor-default" onClick={onClose} />
       <div className={cn('relative w-full rounded-t-2xl sm:rounded-2xl panel p-5 sm:p-7 max-h-[92dvh] overflow-y-auto scrollbar-thin animate-enter', width)}>
-        <div className="flex items-start justify-between gap-4 mb-6">
-          <div>{eyebrow && <p className="font-mono-ui text-[10px] uppercase tracking-[.22em] text-primary mb-2">{eyebrow}</p>}<h2 className="font-display text-2xl font-semibold">{title}</h2></div>
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
+        <div className="pointer-events-none absolute -top-20 left-1/2 h-40 w-2/3 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+        <div className="relative flex items-start justify-between gap-4 mb-6">
+          <div>{eyebrow && <p className="font-mono-ui text-[10px] uppercase tracking-[.22em] text-primary mb-2">{eyebrow}</p>}<h2 className="font-display text-2xl font-semibold tracking-[-.03em]">{title}</h2></div>
           <IconButton label="Close dialog" onClick={onClose}><X size={17} /></IconButton>
         </div>
-        {children}
+        <div className="relative">{children}</div>
       </div>
     </div>
   );

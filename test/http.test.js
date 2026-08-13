@@ -668,6 +668,9 @@ test('stream status exposes listener-safe station queue slots', async () => {
       assert.equal(status.res.status, 200);
       assert.deepEqual(status.body.stationQueue.map(t => t.title), ['Station One', 'Station Two']);
       assert.equal(status.body.stationQueue[0].filepath, undefined);
+      assert.equal(typeof status.body.liveVideoActive, 'boolean');
+      assert.equal(status.body.liveVideoActive, false);
+      assert.equal(status.body.liveVideoSource, null);
     });
   } finally {
     clearStationQueue();

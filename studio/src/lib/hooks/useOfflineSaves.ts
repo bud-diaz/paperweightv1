@@ -55,7 +55,7 @@ async function getSavedRecord(id: number): Promise<StoredRecord | null> {
   } catch { return null; }
 }
 
-export type SavableTrack = { id: number; title: string; mimeType?: string };
+export type SavableTrack = { id: number; title: string; mimeType?: string | null };
 
 export function useOfflineSaves(onNotify: (message: string) => void) {
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());

@@ -189,6 +189,9 @@
 .player-stage { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(0, 1fr); align-items: center; gap: clamp(2rem, 8vw, 8rem); min-height: 450px; padding: clamp(2rem, 6vw, 5.5rem); position: relative; overflow: hidden; }
 .player-stage-glow { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 25% 40%, rgba(188,255,66,.13), transparent 24%), radial-gradient(circle at 82% 75%, rgba(255,128,113,.09), transparent 25%); }
 .player-artwork { position: relative; display: flex; align-items: center; justify-content: center; width: min(100%, 320px); aspect-ratio: 1; margin: 0 auto; border-radius: 30px; background: linear-gradient(145deg, rgba(207,255,103,.92) 0%, rgba(89,109,76,.66) 31%, rgba(255,133,119,.82) 84%, rgba(28,28,28,.72) 100%); box-shadow: 0 25px 70px rgba(162,255,55,.12); overflow: hidden; }
+.player-video-shell { position: relative; width: min(100%, 760px); aspect-ratio: 16 / 9; margin: 0 auto; border-radius: 28px; overflow: hidden; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.1); box-shadow: inset 0 1px rgba(255,255,255,.08), 0 25px 70px rgba(0,0,0,.34), 0 0 52px rgba(190,255,61,.08); }
+.player-video { display: block; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.player-video-idle { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; color: hsl(var(--primary)); background: radial-gradient(circle at center, rgba(190,255,61,.16), transparent 43%); }
 .artwork-ring { position: absolute; border: 1px solid rgba(255,255,255,.42); border-radius: 50%; transform: rotate(26deg); }
 .artwork-ring-one { width: 72%; height: 112%; }
 .artwork-ring-two { width: 112%; height: 72%; transform: rotate(-32deg); }
