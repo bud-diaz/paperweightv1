@@ -53,12 +53,24 @@ export type OnDemandTrack = {
 };
 export type QuotaSnapshot = { limit: number | null; remaining: number | null; resetSec: number; nextUpAvailable?: boolean; emailRequired?: boolean; unlimited?: boolean };
 
-export function isPlayableTrack(track: OnDemandTrack, isPaid: boolean) {
+type PlayabilityFields = { visibility: 'public' | 'supporters_only' | 'vault'; unlocked?: boolean; isExternal?: boolean };
+
+export function isPlayableTrack(track: PlayabilityFields, isPaid: boolean) {
   if (track.isExternal) return false;
   if (track.visibility === 'public') return true;
   if (track.visibility === 'supporters_only') return track.unlocked === true || isPaid;
   if (track.visibility === 'vault') return track.unlocked === true;
   return true;
+}
+
+type StashableFields = { visibility?: 'public' | 'supporters_only' | 'vault'; unlocked?: boolean; isExternal?: boolean; offlineAllowed?: boolean };
+
+// Shared by StackView and StickyTransport: a track can be saved for offline
+// playback if it's actually playable for this listener, and either the
+// creator marked it offline-allowed or it's an individually unlocked vault item.
+export function canStash(track: StashableFields, isPaid: boolean) {
+  const playable = isPlayableTrack({ ...track, visibility: track.visibility || 'public' }, isPaid);
+  return playable && (!!track.offlineAllowed || (track.visibility === 'vault' && track.unlocked === true));
 }
 
 export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?: (message: string) => void } = {}) {
@@ -69,8 +81,37 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
   const retryTimerRef = useRef<number | null>(null);
   const retryAttemptRef = useRef(0);
   const activeMediaRef = useRef<HTMLMediaElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const analyserSetupRef = useRef(false);
   const [playing, setPlaying] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
+
+  // Lazily taps the persistent live-audio element into a Web Audio analyser,
+  // the first time playback is user-initiated (AudioContext requires a user
+  // gesture to start unsuspended). createMediaElementSource reroutes the
+  // element's output through the Web Audio graph, so the analyser must also
+  // connect through to destination or the station goes silent.
+  const ensureAnalyser = useCallback(() => {
+    if (analyserSetupRef.current) { audioCtxRef.current?.resume().catch(() => undefined); return; }
+    const audioEl = audioRef.current;
+    if (!audioEl || typeof AudioContext === 'undefined') return;
+    analyserSetupRef.current = true;
+    try {
+      const ctx = new AudioContext();
+      const source = ctx.createMediaElementSource(audioEl);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.75;
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+      audioCtxRef.current = ctx;
+      analyserRef.current = analyser;
+    } catch {
+      analyserSetupRef.current = false;
+    }
+  }, []);
+  const getAnalyser = useCallback(() => analyserRef.current, []);
 
   const { stationName } = useStationIdentity();
   const { state: listenerAuth } = useListenerAuth();
@@ -360,9 +401,10 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
 
   // ── Shared transport controls (live + on-demand) ────────────────────────────
   const play = useCallback(() => {
+    ensureAnalyser();
     if (track) { odMediaRef.current?.play().then(() => setPlaying(true)).catch(() => undefined); return; }
     activeMediaRef.current?.play().then(() => setPlaying(true)).catch(() => undefined);
-  }, [track]);
+  }, [track, ensureAnalyser]);
   const pause = useCallback(() => {
     if (track) { odMediaRef.current?.pause(); setPlaying(false); return; }
     activeMediaRef.current?.pause();
@@ -415,8 +457,9 @@ export function usePlayerEngine(options: { isCreatorSession?: boolean; onNotify?
     isPaid,
     selectTrack,
     goLive,
+    getAnalyser,
   }), [activePlayback, isVideoActive, playing, reconnecting, play, pause, toggle, stationName, nowPlaying, status,
-    track, isPreview, odProgress, odElapsed, quota, isPaid, selectTrack, goLive]);
+    track, isPreview, odProgress, odElapsed, quota, isPaid, selectTrack, goLive, getAnalyser]);
 }
 
 export type PlayerEngine = ReturnType<typeof usePlayerEngine>;

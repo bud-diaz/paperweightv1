@@ -1,18 +1,24 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { ChevronLeft, LockKeyhole } from 'lucide-react';
 
 import { Logo } from '@/components/Logo';
 import { useDashboardAuth } from '@/lib/auth/DashboardAuthContext';
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
   return (
-    <div className="studio-app noise min-h-[100dvh] flex items-center justify-center p-5">
-      <div className="w-full max-w-sm panel rounded-3xl p-7 sm:p-8 animate-enter">
+    <div className="fixed inset-0 z-[70] modal-backdrop flex items-center justify-center p-5" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close dialog backdrop" data-testid="button-close-dialog-backdrop" className="absolute inset-0 cursor-default" onClick={onClose} />
+      <div className="relative w-full max-w-sm panel rounded-3xl p-7 sm:p-8 animate-enter">
         <div className="flex items-center gap-3 mb-7">
           <Logo size={36} />
           <div>
-            <p className="font-display font-bold tracking-[-.03em] text-lg">Creator Studio</p>
-            <p className="font-mono-ui text-[9px] uppercase tracking-[.18em] text-muted-foreground">by Paperweight</p>
+            <p className="font-mono-ui text-[9px] uppercase tracking-[.18em] text-muted-foreground">Paperweight:</p>
+            <p className="font-display font-bold tracking-[-.03em] text-lg">STUDIO</p>
           </div>
         </div>
         {children}
@@ -21,7 +27,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function TwoFactorChallenge() {
+function TwoFactorChallenge({ onClose }: { onClose: () => void }) {
   const { verify2fa, cancel2fa } = useDashboardAuth();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -42,7 +48,7 @@ function TwoFactorChallenge() {
   };
 
   return (
-    <Shell>
+    <Shell onClose={onClose}>
       <div className="flex items-center gap-2 mb-1"><LockKeyhole size={14} className="text-primary" /><p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-primary">Two-factor code</p></div>
       <h1 className="font-display text-2xl font-semibold mt-2">One more thing.</h1>
       <p className="text-sm text-muted-foreground mt-2">Enter the 6-digit code from your authenticator app.</p>
@@ -64,7 +70,7 @@ function TwoFactorChallenge() {
   );
 }
 
-function TokenForm() {
+function TokenForm({ onClose }: { onClose: () => void }) {
   const { login } = useDashboardAuth();
   const [token, setToken] = useState('');
   const [error, setError] = useState('');
@@ -82,7 +88,7 @@ function TokenForm() {
   };
 
   return (
-    <Shell>
+    <Shell onClose={onClose}>
       <h1 className="font-display text-2xl font-semibold">Your room, when you’re ready.</h1>
       <p className="text-sm text-muted-foreground mt-2">Enter your dashboard token to open the studio.</p>
       <form onSubmit={submit} className="mt-6 space-y-4">
@@ -103,7 +109,7 @@ function TokenForm() {
   );
 }
 
-export function DashboardLogin() {
+export function DashboardLogin({ onClose }: { onClose: () => void }) {
   const { status } = useDashboardAuth();
-  return status === 'needs2fa' ? <TwoFactorChallenge /> : <TokenForm />;
+  return status === 'needs2fa' ? <TwoFactorChallenge onClose={onClose} /> : <TokenForm onClose={onClose} />;
 }

@@ -47,7 +47,7 @@ export function WelcomeOverlay({ stationName, onDismiss, onOpenLogin }: { statio
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-5" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-5" role="dialog" aria-modal="true">
       <div className="w-full max-w-sm panel rounded-2xl p-7">
         <p className="font-mono-ui text-[10px] uppercase tracking-[.22em] text-primary">Welcome to</p>
         <h1 className="font-display text-3xl font-semibold mt-2">{stationName || 'Paperweight'}</h1>

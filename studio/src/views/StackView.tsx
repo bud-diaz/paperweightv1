@@ -8,16 +8,11 @@ import { EmptyState, IconButton } from '@/components/primitives';
 import * as api from '@/lib/api';
 import { formatDuration, swatchFor, type LibraryItem, type LibraryStructure } from '@/lib/library';
 import { cn } from '@/lib/utils';
-import { isPlayableTrack, type OnDemandTrack, type PlayerEngine } from '@/lib/hooks/usePlayerEngine';
+import { canStash, isPlayableTrack, type OnDemandTrack, type PlayerEngine } from '@/lib/hooks/usePlayerEngine';
 import { useOfflineSaves, type OfflineRecord } from '@/lib/hooks/useOfflineSaves';
 import type { ModalKey } from '@/types';
 
 type StackTrack = LibraryItem & { collection: string };
-
-function canStash(track: StackTrack, isPaid: boolean) {
-  const playable = isPlayableTrack({ ...track, visibility: track.visibility || 'public' }, isPaid);
-  return playable && (!!track.offlineAllowed || (track.visibility === 'vault' && track.unlocked === true));
-}
 
 function TrackRowReal({ track, collection, active, playing, isPaid, saved, onSelect, onStash }: { track: StackTrack; collection: string; active: boolean; playing: boolean; isPaid: boolean; saved: boolean; onSelect: () => void; onStash?: () => void }) {
   const locked = !isPlayableTrack({ ...track, visibility: track.visibility || 'public' }, isPaid);
