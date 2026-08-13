@@ -57,14 +57,11 @@ function sendBundledAsset(res, urlPath, contentType) {
   }
 }
 
-function xmlEscape(value) {
-  return String(value).replace(/[<>&'"]/g, ch => ({
-    '<': '&lt;',
-    '>': '&gt;',
-    '&': '&amp;',
-    "'": '&apos;',
-    '"': '&quot;',
-  }[ch]));
+function sendBrandedPng(res, urlPath, fallbackFile) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  if (isBundledRuntime && sendBundledAsset(res, urlPath, 'image/png')) return;
+  res.type('image/png').sendFile(fallbackFile);
 }
 
 // When bundled for pkg or the hardened Electron runtime, client files and
@@ -414,17 +411,7 @@ function createApp() {
   });
 
   app.get('/icon.png', (req, res) => {
-    const name = config.station.name || 'P';
-    const letter = xmlEscape(name.trim()[0]?.toUpperCase() || 'P');
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-      <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
-      <circle cx="256" cy="256" r="190" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
-      <text x="256" y="310" text-anchor="middle" font-family="Georgia,serif" font-size="220" fill="#ffffff">${letter}</text>
-    </svg>`;
-    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.send(svg);
+    sendBrandedPng(res, '/icon.png', path.join(config.paths.app, 'client', 'icon.png'));
   });
 
   // Studio-side routing for /share/:token lives in studio/src/pages/Share.tsx

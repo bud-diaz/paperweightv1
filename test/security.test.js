@@ -144,18 +144,19 @@ test('dashboard password reset links ignore poisoned Host headers', async () => 
   });
 });
 
-test('generated station icon escapes XML text content', async () => {
+test('generated station icon serves the branded PNG without reflecting station name', async () => {
   freshDb();
   const originalName = config.station.name;
   config.station.name = '<svg onload=alert(1)>';
   try {
     await withServer(async baseUrl => {
       const res = await fetch(`${baseUrl}/icon.png`);
-      const body = await res.text();
+      const body = Buffer.from(await res.arrayBuffer());
       assert.equal(res.status, 200);
       assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
-      assert.match(body, /&lt;/);
-      assert.ok(!body.includes('<text x="256" y="310" text-anchor="middle" font-family="Georgia,serif" font-size="220" fill="#ffffff"><'));
+      assert.match(res.headers.get('content-type') || '', /^image\/png/);
+      assert.deepEqual([...body.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+      assert.ok(!body.toString('utf8').includes('<svg onload=alert(1)>'));
     });
   } finally {
     config.station.name = originalName;

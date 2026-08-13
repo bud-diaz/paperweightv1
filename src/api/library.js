@@ -28,6 +28,40 @@ const MAX_ARTWORK_CACHE = 60;
 const ARTWORK_DIR = path.join(config.paths.data, 'artwork');
 const ARTWORK_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
 const ARTWORK_MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif' };
+const DEFAULT_ARTWORK_PATHS = [
+  path.join(config.paths.root, 'client', 'icon.png'),
+  path.join(config.paths.app, 'client', 'icon.png'),
+  path.join(config.paths.app, 'client', 'favicon.png'),
+];
+let defaultArtworkCache = null;
+
+function getDefaultArtwork() {
+  if (defaultArtworkCache) return defaultArtworkCache;
+
+  for (const filepath of DEFAULT_ARTWORK_PATHS) {
+    if (fs.existsSync(filepath)) {
+      defaultArtworkCache = { data: fs.readFileSync(filepath), mime: 'image/png' };
+      return defaultArtworkCache;
+    }
+  }
+
+  try {
+    const bundled = require('../client-bundle')['/icon.png'] || require('../client-bundle')['/favicon.png'];
+    if (bundled?.data) {
+      defaultArtworkCache = { data: bundled.data, mime: bundled.mime || 'image/png' };
+      return defaultArtworkCache;
+    }
+  } catch {}
+
+  return null;
+}
+
+function sendDefaultArtwork(res) {
+  const artwork = getDefaultArtwork();
+  if (!artwork) return res.status(404).end();
+  setImageHeaders(res, artwork.mime, 'public, max-age=86400');
+  return res.end(artwork.data);
+}
 
 function findUploadedArtwork(id) {
   for (const ext of ARTWORK_EXTS) {
@@ -663,7 +697,7 @@ router.get('/:id/artwork', (req, res) => {
     const buf = artworkCache.get(id);
     if (!buf) {
       if (row.artwork_url) return redirectArtworkUrl(res, row.artwork_url);
-      return res.status(404).end();
+      return sendDefaultArtwork(res);
     }
     setImageHeaders(res, 'image/jpeg');
     return res.end(buf);
@@ -673,7 +707,7 @@ router.get('/:id/artwork', (req, res) => {
   if (!filepath || !fs.existsSync(filepath)) {
     artworkCache.set(id, null);
     if (row.artwork_url) return redirectArtworkUrl(res, row.artwork_url);
-    return res.status(404).end();
+    return sendDefaultArtwork(res);
   }
 
   if (artworkPending.has(id)) {
@@ -707,7 +741,7 @@ router.get('/:id/artwork', (req, res) => {
     }
     artworkCache.set(id, buf);
     for (const r of pending) {
-      if (!buf) { r.status(404).end(); continue; }
+      if (!buf) { sendDefaultArtwork(r); continue; }
       setImageHeaders(r, 'image/jpeg');
       r.end(buf);
     }

@@ -113,7 +113,7 @@ function ListenerApp() {
       <audio ref={engine.audioRef} hidden />
       <main className="min-h-[100dvh] mode-main">
         <header className="relative h-20 px-4 sm:px-8 lg:px-10 border-b border-white/[.07] flex items-center gap-4 sticky top-0 z-30 glass-header">
-          <Logo size={28} />
+          <Logo size={49} />
           <div className="absolute left-1/2 -translate-x-1/2"><ModeSwitcher mode={mode} onChange={handleModeChange} /></div>
           <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground"><span>{stationName}</span><ChevronRight size={13} /><span className="text-foreground">{mode === 'stack' ? 'Library' : 'Player'}</span></div>
           <div className="ml-auto"><IconButton label="Account" onClick={() => setAccountModal({ tab: 'login' })}><UserRound size={16} /></IconButton></div>

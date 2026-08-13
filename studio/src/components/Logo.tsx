@@ -1,14 +1,14 @@
-// The Paperweight brand mark. Served from client/favicon.png (already the
-// app's icon everywhere else — client/creator.html, the PWA manifest) rather
-// than the mockup's placeholder Aperture-icon-in-a-lime-square.
+// The Paperweight brand mark used inside the web app chrome. This uses the
+// transparent, tightly-cropped mark instead of the favicon/app icon so the
+// mobile header blends into the black background without a placeholder box.
 export function Logo({ size = 32 }: { size?: number }) {
   return (
     <img
-      src="/favicon.png"
+      src="/brand-mark.png"
       alt="Paperweight"
       width={size}
       height={size}
-      className="rounded-lg shrink-0"
+      className="shrink-0 object-contain"
       style={{ width: size, height: size }}
     />
   );

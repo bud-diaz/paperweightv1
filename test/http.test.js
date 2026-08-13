@@ -14,7 +14,7 @@ const { createApp } = require('../src/index');
 const config = require('../src/config');
 const { parseEnvValue, parseTrustProxy } = require('../src/config');
 const { resolveAvailableUploadPath, sanitizeUploadName } = require('../src/api/dashboard');
-const { ARTWORK_DIR } = require('../src/api/library');
+const { ARTWORK_DIR, clearArtworkCache } = require('../src/api/library');
 const broadcast = require('../src/broadcast');
 const playQuota = require('../src/middleware/playQuota');
 
@@ -1109,6 +1109,47 @@ test('artwork follows media access policy', async () => {
   });
 
   try { fs.unlinkSync(supporterFile); } catch {}
+});
+
+test('media without custom artwork falls back to the Paperweight logo PNG', async () => {
+  const db = freshDb();
+  fs.mkdirSync(config.vault.path, { recursive: true });
+  fs.rmSync(ARTWORK_DIR, { recursive: true, force: true });
+  const mediaFile = path.join(config.vault.path, `default-art-${Date.now()}.mp3`);
+  fs.writeFileSync(mediaFile, 'not-real-audio');
+  const media = seedMedia(db, { visibility: 'public', filepath: mediaFile });
+  clearArtworkCache(media.id);
+
+  await withServer(async baseUrl => {
+    const res = await fetch(`${baseUrl}/api/library/${media.id}/artwork`);
+    const body = Buffer.from(await res.arrayBuffer());
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'image/png');
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+    assert.deepEqual([...body.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  });
+
+  try { fs.unlinkSync(mediaFile); } catch {}
+});
+
+test('custom artwork still overrides the default Paperweight logo', async () => {
+  const db = freshDb();
+  fs.mkdirSync(config.vault.path, { recursive: true });
+  fs.mkdirSync(ARTWORK_DIR, { recursive: true });
+  const mediaFile = path.join(config.vault.path, `custom-art-${Date.now()}.mp3`);
+  fs.writeFileSync(mediaFile, 'not-real-audio');
+  const media = seedMedia(db, { visibility: 'public', filepath: mediaFile });
+  fs.writeFileSync(path.join(ARTWORK_DIR, `${media.id}.jpg`), Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
+
+  await withServer(async baseUrl => {
+    const res = await fetch(`${baseUrl}/api/library/${media.id}/artwork`);
+    const body = Buffer.from(await res.arrayBuffer());
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'image/jpeg');
+    assert.deepEqual([...body], [0xff, 0xd8, 0xff, 0xd9]);
+  });
+
+  try { fs.unlinkSync(mediaFile); } catch {}
 });
 
 test('dashboard upload rejects unsupported multipart file types', async () => {
