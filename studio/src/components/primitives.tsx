@@ -1,10 +1,11 @@
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import {
   Aperture, ArrowUpRight, Boxes, ChevronLeft, ChevronRight, Headphones,
   LayoutDashboard, MoreHorizontal, Pause, Play, Plus, Trash2, X,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import type { PlayerEngine } from '@/lib/hooks/usePlayerEngine';
 import type { ModeKey, Track } from '@/types';
 
 function initials(name: string) {
@@ -24,14 +25,71 @@ export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md'
   );
 }
 
-export function Waveform({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className={cn('flex items-end gap-[3px]', compact ? 'h-5' : 'h-10')} aria-label="Audio signal waveform">
-      {Array.from({ length: compact ? 18 : 34 }, (_, index) => (
-        <span key={index} className="wave-bar block w-[3px] rounded-full bg-primary" style={{ height: `${25 + ((index * 17) % 73)}%` }} />
-      ))}
-    </div>
-  );
+function drawBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    ctx.fill();
+  } else {
+    ctx.fillRect(x, y, w, h);
+  }
+}
+
+// Audio-reactive replacement for the old fixed-bar CSS animation: draws a
+// binned frequency spectrum from the engine's Web Audio analyser (populated
+// once live audio playback starts — see usePlayerEngine's ensureAnalyser).
+// Falls back to a flat idle bar row before playback has ever started.
+export function Waveform({ engine, compact = false }: { engine: Pick<PlayerEngine, 'getAnalyser'>; compact?: boolean }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const barCount = compact ? 18 : 34;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.round(rect.width * dpr));
+      canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    let raf = 0;
+    const freqData = new Uint8Array(2048);
+    const draw = () => {
+      raf = requestAnimationFrame(draw);
+      const w = canvas.width, h = canvas.height;
+      if (!w || !h) return;
+      ctx.clearRect(0, 0, w, h);
+      const gap = w * 0.012;
+      const barWidth = (w - gap * (barCount - 1)) / barCount;
+      const radius = barWidth / 2;
+      const analyser = engine.getAnalyser();
+      ctx.fillStyle = analyser ? '#bcff42' : 'rgba(190,255,61,.35)';
+      if (!analyser) {
+        for (let i = 0; i < barCount; i++) drawBar(ctx, i * (barWidth + gap), h - h * 0.08, barWidth, h * 0.08, radius);
+        return;
+      }
+      const bins = analyser.frequencyBinCount;
+      const data = freqData.length >= bins ? freqData : new Uint8Array(bins);
+      analyser.getByteFrequencyData(data);
+      const bucketSize = Math.max(1, Math.floor(bins / barCount));
+      for (let i = 0; i < barCount; i++) {
+        let sum = 0;
+        for (let j = 0; j < bucketSize; j++) sum += data[i * bucketSize + j] || 0;
+        const avg = sum / bucketSize;
+        const barH = Math.max(h * 0.06, (avg / 255) * h);
+        drawBar(ctx, i * (barWidth + gap), h - barH, barWidth, barH, radius);
+      }
+    };
+    draw();
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
+  }, [engine, barCount]);
+
+  return <canvas ref={canvasRef} aria-label="Audio signal waveform" className={cn('block w-full', compact ? 'h-5' : 'h-10')} />;
 }
 
 export function IconButton({ label, onClick, children, className = '' }: { label: string; onClick?: () => void; children: ReactNode; className?: string }) {

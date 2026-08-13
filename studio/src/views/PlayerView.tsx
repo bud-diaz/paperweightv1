@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import {
   Link2, Music2, Pause, Play, Radio, Share2, Heart,
 } from 'lucide-react';
@@ -14,8 +15,20 @@ function formatDuration(seconds: number | null | undefined) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export function PlayerView({ engine, onOpen }: { engine: PlayerEngine; onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void }) {
+export function PlayerView({ engine, onOpen, onPlayButtonVisibilityChange }: { engine: PlayerEngine; onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void; onPlayButtonVisibilityChange?: (visible: boolean) => void }) {
   const { playing, reconnecting, toggle, stationName, nowPlaying, listenerCount, liveActive, liveVideoActive, stationQueue, recentlyPlayed, track, isPreview, odProgress, odElapsed, quota, goLive, isVideoActive, videoRef } = engine;
+  const playButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Feeds the sticky transport (mounted outside this view, so it survives
+  // tab switches) — it should only show once this button scrolls out of view.
+  useEffect(() => {
+    if (!onPlayButtonVisibilityChange) return;
+    const el = playButtonRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => onPlayButtonVisibilityChange(entry.isIntersecting), { threshold: 0 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [onPlayButtonVisibilityChange]);
 
   const title = track ? track.title : (nowPlaying?.title || 'Nothing playing yet');
   const subtitle = track ? [track.artist, track.category].filter(Boolean).join(' · ') : ([nowPlaying?.artist, nowPlaying?.category].filter(Boolean).join(' · ') || stationName);
@@ -56,9 +69,9 @@ export function PlayerView({ engine, onOpen }: { engine: PlayerEngine; onOpen: (
           {track ? <>
             <div className="h-1.5 rounded-full bg-white/10 mt-8 overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${Math.round(odProgress * 100)}%` }} /></div>
             <div className="flex items-center justify-between font-mono-ui text-[10px] text-muted-foreground mt-2"><span>{formatDuration(odElapsed)}</span><span>{isPreview ? '0:30 preview' : formatDuration(track.duration)}</span></div>
-          </> : isVideoActive ? <p className="text-sm text-muted-foreground mt-8 leading-relaxed">Video is routed through the same creator-owned station signal. Use the player controls for fullscreen, seek, and device volume.</p> : <div className="player-wave"><Waveform /></div>}
+          </> : isVideoActive ? <p className="text-sm text-muted-foreground mt-8 leading-relaxed">Video is routed through the same creator-owned station signal. Use the player controls for fullscreen, seek, and device volume.</p> : <div className="player-wave"><Waveform engine={engine} /></div>}
           <div className="player-controls">
-            <button type="button" data-testid="button-player-play" onClick={toggle} className="player-play-button">{playing ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}</button>
+            <button type="button" ref={playButtonRef} data-testid="button-player-play" onClick={toggle} className="player-play-button">{playing ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}</button>
             {track && <button type="button" data-testid="button-player-back-live" onClick={() => goLive(true)} className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2 ml-3"><Radio size={13} /> Back to live</button>}
           </div>
           {quotaText && <p className="text-xs text-muted-foreground mt-4">{quotaText}</p>}
