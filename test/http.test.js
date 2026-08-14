@@ -1197,6 +1197,48 @@ test('dashboard collection tracks can be reordered', async () => {
     });
     assert.equal(pricing.res.status, 200);
     assert.deepEqual(pricing.body.projects[0].items.map(item => item.content_id), [second.id, first.id]);
+
+    const structure = await request(baseUrl, '/api/library/structure');
+    assert.equal(structure.res.status, 200);
+    assert.deepEqual(structure.body.projects[0].tracks.map(item => item.id), [second.id, first.id]);
+  });
+});
+
+test('dashboard media update can apply shared track details across a collection', async () => {
+  const db = freshDb();
+  const first = seedMedia(db, { title: 'Lead Track', filepath: '/vault/meta-first.mp3' });
+  const second = seedMedia(db, { title: 'Follow Track', filepath: '/vault/meta-second.mp3' });
+  const projectId = db.prepare(
+    "INSERT INTO vault_projects (name, description, allow_free) VALUES ('Metadata Collection', 'Shared details', 1)"
+  ).run().lastInsertRowid;
+  db.prepare('INSERT INTO vault_project_items (project_id, content_id, sort_order) VALUES (?, ?, ?)')
+    .run(projectId, first.id, 0);
+  db.prepare('INSERT INTO vault_project_items (project_id, content_id, sort_order) VALUES (?, ?, ?)')
+    .run(projectId, second.id, 1);
+
+  await withServer(async baseUrl => {
+    const updated = await request(baseUrl, `/api/dashboard/media/${first.id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Dashboard-Token': process.env.DASHBOARD_TOKEN,
+      },
+      body: JSON.stringify({
+        artist: 'Shared Artist',
+        genre: 'Shared Genre',
+        artwork_url: 'https://cdn.example/shared.png',
+        apply_to_collection: true,
+        apply_fields: ['artist', 'genre', 'artwork'],
+      }),
+    });
+    assert.equal(updated.res.status, 200);
+    assert.equal(updated.body.appliedToCollection, 1);
+
+    const rows = db.prepare('SELECT id, artist, genre, artwork_url FROM media WHERE id IN (?, ?) ORDER BY id').all(first.id, second.id);
+    assert.deepEqual(rows, [
+      { id: first.id, artist: 'Shared Artist', genre: 'Shared Genre', artwork_url: 'https://cdn.example/shared.png' },
+      { id: second.id, artist: 'Shared Artist', genre: 'Shared Genre', artwork_url: 'https://cdn.example/shared.png' },
+    ]);
   });
 });
 

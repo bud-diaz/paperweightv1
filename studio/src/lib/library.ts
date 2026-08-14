@@ -2,6 +2,11 @@ import type { Track } from '@/types';
 
 export type LibraryItem = {
   id: number; title: string; artist: string | null; category: string | null; duration: number | null;
+  album?: string | null;
+  genre?: string | null;
+  producer?: string | null;
+  credits?: string | null;
+  artwork_url?: string | null;
   // Present on the listener-facing GET /api/library/structure response
   // (src/api/library.js formatItem()); optional here since the dashboard
   // side's callers of this type don't need them.

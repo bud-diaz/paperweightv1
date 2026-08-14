@@ -448,8 +448,12 @@ router.get('/structure', (req, res) => {
   ).all(params);
 
   const projects = db.prepare('SELECT id, name, description FROM vault_projects ORDER BY created_at ASC').all();
+  const projectItems = db.prepare(
+    'SELECT project_id, content_id, sort_order FROM vault_project_items ORDER BY project_id, sort_order, content_id'
+  ).all();
   const ctx = buildOwnershipContext(req);
-  const trackToProject = ctx.trackToProject;
+  const trackToProject = new Map(projectItems.map(pi => [pi.content_id, pi.project_id]));
+  const trackSortOrder = new Map(projectItems.map(pi => [pi.content_id, pi.sort_order]));
   const projectMap = new Map(projects.map(p => [p.id, { ...p, tracks: [] }]));
   const standalone = [];
 
@@ -460,6 +464,13 @@ router.get('/structure', (req, res) => {
     } else {
       standalone.push(formatItem(track, req.tier, ctx));
     }
+  }
+  for (const project of projectMap.values()) {
+    project.tracks.sort((a, b) => {
+      const ao = trackSortOrder.get(a.id) ?? 0;
+      const bo = trackSortOrder.get(b.id) ?? 0;
+      return ao - bo || a.id - b.id;
+    });
   }
 
   const result = {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ArrowUpRight, Bookmark, BookmarkCheck, ChevronDown, Disc3, ListMusic, LockKeyhole, Pause, Play, Search, Trash2,
+  Bookmark, BookmarkCheck, ChevronDown, Disc3, FileText, ListMusic, LockKeyhole, Pause, Play, Search, Trash2,
 } from 'lucide-react';
 
 import { EmptyState, IconButton } from '@/components/primitives';
@@ -44,6 +44,7 @@ function StashRow({ record, track, active, playing, onSelect, onRemove }: { reco
 
 export function StackView({ engine, onNotify, onLockedTrack, onVideoTrackSelected }: { engine: PlayerEngine; onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void; onLockedTrack?: (track: OnDemandTrack) => void; onVideoTrackSelected?: () => void }) {
   const [expanded, setExpanded] = useState<'library' | 'stash'>('library');
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const { data: structure, isLoading } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure() });
   const offline = useOfflineSaves(onNotify);
@@ -64,6 +65,17 @@ export function StackView({ engine, onNotify, onLockedTrack, onVideoTrackSelecte
   }, [allTracks, search]);
 
   const projects = structure?.projects || [];
+  const selectedProject = projects.find((project) => project.id === selectedProjectId) || null;
+  const selectedProjectTracks = selectedProject?.tracks || [];
+  const selectedProjectCredits = selectedProjectTracks
+    .flatMap((track) => [track.producer && `Producer: ${track.producer}`, track.credits].filter(Boolean) as string[])
+    .filter((value, index, arr) => arr.indexOf(value) === index)
+    .slice(0, 4);
+  const selectedProjectGenres = selectedProjectTracks
+    .map((track) => track.genre)
+    .filter((genre): genre is string => !!genre)
+    .filter((value, index, arr) => arr.indexOf(value) === index)
+    .slice(0, 3);
 
   return (
     <div className="animate-enter stack-workspace">
@@ -87,11 +99,44 @@ export function StackView({ engine, onNotify, onLockedTrack, onVideoTrackSelecte
           {expanded === 'library' && <div className="stack-card-body"><div className="stack-card-content">
             <div className="stack-search-wrap"><Search size={14} /><input id="stack-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search the catalog…" aria-label="Search the catalog" /></div>
             {projects.length > 0 && <div className="stack-folder-grid">
-              {projects.map((project) => <button type="button" key={project.id} className="stack-folder" onClick={() => onNotify(`${project.name}: ${project.tracks.length} tracks`)}>
+              {projects.map((project) => <button type="button" key={project.id} className={cn('stack-folder', selectedProjectId === project.id && 'selected')} onClick={() => setSelectedProjectId(selectedProjectId === project.id ? null : project.id)} aria-expanded={selectedProjectId === project.id}>
                 <span className="stack-folder-orb"><Disc3 size={18} /></span>
                 <span className="stack-folder-copy"><strong>{project.name}</strong><small>{project.tracks.length} tracks</small></span>
-                <ArrowUpRight size={14} />
+                <ChevronDown size={14} className={cn('stack-card-chevron', selectedProjectId === project.id && 'open')} />
               </button>)}
+            </div>}
+            {selectedProject && <div className="stack-collection-drawer animate-enter" data-testid={`drawer-stack-collection-${selectedProject.id}`}>
+              <div className="stack-collection-hero">
+                <div className="stack-collection-art" style={{ background: `linear-gradient(135deg, ${swatchFor(selectedProject.id)}, rgba(255,255,255,.08))` }}>
+                  {selectedProjectTracks[0] ? <img src={`/api/library/${selectedProjectTracks[0].id}/artwork`} alt="" loading="lazy" /> : <Disc3 size={28} />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-primary">Collection</p>
+                  <h3 className="font-display text-xl font-semibold mt-1 truncate">{selectedProject.name}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">{selectedProject.description || `${selectedProjectTracks.length} track${selectedProjectTracks.length === 1 ? '' : 's'} in sequence`}</p>
+                  {!!selectedProjectGenres.length && <div className="flex flex-wrap gap-1.5 mt-3">{selectedProjectGenres.map((genre) => <span key={genre} className="stack-collection-chip">{genre}</span>)}</div>}
+                </div>
+              </div>
+              <div className="stack-collection-meta">
+                <div><span>Tracks</span><strong>{selectedProjectTracks.length}</strong></div>
+                <div><span>Runtime</span><strong>{formatDuration(selectedProjectTracks.reduce((total, track) => total + (track.duration || 0), 0))}</strong></div>
+                <div><span>Artist</span><strong>{selectedProjectTracks.find((track) => track.artist)?.artist || 'Various'}</strong></div>
+              </div>
+              <div className="stack-section-label">TRACKLIST</div>
+              <div className="stack-collection-tracklist">
+                {selectedProjectTracks.map((track, index) => <button type="button" key={track.id} className="stack-collection-track" onClick={() => {
+                  const onDemandTrack: OnDemandTrack = { id: track.id, title: track.title, artist: track.artist, category: track.category, duration: track.duration, visibility: track.visibility || 'public', unlocked: track.unlocked, isExternal: track.isExternal, isVideo: track.isVideo, mimeType: track.mimeType };
+                  offline.stop();
+                  if (track.isVideo) onVideoTrackSelected?.();
+                  engine.selectTrack(onDemandTrack);
+                  if (!isPlayableTrack(onDemandTrack, engine.isPaid)) onLockedTrack?.(onDemandTrack);
+                }}>
+                  <span>{String(index + 1).padStart(2, '0')}</span>
+                  <strong>{track.title}</strong>
+                  <small>{formatDuration(track.duration)}</small>
+                </button>)}
+              </div>
+              {!!selectedProjectCredits.length && <div className="stack-collection-credits"><FileText size={14} className="text-primary shrink-0" /><p>{selectedProjectCredits.join(' · ')}</p></div>}
             </div>}
             <div className="stack-section-label">ALL WORKS</div>
             {isLoading ? <p className="text-sm text-muted-foreground py-6">Loading catalog…</p> : <div>{filtered.map((track) => {

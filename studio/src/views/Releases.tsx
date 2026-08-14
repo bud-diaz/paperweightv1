@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  CloudUpload, Disc3, Globe2, ListMusic, Music2, Plus, RefreshCw,
+  ArrowDown, ArrowUp, CloudUpload, Disc3, Edit3, Globe2, ListMusic, Music2, Plus, RefreshCw,
 } from 'lucide-react';
 
-import { ActionCard, EmptyState, TrackRow, ViewHeader } from '@/components/primitives';
+import { ActionCard, EmptyState, Field, Modal, TrackRow, ViewHeader } from '@/components/primitives';
 import * as api from '@/lib/api';
 import { toDisplayTrack, type LibraryStructure } from '@/lib/library';
 import { cn } from '@/lib/utils';
@@ -12,9 +12,77 @@ import type { ModalKey } from '@/types';
 
 const STANDALONE_KEY = -1;
 
+type DashboardMediaItem = {
+  id: number;
+  title: string | null;
+  filename: string;
+  artist: string | null;
+  album: string | null;
+  genre: string | null;
+  artwork_url: string | null;
+};
+
+function TrackEditModal({ track, collectionSize, onClose, onNotify }: { track: DashboardMediaItem; collectionSize: number; onClose: () => void; onNotify: (message: string) => void }) {
+  const queryClient = useQueryClient();
+  const [title, setTitle] = useState(track.title || track.filename);
+  const [artist, setArtist] = useState(track.artist || '');
+  const [genre, setGenre] = useState(track.genre || '');
+  const [artworkUrl, setArtworkUrl] = useState(track.artwork_url || '');
+  const [artFile, setArtFile] = useState<File | null>(null);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (artFile) {
+        const formData = new FormData();
+        formData.append('artwork', artFile);
+        const { res, data } = await api.dashboard.media.uploadArtwork(track.id, formData);
+        if (!res.ok) return { res, data };
+      }
+      const sharedFields = [artist.trim() ? 'artist' : null, genre.trim() ? 'genre' : null, (artFile || artworkUrl.trim()) ? 'artwork' : null].filter(Boolean) as string[];
+      const applyToCollection = collectionSize > 1 && sharedFields.length > 0 && window.confirm('Apply this artist, genre, and artwork to the other tracks in this collection?');
+      return api.dashboard.media.update(track.id, {
+        title: title.trim(),
+        artist: artist.trim(),
+        genre: genre.trim(),
+        artwork_url: artworkUrl.trim(),
+        apply_to_collection: applyToCollection,
+        apply_fields: sharedFields,
+      });
+    },
+    onSuccess: ({ res, data }: { res: Response; data: { error?: string; appliedToCollection?: number } }) => {
+      if (!res.ok) { onNotify(data.error || 'Track update failed.'); return; }
+      queryClient.invalidateQueries({ queryKey: ['library', 'structure'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'media'] });
+      onNotify(data.appliedToCollection ? `Track updated and applied to ${data.appliedToCollection} collection track${data.appliedToCollection === 1 ? '' : 's'}.` : 'Track updated.');
+      onClose();
+    },
+    onError: () => onNotify('Track update failed — connection error.'),
+  });
+
+  return <Modal title={`Edit “${track.title || track.filename}”`} eyebrow="Catalog / Track info" onClose={onClose} width="max-w-xl">
+    <div className="space-y-5">
+      <Field label="Title" value={title} onChange={setTitle} placeholder="Track title" />
+      <div className="grid sm:grid-cols-2 gap-4">
+        <Field label="Artist" value={artist} onChange={setArtist} placeholder="Artist name" />
+        <Field label="Genre" value={genre} onChange={setGenre} placeholder="Genre" />
+      </div>
+      <Field label="Artwork URL" value={artworkUrl} onChange={setArtworkUrl} placeholder="https://…" />
+      <label className="block text-sm text-muted-foreground">Uploaded artwork<input type="file" accept="image/*" className="input-studio w-full rounded-xl px-3.5 py-3 mt-2" onChange={(event) => setArtFile(event.target.files?.[0] || null)} /></label>
+      {collectionSize > 1 && <p className="text-xs text-muted-foreground">When you save, Paperweight will ask if you want Artist, Genre, and Artwork copied to the other tracks in this collection.</p>}
+    </div>
+    <div className="flex justify-end gap-2 mt-7">
+      <button type="button" data-testid="button-cancel-track-info" onClick={onClose} className="ghost-button rounded-lg px-3 py-2 text-xs">Cancel</button>
+      <button type="button" data-testid="button-save-track-info" onClick={() => save.mutate()} disabled={!title.trim() || save.isPending} className="lime-button rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50">{save.isPending ? 'Saving…' : 'Save track info'}</button>
+    </div>
+  </Modal>;
+}
+
 export function Releases({ onOpen, onNotify, playing, onPlay }: { onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void; playing: boolean; onPlay: () => void }) {
+  const queryClient = useQueryClient();
   const { data: structure, isLoading } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure() });
+  const { data: mediaList = [] } = useQuery<DashboardMediaItem[]>({ queryKey: ['dashboard', 'media'], queryFn: () => api.dashboard.media.list() });
   const [selected, setSelected] = useState<number | null>(null);
+  const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
 
   const projects = structure?.projects || [];
   const standalone = structure?.standalone || [];
@@ -27,9 +95,32 @@ export function Releases({ onOpen, onNotify, playing, onPlay }: { onOpen: (modal
   }, [projects, standalone, selected]);
 
   const selectedProject = projects.find((project) => project.id === selected);
+  const rawCollectionTracks = selected === STANDALONE_KEY ? standalone : (selectedProject?.tracks || []);
   const collectionTracks = selected === STANDALONE_KEY
     ? standalone.map((track) => toDisplayTrack(track, track.category || 'Standalone'))
-    : (selectedProject?.tracks || []).map((track) => toDisplayTrack(track, selectedProject!.name));
+    : rawCollectionTracks.map((track) => toDisplayTrack(track, selectedProject!.name));
+  const editingTrack = mediaList.find((track) => track.id === editingTrackId) || null;
+
+  const reorder = useMutation({
+    mutationFn: ({ projectId, contentIds }: { projectId: number; contentIds: number[] }) => api.dashboard.vault.reorderCollectionTracks(projectId, { content_ids: contentIds }),
+    onSuccess: ({ res, data }: { res: Response; data: { error?: string } }) => {
+      if (!res.ok) { onNotify(data.error || 'Failed to reorder collection.'); return; }
+      queryClient.invalidateQueries({ queryKey: ['library', 'structure'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'vault', 'pricing'] });
+      onNotify('Collection order updated.');
+    },
+    onError: () => onNotify('Failed to reorder collection — connection error.'),
+  });
+  const moveTrack = (contentId: number, direction: -1 | 1) => {
+    if (!selectedProject) return;
+    const ids = selectedProject.tracks.map((track) => track.id);
+    const index = ids.indexOf(contentId);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= ids.length) return;
+    const next = [...ids];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    reorder.mutate({ projectId: selectedProject.id, contentIds: next });
+  };
 
   return <div className="animate-enter"><ViewHeader eyebrow="Catalog / Releases" title="Your body of work." description="Shape the way people enter your world. Releases, broadcasts, and the fragments between." action={<button type="button" data-testid="button-create-collection" onClick={() => onOpen('collection')} className="lime-button rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2"><Plus size={16} /> New collection</button>} />
 
@@ -61,9 +152,16 @@ export function Releases({ onOpen, onNotify, playing, onPlay }: { onOpen: (modal
           <button type="button" data-testid="button-add-track" onClick={() => onOpen('library')} className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2"><Plus size={14} /> Add track</button>
         </div>
         <div className="mt-2">
-          {collectionTracks.length ? collectionTracks.map((track, i) => <TrackRow key={track.id} track={track} index={i} playing={playing && i === 0} onPlay={onPlay} />) : <EmptyState icon={Music2} title="No tracks here yet" body="Bring in a work from your library or upload something new." action="Add a track" onClick={() => onOpen('library')} />}
+          {collectionTracks.length ? collectionTracks.map((track, i) => <div key={track.id} className="flex items-center gap-2 border-b border-white/[.07] last:border-0">
+            <div className="flex-1 min-w-0"><TrackRow track={track} index={i} playing={playing && i === 0} onPlay={onPlay} /></div>
+            {selectedProject && <div className="flex items-center gap-1">
+              <button type="button" aria-label={`Move ${track.title} up`} data-testid={`button-release-track-up-${track.id}`} onClick={() => moveTrack(track.id, -1)} disabled={i === 0 || reorder.isPending} className="ghost-button h-8 px-2 rounded-lg text-xs disabled:opacity-40"><ArrowUp size={13} /></button>
+              <button type="button" aria-label={`Move ${track.title} down`} data-testid={`button-release-track-down-${track.id}`} onClick={() => moveTrack(track.id, 1)} disabled={i === collectionTracks.length - 1 || reorder.isPending} className="ghost-button h-8 px-2 rounded-lg text-xs disabled:opacity-40"><ArrowDown size={13} /></button>
+            </div>}
+            <button type="button" data-testid={`button-edit-track-info-${track.id}`} onClick={() => setEditingTrackId(track.id)} className="ghost-button h-8 px-2.5 rounded-lg text-xs flex items-center gap-1.5"><Edit3 size={13} /> Info</button>
+          </div>) : <EmptyState icon={Music2} title="No tracks here yet" body="Bring in a work from your library or upload something new." action="Add a track" onClick={() => onOpen('library')} />}
         </div>
-        {selected !== STANDALONE_KEY && <div className="mt-5 pt-4 border-t border-white/[.08] flex items-center gap-3 text-xs text-muted-foreground"><Globe2 size={14} className="text-primary" /> Track order and pricing management are wired in a later pass</div>}
+        {selected !== STANDALONE_KEY && <div className="mt-5 pt-4 border-t border-white/[.08] flex items-center gap-3 text-xs text-muted-foreground"><Globe2 size={14} className="text-primary" /> Use the arrows to set collection track order. Edit Info to copy Artist, Genre, and Artwork across the collection.</div>}
       </section>
     </>}
 
@@ -72,5 +170,6 @@ export function Releases({ onOpen, onNotify, playing, onPlay }: { onOpen: (modal
       <ActionCard icon={RefreshCw} title="Import from elsewhere" body="Bring in SoundCloud or Bandcamp links." onClick={() => onNotify('Import link copied — paste it into the library when ready.')} />
       <ActionCard icon={ListMusic} title="Build a smart playlist" body="Let your catalog tell a story." onClick={() => onNotify('Smart playlist builder is wired in a later pass.')} />
     </div>
+    {editingTrack && <TrackEditModal track={editingTrack} collectionSize={rawCollectionTracks.length} onClose={() => setEditingTrackId(null)} onNotify={onNotify} />}
   </div>;
 }

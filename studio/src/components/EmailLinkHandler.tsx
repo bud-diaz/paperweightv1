@@ -67,8 +67,8 @@ export function EmailLinkHandler({ onNotify }: { onNotify: (message: string) => 
 
   if (link.type === 'reset') {
     return (
-      <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-5" role="dialog" aria-modal="true">
-        <div className="w-full max-w-sm panel rounded-2xl p-7">
+      <div className="fixed inset-0 z-[100] modal-backdrop flex items-center justify-center p-5" role="dialog" aria-modal="true">
+        <div className="w-full max-w-sm modal-panel rounded-2xl p-7">
           <p className="font-mono-ui text-[10px] uppercase tracking-[.22em] text-primary">Choose a new password</p>
           <input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="new password (min 8 chars)" autoComplete="new-password" data-testid="input-reset-password" className="input-studio w-full rounded-xl px-3.5 py-3 mt-4 text-sm" />
           {resetMsg && <p className={cn('text-xs mt-3', resetMsg.type === 'error' ? 'text-destructive' : 'text-primary')}>{resetMsg.text}</p>}
@@ -80,8 +80,8 @@ export function EmailLinkHandler({ onNotify }: { onNotify: (message: string) => 
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-5" role="dialog" aria-modal="true">
-      <div className="w-full max-w-sm panel rounded-2xl p-7 text-center">
+    <div className="fixed inset-0 z-[100] modal-backdrop flex items-center justify-center p-5" role="dialog" aria-modal="true">
+      <div className="w-full max-w-sm modal-panel rounded-2xl p-7 text-center">
         <p className="font-mono-ui text-[10px] uppercase tracking-[.22em] text-primary">{status === 'working' ? (link.type === 'autologin' ? 'Logging you in…' : 'Verifying your email…') : ''}</p>
         {statusText && <p className={cn('text-sm mt-3', status === 'error' ? 'text-destructive' : 'text-primary')}>{statusText}</p>}
       </div>

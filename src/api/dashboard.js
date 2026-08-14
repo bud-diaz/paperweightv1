@@ -134,6 +134,31 @@ function removeFile(filepath) {
   try { if (filepath) fs.unlinkSync(filepath); } catch {}
 }
 
+function findUploadedArtworkFile(id) {
+  for (const ext of new Set(Object.values(IMAGE_EXTS))) {
+    const filepath = path.join(ARTWORK_DIR, `${id}${ext}`);
+    if (fs.existsSync(filepath)) return { filepath, ext };
+  }
+  return null;
+}
+
+function replaceUploadedArtwork(id, source) {
+  fs.mkdirSync(ARTWORK_DIR, { recursive: true });
+  for (const ext of new Set(Object.values(IMAGE_EXTS))) {
+    removeFile(path.join(ARTWORK_DIR, `${id}${ext}`));
+  }
+  fs.copyFileSync(source.filepath, path.join(ARTWORK_DIR, `${id}${source.ext}`));
+  clearArtworkCache(id);
+}
+
+function collectionSiblingIds(db, mediaId) {
+  const project = db.prepare('SELECT project_id FROM vault_project_items WHERE content_id = ?').get(mediaId);
+  if (!project) return [];
+  return db.prepare(
+    'SELECT content_id FROM vault_project_items WHERE project_id = ? AND content_id != ? ORDER BY sort_order, content_id'
+  ).all(project.project_id, mediaId).map(row => row.content_id);
+}
+
 // ─── Vault stats ─────────────────────────────────────────────────────────────
 
 // GET /api/dashboard/vault
@@ -269,6 +294,8 @@ router.patch('/media/:id', (req, res) => {
     artwork_url,
     offline_allowed,
     release_at,
+    apply_to_collection,
+    apply_fields,
   } = req.body;
   const setClauses = [];
   const params     = [];
@@ -327,12 +354,52 @@ router.patch('/media/:id', (req, res) => {
   setClauses.push("updated_at = datetime('now')");
   params.push(req.params.id);
 
-  const info = getDb().prepare(
+  const db = getDb();
+  const mediaId = Number(req.params.id);
+  const info = db.prepare(
     `UPDATE media SET ${setClauses.join(', ')} WHERE id = ? AND is_active = 1`
   ).run(...params);
   if (info.changes === 0) return res.status(404).json({ error: 'Not found' });
+
+  let appliedToCollection = 0;
+  if (apply_to_collection) {
+    const requested = Array.isArray(apply_fields) ? new Set(apply_fields) : new Set(['artist', 'genre', 'artwork']);
+    const siblingIds = collectionSiblingIds(db, mediaId);
+    const siblingSetClauses = [];
+    const siblingParams = [];
+    if (requested.has('artist') && artist !== undefined) {
+      siblingSetClauses.push('artist = ?');
+      siblingParams.push(artist === '' ? null : artist);
+    }
+    if (requested.has('genre') && genre !== undefined) {
+      siblingSetClauses.push('genre = ?');
+      siblingParams.push(genre === '' ? null : genre);
+    }
+    if (requested.has('artwork') && artwork_url !== undefined) {
+      siblingSetClauses.push('artwork_url = ?');
+      siblingParams.push(artwork_url === '' ? null : artwork_url);
+    }
+    if (siblingIds.length && siblingSetClauses.length) {
+      const updateSibling = db.prepare(
+        `UPDATE media SET ${siblingSetClauses.join(', ')}, updated_at = datetime('now') WHERE id = ? AND is_active = 1`
+      );
+      const tx = db.transaction(ids => {
+        for (const id of ids) updateSibling.run(...siblingParams, id);
+      });
+      tx(siblingIds);
+      appliedToCollection = siblingIds.length;
+    }
+    if (siblingIds.length && requested.has('artwork')) {
+      const sourceArtwork = findUploadedArtworkFile(mediaId);
+      if (sourceArtwork) {
+        for (const id of siblingIds) replaceUploadedArtwork(id, sourceArtwork);
+        appliedToCollection = Math.max(appliedToCollection, siblingIds.length);
+      }
+    }
+  }
+
   log('info', 'dashboard', `Media ${req.params.id} updated`);
-  res.json({ ok: true, id: Number(req.params.id) });
+  res.json({ ok: true, id: mediaId, appliedToCollection });
 });
 
 // POST /api/dashboard/media/:id/artwork — upload an image file as artwork
