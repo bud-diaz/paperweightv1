@@ -45,6 +45,10 @@ Current migration sequence:
 
 Never add recurring destructive SQL to a migration file. Do not use `DROP TABLE media` or table rebuilds in automatically applied SQL migrations.
 
+## System.Pape Integration Contract
+
+Before changing telemetry, public station search/directory, download analytics, or Paperweight-owned tunnel flows, read `docs/system-pape-contract.md`. Keep terminology strict: System.Pape `projects` are internal operating workstreams; Paperweight creator-facing bundles are `collections`. Legacy DB identifiers such as `vault_projects` may remain internal/technical names, but do not introduce new public copy that uses projects and collections interchangeably.
+
 ## Auth And Access
 
 Listener auth:

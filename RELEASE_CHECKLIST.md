@@ -54,6 +54,17 @@ below for the build steps and manual QA checklist covering setup wizard,
 auto-login, tray, and shortcuts). After the app is running, also work through
 steps 5-10 above against its local server.
 
+## System.Pape Alignment Checks
+
+Before shipping station discovery, telemetry, tunnel, or download-page changes, review `docs/system-pape-contract.md` and run the relevant local contract checks:
+
+```bash
+npm run check:terminology
+PAPE_URL=http://127.0.0.1:3002 npm run check:system-pape
+```
+
+Use the local/staging System.Pape URL you are validating against. Pass `-- --hosted` only when you intentionally want to probe the currently deployed hosted instance. Do not continue if public UI copy confuses creator collections with System.Pape projects, or if the System.Pape endpoint compatibility probe reports an incompatible response shape.
+
 ## Public Station Checks
 
 - Public URL resolves to the station.

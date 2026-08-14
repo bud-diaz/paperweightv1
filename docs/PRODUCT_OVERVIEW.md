@@ -56,7 +56,7 @@ A tier is acquired three ways: redeeming a creator-issued token, subscribing thr
 Access tokens are the universal credential. They are stored hashed, delivered as an `httpOnly` cookie (`pw_token`) for web or as a Bearer token for mobile clients, and come in several flavors:
 
 - **Tier tokens** — grant `subscriber` / `pro` / `all_access` outright (e.g., for friends, promoters, superfans).
-- **Scoped tokens** — grant access to exactly one track or one project, regardless of tier.
+- **Scoped tokens** — grant access to exactly one track or one collection, regardless of tier.
 - **Account-linked tokens** — minted automatically at listener registration/login (a fresh token per login, so each device carries its own credential).
 - **Assigned tokens** — a creator token bound to a specific listener account by email.
 
@@ -74,8 +74,8 @@ Access tokens are the universal credential. They are stored hashed, delivered as
 
 ### 2. Library browsing & discovery
 
-- **Structured library.** `GET /api/library/structure` returns the catalog grouped into **projects** (creator-defined collections — albums, beat packs, seasons) and **standalone tracks**, each with title, artist, album, genre, producer, credits, BPM, tags, duration, artwork, and visibility.
-- **Curated drawer.** The player surfaces three curated slots computed server-side: the most recently active project, the most-played track (from real listen data), and a creator-chosen **highlight** (any track or project the creator pins).
+- **Structured library.** `GET /api/library/structure` returns the catalog grouped into **collections** (creator-defined groupings — albums, beat packs, seasons) and **standalone tracks**, each with title, artist, album, genre, producer, credits, BPM, tags, duration, artwork, and visibility.
+- **Curated drawer.** The player surfaces three curated slots computed server-side: the most recently active collection, the most-played track (from real listen data), and a creator-chosen **highlight** (any track or collection the creator pins).
 - **Search & filters.** Full-text search across title/artist/filename, category filters, and **genre chips** (distinct genres with counts, computed across the visible catalog).
 - **Discover feed.** A public trending view: top tracks by actual seconds listened over a configurable window (1–90 days) plus the newest releases — restricted to public items only.
 - **Lock states & pricing inline.** Every item is annotated per-listener with `unlocked` status and, for vault items, its price card (suggested price, minimum, free-allowed flag, one-time vs. recurring) so the UI can show buy/unlock affordances without extra round-trips.
@@ -117,10 +117,10 @@ Account self-service includes:
 
 The vault is Paperweight's Bandcamp-style storefront layer:
 
-- **Three unlock scopes:** a single **track**, a whole **project** (album/pack), or **all-access** (everything in the vault, forever or as a subscription).
+- **Three unlock scopes:** a single **track**, a whole **collection** (album/pack), or **all-access** (everything in the vault, forever or as a subscription).
 - **Pay-what-you-want pricing.** Each item carries a suggested price and a minimum; the creator can also allow **free** (name-your-price-from-zero) unlocks, which complete instantly without checkout.
 - **One-time or recurring.** Unlocks can be permanent purchases or monthly/annual recurring access (recurring unlocks lapse automatically if the underlying Stripe subscription fails or is cancelled).
-- **Locked-item UX.** Hitting a locked item returns the full unlock option set (track price, parent project price, all-access price) so the player can render a proper paywall with every path to access.
+- **Locked-item UX.** Hitting a locked item returns the full unlock option set (track price, parent collection price, all-access price) so the player can render a proper paywall with every path to access.
 - **Your Collection.** A dedicated view of everything the listener owns — resolved through the same ownership engine the library uses (track unlocks, project unlocks, all-access, scoped tokens).
 - **Purchase history.** Every unlock with amount paid, date, type, and active/expired state.
 
@@ -143,7 +143,7 @@ A public "about the creator" panel (when the creator enables it): bio text, prof
 
 ### 10. Share links (recipient side)
 
-A share link (`/share/<token>`) opens a track or a whole project with **no account and no tier check** — the token is the credential. Recipients can stream everything in the share through signed URLs. Links can carry an expiry; expired or deleted links stop working immediately.
+A share link (`/share/<token>`) opens a track or a whole collection with **no account and no tier check** — the token is the credential. Recipients can stream everything in the share through signed URLs. Links can carry an expiry; expired or deleted links stop working immediately.
 
 ### 11. Podcast/RSS feed
 
@@ -204,9 +204,9 @@ Two ways to interrupt the radio with a live broadcast — only one can be on-air
 - **Provider config at a glance.** The dashboard shows exactly which Stripe/PayPal keys, price IDs, and webhook secrets are configured (never the values), so the creator can see what's wired without touching `.env`.
 - **Vault pricing.**
   - Per-**track** pricing: suggested price, minimum, allow-free, one-time or monthly/annual recurring. Setting a price auto-flips the item to `vault`; removing pricing flips it back to public.
-  - **Projects**: create named collections (name, description, cover), attach tracks with sort order, and price the bundle as a unit. A track belongs to at most one project.
+  - **Collections**: create named collections (name, description, cover), attach tracks with sort order, and price the bundle as a unit. A track belongs to at most one collection.
   - **All-access pass**: a single global product — enable/disable, price floor/suggestion, one-time or recurring, and an independent switch for whether *paid subscription tiers* also include the vault.
-- **Highlight.** Pin any track or project into the player's curated drawer.
+- **Highlight.** Pin any track or collection into the player's curated drawer.
 - **Tip jar configuration.** Exactly three preset amounts (each ≥ $1) plus a custom-amount toggle.
 - **Earnings dashboard.** Revenue rollup across every source: per-item unlock revenue with units sold, tip totals with recent tips, and active subscription counts by tier — all in integer cents, with no invented numbers (per-period subscription amounts live at the provider).
 - **Webhook event log (desktop).** The last N Stripe/PayPal webhook events with outcomes, for production payment debugging.
@@ -214,13 +214,13 @@ Two ways to interrupt the radio with a live broadcast — only one can be on-air
 ### 6. Access tokens (desktop)
 
 - Create labeled tokens at any tier; the raw token is shown once and stored hashed.
-- Create **scoped** tokens that unlock exactly one track or one project — shareable per-content passes.
+- Create **scoped** tokens that unlock exactly one track or one collection — shareable per-content passes.
 - Change a token's tier, revoke tokens, and list tokens by scope.
 - **Assign tokens to accounts.** Bind a token to a listener account by email so the entitlement follows their login rather than a pasteable string; view and remove assignments.
 
 ### 7. Private share links
 
-- Mint share links for any track or project, with an optional label and expiry (hours).
+- Mint share links for any track or collection, with an optional label and expiry (hours).
 - Each link shows its **open count** and last-opened time.
 - Delete a link to kill it instantly.
 
@@ -301,7 +301,7 @@ The webhook URL is SSRF-guarded (URLs resolving to private/reserved addresses ar
 | Live HLS streams | `/hls/stream/`, `/hls/live/` | Station and live-broadcast segments |
 | Podcast feed | `/feed.xml`, `/feed/enclosure/:id` | RSS for podcast apps (opt-in) |
 | Embed player | `/embed` | Frameable mini player for external sites |
-| Share links | `/share/:token` | No-account access to shared tracks/projects |
+| Share links | `/share/:token` | No-account access to shared tracks/collections |
 | Landing pages | `/landing`, `/landing/download`, `/landing/listen`, `/landing/license`, `/landing/content-responsibility` | Marketing site, downloads with lead capture, station directory |
 | Health | `/api/health` | Status + station name (used by the directory and reachability checks) |
 

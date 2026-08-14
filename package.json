@@ -23,13 +23,15 @@
     "smoke:electron": "node scripts/smoke-electron.js",
     "build:desktop-runtime": "node scripts/build-desktop-runtime.js",
     "check:desktop-artifact": "node scripts/check-desktop-artifact.js",
-    "test": "node --test test/build-scripts.test.js test/frp-combined-route.test.js test/broadcast-engine.test.js test/broadcast-live-external.test.js test/broadcast-live-video.test.js test/scheduler.test.js test/access.test.js test/payment.test.js test/http.test.js test/auth.test.js test/devices.test.js test/reserved-slugs.test.js test/platform.test.js test/provision.test.js test/device-lock.test.js test/security.test.js test/email.test.js test/features.test.js test/papercut-adoption.test.js test/release-scheduler.test.js test/cloudflare.test.js test/necessity.test.js",
+    "test": "node --test test/build-scripts.test.js test/system-pape-contract.test.js test/frp-combined-route.test.js test/broadcast-engine.test.js test/broadcast-live-external.test.js test/broadcast-live-video.test.js test/scheduler.test.js test/access.test.js test/payment.test.js test/http.test.js test/auth.test.js test/devices.test.js test/reserved-slugs.test.js test/platform.test.js test/provision.test.js test/device-lock.test.js test/security.test.js test/email.test.js test/features.test.js test/papercut-adoption.test.js test/release-scheduler.test.js test/cloudflare.test.js test/necessity.test.js",
     "check:clean": "node scripts/check-release-clean.js",
-    "release:check": "node scripts/check-release-clean.js && npm test && node scripts/preflight.js && node scripts/check-migrations.js && node scripts/check-scheduler.js && node scripts/check-analytics.js && node scripts/check-package-assets.js && npm audit --omit=dev",
+    "release:check": "node scripts/check-release-clean.js && npm test && node scripts/preflight.js && node scripts/check-migrations.js && node scripts/check-scheduler.js && node scripts/check-analytics.js && node scripts/check-package-assets.js && node scripts/check-terminology.js && npm audit --omit=dev",
     "fetch:ffmpeg": "node scripts/fetch-ffmpeg.js",
     "build:exe": "node scripts/build-exe.js",
     "build:studio": "npm --prefix studio install && npm --prefix studio run build",
-    "dev:studio": "npm --prefix studio run dev"
+    "dev:studio": "npm --prefix studio run dev",
+    "check:terminology": "node scripts/check-terminology.js",
+    "check:system-pape": "node scripts/check-system-pape-contract.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

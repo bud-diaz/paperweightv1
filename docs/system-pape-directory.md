@@ -1,5 +1,7 @@
 # system.pape Paperweight Directory
 
+For the full current integration contract, see `docs/system-pape-contract.md`.
+
 Paperweight stations report public directory eligibility through the existing telemetry ingest:
 
 ```http
