@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Download Paperweight</title>
   <link rel="icon" type="image/png" href="/favicon.png" />
-  <meta name="description" content="Download Paperweight and launch your own streaming station. Available for Windows, macOS, Linux, and Raspberry Pi." />
+  <meta name="description" content="Download Paperweight for Windows, macOS, Linux, or Raspberry Pi — free, no license fee, no platform cut." />
   <link rel="stylesheet" href="/vendor/fonts/fonts.css" />
   <style>
 /* ── Reset ───────────────────────────────────────────────────────────────── */
@@ -19,6 +19,7 @@ button{border:none;cursor:pointer;background:none;font:inherit}
   --lime:#bcff42;--lime-rgb:190,255,66;
   --coral:#ff8071;--coral-rgb:255,128,113;
   --border:rgba(255,255,255,.14);--border-hi:rgba(255,255,255,.22);
+  --border-soft:rgba(255,255,255,.08);
   --text:#eef0f7;--t-mid:rgba(225,230,255,.62);
   --t-muted:rgba(225,230,255,.42);--t-dim:rgba(225,230,255,.22);
   --discord:#5865F2;
@@ -26,26 +27,8 @@ button{border:none;cursor:pointer;background:none;font:inherit}
   --display:'Space Grotesk',sans-serif;
   --mono:'DM Mono',monospace;
 }
-html,body{height:100%;overflow:hidden}
-html,body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6}
-
-/* Brand name — Studio's signal-gradient */
-.pw{
-  font-family:var(--display);font-weight:600;letter-spacing:-.01em;
-  background:linear-gradient(120deg,#dfff81 0%,#9dff30 42%,#ff8776 100%);
-  -webkit-background-clip:text;background-clip:text;color:transparent;
-}
-
-/* ── Animations ──────────────────────────────────────────────────────────── */
-@keyframes live-pulse{
-  0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 8px #bcff42}
-  50%{opacity:.5;transform:scale(.75);box-shadow:0 0 4px #bcff42}
-}
-@keyframes wf-bounce{
-  0%,100%{transform:scaleY(.2);opacity:.3}
-  50%{transform:scaleY(1);opacity:.85}
-}
-@keyframes as-panel-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.6}
 
 /* film grain — same recipe as the Studio SPA's .noise layer */
 body::before{
@@ -60,248 +43,166 @@ body::before{
     radial-gradient(circle at 80% 76%, rgba(var(--coral-rgb),.09), transparent 46%);
 }
 
+/* ── Layout primitives ──────────────────────────────────────────────────── */
+.pw-shell{max-width:1152px;margin:0 auto;padding:0 20px}
+@media(min-width:640px){.pw-shell{padding:0 32px}}
+.pw-section{position:relative;z-index:1;padding:56px 0}
+@media(min-width:640px){.pw-section{padding:80px 0}}
+.pw-section--hairline{border-top:1px solid var(--border-soft)}
+.pw-section--hero{padding-top:88px;padding-bottom:0}
+@media(min-width:640px){.pw-section--hero{padding-top:120px}}
+
 .eyebrow{
-  font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--lime);
+  font-family:var(--mono);font-size:11px;letter-spacing:.22em;color:var(--lime);
   text-transform:uppercase;margin-bottom:14px;
 }
-.panel-h2{
-  font-family:var(--display);font-size:clamp(1.5rem,3.2vw,2.1rem);font-weight:600;
-  letter-spacing:-.02em;line-height:1.1;margin-bottom:24px;
-  background:linear-gradient(110deg,#f0f3ff 12%,#c9d1ed 78%);
-  -webkit-background-clip:text;background-clip:text;color:transparent;
-}
+.pw-h1{font-family:var(--display);font-weight:600;letter-spacing:-.04em;line-height:1.05;font-size:clamp(2.1rem,4.6vw,3.3rem);color:var(--text)}
+.pw-h2{font-family:var(--display);font-weight:600;letter-spacing:-.04em;line-height:1.12;font-size:clamp(1.5rem,3.5vw,2.1rem);color:var(--text)}
+.pw-h3{font-family:var(--display);font-weight:600;letter-spacing:-.02em;line-height:1.2;font-size:1.15rem;color:var(--text)}
+.brand-gradient-text{background:linear-gradient(135deg,#dcff75,#ff8071 75%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.pw-body{font-size:16px;line-height:1.75;color:rgba(238,240,247,.8)}
+.pw-body-muted{font-size:14px;line-height:1.7;color:var(--t-mid)}
 
-/* ── Mock card system (shell chrome) — Studio's .panel glass ─────────────── */
-.mock-card{
-  background:linear-gradient(145deg, rgba(255,255,255,.12), rgba(255,255,255,.055));
-  border:1px solid rgba(255,255,255,.16);border-radius:20px;
-  box-shadow:0 24px 90px rgba(0,0,0,.5),inset 0 1px rgba(255,255,255,.14),inset 0 -1px rgba(255,255,255,.035);
-  backdrop-filter:blur(28px) saturate(150%);-webkit-backdrop-filter:blur(28px) saturate(150%);
-  overflow:hidden;position:relative;
-}
-.mc-topbar{
-  display:grid;grid-template-columns:1fr auto 1fr;
-  align-items:center;padding:14px 16px;
-  border-bottom:1px solid var(--border);
-  flex:0 0 auto;
-}
-.mc-wordmark{display:inline-flex;align-items:center;gap:9px;font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:-.02em;color:var(--text)}
-.mc-wordmark img{width:22px;height:22px;display:block}
-.mc-version-badge{
-  font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.08em;
-  background:rgba(var(--lime-rgb),.16);border:1px solid rgba(var(--lime-rgb),.4);
-  color:var(--lime);border-radius:3px;padding:2px 8px;
-}
-.mc-accent{height:2px;background:linear-gradient(to right,transparent,var(--lime),var(--coral),transparent);opacity:.55;flex:0 0 auto}
+/* ── Cards / grids ───────────────────────────────────────────────────────── */
+.pw-card{border-radius:14px;background:rgba(255,255,255,.05);border:1px solid var(--border-soft);padding:24px}
+@media(min-width:640px){.pw-card{padding:28px}}
+.pw-grid-2{display:grid;gap:16px;margin-top:36px}
+@media(min-width:640px){.pw-grid-2{grid-template-columns:1fr 1fr}}
+.pw-grid-need{display:grid;gap:40px}
+@media(min-width:1024px){.pw-grid-need{grid-template-columns:1fr 1fr;gap:64px}}
 
-/* ══════════════════════════════════════════════════════════════════════════
-   App shell layout — matches landing/index.html and landing/listen.html
-   ══════════════════════════════════════════════════════════════════════════ */
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.pw-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:999px;font-family:var(--sans);font-weight:600;font-size:14px;
+  padding:13px 26px;transition:transform .15s,background-color .15s,border-color .15s,opacity .15s;
+  cursor:pointer;white-space:nowrap;border:none;
+}
+.pw-btn:hover{transform:translateY(-2px)}
+.pw-btn:active{transform:translateY(0)}
+.pw-btn-primary{background:var(--lime);color:#000}
+.pw-btn-primary:hover{background:#c9ff66}
+.pw-btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+.pw-btn-ghost:hover{background:rgba(255,255,255,.06);border-color:var(--border-hi)}
+.pw-btn--sm{padding:10px 18px;font-size:13px}
+.pw-btn[aria-disabled="true"]{opacity:.4;transform:none}
 
-.as-page{
-  height:100vh;height:100dvh;
-  display:flex;align-items:center;justify-content:center;
-  padding:28px;position:relative;z-index:1;
-  overflow:auto;
+/* ── Platform cards ──────────────────────────────────────────────────────── */
+.pw-download-card{
+  position:relative;display:flex;flex-direction:column;
+  border-radius:14px;background:rgba(255,255,255,.05);border:1px solid var(--border-soft);
+  padding:22px;
 }
-.as-shell{
-  width:min(720px,96vw);
-  height:min(760px,calc(100dvh - 56px));
-  display:flex;flex-direction:column;
+.pw-download-card-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.pw-version-badge{
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--t-muted);border:1px solid var(--border);border-radius:4px;padding:3px 8px;flex-shrink:0;
 }
+.pw-download-card-instructions{margin-top:10px;flex:1}
+.pw-download-card-actions{display:flex;align-items:center;gap:14px;margin-top:18px;flex-wrap:wrap}
+.pw-help-link{
+  font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--t-muted);
+  text-decoration:underline;text-underline-offset:3px;transition:color .15s;
+}
+.pw-help-link:hover{color:var(--lime)}
+.pw-recommended-tag{
+  display:none;position:absolute;top:-9px;right:16px;
+  font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--lime);background:#050505;border:1px solid rgba(var(--lime-rgb),.4);border-radius:4px;padding:3px 8px;
+}
+.pw-download-card.is-recommended{border-color:rgba(var(--lime-rgb),.4)}
+.pw-download-card.is-recommended .pw-recommended-tag{display:inline-block}
 
-.as-tabs{
-  display:flex;gap:2px;overflow-x:auto;
-  width:fit-content;max-width:calc(100% - 32px);
-  margin:12px auto;padding:4px;
-  border-radius:999px;
-  background:rgba(255,255,255,.075);
-  backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);
-  border:1px solid var(--border-hi);
-  box-shadow:inset 0 1px rgba(255,255,255,.12),0 10px 40px rgba(0,0,0,.24);
-  flex:0 0 auto;
-  scrollbar-width:none;
-}
-.as-tabs::-webkit-scrollbar{display:none}
-.as-tab{
-  flex:0 0 auto;
-  font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--t-muted);background:transparent;border:1px solid transparent;
-  border-radius:999px;padding:9px 18px;cursor:pointer;
-  transition:background .15s,color .15s,border-color .15s;
-  white-space:nowrap;
-}
-.as-tab:hover:not(.active){background:rgba(255,255,255,.08);color:var(--t-mid)}
-.as-tab.active{
-  background:rgba(var(--lime-rgb),.78);
-  border-color:rgba(233,255,160,.55);
-  color:#000;
-  box-shadow:0 5px 24px rgba(var(--lime-rgb),.2),inset 0 1px rgba(255,255,255,.35);
-}
-
-.as-viewport{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;position:relative}
-.as-panel{display:none;padding:4px 28px 28px;max-width:640px;margin:0 auto}
-.as-panel.active{display:block;animation:as-panel-in .22s ease}
-
-.as-footer{
-  flex:0 0 auto;
-  display:flex;align-items:center;justify-content:space-between;gap:16px;
-  padding:12px 20px;
-  font-family:var(--mono);font-size:10px;color:var(--t-dim);letter-spacing:.06em;
-}
-.as-footer-link{color:var(--t-muted);text-decoration:none;letter-spacing:.06em;transition:color .15s}
-.as-footer-link:hover{color:var(--t-mid);text-decoration:none}
-
-/* ── Download panel intro ────────────────────────────────────────────────── */
-.dl-intro{text-align:center;padding:16px 0 20px}
-.hero-version{
-  font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--lime);
-  border:1px solid rgba(var(--lime-rgb),.35);border-radius:4px;padding:4px 11px;
-  display:inline-block;margin-bottom:16px;text-transform:uppercase;
-}
-.dl-title{
-  font-family:var(--display);font-size:clamp(1.8rem,4vw,2.4rem);font-weight:600;
-  letter-spacing:-.025em;line-height:1.05;margin-bottom:10px;
-  background:linear-gradient(110deg,#f0f3ff 12%,#c9d1ed 78%);
-  -webkit-background-clip:text;background-clip:text;color:transparent;
-}
-.dl-sub{font-family:var(--sans);font-size:13px;color:var(--t-muted);line-height:1.8}
-
-/* ── Art zone (terminal) ─────────────────────────────────────────────────── */
-.mc-art{
-  position:relative;aspect-ratio:16/7;
-  border-radius:12px;overflow:hidden;
-  background:rgba(255,255,255,.03);border:1px solid rgba(var(--lime-rgb),.16);
-}
-.mc-art-svg{position:absolute;inset:0;width:100%;height:100%}
-.dl-term{
-  position:absolute;inset:0;
-  padding:16px 18px 56px;
-  display:flex;flex-direction:column;justify-content:center;gap:10px;
-  z-index:1;
-}
-.dl-step{}
-.dl-comment{font-family:var(--mono);font-size:11px;color:rgba(var(--lime-rgb),.5);margin-bottom:3px;letter-spacing:.02em}
-.dl-cmd{font-family:var(--mono);font-size:13px;color:var(--text);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-.dl-prompt{color:var(--lime);font-weight:500;flex-shrink:0}
-.dl-out{font-family:var(--mono);font-size:11px;color:rgba(var(--lime-rgb),.65);margin-top:3px;line-height:1.5}
-.mc-art-meta{
-  position:absolute;bottom:0;left:0;right:0;padding:24px 16px 12px;
-  background:linear-gradient(to top,rgba(0,0,0,.82) 0%,transparent 100%);z-index:2;
-}
-.mc-track-title{font-family:var(--display);font-weight:600;font-size:18px;color:var(--text);line-height:1.1;letter-spacing:-.02em}
-.mc-track-creator{font-family:var(--mono);font-size:9px;color:var(--t-mid);margin-top:3px;letter-spacing:.06em}
-
-/* ── Waveform ────────────────────────────────────────────────────────────── */
-.mc-wf-section{padding:12px 0 0}
-.mc-wf{display:flex;align-items:center;gap:1.5px;height:44px}
-.mc-wbar{flex:1;border-radius:2px;min-width:2px;background:rgba(255,255,255,.13);transform-origin:bottom center}
-.mc-wbar.played{background:var(--lime);box-shadow:0 0 5px rgba(var(--lime-rgb),.5)}
-.mc-wbar.animated{background:var(--lime);box-shadow:0 0 5px rgba(var(--lime-rgb),.5);animation:wf-bounce .9s ease-in-out infinite}
-
-/* ── Controls ────────────────────────────────────────────────────────────── */
-.mc-controls{display:flex;align-items:center;justify-content:space-between;padding:12px 0 14px}
-.mc-drawer-btn{
-  font-family:var(--mono);font-size:14px;color:var(--t-muted);
-  padding:5px 9px;border:1px solid transparent;border-radius:6px;background:none;cursor:pointer;
-  transition:color .15s,border-color .15s,background .15s;
-}
-.mc-drawer-btn.active{color:var(--lime);background:rgba(var(--lime-rgb),.14);border-color:rgba(var(--lime-rgb),.35)}
-.dl-dl-btn{
-  width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  background:conic-gradient(from 180deg,var(--lime),var(--coral),var(--lime));
-  box-shadow:0 0 24px rgba(var(--lime-rgb),.4),0 4px 16px rgba(0,0,0,.5);
-  transition:box-shadow .2s,transform .15s;flex-shrink:0;
-}
-.dl-dl-btn:hover{box-shadow:0 0 42px rgba(var(--lime-rgb),.7),0 4px 16px rgba(0,0,0,.5);transform:scale(1.07)}
-.dl-dl-btn svg{fill:#000}
-.mc-help-btn{
-  font-family:var(--mono);font-size:11px;color:var(--t-muted);
-  padding:5px 9px;border:1px solid transparent;border-radius:6px;
-  transition:color .15s,border-color .15s,background .15s;display:flex;align-items:center;
-}
-.mc-help-btn:hover{color:var(--discord);border-color:rgba(88,101,242,.35);background:rgba(88,101,242,.1)}
-
-/* ── Platform drawer ─────────────────────────────────────────────────────── */
-.dl-drawer{
-  border-top:1px solid rgba(255,255,255,.09);
-  overflow:hidden;max-height:260px;
-  transition:max-height .32s cubic-bezier(.4,0,.2,1);
-}
-.dl-drawer.closed{max-height:0}
-.dl-drawer-label{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--t-muted);padding:8px 0 4px;text-transform:uppercase}
-.dl-plat-row{display:flex;align-items:center;gap:12px;padding:9px 4px;cursor:pointer;border-left:2px solid transparent;transition:background .15s,border-color .15s}
-.dl-plat-row:hover{background:rgba(255,255,255,.04)}
-.dl-plat-row.active{background:rgba(var(--lime-rgb),.06);border-left-color:var(--lime)}
-.dl-plat-icon{width:14px;height:14px;fill:var(--t-muted);flex-shrink:0;transition:fill .15s}
-.dl-plat-row.active .dl-plat-icon,.dl-plat-row:hover .dl-plat-icon{fill:rgba(238,240,247,.7)}
-.dl-plat-info{flex:1;min-width:0}
-.dl-plat-name{font-family:var(--display);font-size:15px;color:rgba(238,240,247,.75);transition:color .15s}
-.dl-plat-row.active .dl-plat-name,.dl-plat-row:hover .dl-plat-name{color:var(--text)}
-.dl-plat-arch{font-family:var(--mono);font-size:10px;color:var(--t-dim);margin-top:2px;letter-spacing:.04em}
-.dl-plat-check{font-family:var(--mono);font-size:11px;color:var(--lime);opacity:0;transition:opacity .15s;flex-shrink:0}
-.dl-plat-row.active .dl-plat-check{opacity:1}
-
-/* ── Download gate ──────────────────────────────────────────────────────── */
-.dl-gate{border-top:1px solid rgba(255,255,255,.09);padding:14px 0 10px;display:flex;flex-direction:column;gap:9px}
-.dl-gate-check{display:flex;align-items:flex-start;gap:9px;font-family:var(--sans);font-size:11px;color:var(--t-muted);line-height:1.6;cursor:pointer}
+/* ── Gate panel (unchanged IDs/logic — only wrapper is new) ─────────────── */
+.dl-gate{display:flex;flex-direction:column;gap:11px}
+.dl-gate-check{display:flex;align-items:flex-start;gap:9px;font-family:var(--sans);font-size:12px;color:var(--t-muted);line-height:1.6;cursor:pointer}
 .dl-gate-check input{margin-top:2px;accent-color:var(--lime);flex-shrink:0}
 .dl-gate-check a{color:rgba(var(--lime-rgb),.85);text-decoration:underline;text-underline-offset:2px}
 .dl-gate-check a:hover{color:var(--lime)}
 .dl-gate-email-wrap{display:flex;flex-direction:column;gap:4px}
 .dl-gate-email{
-  width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);
-  border-radius:5px;padding:7px 10px;font-family:var(--sans);font-size:12px;color:var(--text);
+  width:100%;max-width:360px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);
+  border-radius:5px;padding:8px 11px;font-family:var(--sans);font-size:13px;color:var(--text);
   outline:none;transition:border-color .15s;
 }
 .dl-gate-email:focus{border-color:rgba(var(--lime-rgb),.45)}
 .dl-gate-email::placeholder{color:var(--t-dim)}
 .dl-gate-disclaimer{font-family:var(--mono);font-size:10px;color:var(--t-dim);letter-spacing:.03em}
-.dl-gate-status{min-height:16px;font-family:var(--mono);font-size:10px;color:var(--t-mid);letter-spacing:.03em;line-height:1.5}
+.dl-gate-status{min-height:16px;font-family:var(--mono);font-size:11px;color:var(--t-mid);letter-spacing:.03em;line-height:1.5}
 .dl-gate-status.ok{color:rgba(var(--lime-rgb),.9)}
-.dl-gate-status.warn{color:rgba(238,240,247,.5)}
-.dl-dl-btn.gated{opacity:.3}
-.mc-help-btn.hidden{visibility:hidden;pointer-events:none}
+.dl-gate-status.warn{color:rgba(238,240,247,.6)}
 
-.below-note{
-  font-family:var(--mono);font-size:11px;color:var(--t-dim);letter-spacing:.05em;
-  text-align:center;margin-top:16px;
+/* ── Requirements list / collapsible ─────────────────────────────────────── */
+.pw-need-list{list-style:none;display:flex;flex-direction:column;gap:12px;margin-top:20px}
+.pw-need-list li{border-top:1px solid var(--border-soft);padding-top:12px;color:rgba(238,240,247,.8);font-size:15px;line-height:1.65}
+
+details.pw-collapsible{border-radius:14px;border:1px solid var(--border-soft);background:rgba(255,255,255,.05)}
+details.pw-collapsible > summary{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;
+  cursor:pointer;list-style:none;font-family:var(--display);font-weight:600;letter-spacing:-.02em;font-size:15px;color:var(--text);
 }
-.below-note a{color:rgba(var(--lime-rgb),.85);text-decoration:underline;text-underline-offset:3px}
-.below-note a:hover{color:var(--lime)}
+details.pw-collapsible > summary::-webkit-details-marker{display:none}
+details.pw-collapsible > summary .pw-chevron{transition:transform .2s ease;flex-shrink:0;color:var(--t-muted)}
+details.pw-collapsible[open] > summary .pw-chevron{transform:rotate(180deg)}
+.pw-collapsible-body{border-top:1px solid var(--border-soft);padding:16px 20px 20px}
+.pw-collapsible-body ol{padding-left:20px;color:rgba(238,240,247,.8);font-size:14px;line-height:1.8}
+.pw-collapsible-body li{margin:4px 0}
 
-/* ── Requirements panel ──────────────────────────────────────────────────── */
-.reqs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
-.req-card{background:rgba(255,255,255,.045);border:1px solid var(--border);border-radius:10px;padding:16px;box-shadow:inset 0 1px rgba(255,255,255,.08);transition:box-shadow .18s,border-color .18s,transform .15s;cursor:default}
-.req-card:hover{box-shadow:inset 0 1px rgba(255,255,255,.08),0 0 18px rgba(var(--lime-rgb),.22),0 0 6px rgba(var(--lime-rgb),.1);border-color:rgba(var(--lime-rgb),.3);transform:translateY(-1px)}
-.req-card:active{transform:scale(1.02)}
-.req-key{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--t-muted);text-transform:uppercase;margin-bottom:6px}
-.req-val{font-family:var(--display);font-size:17px;color:rgba(238,240,247,.85)}
-.req-note{font-family:var(--sans);font-size:11px;color:var(--t-dim);margin-top:4px;line-height:1.5}
-
-/* ── Next steps panel ────────────────────────────────────────────────────── */
-.next-steps{display:flex;flex-direction:column}
-.next-step{display:flex;gap:20px;align-items:flex-start;padding:20px 8px;border-bottom:1px solid var(--border);transition:background .15s,box-shadow .18s;border-radius:8px}
-.next-step:hover{background:rgba(var(--lime-rgb),.03);box-shadow:0 0 24px rgba(var(--lime-rgb),.1)}
-.next-step:last-child{border-bottom:none}
-.next-num{font-family:var(--display);font-weight:600;font-size:1.9rem;color:rgba(var(--lime-rgb),.3);line-height:1;flex-shrink:0;width:34px}
-.next-step-title{font-family:var(--display);font-size:16px;color:rgba(238,240,247,.88);margin-bottom:6px}
-.next-step-body{font-family:var(--sans);font-size:13px;color:var(--t-muted);line-height:1.75}
-.next-step-body code{color:var(--lime);font-family:var(--mono);font-size:12px}
-
-/* ── Discord panel ───────────────────────────────────────────────────────── */
-.as-discord{text-align:center}
-.discord-icon{color:var(--discord);margin-bottom:18px}
-.discord-sub{font-family:var(--sans);font-size:13px;color:var(--t-mid);line-height:1.8;max-width:380px;margin:0 auto 28px}
-.btn-discord{
-  display:inline-flex;align-items:center;gap:10px;
-  font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:500;
-  background:var(--discord);color:#fff;padding:12px 26px;border-radius:7px;
-  transition:box-shadow .2s,transform .12s;
+/* ── Nav (identical to landing/index.html) ───────────────────────────────── */
+.nav{
+  position:sticky;top:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;height:64px;
+  background:rgba(0,0,0,.82);
+  box-shadow:0 12px 60px rgba(0,0,0,.34),inset 0 -1px rgba(255,255,255,.055);
+  -webkit-backdrop-filter:blur(28px) saturate(155%);backdrop-filter:blur(28px) saturate(155%);
+  border-bottom:1px solid var(--border);
 }
-.btn-discord:hover{box-shadow:0 0 32px rgba(88,101,242,.6);transform:translateY(-1px)}
+@media(min-width:640px){.nav{padding:0 32px}}
+.nav-inner{max-width:1152px;width:100%;margin:0 auto;display:flex;align-items:center;justify-content:space-between;position:relative}
+.nav-brand{display:inline-flex;align-items:center;gap:9px;font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:-.02em;color:var(--text)}
+.nav-brand img{width:22px;height:22px;display:block}
+.nav-links{display:none;align-items:center;gap:28px}
+@media(min-width:768px){.nav-links{display:flex}}
+.nav-link{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--t-mid);text-transform:uppercase;transition:color .15s}
+.nav-link:hover{color:var(--lime)}
+.nav-cta{
+  font-family:var(--mono);font-size:10px;font-weight:500;
+  letter-spacing:.1em;text-transform:uppercase;
+  background:rgba(var(--lime-rgb),.78);color:#000;
+  padding:8px 16px;border-radius:5px;text-decoration:none;
+  border:1px solid rgba(233,255,160,.55);
+  box-shadow:0 5px 24px rgba(var(--lime-rgb),.2),inset 0 1px rgba(255,255,255,.35);
+  transition:box-shadow .2s,transform .12s,background-color .2s;white-space:nowrap;
+  cursor:pointer;display:inline-block;
+}
+.nav-cta:hover{box-shadow:0 7px 32px rgba(var(--lime-rgb),.32),inset 0 1px rgba(255,255,255,.42);transform:translateY(-1px);background:rgba(213,255,110,.9)}
+.pw-nav-toggle{
+  display:flex;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:999px;border:1px solid var(--border);
+  background:transparent;color:var(--text);cursor:pointer;
+}
+@media(min-width:768px){.pw-nav-toggle{display:none}}
+.pw-mobile-nav{position:absolute;left:0;right:0;top:100%;background:#000;border-bottom:1px solid var(--border);padding:8px 20px 16px}
+.pw-mobile-nav a{display:block;padding:12px 0;font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--text);border-bottom:1px solid var(--border-soft)}
+.pw-mobile-nav a:last-child{border-bottom:none}
+.pw-mobile-nav a:hover{color:var(--lime)}
+@media(min-width:768px){.pw-mobile-nav{display:none !important}}
 
-/* ── Help modal — Studio's .modal-panel treatment ────────────────────────── */
+/* ── Footer (identical to landing/index.html) ────────────────────────────── */
+.pw-footer{border-top:1px solid var(--border-soft);position:relative;z-index:1}
+.pw-footer-grid{display:grid;gap:32px;padding:56px 0 40px;grid-template-columns:1fr}
+@media(min-width:640px){.pw-footer-grid{grid-template-columns:1fr 1fr}}
+@media(min-width:1024px){.pw-footer-grid{grid-template-columns:1.4fr 1fr 1fr 1fr}}
+.pw-footer-brand{font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:-.02em;color:var(--text)}
+.pw-footer-tag{margin-top:10px;max-width:220px;font-size:13px;line-height:1.7;color:var(--t-muted)}
+.pw-footer-heading{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--t-muted)}
+.pw-footer-links{list-style:none;margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.pw-footer-links a{font-size:13px;color:rgba(238,240,247,.72);transition:color .15s}
+.pw-footer-links a:hover{color:var(--lime)}
+.pw-footer-bottom{border-top:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:22px 0;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--t-dim);text-transform:uppercase}
+
+/* ── Help modal — kept verbatim from the previous design ─────────────────── */
 .dl-help-backdrop{
   position:fixed;inset:0;z-index:500;display:none;align-items:center;justify-content:center;
   padding:24px;background:rgba(0,0,0,.58);-webkit-backdrop-filter:blur(30px) saturate(115%);backdrop-filter:blur(30px) saturate(115%);
@@ -322,140 +223,44 @@ body::before{
 .dl-help-body li{margin:6px 0}
 .dl-help-body code{color:var(--lime);font-family:var(--mono);font-size:11px}
 
-/* ── Responsive ──────────────────────────────────────────────────────────── */
-@media(max-width:640px){
-  .as-page{padding:8px}
-  .as-panel{padding:4px 18px 20px}
-  .as-tabs{margin:10px auto;max-width:calc(100% - 16px)}
-  .dl-term{padding:12px 14px 52px;gap:8px}
-  .dl-cmd{font-size:12px}
-  .as-footer{flex-direction:column;text-align:center;gap:6px}
-}
+.pw-icon{display:inline-block;vertical-align:middle;flex-shrink:0}
   </style>
 </head>
 <body>
 <div id="ambient"></div>
 
-<div class="as-page">
-  <div class="mock-card as-shell" id="as-shell">
-
-    <div class="mc-topbar">
-      <span class="mc-wordmark"><img src="/brand-mark.png" alt="">Paperweight</span>
-      <div></div>
-      <div class="mc-version-badge" style="justify-self:end">v1.5.1</div>
-    </div>
-
-    <nav class="as-tabs" role="tablist" aria-label="Sections">
-      <button type="button" class="as-tab active" role="tab" id="tab-download" aria-selected="true" aria-controls="panel-download" data-tab="download">Download</button>
-      <button type="button" class="as-tab" role="tab" id="tab-requirements" aria-selected="false" aria-controls="panel-requirements" data-tab="requirements">Requirements</button>
-      <button type="button" class="as-tab" role="tab" id="tab-next-steps" aria-selected="false" aria-controls="panel-next-steps" data-tab="next-steps">Next Steps</button>
-      <button type="button" class="as-tab" role="tab" id="tab-discord" aria-selected="false" aria-controls="panel-discord" data-tab="discord">Discord</button>
+<header class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-brand"><img src="/brand-mark.png" alt="">Paperweight</a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="/listen" class="nav-link">Listen</a>
+      <a href="/download" class="nav-link">Download</a>
+      <a href="https://discord.gg/AHE6VuPT" class="nav-cta" target="_blank" rel="noopener">Discord</a>
     </nav>
+    <button type="button" class="pw-nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="mobile-nav" aria-label="Open menu">
+      <svg class="pw-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" id="nav-toggle-icon">
+        <path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/>
+      </svg>
+    </button>
+    <nav class="pw-mobile-nav" id="mobile-nav" aria-label="Main" hidden>
+      <a href="/listen">Listen</a>
+      <a href="/download">Download</a>
+      <a href="https://discord.gg/AHE6VuPT" target="_blank" rel="noopener">Discord ↗</a>
+    </nav>
+  </div>
+</header>
 
-    <div class="as-viewport">
+<main>
 
-      <!-- PANEL: Download -->
-      <section class="as-panel active" role="tabpanel" id="panel-download" aria-labelledby="tab-download" data-panel="download">
-        <div class="dl-intro">
-          <div class="hero-version">v1.5.1 — Available Now</div>
-          <h1 class="dl-title">Get <span class="pw">Paperweight</span>.</h1>
-          <p class="dl-sub">Pick your platform. You'll be live in minutes.</p>
-        </div>
+  <!-- Hero -->
+  <section class="pw-section pw-section--hero">
+    <div class="pw-shell">
+      <div class="eyebrow">Download</div>
+      <h1 class="pw-h1">Runs anywhere <span class="brand-gradient-text">you do.</span></h1>
+      <p class="pw-body" style="max-width:560px;margin-top:18px">Free download, no license fee, no trial. Pick your platform, unzip, and your station is minutes away.</p>
 
-        <!-- Art zone: terminal mockup -->
-        <div class="mc-art" id="dl-art">
-          <svg class="mc-art-svg" viewBox="0 0 540 236" preserveAspectRatio="xMidYMid slice">
-            <defs>
-              <radialGradient id="rg-dl1" cx="15%" cy="85%">
-                <stop offset="0%" stop-color="#bcff42" stop-opacity=".08"/>
-                <stop offset="100%" stop-color="#bcff42" stop-opacity="0"/>
-              </radialGradient>
-              <radialGradient id="rg-dl2" cx="85%" cy="15%">
-                <stop offset="0%" stop-color="#ff8071" stop-opacity=".06"/>
-                <stop offset="100%" stop-color="#ff8071" stop-opacity="0"/>
-              </radialGradient>
-            </defs>
-            <rect width="540" height="236" fill="#050505"/>
-            <rect width="540" height="236" fill="url(#rg-dl1)"/>
-            <rect width="540" height="236" fill="url(#rg-dl2)"/>
-          </svg>
-          <div class="dl-term" id="dl-term"></div>
-          <div class="mc-art-meta">
-            <div class="mc-track-title" id="dl-plat-name">macOS Apple Silicon</div>
-            <div class="mc-track-creator" id="dl-plat-arch">ARM64 · M1 / M2 / M3</div>
-          </div>
-        </div>
-
-        <!-- Waveform (decorative) -->
-        <div class="mc-wf-section">
-          <div class="mc-wf" id="dl-wf" data-waveform="5" data-progress="0"></div>
-        </div>
-
-        <!-- Controls -->
-        <div class="mc-controls">
-          <button class="mc-drawer-btn active" id="dl-plat-btn" title="Platforms" onclick="toggleDrawer()">≡</button>
-          <a class="dl-dl-btn gated" id="dl-btn" href="https://discord.gg/AHE6VuPT" target="_blank" rel="noopener" title="Download" aria-disabled="true">
-            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5z"/></svg>
-          </a>
-          <button class="mc-help-btn hidden" id="dl-help-btn" type="button" title="Installer help">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
-              <path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/>
-            </svg>
-          </button>
-        </div>
-
-        <!-- Platform drawer -->
-        <div class="dl-drawer" id="dl-drawer">
-          <div class="dl-drawer-label">Select Platform</div>
-
-          <div class="dl-plat-row" data-platform="windows-x64" onclick="selectPlatform('windows-x64')">
-            <svg class="dl-plat-icon" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.551H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
-            <div class="dl-plat-info">
-              <div class="dl-plat-name">Windows</div>
-              <div class="dl-plat-arch">x64 · Windows 10 / 11</div>
-            </div>
-            <span class="dl-plat-check">✓</span>
-          </div>
-
-          <div class="dl-plat-row" data-platform="macos" onclick="selectPlatform('macos')">
-            <svg class="dl-plat-icon" viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98l-.09.06c-.22.14-2.22 1.3-2.2 3.88.03 3.02 2.65 4.03 2.68 4.04l-.03.09M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-            <div class="dl-plat-info">
-              <div class="dl-plat-name">macOS</div>
-              <div class="dl-plat-arch">Apple Silicon · M1 / M2 / M3</div>
-            </div>
-            <span class="dl-plat-check">✓</span>
-          </div>
-
-          <div class="dl-plat-row" data-platform="linux-desktop" onclick="selectPlatform('linux-desktop')">
-            <svg class="dl-plat-icon" viewBox="0 0 24 24"><path d="M12.504 0c-.155 0-.315.008-.48.021C7.576.328 3.24 3.575 1.573 8.228c-.595 1.685-.77 3.42-.525 5.13C.35 15.444.752 17.37 1.7 19.044a9.89 9.89 0 0 0 4.037 3.964 10.5 10.5 0 0 0 4.98 1.2c.63 0 1.26-.058 1.88-.174 2.026-.38 3.905-1.39 5.404-2.92 1.5-1.532 2.494-3.487 2.83-5.6.15-.923.195-1.852.133-2.783a10.5 10.5 0 0 0-.484-2.538c-.927-2.844-2.9-5.195-5.508-6.595A10.25 10.25 0 0 0 12.504 0zm3.355 5.604a8.64 8.64 0 0 1 1.447.578c.83.437 1.57 1.053 2.17 1.804l-1.135 1.09c-.44-.628-.98-1.178-1.598-1.628l-.884-1.844zm-7.7.578c.45-.234.92-.415 1.408-.538l-.86 1.82c-.63.452-1.175 1.008-1.617 1.645l-1.136-1.1c.61-.754 1.354-1.374 2.205-1.827zm7.154 1.37l.847 1.77c.38.62.63 1.31.74 2.025l-1.946.42c-.105-.52-.296-1.02-.565-1.48l.924-2.735zM8.61 7.16l.918 2.72c-.27.46-.462.96-.565 1.48l-1.946-.42c.11-.715.36-1.405.74-2.025l.853-1.755zm6.6 3.56l-1.95.42c-.09.494-.27.97-.53 1.404l1.43 1.37a6.4 6.4 0 0 0 .856-2.097 6.3 6.3 0 0 0 .194-1.097zM8.787 11.14c-.26-.435-.44-.91-.528-1.404l-1.95-.42a6.3 6.3 0 0 0 .194 1.097c.202.733.523 1.428.95 2.063l1.334-1.336zm3.716-1.404h.002c.51 0 .922.414.922.924s-.413.924-.922.924a.924.924 0 0 1 0-1.848zm-2.765 3.18l-1.43-1.37a6.4 6.4 0 0 0-.682 2.054l1.95.42a4.4 4.4 0 0 1 .162-1.104zm5.53 0c.085.36.132.73.14 1.104l1.948-.42a6.4 6.4 0 0 0-.683-2.053l-1.406 1.37zm-4.37 1.67a4.5 4.5 0 0 1-.86-.61l-1.334 1.335a6.4 6.4 0 0 0 1.705 1.095l.49-1.82zm3.21 0l.49 1.82a6.4 6.4 0 0 0 1.705-1.095l-1.334-1.335c-.264.236-.556.44-.86.61zm-2.29.725c-.333 0-.66-.04-.976-.116l-.49 1.82a6.4 6.4 0 0 0 1.466.17c.49 0 .976-.056 1.447-.17l-.49-1.82a4.5 4.5 0 0 1-.957.116z"/></svg>
-            <div class="dl-plat-info">
-              <div class="dl-plat-name">Linux Desktop</div>
-              <div class="dl-plat-arch">x64 · AppImage / .deb</div>
-            </div>
-            <span class="dl-plat-check">✓</span>
-          </div>
-
-          <div class="dl-plat-row" data-platform="linux-x64" onclick="selectPlatform('linux-x64')">
-            <svg class="dl-plat-icon" viewBox="0 0 24 24"><path d="M12.504 0c-.155 0-.315.008-.48.021C7.576.328 3.24 3.575 1.573 8.228c-.595 1.685-.77 3.42-.525 5.13C.35 15.444.752 17.37 1.7 19.044a9.89 9.89 0 0 0 4.037 3.964 10.5 10.5 0 0 0 4.98 1.2c.63 0 1.26-.058 1.88-.174 2.026-.38 3.905-1.39 5.404-2.92 1.5-1.532 2.494-3.487 2.83-5.6.15-.923.195-1.852.133-2.783a10.5 10.5 0 0 0-.484-2.538c-.927-2.844-2.9-5.195-5.508-6.595A10.25 10.25 0 0 0 12.504 0zm3.355 5.604a8.64 8.64 0 0 1 1.447.578c.83.437 1.57 1.053 2.17 1.804l-1.135 1.09c-.44-.628-.98-1.178-1.598-1.628l-.884-1.844zm-7.7.578c.45-.234.92-.415 1.408-.538l-.86 1.82c-.63.452-1.175 1.008-1.617 1.645l-1.136-1.1c.61-.754 1.354-1.374 2.205-1.827zm7.154 1.37l.847 1.77c.38.62.63 1.31.74 2.025l-1.946.42c-.105-.52-.296-1.02-.565-1.48l.924-2.735zM8.61 7.16l.918 2.72c-.27.46-.462.96-.565 1.48l-1.946-.42c.11-.715.36-1.405.74-2.025l.853-1.755zm6.6 3.56l-1.95.42c-.09.494-.27.97-.53 1.404l1.43 1.37a6.4 6.4 0 0 0 .856-2.097 6.3 6.3 0 0 0 .194-1.097zM8.787 11.14c-.26-.435-.44-.91-.528-1.404l-1.95-.42a6.3 6.3 0 0 0 .194 1.097c.202.733.523 1.428.95 2.063l1.334-1.336zm3.716-1.404h.002c.51 0 .922.414.922.924s-.413.924-.922.924a.924.924 0 0 1 0-1.848zm-2.765 3.18l-1.43-1.37a6.4 6.4 0 0 0-.682 2.054l1.95.42a4.4 4.4 0 0 1 .162-1.104zm5.53 0c.085.36.132.73.14 1.104l1.948-.42a6.4 6.4 0 0 0-.683-2.053l-1.406 1.37zm-4.37 1.67a4.5 4.5 0 0 1-.86-.61l-1.334 1.335a6.4 6.4 0 0 0 1.705 1.095l.49-1.82zm3.21 0l.49 1.82a6.4 6.4 0 0 0 1.705-1.095l-1.334-1.335c-.264.236-.556.44-.86.61zm-2.29.725c-.333 0-.66-.04-.976-.116l-.49 1.82a6.4 6.4 0 0 0 1.466.17c.49 0 .976-.056 1.447-.17l-.49-1.82a4.5 4.5 0 0 1-.957.116z"/></svg>
-            <div class="dl-plat-info">
-              <div class="dl-plat-name">Linux (headless)</div>
-              <div class="dl-plat-arch">x64 · Ubuntu / Debian</div>
-            </div>
-            <span class="dl-plat-check">✓</span>
-          </div>
-
-          <div class="dl-plat-row" data-platform="linux-arm64" onclick="selectPlatform('linux-arm64')">
-            <svg class="dl-plat-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-5h2v2h-2zm0-8h2v6h-2z"/></svg>
-            <div class="dl-plat-info">
-              <div class="dl-plat-name">Raspberry Pi</div>
-              <div class="dl-plat-arch">ARM64 · Pi 4 / Pi 5</div>
-            </div>
-            <span class="dl-plat-check">✓</span>
-          </div>
-
-        </div><!-- /dl-drawer -->
-
-        <!-- Legal gate -->
+      <!-- Gate panel -->
+      <div class="pw-card" style="margin-top:36px">
         <div class="dl-gate">
           <label class="dl-gate-check">
             <input type="checkbox" id="gate-chk-license">
@@ -475,93 +280,181 @@ body::before{
           </label>
           <div id="gate-status" class="dl-gate-status" role="status" aria-live="polite"></div>
         </div>
+      </div>
 
-        <p class="below-note">Don't see your platform? <a href="https://discord.gg/AHE6VuPT" target="_blank" rel="noopener">Ask in Discord →</a></p>
-      </section>
+      <!-- Platform grid -->
+      <div class="pw-grid-2">
 
-      <!-- PANEL: Requirements -->
-      <section class="as-panel" role="tabpanel" id="panel-requirements" aria-labelledby="tab-requirements" data-panel="requirements">
-        <div class="eyebrow">Requirements</div>
-        <h2 class="panel-h2">What you need to run it.</h2>
-        <div class="reqs-grid">
-          <div class="req-card">
-            <div class="req-key">RAM</div>
-            <div class="req-val">2 GB minimum</div>
-            <div class="req-note">4 GB recommended for video streaming</div>
+        <article class="pw-download-card" data-platform="windows-x64">
+          <span class="pw-recommended-tag">Recommended for your device</span>
+          <div class="pw-download-card-head">
+            <h2 class="pw-h3">Windows</h2>
+            <span class="pw-version-badge">v1.5.1</span>
           </div>
-          <div class="req-card">
-            <div class="req-key">Storage</div>
-            <div class="req-val">Your vault</div>
-            <div class="req-note">Point Paperweight at any local folder — no limits</div>
+          <p class="pw-body-muted pw-download-card-instructions">x64 · Windows 10/11. Unzip and run the app. If SmartScreen warns about an unrecognized app, choose &ldquo;More info&rdquo; → &ldquo;Run anyway&rdquo; — builds are not yet code-signed.</p>
+          <div class="pw-download-card-actions">
+            <button type="button" class="pw-btn pw-btn-primary pw-btn--sm pw-download-cta" data-platform="windows-x64">
+              <svg class="pw-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>
+              Download for Windows
+            </button>
+            <button type="button" class="pw-help-link" data-help="windows-x64">Installer help</button>
           </div>
-          <div class="req-card">
-            <div class="req-key">OS</div>
-            <div class="req-val">Win 10+ / macOS 13+</div>
-            <div class="req-note">Debian · Ubuntu · Raspberry Pi OS 64-bit</div>
-          </div>
-          <div class="req-card">
-            <div class="req-key">Network</div>
-            <div class="req-val">Any connection</div>
-            <div class="req-note">Cloudflare Tunnel included for public stations</div>
-          </div>
-        </div>
-      </section>
+        </article>
 
-      <!-- PANEL: Next Steps -->
-      <section class="as-panel" role="tabpanel" id="panel-next-steps" aria-labelledby="tab-next-steps" data-panel="next-steps">
-        <div class="eyebrow">After Install</div>
-        <h2 class="panel-h2">Three steps to your first broadcast.</h2>
-        <div class="next-steps">
-          <div class="next-step">
-            <div class="next-num">1</div>
-            <div>
-              <div class="next-step-title">Add your music</div>
-              <div class="next-step-body">On first run, <span class="pw">Paperweight</span> creates a <code>vault/</code> folder next to the executable. Drop your audio files in and they're indexed instantly — no upload, no waiting.</div>
-            </div>
+        <article class="pw-download-card" data-platform="macos">
+          <span class="pw-recommended-tag">Recommended for your device</span>
+          <div class="pw-download-card-head">
+            <h2 class="pw-h3">macOS</h2>
+            <span class="pw-version-badge">v1.5.1</span>
           </div>
-          <div class="next-step">
-            <div class="next-num">2</div>
-            <div>
-              <div class="next-step-title">Open Studio and go live</div>
-              <div class="next-step-body">Visit <code>localhost:3000/#dashboard</code>, unlock with your dashboard token (printed in the terminal on first run), and hit Go Live. Your station is on air within seconds.</div>
-            </div>
+          <p class="pw-body-muted pw-download-card-instructions">Apple Silicon (M1/M2/M3). Unzip and drag Paperweight to Applications. On first launch, right-click → Open to pass Gatekeeper — the app is not yet notarized.</p>
+          <div class="pw-download-card-actions">
+            <button type="button" class="pw-btn pw-btn-primary pw-btn--sm pw-download-cta" data-platform="macos">
+              <svg class="pw-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>
+              Download for macOS
+            </button>
+            <button type="button" class="pw-help-link" data-help="macos">Installer help</button>
           </div>
-          <div class="next-step">
-            <div class="next-num">3</div>
-            <div>
-              <div class="next-step-title">Share your station</div>
-              <div class="next-step-body">Enable the Cloudflare Tunnel from Studio — your station gets a public URL instantly. Issue access tokens to hand-pick who gets in.</div>
-            </div>
-          </div>
-        </div>
-      </section>
+        </article>
 
-      <!-- PANEL: Discord -->
-      <section class="as-panel as-discord" role="tabpanel" id="panel-discord" aria-labelledby="tab-discord" data-panel="discord">
-        <div class="discord-icon">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="40" height="40">
-            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-          </svg>
-        </div>
-        <h2 class="panel-h2">Questions? We're in Discord.</h2>
-        <p class="discord-sub">Get help with setup, share your station, and connect with other Paperweight creators.</p>
-        <a href="https://discord.gg/AHE6VuPT" class="btn-discord" target="_blank" rel="noopener noreferrer">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true">
-            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
-          </svg>
-          Join Discord
-        </a>
-      </section>
+        <article class="pw-download-card" data-platform="linux-desktop">
+          <span class="pw-recommended-tag">Recommended for your device</span>
+          <div class="pw-download-card-head">
+            <h2 class="pw-h3">Linux Desktop</h2>
+            <span class="pw-version-badge">v1.5.1</span>
+          </div>
+          <p class="pw-body-muted pw-download-card-instructions">x64 · AppImage and .deb. Install the .deb, or make the AppImage executable (chmod +x) and run it.</p>
+          <div class="pw-download-card-actions">
+            <button type="button" class="pw-btn pw-btn-primary pw-btn--sm pw-download-cta" data-platform="linux-desktop">
+              <svg class="pw-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>
+              Download for Linux Desktop
+            </button>
+          </div>
+        </article>
 
+        <article class="pw-download-card" data-platform="linux-x64">
+          <span class="pw-recommended-tag">Recommended for your device</span>
+          <div class="pw-download-card-head">
+            <h2 class="pw-h3">Linux (headless)</h2>
+            <span class="pw-version-badge">v1.5.1</span>
+          </div>
+          <p class="pw-body-muted pw-download-card-instructions">x64 · Ubuntu/Debian. Unzip, then run ./paperweight from a terminal. Ideal for a machine that lives in a closet.</p>
+          <div class="pw-download-card-actions">
+            <button type="button" class="pw-btn pw-btn-primary pw-btn--sm pw-download-cta" data-platform="linux-x64">
+              <svg class="pw-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>
+              Download for Linux (headless)
+            </button>
+          </div>
+        </article>
+
+        <article class="pw-download-card" data-platform="linux-arm64">
+          <span class="pw-recommended-tag">Recommended for your device</span>
+          <div class="pw-download-card-head">
+            <h2 class="pw-h3">Raspberry Pi</h2>
+            <span class="pw-version-badge">v1.5.1</span>
+          </div>
+          <p class="pw-body-muted pw-download-card-instructions">ARM64 · Pi 4 / Pi 5 on 64-bit Raspberry Pi OS. Unzip, then run ./paperweight. A Pi on a shelf makes a fine 24/7 station.</p>
+          <div class="pw-download-card-actions">
+            <button type="button" class="pw-btn pw-btn-primary pw-btn--sm pw-download-cta" data-platform="linux-arm64">
+              <svg class="pw-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>
+              Download for Raspberry Pi
+            </button>
+          </div>
+        </article>
+
+      </div>
+
+      <p style="font-family:var(--mono);font-size:11px;color:var(--t-dim);letter-spacing:.05em;text-align:center;margin-top:20px">
+        Don't see your platform? <a href="https://discord.gg/AHE6VuPT" target="_blank" rel="noopener" style="color:rgba(var(--lime-rgb),.85);text-decoration:underline;text-underline-offset:3px">Ask in Discord →</a>
+      </p>
     </div>
+  </section>
 
-    <div class="mc-accent"></div>
-    <div class="as-footer">
-      <span>Paperweight Systems LLC • 2026</span>
-      <a href="https://discord.gg/AHE6VuPT" class="as-footer-link" target="_blank" rel="noopener">Discord</a>
+  <!-- What you need / After you install -->
+  <section class="pw-section pw-section--hairline">
+    <div class="pw-shell pw-grid-need">
+      <div>
+        <h2 class="pw-h2">What you need.</h2>
+        <ul class="pw-need-list">
+          <li>A computer that can stay on — a desktop, an old laptop, or a Raspberry Pi on a shelf all work.</li>
+          <li>Your media files, dropped into the vault folder.</li>
+          <li>Optional: free Cloudflare Tunnel for a public URL, and your own Stripe or PayPal keys if you want to get paid.</li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pw-h2">After you install.</h2>
+        <details class="pw-collapsible" style="margin-top:20px" open>
+          <summary>
+            Three steps to your first broadcast
+            <svg class="pw-icon pw-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="pw-collapsible-body">
+            <ol>
+              <li>Run the app — the setup wizard walks you through creating your station.</li>
+              <li>Drop media into your vault; Paperweight scans and schedules it.</li>
+              <li>Turn on the tunnel to go public, and share your station URL.</li>
+            </ol>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- Join the community -->
+  <section class="pw-section pw-section--hairline">
+    <div class="pw-shell" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:24px">
+      <div>
+        <h2 class="pw-h2">Join the community.</h2>
+        <p class="pw-body-muted" style="max-width:480px;margin-top:12px">Connect with other Paperweight creators — share your station, get help, and stay up to date with new features.</p>
+      </div>
+      <a href="https://discord.gg/AHE6VuPT" class="pw-btn pw-btn-ghost" target="_blank" rel="noopener">
+        <svg class="pw-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+        Join Discord
+      </a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pw-footer">
+  <div class="pw-shell">
+    <div class="pw-footer-grid">
+      <div>
+        <div class="pw-footer-brand">Paperweight</div>
+        <p class="pw-footer-tag">Independent software for media you actually own.</p>
+      </div>
+      <nav aria-label="Paperweight">
+        <div class="pw-footer-heading">Paperweight</div>
+        <ul class="pw-footer-links">
+          <li><a href="/listen">Listen</a></li>
+          <li><a href="/download">Download</a></li>
+          <li><a href="https://discord.gg/AHE6VuPT" target="_blank" rel="noopener">Discord ↗</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Legal">
+        <div class="pw-footer-heading">Legal</div>
+        <ul class="pw-footer-links">
+          <li><a href="/privacy">Privacy</a></li>
+          <li><a href="/terms">Terms</a></li>
+          <li><a href="/license">License</a></li>
+          <li><a href="/content-responsibility">Content Responsibility</a></li>
+          <li><a href="/warranty">Warranty</a></li>
+          <li><a href="/refund">Refund</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Support">
+        <div class="pw-footer-heading">Support</div>
+        <ul class="pw-footer-links">
+          <li><a href="/support">Support</a></li>
+          <li><a href="/station-ops">Station Ops</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="pw-footer-bottom">
+      <span>© 2026 Paperweight Systems LLC</span>
     </div>
   </div>
-</div>
+</footer>
 
 <div class="dl-help-backdrop" id="dl-help-backdrop" aria-hidden="true">
   <div class="dl-help-modal" role="dialog" aria-modal="true" aria-labelledby="dl-help-title">
@@ -574,35 +467,28 @@ body::before{
 </div>
 
 <script>
-/* ── Top-level tab switching ─────────────────────────────────────────────── */
-function selectTab(id) {
-  document.querySelectorAll('.as-tab').forEach(t => {
-    const on = t.dataset.tab === id;
-    t.classList.toggle('active', on);
-    t.setAttribute('aria-selected', on ? 'true' : 'false');
+/* ── Mobile nav toggle ────────────────────────────────────────────────────── */
+(function () {
+  var toggle = document.getElementById('nav-toggle');
+  var toggleIcon = document.getElementById('nav-toggle-icon');
+  var mobileNav = document.getElementById('mobile-nav');
+  var menuPath = '<path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/>';
+  var xPath = '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>';
+  toggle.addEventListener('click', function () {
+    var opening = mobileNav.hidden;
+    mobileNav.hidden = !opening;
+    toggle.setAttribute('aria-expanded', String(opening));
+    toggle.setAttribute('aria-label', opening ? 'Close menu' : 'Open menu');
+    toggleIcon.innerHTML = opening ? xPath : menuPath;
   });
-  document.querySelectorAll('.as-panel').forEach(p => {
-    p.classList.toggle('active', p.dataset.panel === id);
-  });
-}
-document.querySelectorAll('.as-tab').forEach(tab => {
-  tab.addEventListener('click', () => selectTab(tab.dataset.tab));
-});
+})();
 
 /* ── Platform data ────────────────────────────────────────────────────────── */
 const PLATFORMS = {
   'windows-x64': {
     name: 'Windows',
-    arch: 'x64 · Windows 10 / 11',
     file: 'paperweight-Windows.zip',
     href: 'https://github.com/bud-diaz/paper-packs/releases/download/Windows/paperweight-Windows.zip',
-    prompt: 'PS>',
-    steps: [
-      { comment: '# Unzip the download, then run the installer inside:',
-        cmd: 'Paperweight-Setup-1.5.1.exe' },
-      { comment: '# Setup wizard walks you through your vault folder + dashboard token, then opens Studio', cmd: '' },
-      { comment: '# No Node.js or FFmpeg to install — everything is bundled', cmd: '' }
-    ],
     help: {
       title: 'Windows SmartScreen help',
       body: '<p>Windows may show a SmartScreen warning while Paperweight is still building signing reputation.</p><ol><li>Click <strong>More info</strong>.</li><li>Confirm the publisher/file name is the Paperweight installer you downloaded.</li><li>Click <strong>Run anyway</strong>.</li></ol><p>If Windows Defender asks for network access, allow private/local network access so your station can serve Studio locally.</p>'
@@ -610,107 +496,34 @@ const PLATFORMS = {
   },
   'macos': {
     name: 'macOS',
-    arch: 'Universal · Apple Silicon & Intel',
     file: 'paperweight-macOS.zip',
     href: 'https://github.com/bud-diaz/paper-packs/releases/download/macOS/paperweight-macOS.zip',
-    prompt: '$',
-    steps: [
-      { comment: '# Unzip the download, then open the .dmg and drag Paperweight to Applications:',
-        cmd: 'open Paperweight-1.5.1-universal.dmg' },
-      { comment: '# First run opens the setup wizard for your vault + dashboard token', cmd: '' },
-      { comment: '# No Node.js or FFmpeg to install — everything is bundled', cmd: '' }
-    ],
     help: {
       title: 'macOS Gatekeeper help',
-      body: '<p>macOS may show a Gatekeeper notice for new direct-download apps.</p><ol><li>Open <strong>System Settings</strong> → <strong>Privacy & Security</strong>.</li><li>Find the Paperweight notice and choose <strong>Open Anyway</strong>.</li><li>You can also Control-click the app and choose <strong>Open</strong>.</li></ol><p>Only continue if the file name matches the Paperweight macOS installer you downloaded.</p>'
+      body: '<p>macOS may show a Gatekeeper notice for new direct-download apps.</p><ol><li>Open <strong>System Settings</strong> → <strong>Privacy &amp; Security</strong>.</li><li>Find the Paperweight notice and choose <strong>Open Anyway</strong>.</li><li>You can also Control-click the app and choose <strong>Open</strong>.</li></ol><p>Only continue if the file name matches the Paperweight macOS installer you downloaded.</p>'
     }
   },
   'linux-desktop': {
     name: 'Linux Desktop',
-    arch: 'x64 · AppImage / .deb',
     file: 'paperweight-Ubuntu.zip',
-    href: 'https://github.com/bud-diaz/paper-packs/releases/download/Ubuntu/paperweight-Ubuntu.zip',
-    prompt: '$',
-    steps: [
-      { comment: '# Unzip, then run the AppImage directly:',
-        cmd: 'chmod +x Paperweight-1.5.1.AppImage && ./Paperweight-1.5.1.AppImage' },
-      { comment: '# ...or install the .deb on Debian/Ubuntu:',
-        cmd: 'sudo apt install ./paperweight-desktop_1.5.1_amd64.deb' },
-      { comment: '# Setup wizard + system tray included', cmd: '' }
-    ]
+    href: 'https://github.com/bud-diaz/paper-packs/releases/download/Ubuntu/paperweight-Ubuntu.zip'
   },
   'linux-x64': {
     name: 'Linux (headless)',
-    arch: 'x64 · Ubuntu / Debian',
     file: 'paperweight-linux-x64.zip',
-    href: 'https://github.com/bud-diaz/paper-packs/releases/download/Linux-x64/paperweight-linux-x64.zip',
-    prompt: '$',
-    steps: [
-      { comment: '# Unzip, make executable, and run:',
-        cmd: 'chmod +x paperweight-linux-x64 && ./paperweight-linux-x64',
-        out: '[Paperweight] Dashboard token: a1b2c3d4… (saved to .env)' },
-      { comment: '# Open Studio to configure your station:',
-        cmd: 'xdg-open http://localhost:3000/#dashboard' },
-      { comment: '# No Node.js or FFmpeg to install — everything is bundled', cmd: '' }
-    ]
+    href: 'https://github.com/bud-diaz/paper-packs/releases/download/Linux-x64/paperweight-linux-x64.zip'
   },
   'linux-arm64': {
     name: 'Raspberry Pi',
-    arch: 'ARM64 · Pi 4 / Pi 5',
     file: 'paperweight-linux-arm64.zip',
-    href: 'https://github.com/bud-diaz/paper-packs/releases/download/Pi/paperweight-linux-arm64.zip',
-    prompt: '$',
-    steps: [
-      { comment: '# Unzip, make executable, and run:',
-        cmd: 'chmod +x paperweight-linux-arm64 && ./paperweight-linux-arm64',
-        out: '[Paperweight] Dashboard token: a1b2c3d4… (saved to .env)' },
-      { comment: '# Open Studio to configure your station:',
-        cmd: 'xdg-open http://localhost:3000/#dashboard' },
-      { comment: '# No Node.js or FFmpeg to install — everything is bundled', cmd: '' }
-    ]
+    href: 'https://github.com/bud-diaz/paper-packs/releases/download/Pi/paperweight-linux-arm64.zip'
   }
 };
 
 const APP_VERSION = '1.5.1';
 
-/* ── State ────────────────────────────────────────────────────────────────── */
-let activePlatform = null;
-let drawerOpen = true;
-
-function renderTerm(key) {
-  const p = PLATFORMS[key];
-  const html = p.steps.map(s => `
-    <div class="dl-step">
-      <div class="dl-comment">${s.comment}</div>
-      <div class="dl-cmd"><span class="dl-prompt">${p.prompt}</span> ${s.cmd}</div>
-      ${s.out ? `<div class="dl-out">${s.out}</div>` : ''}
-    </div>
-  `).join('');
-  document.getElementById('dl-term').innerHTML = html;
-  document.getElementById('dl-plat-name').textContent = p.name;
-  document.getElementById('dl-plat-arch').textContent = p.arch;
-  document.getElementById('dl-btn').href = p.href;
-  document.getElementById('dl-btn').title = `Download ${p.file}`;
-  const helpBtn = document.getElementById('dl-help-btn');
-  helpBtn.classList.toggle('hidden', !p.help);
-  helpBtn.title = p.help ? `${p.name} installer help` : 'Installer help';
-}
-
-function selectPlatform(key) {
-  if (activePlatform === key) return;
-  activePlatform = key;
-  document.querySelectorAll('.dl-plat-row').forEach(r => r.classList.remove('active'));
-  document.querySelector(`.dl-plat-row[data-platform="${key}"]`)?.classList.add('active');
-  renderTerm(key);
-}
-
-function toggleDrawer() {
-  drawerOpen = !drawerOpen;
-  document.getElementById('dl-drawer').classList.toggle('closed', !drawerOpen);
-  document.getElementById('dl-plat-btn').classList.toggle('active', drawerOpen);
-}
-
-/* ── OS detection ─────────────────────────────────────────────────────────── */
+/* ── OS detection — badges the recommended card, no longer drives a single
+   active-platform panel since every platform is shown at once. ────────────── */
 function detectOS() {
   const ua = navigator.userAgent;
   if (/Windows/.test(ua)) return 'windows-x64';
@@ -719,31 +532,19 @@ function detectOS() {
   if (/Linux/.test(ua)) return 'linux-x64';
   return 'linux-x64';
 }
-
-/* ── Waveform ─────────────────────────────────────────────────────────────── */
-function buildWaveform(container, seed) {
-  const n = seed || 0;
-  const bars = Array.from({length: 64}, (_, i) =>
-    0.08 + Math.abs(Math.sin(i * (0.31 + n * 0.07) + n * 1.3) * 0.6 +
-                    Math.sin(i * 0.17 + n) * 0.28) * 0.88
-  );
-  const h = container.offsetHeight || 44;
-  container.innerHTML = '';
-  bars.forEach(v => {
-    const bar = document.createElement('div');
-    bar.className = 'mc-wbar';
-    bar.style.height = Math.round(v * h) + 'px';
-    container.appendChild(bar);
-  });
-}
+(function () {
+  const key = detectOS();
+  const card = document.querySelector(`.pw-download-card[data-platform="${key}"]`);
+  if (card) card.classList.add('is-recommended');
+})();
 
 /* ── Installer help modal ─────────────────────────────────────────────────── */
 const helpBackdrop = document.getElementById('dl-help-backdrop');
 const helpTitle = document.getElementById('dl-help-title');
 const helpBody = document.getElementById('dl-help-body');
 
-function openHelpModal() {
-  const help = PLATFORMS[activePlatform]?.help;
+function openHelpModal(key) {
+  const help = PLATFORMS[key]?.help;
   if (!help) return;
   helpTitle.textContent = help.title;
   helpBody.innerHTML = help.body;
@@ -756,12 +557,14 @@ function closeHelpModal() {
   helpBackdrop.setAttribute('aria-hidden', 'true');
 }
 
-document.getElementById('dl-help-btn').addEventListener('click', openHelpModal);
+document.querySelectorAll('.pw-help-link').forEach((btn) => {
+  btn.addEventListener('click', () => openHelpModal(btn.dataset.help));
+});
 document.getElementById('dl-help-close').addEventListener('click', closeHelpModal);
-helpBackdrop.addEventListener('click', e => {
+helpBackdrop.addEventListener('click', (e) => {
   if (e.target === helpBackdrop) closeHelpModal();
 });
-document.addEventListener('keydown', e => {
+document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeHelpModal();
 });
 
@@ -788,9 +591,9 @@ function isGateReady() {
 
 function updateGate() {
   const ready = isGateReady();
-  const btn = document.getElementById('dl-btn');
-  btn.classList.toggle('gated', !ready);
-  btn.setAttribute('aria-disabled', String(!ready));
+  document.querySelectorAll('.pw-download-cta').forEach((btn) => {
+    btn.setAttribute('aria-disabled', String(!ready));
+  });
 }
 
 function getTrackingParams() {
@@ -814,19 +617,20 @@ document.getElementById('gate-chk-license').addEventListener('change', updateGat
 document.getElementById('gate-chk-content').addEventListener('change', updateGate);
 document.getElementById('gate-email').addEventListener('input', updateGate);
 document.getElementById('gate-chk-updates').addEventListener('change', updateGate);
+updateGate();
 
-document.getElementById('dl-btn').addEventListener('click', function(e) {
-  e.preventDefault();
+function handleDownloadClick(e) {
+  const key = e.currentTarget.dataset.platform;
+  const platform = PLATFORMS[key];
+
   if (!isGateReady()) {
     updateGate();
     setGateStatus('Accept both required policies before downloading (and enter a valid email, or leave it blank).', 'warn');
     return;
   }
 
-  const href = this.href;
   const email = (document.getElementById('gate-email').value || '').trim();
   const updatesOptIn = document.getElementById('gate-chk-updates').checked;
-  const platform = PLATFORMS[activePlatform];
   const tracking = getTrackingParams();
   const downloadWindow = window.open('about:blank', '_blank');
   if (downloadWindow) {
@@ -838,9 +642,9 @@ document.getElementById('dl-btn').addEventListener('click', function(e) {
 
   function openDownload() {
     if (downloadWindow) {
-      downloadWindow.location.href = href;
+      downloadWindow.location.href = platform.href;
     } else {
-      window.location.href = href;
+      window.location.href = platform.href;
     }
   }
 
@@ -849,20 +653,20 @@ document.getElementById('dl-btn').addEventListener('click', function(e) {
   // /api/download-lead requires a valid email server-side, so only call it
   // when one was actually entered — it's optional here, not a download gate.
   const requests = email
-    ? [postJson('/api/download-lead', { email, platform: activePlatform, updatesOptIn })]
+    ? [postJson('/api/download-lead', { email, platform: key, updatesOptIn })]
     : [];
 
   requests.push(postJson('/api/download-events', {
     email: email || null,
-    platform: activePlatform,
+    platform: key,
     artifact: platform?.file || null,
     version: APP_VERSION,
     referrer: document.referrer || null,
     ...tracking,
   }));
 
-  Promise.allSettled(requests).then(results => {
-    const failed = results.some(result => result.status === 'rejected' || !result.value.ok);
+  Promise.allSettled(requests).then((results) => {
+    const failed = results.some((result) => result.status === 'rejected' || !result.value.ok);
     if (failed) {
       setGateStatus('Could not save all tracking details, but your download will still open.', 'warn');
       return;
@@ -873,13 +677,11 @@ document.getElementById('dl-btn').addEventListener('click', function(e) {
       setGateStatus('');
     }
   }).finally(openDownload);
-});
+}
 
-/* ── Init ─────────────────────────────────────────────────────────────────── */
-const detected = detectOS();
-selectPlatform(detected);
-buildWaveform(document.getElementById('dl-wf'), 5);
-selectTab('download');
+document.querySelectorAll('.pw-download-cta').forEach((btn) => {
+  btn.addEventListener('click', handleDownloadClick);
+});
 
 /* ── Visit beacon (funnel: visit -> download) ────────────────────────────── */
 (function () {
