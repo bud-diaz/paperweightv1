@@ -93,7 +93,7 @@ export function StackView({ engine, onNotify, onLockedTrack, onVideoTrackSelecte
           <button type="button" className="stack-card-head" onClick={() => setExpanded(expanded === 'library' ? 'stash' : 'library')} aria-expanded={expanded === 'library'}>
             <span className="stack-card-glyph"><Disc3 size={15} /></span>
             <span className="stack-card-title">STACK <span className="stack-card-badge">{String(allTracks.length).padStart(2, '0')} PIECES</span></span>
-            <span className="stack-card-peek">Your catalog</span>
+            <span className="stack-card-peek">Catalog</span>
             <ChevronDown size={15} className={cn('stack-card-chevron', expanded === 'library' && 'open')} />
           </button>
           {expanded === 'library' && <div className="stack-card-body"><div className="stack-card-content">
