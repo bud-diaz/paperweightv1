@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useRef } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import {
   Aperture, ArrowUpRight, Boxes, ChevronLeft, ChevronRight, Headphones,
   LayoutDashboard, MoreHorizontal, Pause, Play, Plus, Trash2, X,
@@ -102,10 +103,29 @@ export function Modal({ title, eyebrow, onClose, children, width = 'max-w-lg' }:
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
+  // Reduced motion: a short cross-fade, no scale/slide — see apple-design
+  // skill §14. Materialize (not just fade) otherwise: the panel scales up
+  // from a slightly smaller/lower resting point as the scrim fades in, so
+  // it reads as the surface arriving rather than appearing.
+  const reduceMotion = useReducedMotion();
   return (
-    <div className="fixed inset-0 z-[70] modal-backdrop flex items-end sm:items-center justify-center p-0 sm:p-5" role="dialog" aria-modal="true">
+    <motion.div
+      className="fixed inset-0 z-[70] modal-backdrop flex items-end sm:items-center justify-center p-0 sm:p-5"
+      role="dialog"
+      aria-modal="true"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: reduceMotion ? 0.12 : 0.22, ease: 'easeOut' }}
+    >
       <button type="button" aria-label="Close dialog backdrop" data-testid="button-close-dialog-backdrop" className="absolute inset-0 cursor-default" onClick={onClose} />
-      <div className={cn('relative w-full rounded-t-2xl sm:rounded-2xl modal-panel p-5 sm:p-7 max-h-[92dvh] overflow-y-auto scrollbar-thin animate-enter', width)}>
+      <motion.div
+        className={cn('relative w-full rounded-t-2xl sm:rounded-2xl modal-panel p-5 sm:p-7 max-h-[92dvh] overflow-y-auto scrollbar-thin', width)}
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 18 }}
+        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 10 }}
+        transition={reduceMotion ? { duration: 0.12 } : { type: 'spring', bounce: 0, duration: 0.4 }}
+      >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
         <div className="pointer-events-none absolute -top-20 left-1/2 h-40 w-2/3 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
         <div className="relative flex items-start justify-between gap-4 mb-6">
@@ -113,8 +133,8 @@ export function Modal({ title, eyebrow, onClose, children, width = 'max-w-lg' }:
           <IconButton label="Close dialog" onClick={onClose}><X size={17} /></IconButton>
         </div>
         <div className="relative">{children}</div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -168,6 +188,7 @@ export function ModeSwitcher({ mode, onChange }: { mode: ModeKey; onChange: (mod
     { id: 'play', label: 'PLAY', icon: Headphones },
     { id: 'studio', label: 'STUDIO', icon: LayoutDashboard },
   ];
+  const reduceMotion = useReducedMotion();
   return (
     <div className="mode-switcher" role="tablist" aria-label="Workspace view">
       <span className="mode-switcher-mark" aria-hidden="true"><Aperture size={13} /></span>
@@ -181,6 +202,13 @@ export function ModeSwitcher({ mode, onChange }: { mode: ModeKey; onChange: (mod
           onClick={() => onChange(id)}
           className={cn('mode-option', mode === id && 'active')}
         >
+          {mode === id && (
+            <motion.span
+              layoutId="mode-switcher-pill"
+              className="mode-option-pill"
+              transition={reduceMotion ? { duration: 0.12 } : { type: 'spring', bounce: 0, duration: 0.4 }}
+            />
+          )}
           <Icon size={13} />
           <span className="mode-label">{label}</span>
         </button>
