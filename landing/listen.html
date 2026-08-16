@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Paperweight Listen</title>
-  <meta name="description" content="Search and play public Paperweight stations.">
-  <meta property="og:title" content="Paperweight Listen">
-  <meta property="og:description" content="Search and play public Paperweight stations.">
+  <title>Listen — Paperweight stations</title>
+  <meta name="description" content="Search and play live Paperweight stations — independent broadcasts running on hardware their creators own.">
+  <meta property="og:title" content="Listen — Paperweight stations">
+  <meta property="og:description" content="Search and play live Paperweight stations — independent broadcasts running on hardware their creators own.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/png" href="/favicon.png">
@@ -24,6 +24,7 @@
   --coral-rgb: 255,128,113;
   --border:    rgba(255,255,255,.14);
   --border-hi: rgba(255,255,255,.22);
+  --border-soft: rgba(255,255,255,.08);
   --text:      #eef0f7;
   --t-mid:     rgba(225,230,255,.62);
   --t-muted:   rgba(225,230,255,.42);
@@ -34,11 +35,16 @@
   --discord:   #5865F2;
 }
 
-/* ── Base — no page-level scroll, the shell owns its own viewport ─────────── */
-html,body{height:100%;overflow:hidden}
-html,body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6}
-a{color:var(--lime);text-decoration:none}
-a:hover{text-decoration:underline}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.6;
+}
+a{color:inherit;text-decoration:none}
+button{font:inherit}
 
 /* film grain — same recipe as the Studio SPA's .noise layer */
 body::before{
@@ -55,277 +61,467 @@ body::before{
     radial-gradient(circle at 80% 76%, rgba(var(--coral-rgb),.09), transparent 46%);
 }
 
-.live-dot{
-  width:7px;height:7px;border-radius:50%;background:var(--lime);
-  box-shadow:0 0 8px var(--lime);flex-shrink:0;
-  animation:live-pulse 1.4s ease-in-out infinite;
-}
-@keyframes live-pulse{
-  0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 8px var(--lime)}
-  50%{opacity:.45;transform:scale(.75);box-shadow:0 0 3px var(--lime)}
-}
+/* ── Layout primitives — mirrors paperweight-systems-web's PageShell/Section ─ */
+.pw-shell{max-width:1152px;margin:0 auto;padding:0 20px}
+@media(min-width:640px){.pw-shell{padding:0 32px}}
+
+.pw-section{position:relative;z-index:1;padding:56px 0}
+@media(min-width:640px){.pw-section{padding:80px 0}}
+.pw-section--hairline{border-top:1px solid var(--border-soft)}
+.pw-section--hero{padding-top:88px}
+@media(min-width:640px){.pw-section--hero{padding-top:120px}}
 
 .eyebrow{
-  font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--lime);
-  text-transform:uppercase;margin-bottom:14px;display:inline-flex;align-items:center;gap:9px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.22em;color:var(--lime);
+  text-transform:uppercase;margin-bottom:14px;
 }
 
+.pw-h1{
+  font-family:var(--display);font-weight:600;letter-spacing:-.04em;line-height:1.05;
+  font-size:clamp(2.1rem,4.6vw,3.3rem);color:var(--text);
+}
+.pw-h3{
+  font-family:var(--display);font-weight:600;letter-spacing:-.02em;line-height:1.2;
+  font-size:1.15rem;color:var(--text);
+}
+
+.brand-gradient-text{
+  background:linear-gradient(135deg,#dcff75,#ff8071 75%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+
+.pw-body{font-size:16px;line-height:1.75;color:rgba(238,240,247,.8)}
+.pw-body-muted{font-size:15px;line-height:1.75;color:var(--t-mid)}
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.pw-card{
+  border-radius:14px;background:rgba(255,255,255,.05);
+  border:1px solid var(--border-soft);padding:24px;
+}
+@media(min-width:640px){.pw-card{padding:28px}}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.pw-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:999px;font-family:var(--sans);font-weight:600;font-size:14px;
+  padding:13px 26px;transition:transform .15s,background-color .15s,border-color .15s;
+  cursor:pointer;white-space:nowrap;border:none;
+}
+.pw-btn:hover{transform:translateY(-2px)}
+.pw-btn:active{transform:translateY(0)}
+.pw-btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+.pw-btn-ghost:hover{background:rgba(255,255,255,.06);border-color:var(--border-hi)}
+.pw-btn--sm{padding:10px 20px;font-size:13px}
+
+/* ── Nav ─────────────────────────────────────────────────────────────────── */
+.nav{
+  position:sticky;top:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;height:64px;
+  background:rgba(0,0,0,.82);
+  box-shadow:0 12px 60px rgba(0,0,0,.34),inset 0 -1px rgba(255,255,255,.055);
+  -webkit-backdrop-filter:blur(28px) saturate(155%);backdrop-filter:blur(28px) saturate(155%);
+  border-bottom:1px solid var(--border);
+}
+@media(min-width:640px){.nav{padding:0 32px}}
+.nav-inner{max-width:1152px;width:100%;margin:0 auto;display:flex;align-items:center;justify-content:space-between;position:relative}
+.nav-brand{display:inline-flex;align-items:center;gap:9px;font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:-.02em;color:var(--text)}
+.nav-brand img{width:22px;height:22px;display:block}
+.nav-links{display:none;align-items:center;gap:28px}
+@media(min-width:768px){.nav-links{display:flex}}
+.nav-link{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--t-mid);text-transform:uppercase;transition:color .15s}
+.nav-link:hover{color:var(--lime)}
+.nav-link[aria-current="page"]{color:var(--lime)}
 .nav-cta{
   font-family:var(--mono);font-size:10px;font-weight:500;
   letter-spacing:.1em;text-transform:uppercase;
   background:rgba(var(--lime-rgb),.78);color:#000;
-  padding:7px 16px;border-radius:5px;text-decoration:none;
+  padding:8px 16px;border-radius:5px;text-decoration:none;
   border:1px solid rgba(233,255,160,.55);
   box-shadow:0 5px 24px rgba(var(--lime-rgb),.2),inset 0 1px rgba(255,255,255,.35);
   transition:box-shadow .2s,transform .12s,background-color .2s;white-space:nowrap;
-  cursor:pointer;
+  cursor:pointer;display:inline-block;
 }
-.nav-cta:hover{box-shadow:0 7px 32px rgba(var(--lime-rgb),.32),inset 0 1px rgba(255,255,255,.42);transform:translateY(-1px);text-decoration:none;color:#000;background:rgba(213,255,110,.9)}
-
-/* ── Mock card system (shell chrome) — Studio's .panel glass ─────────────── */
-.mock-card{
-  background:linear-gradient(145deg, rgba(255,255,255,.12), rgba(255,255,255,.055));
-  border:1px solid rgba(255,255,255,.16);
-  border-radius:20px;
-  box-shadow:0 24px 90px rgba(0,0,0,.5),inset 0 1px rgba(255,255,255,.14),inset 0 -1px rgba(255,255,255,.035);
-  backdrop-filter:blur(28px) saturate(150%);-webkit-backdrop-filter:blur(28px) saturate(150%);
-  overflow:hidden;
-  position:relative;
-}
-.mc-topbar{
-  display:grid;grid-template-columns:1fr auto 1fr;
-  align-items:center;padding:14px 16px;
-  border-bottom:1px solid var(--border);
-  flex:0 0 auto;
-}
-.mc-wordmark{display:inline-flex;align-items:center;gap:9px;font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:-.02em;color:var(--text)}
-.mc-wordmark img{width:22px;height:22px;display:block}
-.mc-live-badge{
-  display:inline-flex;align-items:center;gap:5px;
-  background:rgba(var(--lime-rgb),.85);border-radius:3px;padding:2px 7px;
-  font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.1em;color:#000;
-}
-.mc-live-badge-dot{width:5px;height:5px;border-radius:50%;background:#000}
-.mc-accent{height:2px;background:linear-gradient(to right,transparent,var(--lime),var(--coral),transparent);opacity:.55;flex:0 0 auto}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   App shell layout — matches landing/index.html and landing/download.html
-   ══════════════════════════════════════════════════════════════════════════ */
-
-.as-page{
-  height:100vh;height:100dvh;
+.nav-cta:hover{box-shadow:0 7px 32px rgba(var(--lime-rgb),.32),inset 0 1px rgba(255,255,255,.42);transform:translateY(-1px);background:rgba(213,255,110,.9)}
+.pw-nav-toggle{
   display:flex;align-items:center;justify-content:center;
-  padding:28px;position:relative;z-index:1;
-  overflow:auto;
+  width:38px;height:38px;border-radius:999px;border:1px solid var(--border);
+  background:transparent;color:var(--text);cursor:pointer;
 }
+@media(min-width:768px){.pw-nav-toggle{display:none}}
+.pw-mobile-nav{position:absolute;left:0;right:0;top:100%;background:#000;border-bottom:1px solid var(--border);padding:8px 20px 16px}
+.pw-mobile-nav a{display:block;padding:12px 0;font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--text);border-bottom:1px solid var(--border-soft)}
+.pw-mobile-nav a:last-child{border-bottom:none}
+.pw-mobile-nav a:hover{color:var(--lime)}
+@media(min-width:768px){.pw-mobile-nav{display:none !important}}
 
-.as-shell{
-  width:min(720px,96vw);
-  height:min(760px,calc(100dvh - 56px));
-  display:flex;flex-direction:column;
-}
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.pw-footer{border-top:1px solid var(--border-soft);position:relative;z-index:1}
+.pw-footer-grid{display:grid;gap:32px;padding:56px 0 40px;grid-template-columns:1fr}
+@media(min-width:640px){.pw-footer-grid{grid-template-columns:1fr 1fr}}
+@media(min-width:1024px){.pw-footer-grid{grid-template-columns:1.4fr 1fr 1fr 1fr}}
+.pw-footer-brand{font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:-.02em;color:var(--text)}
+.pw-footer-tag{margin-top:10px;max-width:220px;font-size:13px;line-height:1.7;color:var(--t-muted)}
+.pw-footer-heading{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--t-muted)}
+.pw-footer-links{list-style:none;margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.pw-footer-links a{font-size:13px;color:rgba(238,240,247,.72);transition:color .15s}
+.pw-footer-links a:hover{color:var(--lime)}
+.pw-footer-bottom{border-top:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:22px 0;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--t-dim);text-transform:uppercase}
 
-.as-shell .mc-topbar > .nav-cta{justify-self:end}
+/* ── Listen browser ──────────────────────────────────────────────────────── */
+.pw-listen-grid{display:grid;gap:24px;margin-top:40px}
+@media(min-width:1024px){.pw-listen-grid{grid-template-columns:1.2fr 1fr;align-items:start}}
 
-/* Tab nav — frosted pill */
-.as-tabs{
-  display:flex;gap:2px;overflow-x:auto;
-  width:fit-content;max-width:calc(100% - 32px);
-  margin:12px auto;padding:4px;
-  border-radius:999px;
-  background:rgba(255,255,255,.075);
-  backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);
-  border:1px solid var(--border-hi);
-  box-shadow:inset 0 1px rgba(255,255,255,.12),0 10px 40px rgba(0,0,0,.24);
-  flex:0 0 auto;
-  scrollbar-width:none;
+.pw-search-box{position:relative}
+.pw-search-box svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--t-muted);pointer-events:none}
+.pw-search-input{
+  width:100%;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);
+  border-radius:999px;padding:13px 20px 13px 44px;font:14px var(--sans);outline:none;
+  transition:border-color .15s;
 }
-.as-tabs::-webkit-scrollbar{display:none}
-.as-tab{
-  flex:0 0 auto;
-  font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--t-muted);background:transparent;border:1px solid transparent;
-  border-radius:999px;padding:9px 18px;cursor:pointer;
-  transition:background .15s,color .15s,border-color .15s;
-  white-space:nowrap;
-}
-.as-tab:hover:not(.active){background:rgba(255,255,255,.08);color:var(--t-mid)}
-.as-tab.active{
-  background:rgba(var(--lime-rgb),.78);
-  border-color:rgba(233,255,160,.55);
-  color:#000;
-  box-shadow:0 5px 24px rgba(var(--lime-rgb),.2),inset 0 1px rgba(255,255,255,.35);
-}
+.pw-search-input:focus{border-color:rgba(var(--lime-rgb),.55)}
+.pw-search-input::placeholder{color:var(--t-dim)}
 
-.as-viewport{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;position:relative}
-.as-panel{display:none;padding:8px 32px 32px;max-width:640px;margin:0 auto}
-.as-panel.active{display:block;animation:as-panel-in .22s ease}
-@keyframes as-panel-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.pw-results{display:grid;gap:10px;margin-top:16px}
 
-.as-footer{
-  flex:0 0 auto;
-  display:flex;align-items:center;justify-content:space-between;gap:16px;
-  padding:12px 20px;
-  font-family:var(--mono);font-size:10px;color:var(--t-dim);letter-spacing:.06em;
-}
-.as-footer-link{color:var(--t-muted);text-decoration:none;letter-spacing:.06em;transition:color .15s}
-.as-footer-link:hover{color:var(--t-mid);text-decoration:none}
+@keyframes pw-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.pw-skeleton{height:66px;border-radius:14px;border:1px solid var(--border-soft);background:rgba(255,255,255,.05);animation:pw-pulse 1.5s ease-in-out infinite}
 
-/* ── Search panel ─────────────────────────────────────────────────────────── */
-.listen-intro{text-align:center;padding:20px 0 24px}
-.listen-h1{
-  font-family:var(--display);font-weight:600;font-size:clamp(2rem,5vw,2.8rem);
-  line-height:1.05;margin:0 0 12px;letter-spacing:-.03em;
-  background:linear-gradient(110deg,#f0f3ff 12%,#c9d1ed 78%);
-  -webkit-background-clip:text;background-clip:text;color:transparent;
-}
-.listen-sub{margin:0 auto;color:var(--t-mid);line-height:1.8;font-size:13px;max-width:440px;font-family:var(--sans)}
-.search-box{display:flex;gap:8px;margin-bottom:12px}
-.search-box input{
-  width:100%;border:1px solid var(--border-hi);background:rgba(255,255,255,.05);color:var(--text);
-  border-radius:6px;padding:12px 13px;font:12px var(--sans);outline:none;
-}
-.search-box input:focus{border-color:rgba(var(--lime-rgb),.55);box-shadow:0 0 0 3px rgba(var(--lime-rgb),.09)}
-.results{display:grid;gap:8px;padding-bottom:12px}
-.result-row{
-  width:100%;text-align:left;border:1px solid var(--border);background:rgba(255,255,255,.045);
-  border-radius:8px;padding:12px;cursor:pointer;color:var(--text);font:inherit;
+.pw-state-card{border:1px solid var(--border-soft);border-radius:14px;background:rgba(255,255,255,.05);padding:32px 20px;text-align:center}
+.pw-state-card p{color:var(--t-muted);font-size:14px;line-height:1.7}
+.pw-state-card.is-error p{color:rgba(238,240,247,.7)}
+.pw-state-card .pw-btn{margin-top:16px}
+
+.pw-result-row{
+  width:100%;text-align:left;border:1px solid var(--border-soft);background:rgba(255,255,255,.05);
+  border-radius:14px;padding:16px 18px;cursor:pointer;color:var(--text);
   transition:border-color .15s,background .15s;
 }
-.result-row:hover{border-color:rgba(var(--lime-rgb),.4);background:rgba(var(--lime-rgb),.07)}
-.result-top{display:flex;align-items:center;gap:8px;min-width:0}
-.station-name{font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.station-slug{font-family:var(--mono);font-size:10px;color:var(--t-muted);margin-top:2px}
-.listener-count{margin-left:auto;color:var(--t-muted);font-family:var(--mono);font-size:10px;white-space:nowrap}
-.now-playing{font-family:var(--sans);font-size:11px;color:var(--t-mid);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.state{
-  display:grid;place-items:center;text-align:center;min-height:180px;
-  border:1px dashed var(--border-hi);border-radius:8px;color:var(--t-muted);
-  font-family:var(--sans);font-size:12px;line-height:1.7;padding:20px;
-}
-.bad-url{color:#e5564b}
+.pw-result-row:hover{border-color:var(--border-hi)}
+.pw-result-row.is-selected{border-color:rgba(var(--lime-rgb),.5);background:rgba(255,255,255,.08)}
+.pw-result-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.pw-result-name{font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pw-result-live{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--coral);flex-shrink:0}
+.pw-result-live-dot{width:6px;height:6px;border-radius:50%;background:var(--coral)}
+.pw-result-off{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t-muted);flex-shrink:0}
+.pw-result-meta{display:flex;align-items:center;gap:14px;margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--t-muted)}
+.pw-result-now{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* ── Play panel ───────────────────────────────────────────────────────────── */
-.player-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
-.player-title{font-family:var(--display);font-weight:600;font-size:24px;line-height:1.1}
-.player-url{font-family:var(--mono);font-size:10px;color:var(--t-muted);margin-top:4px}
-.frame-wrap{background:rgba(255,255,255,.03);border:1px solid rgba(var(--lime-rgb),.24);border-radius:10px;overflow:hidden;min-height:260px}
-.frame-wrap iframe{display:block;width:100%;height:380px;border:0;background:#050505}
-.open-link{display:inline-flex;margin-top:12px;color:var(--lime);text-decoration:none;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
-.open-link[hidden]{display:none}
-.footer-note{margin-top:16px;text-align:center;color:var(--t-muted);font-family:var(--sans);font-size:10px}
+.pw-player-card{position:relative}
+@media(min-width:1024px){.pw-player-card{position:sticky;top:84px}}
+.pw-player-card--empty{
+  border-style:dashed;border-color:var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  min-height:280px;text-align:center;
+}
+.pw-player-empty-text.is-error{color:#ff8071}
+.pw-player-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.pw-player-name{font-family:var(--display);font-weight:600;font-size:19px;letter-spacing:-.02em}
+.pw-player-slug{font-family:var(--mono);font-size:11px;color:var(--t-muted);margin-top:4px}
+.pw-player-frame-wrap{border-radius:12px;overflow:hidden;border:1px solid var(--border-soft);background:#050505}
+.pw-player-frame-wrap iframe{display:block;width:100%;height:260px;border:0}
+@media(min-width:640px){.pw-player-frame-wrap iframe{height:288px}}
+.pw-player-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px}
+.pw-player-now{font-family:var(--mono);font-size:11px;color:var(--t-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pw-open-link{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--lime);flex-shrink:0}
+.pw-open-link:hover{text-decoration:underline}
+
 .hidden{display:none}
-
-/* ── Responsive ──────────────────────────────────────────────────────────── */
-@media(max-width:640px){
-  .as-page{padding:8px}
-  .as-panel{padding:8px 20px 24px}
-  .as-tabs{margin:10px auto;max-width:calc(100% - 16px)}
-  .station-name{font-size:18px}
-  .frame-wrap iframe{height:300px}
-  .as-footer{flex-direction:column;text-align:center;gap:6px}
-}
+.pw-icon{display:inline-block;vertical-align:middle;flex-shrink:0}
   </style>
 </head>
 <body>
 <div id="ambient"></div>
 
-<div class="as-page">
-  <div class="mock-card as-shell" id="as-shell">
-
-    <div class="mc-topbar">
-      <span class="mc-wordmark"><img src="/brand-mark.png" alt="">Paperweight</span>
-      <div></div>
-      <a href="/" class="nav-cta">Get Started →</a>
-    </div>
-
-    <nav class="as-tabs" role="tablist" aria-label="Views">
-      <button type="button" class="as-tab active" role="tab" id="tab-search" aria-selected="true" aria-controls="panel-search" data-tab="search">Search</button>
-      <button type="button" class="as-tab" role="tab" id="tab-play" aria-selected="false" aria-controls="panel-play" data-tab="play">Play</button>
+<header class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-brand"><img src="/brand-mark.png" alt="">Paperweight</a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="/listen" class="nav-link" aria-current="page">Listen</a>
+      <a href="/download" class="nav-link">Download</a>
+      <a href="https://discord.gg/AHE6VuPT" class="nav-cta" target="_blank" rel="noopener">Discord</a>
     </nav>
+    <button type="button" class="pw-nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="mobile-nav" aria-label="Open menu">
+      <svg class="pw-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" id="nav-toggle-icon">
+        <path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/>
+      </svg>
+    </button>
+    <nav class="pw-mobile-nav" id="mobile-nav" aria-label="Main" hidden>
+      <a href="/listen">Listen</a>
+      <a href="/download">Download</a>
+      <a href="https://discord.gg/AHE6VuPT" target="_blank" rel="noopener">Discord ↗</a>
+    </nav>
+  </div>
+</header>
 
-    <div class="as-viewport">
+<main>
 
-      <!-- PANEL: Search -->
-      <section class="as-panel active" role="tabpanel" id="panel-search" aria-labelledby="tab-search" data-panel="search">
-        <div class="listen-intro">
-          <div class="eyebrow"><span class="live-dot"></span>Public Stations</div>
-          <h1 class="listen-h1">Listen to Paperweight</h1>
-          <p class="listen-sub">Find opted-in creator stations and play their live embedded signal from one place.</p>
-        </div>
-        <div class="search-box">
-          <input id="station-query" type="search" autocomplete="off" placeholder="Search stations">
-        </div>
-        <div class="results" id="station-results">
-          <div class="state">Type to search stations</div>
-        </div>
-      </section>
+  <!-- Hero + browser -->
+  <section class="pw-section pw-section--hero">
+    <div class="pw-shell">
+      <div class="eyebrow">Listen</div>
+      <h1 class="pw-h1">Stations, <span class="brand-gradient-text">live now.</span></h1>
+      <p class="pw-body" style="max-width:600px;margin-top:18px">Every station here is broadcast by an independent creator from hardware they own, and listed because they opted in. Find one, press play — or <a href="/download" style="color:var(--lime);text-decoration:underline">start your own</a>.</p>
 
-      <!-- PANEL: Play -->
-      <section class="as-panel" role="tabpanel" id="panel-play" aria-labelledby="tab-play" data-panel="play">
-        <div id="no-selection" class="state">Search for a station, then choose one to start listening.</div>
-        <div id="player-selected" class="hidden">
-          <div class="player-head">
-            <div>
-              <div class="player-title" id="player-name"></div>
-              <div class="player-url" id="player-slug"></div>
-            </div>
-            <div class="mc-live-badge hidden" id="player-live"><div class="mc-live-badge-dot"></div>LIVE</div>
+      <div class="pw-listen-grid">
+        <div>
+          <div class="pw-search-box">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <label>
+              <span class="hidden">Search stations</span>
+              <input id="station-query" class="pw-search-input" type="search" autocomplete="off" placeholder="Search stations by name or slug…">
+            </label>
           </div>
-          <div class="frame-wrap"><iframe id="station-frame" title="Selected station player" allow="autoplay"></iframe></div>
-          <a class="open-link" id="open-station" target="_blank" rel="noopener">Open station →</a>
-          <div class="footer-note" id="player-now"></div>
+          <div class="pw-results" id="station-results" aria-live="polite"></div>
         </div>
-      </section>
 
+        <div>
+          <div class="pw-card pw-player-card pw-player-card--empty" id="player-empty">
+            <svg class="pw-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--t-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg>
+            <p class="pw-body-muted pw-player-empty-text">Pick a station to start listening — playback runs through the station's own player.</p>
+          </div>
+          <div class="pw-card pw-player-card hidden" id="player-selected">
+            <div class="pw-player-head">
+              <div>
+                <div class="pw-player-name" id="player-name"></div>
+                <div class="pw-player-slug" id="player-slug"></div>
+              </div>
+              <span class="pw-result-live hidden" id="player-live">
+                <span class="pw-result-live-dot"></span>Live
+              </span>
+            </div>
+            <div class="pw-player-frame-wrap">
+              <iframe id="station-frame" title="Selected station player" allow="autoplay"></iframe>
+            </div>
+            <div class="pw-player-footer">
+              <span class="pw-player-now" id="player-now"></span>
+              <a class="pw-open-link" id="open-station" target="_blank" rel="noopener">
+                Open station
+                <svg class="pw-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+  </section>
 
-    <div class="mc-accent"></div>
-    <div class="as-footer">
-      <span>Paperweight Systems LLC • 2026</span>
-      <a href="https://discord.gg/AHE6VuPT" class="as-footer-link" target="_blank" rel="noopener">Discord</a>
+</main>
+
+<footer class="pw-footer">
+  <div class="pw-shell">
+    <div class="pw-footer-grid">
+      <div>
+        <div class="pw-footer-brand">Paperweight</div>
+        <p class="pw-footer-tag">Independent software for media you actually own.</p>
+      </div>
+      <nav aria-label="Paperweight">
+        <div class="pw-footer-heading">Paperweight</div>
+        <ul class="pw-footer-links">
+          <li><a href="/listen">Listen</a></li>
+          <li><a href="/download">Download</a></li>
+          <li><a href="https://discord.gg/AHE6VuPT" target="_blank" rel="noopener">Discord ↗</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Legal">
+        <div class="pw-footer-heading">Legal</div>
+        <ul class="pw-footer-links">
+          <li><a href="/privacy">Privacy</a></li>
+          <li><a href="/terms">Terms</a></li>
+          <li><a href="/license">License</a></li>
+          <li><a href="/content-responsibility">Content Responsibility</a></li>
+          <li><a href="/warranty">Warranty</a></li>
+          <li><a href="/refund">Refund</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Support">
+        <div class="pw-footer-heading">Support</div>
+        <ul class="pw-footer-links">
+          <li><a href="/support">Support</a></li>
+          <li><a href="/station-ops">Station Ops</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="pw-footer-bottom">
+      <span>© 2026 Paperweight Systems LLC</span>
     </div>
   </div>
-</div>
+</footer>
 
 <script>
-const API_URL = 'https://system.paperweighthq.com/api/modules/paperweight/stations';
+/* ── Mobile nav toggle ────────────────────────────────────────────────────── */
+(function () {
+  var toggle = document.getElementById('nav-toggle');
+  var toggleIcon = document.getElementById('nav-toggle-icon');
+  var mobileNav = document.getElementById('mobile-nav');
+  var menuPath = '<path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/>';
+  var xPath = '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>';
+  toggle.addEventListener('click', function () {
+    var opening = mobileNav.hidden;
+    mobileNav.hidden = !opening;
+    toggle.setAttribute('aria-expanded', String(opening));
+    toggle.setAttribute('aria-label', opening ? 'Close menu' : 'Open menu');
+    toggleIcon.innerHTML = opening ? xPath : menuPath;
+  });
+})();
+
+/* ── Station directory / search ──────────────────────────────────────────── */
+const API_BASE = 'https://system.paperweighthq.com/api/modules/paperweight';
 const resultsEl = document.getElementById('station-results');
 const queryEl = document.getElementById('station-query');
-let selectedStation = null;
+const playerEmpty = document.getElementById('player-empty');
+const playerSelected = document.getElementById('player-selected');
+const playerEmptyText = playerEmpty.querySelector('.pw-player-empty-text');
+
 let searchTimer = null;
 let activeRequest = 0;
+let lastMode = 'directory'; // 'directory' | 'search' — drives empty-state copy and "Try again"
 
-function setText(id, value) {
-  document.getElementById(id).textContent = value || '';
+function normalizeDirectoryEntry(raw) {
+  return {
+    slug: typeof raw?.slug === 'string' ? raw.slug : '',
+    name: null,
+    url: typeof raw?.publicUrl === 'string' ? raw.publicUrl : '',
+    live: Boolean(raw?.broadcasting),
+    listeners: Number(raw?.listeners) || 0,
+    nowPlaying: typeof raw?.currentTrack === 'string' ? raw.currentTrack : null,
+  };
 }
 
-function selectTab(id) {
-  document.querySelectorAll('.as-tab').forEach(t => {
-    const on = t.dataset.tab === id;
-    t.classList.toggle('active', on);
-    t.setAttribute('aria-selected', on ? 'true' : 'false');
-  });
-  document.querySelectorAll('.as-panel').forEach(p => {
-    p.classList.toggle('active', p.dataset.panel === id);
-  });
-  if (id === 'play' && !selectedStation) {
-    document.getElementById('station-frame').removeAttribute('src');
+function normalizeSearchEntry(raw) {
+  return {
+    slug: typeof raw?.slug === 'string' ? raw.slug : '',
+    name: typeof raw?.name === 'string' ? raw.name : null,
+    url: typeof raw?.url === 'string' ? raw.url : '',
+    live: Boolean(raw?.live),
+    listeners: Number(raw?.listeners) || 0,
+    nowPlaying: typeof raw?.nowPlaying === 'string' ? raw.nowPlaying : null,
+  };
+}
+
+function sortStations(list) {
+  return list.slice().sort((a, b) => Number(b.live) - Number(a.live) || b.listeners - a.listeners);
+}
+
+function renderSkeleton() {
+  resultsEl.replaceChildren();
+  for (let i = 0; i < 3; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'pw-skeleton';
+    resultsEl.appendChild(bar);
   }
 }
 
-document.querySelectorAll('.as-tab').forEach(tab => {
-  tab.addEventListener('click', () => selectTab(tab.dataset.tab));
-});
-
-function state(message, className) {
+function renderState(message, opts) {
+  opts = opts || {};
   resultsEl.replaceChildren();
-  const node = document.createElement('div');
-  node.className = className ? `state ${className}` : 'state';
-  node.textContent = message;
-  resultsEl.appendChild(node);
+  const card = document.createElement('div');
+  card.className = 'pw-state-card' + (opts.error ? ' is-error' : '');
+  const p = document.createElement('p');
+  p.textContent = message;
+  card.appendChild(p);
+  if (opts.retry) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pw-btn pw-btn-ghost pw-btn--sm';
+    btn.textContent = 'Try again';
+    btn.addEventListener('click', () => load(queryEl.value));
+    card.appendChild(btn);
+  }
+  resultsEl.appendChild(card);
 }
 
+function renderStations(stations) {
+  resultsEl.replaceChildren();
+  if (!stations.length) {
+    renderState(lastMode === 'search'
+      ? 'No stations match that search.'
+      : 'No stations are listed in the directory right now — creators opt in, so check back.');
+    return;
+  }
+  for (const station of stations) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'pw-result-row';
+    row.addEventListener('click', () => selectStation(station, row));
+
+    const top = document.createElement('div');
+    top.className = 'pw-result-top';
+    const name = document.createElement('span');
+    name.className = 'pw-result-name';
+    name.textContent = station.name || station.slug || 'Untitled station';
+    top.appendChild(name);
+    if (station.live) {
+      const live = document.createElement('span');
+      live.className = 'pw-result-live';
+      const dot = document.createElement('span');
+      dot.className = 'pw-result-live-dot';
+      live.append(dot, document.createTextNode('Live'));
+      top.appendChild(live);
+    } else {
+      const off = document.createElement('span');
+      off.className = 'pw-result-off';
+      off.textContent = 'Off air';
+      top.appendChild(off);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'pw-result-meta';
+    const listeners = document.createElement('span');
+    listeners.textContent = `${station.listeners} listening`;
+    meta.appendChild(listeners);
+    if (station.nowPlaying) {
+      const now = document.createElement('span');
+      now.className = 'pw-result-now';
+      now.textContent = `▸ ${station.nowPlaying}`;
+      meta.appendChild(now);
+    }
+
+    row.append(top, meta);
+    resultsEl.appendChild(row);
+  }
+}
+
+async function load(q) {
+  const trimmed = (q || '').trim();
+  const mode = trimmed ? 'search' : 'directory';
+  lastMode = mode;
+  const requestId = ++activeRequest;
+  renderSkeleton();
+  try {
+    let url;
+    if (mode === 'search') {
+      url = new URL(API_BASE + '/stations');
+      url.searchParams.set('q', trimmed);
+      url.searchParams.set('limit', '20');
+    } else {
+      url = new URL(API_BASE + '/directory');
+    }
+    const res = await fetch(url.href, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`Directory returned ${res.status}`);
+    const data = await res.json();
+    if (requestId !== activeRequest) return;
+    const stations = mode === 'search'
+      ? (Array.isArray(data.stations) ? data.stations.map(normalizeSearchEntry) : [])
+      : (Array.isArray(data) ? data.map(normalizeDirectoryEntry) : []);
+    renderStations(sortStations(stations));
+  } catch {
+    if (requestId === activeRequest) {
+      renderState('The station directory is unreachable right now.', { error: true, retry: true });
+    }
+  }
+}
+
+queryEl.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  if (!queryEl.value.trim()) {
+    load('');
+    return;
+  }
+  searchTimer = setTimeout(() => load(queryEl.value), 300);
+});
+
+/* ── Player ───────────────────────────────────────────────────────────────── */
 function validStationUrl(url) {
   try {
     const parsed = new URL(url);
@@ -335,100 +531,33 @@ function validStationUrl(url) {
   }
 }
 
-function selectStation(station) {
+function selectStation(station, rowEl) {
+  document.querySelectorAll('.pw-result-row').forEach((r) => r.classList.remove('is-selected'));
+  if (rowEl) rowEl.classList.add('is-selected');
+
   const parsed = validStationUrl(station.url);
   if (!parsed) {
-    selectedStation = null;
-    selectTab('play');
-    document.getElementById('no-selection').classList.remove('hidden');
-    document.getElementById('player-selected').classList.add('hidden');
-    document.getElementById('no-selection').textContent = 'This station has an invalid player URL.';
-    document.getElementById('no-selection').classList.add('bad-url');
+    playerSelected.classList.add('hidden');
+    playerEmpty.classList.remove('hidden');
+    playerEmptyText.textContent = 'This station has an invalid player URL.';
+    playerEmptyText.classList.add('is-error');
     return;
   }
 
-  selectedStation = station;
-  document.getElementById('no-selection').classList.add('hidden');
-  document.getElementById('player-selected').classList.remove('hidden');
-  document.getElementById('no-selection').classList.remove('bad-url');
-  setText('player-name', station.name || station.slug || 'Untitled station');
-  setText('player-slug', station.slug ? `/${station.slug}` : parsed.hostname);
-  setText('player-now', station.nowPlaying ? `Now playing: ${station.nowPlaying}` : '');
+  playerEmptyText.classList.remove('is-error');
+  playerEmptyText.textContent = 'Pick a station to start listening — playback runs through the station\'s own player.';
+  playerEmpty.classList.add('hidden');
+  playerSelected.classList.remove('hidden');
+  document.getElementById('player-name').textContent = station.name || station.slug || 'Untitled station';
+  document.getElementById('player-slug').textContent = station.slug ? `/${station.slug}` : parsed.hostname;
   document.getElementById('player-live').classList.toggle('hidden', !station.live);
+  document.getElementById('player-now').textContent = station.nowPlaying ? `Now playing: ${station.nowPlaying}` : '';
   document.getElementById('station-frame').src = new URL('/embed', parsed).href;
   document.getElementById('open-station').href = parsed.href;
-  selectTab('play');
 }
 
-function renderStations(stations) {
-  resultsEl.replaceChildren();
-  if (!stations.length) {
-    state('No stations found');
-    return;
-  }
-  for (const station of stations) {
-    const row = document.createElement('button');
-    row.type = 'button';
-    row.className = 'result-row';
-    row.addEventListener('click', () => selectStation(station));
-
-    const top = document.createElement('div');
-    top.className = 'result-top';
-    const name = document.createElement('div');
-    name.className = 'station-name';
-    name.textContent = station.name || station.slug || 'Untitled station';
-    top.appendChild(name);
-    if (station.live) {
-      const badge = document.createElement('span');
-      badge.className = 'mc-live-badge';
-      const dot = document.createElement('span');
-      dot.className = 'mc-live-badge-dot';
-      badge.append(dot, document.createTextNode('LIVE'));
-      top.appendChild(badge);
-    }
-    const listeners = document.createElement('span');
-    listeners.className = 'listener-count';
-    listeners.textContent = `${Number(station.listeners || 0)} listening`;
-    top.appendChild(listeners);
-
-    const slug = document.createElement('div');
-    slug.className = 'station-slug';
-    slug.textContent = station.slug ? `/${station.slug}` : '';
-    const now = document.createElement('div');
-    now.className = 'now-playing';
-    now.textContent = station.nowPlaying || 'Live station';
-    row.append(top, slug, now);
-    resultsEl.appendChild(row);
-  }
-}
-
-async function searchStations() {
-  const q = queryEl.value.trim();
-  if (!q) {
-    state('Type to search stations');
-    return;
-  }
-  const requestId = ++activeRequest;
-  state('Searching stations...');
-  try {
-    const url = new URL(API_URL);
-    url.searchParams.set('q', q);
-    url.searchParams.set('limit', '20');
-    const res = await fetch(url.href, { headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error(`Directory returned ${res.status}`);
-    const data = await res.json();
-    if (requestId !== activeRequest) return;
-    renderStations(Array.isArray(data.stations) ? data.stations : []);
-  } catch {
-    if (requestId === activeRequest) state('Directory unavailable - try again later.');
-  }
-}
-
-queryEl.addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(searchStations, 300);
-});
-selectTab('search');
+/* Initial load: directory listing, no query required. */
+load('');
 
 /* ── Visit beacon ─────────────────────────────────────────────────────────── */
 (function () {
