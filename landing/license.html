@@ -1,228 +1,355 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>License Agreement — Paperweight</title>
-  <link rel="icon" type="image/png" href="/favicon.png"/>
-  <meta name="description" content="Paperweight Software License Agreement."/>
-  <link rel="stylesheet" href="/vendor/fonts/fonts.css"/>
+  <meta name="description" content="Paperweight Software License Agreement.">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/vendor/fonts/fonts.css">
   <style>
+/* ── Reset ───────────────────────────────────────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{overflow-x:clip;scroll-behavior:smooth}
-a{text-decoration:none;color:inherit}
-button{border:none;cursor:pointer;background:none;font:inherit}
 
+/* ── Variables — Studio's signature lime/coral glass system ───────────────── */
 :root{
-  --bg:#000;
-  --lime:#bcff42;--lime-rgb:190,255,66;
-  --coral:#ff8071;--coral-rgb:255,128,113;
-  --border:rgba(255,255,255,.14);--border-hi:rgba(255,255,255,.22);
-  --text:#eef0f7;--t-mid:rgba(225,230,255,.62);
-  --t-muted:rgba(225,230,255,.42);--t-dim:rgba(225,230,255,.22);
-  --sans:'Manrope',sans-serif;
-  --display:'Space Grotesk',sans-serif;
-  --mono:'DM Mono',monospace;
+  --bg:        #000;
+  --lime:      #bcff42;
+  --lime-rgb:  190,255,66;
+  --coral:     #ff8071;
+  --coral-rgb: 255,128,113;
+  --border:    rgba(255,255,255,.14);
+  --border-hi: rgba(255,255,255,.22);
+  --border-soft: rgba(255,255,255,.08);
+  --text:      #eef0f7;
+  --t-mid:     rgba(225,230,255,.62);
+  --t-muted:   rgba(225,230,255,.42);
+  --t-dim:     rgba(225,230,255,.22);
+  --sans:     'Manrope',sans-serif;
+  --display:  'Space Grotesk',sans-serif;
+  --mono:     'DM Mono',monospace;
+  --discord:   #5865F2;
 }
-body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
 
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.6;
+}
+a{color:inherit;text-decoration:none}
+button{font:inherit}
+
+/* film grain — same recipe as the Studio SPA's .noise layer */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.65'/%3E%3C/svg%3E");
+  opacity:.035;pointer-events:none;z-index:9999;
+}
+
+/* fixed ambient glow — dual-tone lime + coral, matching Studio's player-stage-glow */
+#ambient{
+  position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(circle at 24% 28%, rgba(var(--lime-rgb),.11), transparent 46%),
+    radial-gradient(circle at 80% 76%, rgba(var(--coral-rgb),.09), transparent 46%);
+}
+
+/* ── Layout primitives — mirrors paperweight-systems-web's PageShell/Section ─ */
+.pw-shell{max-width:1152px;margin:0 auto;padding:0 20px}
+@media(min-width:640px){.pw-shell{padding:0 32px}}
+.pw-shell--narrow{max-width:760px}
+
+.pw-section{position:relative;z-index:1;padding:56px 0}
+@media(min-width:640px){.pw-section{padding:80px 0}}
+.pw-section--doc{padding:88px 0 56px}
+@media(min-width:640px){.pw-section--doc{padding:120px 0 80px}}
+
+.eyebrow{
+  font-family:var(--mono);font-size:11px;letter-spacing:.22em;color:var(--lime);
+  text-transform:uppercase;margin-bottom:14px;
+}
+
+.pw-h1{font-family:var(--display);font-weight:600;letter-spacing:-.04em;line-height:1.05;font-size:clamp(2.1rem,4.6vw,3.3rem);color:var(--text)}
+.pw-h3{font-family:var(--display);font-weight:600;letter-spacing:-.02em;line-height:1.2;font-size:1.05rem;color:var(--text)}
+.brand-gradient-text{background:linear-gradient(135deg,#dcff75,#ff8071 75%);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+.pw-body{font-size:16px;line-height:1.75;color:rgba(238,240,247,.8)}
+.pw-body-muted{font-size:15px;line-height:1.75;color:var(--t-mid)}
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.pw-card{border-radius:14px;background:rgba(255,255,255,.05);border:1px solid var(--border-soft);padding:24px}
+@media(min-width:640px){.pw-card{padding:28px}}
+.pw-callout{border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(var(--lime-rgb),.25);box-shadow:inset 0 1px rgba(255,255,255,.06);padding:20px 24px;margin-bottom:8px}
+.pw-callout p{margin:0}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.pw-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;font-family:var(--sans);font-weight:600;font-size:14px;padding:13px 26px;transition:transform .15s,background-color .15s,border-color .15s,opacity .15s;cursor:pointer;white-space:nowrap;border:none}
+.pw-btn:hover{transform:translateY(-2px)}
+.pw-btn:active{transform:translateY(0)}
+.pw-btn-primary{background:var(--lime);color:#000}
+.pw-btn-primary:hover{background:#c9ff66}
+.pw-btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+.pw-btn-ghost:hover{background:rgba(255,255,255,.06);border-color:var(--border-hi)}
+.pw-btn--sm{padding:10px 20px;font-size:13px}
+
+/* ── Prose — mirrors paperweight-systems-web's .prose-pw ─────────────────── */
+.prose-pw{font-size:.975rem;line-height:1.75;color:rgba(238,240,247,.82)}
+.prose-pw h2{font-family:var(--display);font-weight:600;letter-spacing:-.02em;font-size:1.35rem;color:var(--text);margin-top:2.5rem;margin-bottom:.75rem}
+.prose-pw h2:first-child{margin-top:0}
+.prose-pw h3{font-family:var(--display);font-weight:600;font-size:1.05rem;color:var(--text);margin-top:1.75rem;margin-bottom:.5rem}
+.prose-pw p{margin-bottom:1rem}
+.prose-pw a{color:var(--lime);text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(var(--lime-rgb),.4)}
+.prose-pw a:hover{text-decoration-color:var(--lime)}
+.prose-pw ul,.prose-pw ol{margin:1rem 0 1rem 1.25rem}
+.prose-pw ul{list-style:disc}
+.prose-pw ol{list-style:decimal}
+.prose-pw li{margin-bottom:.35rem}
+.prose-pw hr{border:none;border-top:1px solid var(--border);margin:2.5rem 0}
+.prose-pw strong{color:var(--text);font-weight:700}
+.prose-pw code{font-family:var(--mono);font-size:.85em;background:rgba(255,255,255,.08);border-radius:.25rem;padding:.1rem .35rem}
+
+/* ── Nav ─────────────────────────────────────────────────────────────────── */
 .nav{
   position:sticky;top:0;z-index:200;
   display:flex;align-items:center;justify-content:space-between;
-  padding:0 32px;height:52px;
-  background:rgba(0,0,0,.8);
-  border-color:rgba(255,255,255,.11);
+  padding:0 20px;height:64px;
+  background:rgba(0,0,0,.82);
   box-shadow:0 12px 60px rgba(0,0,0,.34),inset 0 -1px rgba(255,255,255,.055);
   -webkit-backdrop-filter:blur(28px) saturate(155%);backdrop-filter:blur(28px) saturate(155%);
   border-bottom:1px solid var(--border);
 }
-.nav-brand{display:inline-flex;align-items:center;gap:8px;font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:-.02em;color:var(--text)}
-.nav-brand img{width:20px;height:20px;display:block}
-.nav-links{display:flex;align-items:center;gap:28px}
-.nav-link{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--t-muted);text-transform:uppercase;transition:color .15s}
+@media(min-width:640px){.nav{padding:0 32px}}
+.nav-inner{max-width:1152px;width:100%;margin:0 auto;display:flex;align-items:center;justify-content:space-between;position:relative}
+.nav-brand{display:inline-flex;align-items:center;gap:9px;font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:-.02em;color:var(--text)}
+.nav-brand img{width:22px;height:22px;display:block}
+.nav-links{display:none;align-items:center;gap:28px}
+@media(min-width:768px){.nav-links{display:flex}}
+.nav-link{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--t-mid);text-transform:uppercase;transition:color .15s}
 .nav-link:hover{color:var(--lime)}
+.nav-cta{
+  font-family:var(--mono);font-size:10px;font-weight:500;
+  letter-spacing:.1em;text-transform:uppercase;
+  background:rgba(var(--lime-rgb),.78);color:#000;
+  padding:8px 16px;border-radius:5px;text-decoration:none;
+  border:1px solid rgba(233,255,160,.55);
+  box-shadow:0 5px 24px rgba(var(--lime-rgb),.2),inset 0 1px rgba(255,255,255,.35);
+  transition:box-shadow .2s,transform .12s,background-color .2s;white-space:nowrap;
+  cursor:pointer;display:inline-block;
+}
+.nav-cta:hover{box-shadow:0 7px 32px rgba(var(--lime-rgb),.32),inset 0 1px rgba(255,255,255,.42);transform:translateY(-1px);background:rgba(213,255,110,.9)}
+.pw-nav-toggle{
+  display:flex;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:999px;border:1px solid var(--border);
+  background:transparent;color:var(--text);cursor:pointer;
+}
+@media(min-width:768px){.pw-nav-toggle{display:none}}
+.pw-mobile-nav{position:absolute;left:0;right:0;top:100%;background:#000;border-bottom:1px solid var(--border);padding:8px 20px 16px}
+.pw-mobile-nav a{display:block;padding:12px 0;font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--text);border-bottom:1px solid var(--border-soft)}
+.pw-mobile-nav a:last-child{border-bottom:none}
+.pw-mobile-nav a:hover{color:var(--lime)}
+@media(min-width:768px){.pw-mobile-nav{display:none !important}}
 
-.page-hero{
-  padding:64px 32px 40px;
-  max-width:760px;margin:0 auto;
-}
-.page-eyebrow{
-  font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--lime);
-  text-transform:uppercase;margin-bottom:12px;
-}
-.page-title{
-  font-family:var(--display);font-size:clamp(2rem,5vw,3rem);
-  font-weight:600;letter-spacing:-.02em;margin-bottom:8px;
-  background:linear-gradient(110deg,#f0f3ff 12%,#c9d1ed 78%);
-  -webkit-background-clip:text;background-clip:text;color:transparent;
-}
-.page-subtitle{
-  font-family:var(--mono);font-size:10px;color:var(--t-muted);
-  letter-spacing:.04em;
-}
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.pw-footer{border-top:1px solid var(--border-soft);position:relative;z-index:1}
+.pw-footer-grid{display:grid;gap:32px;padding:56px 0 40px;grid-template-columns:1fr}
+@media(min-width:640px){.pw-footer-grid{grid-template-columns:1fr 1fr}}
+@media(min-width:1024px){.pw-footer-grid{grid-template-columns:1.4fr 1fr 1fr 1fr}}
+.pw-footer-brand{font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:-.02em;color:var(--text)}
+.pw-footer-tag{margin-top:10px;max-width:220px;font-size:13px;line-height:1.7;color:var(--t-muted)}
+.pw-footer-heading{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--t-muted)}
+.pw-footer-links{list-style:none;margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.pw-footer-links a{font-size:13px;color:rgba(238,240,247,.72);transition:color .15s}
+.pw-footer-links a:hover{color:var(--lime)}
+.pw-footer-bottom{border-top:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:22px 0;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--t-dim);text-transform:uppercase}
 
-.doc-body{
-  max-width:760px;margin:0 auto;
-  padding:0 32px 80px;
-}
-.doc-section{
-  border-top:1px solid var(--border);
-  padding:32px 0 0;
-  margin-bottom:32px;
-}
-.doc-section-title{
-  font-family:var(--mono);font-size:9px;letter-spacing:.18em;
-  color:var(--lime);text-transform:uppercase;margin-bottom:16px;
-}
-.doc-p{
-  font-family:var(--sans);font-size:13px;color:var(--t-mid);
-  line-height:1.8;margin-bottom:12px;
-}
-.doc-list{
-  list-style:none;padding-left:12px;margin-bottom:12px;
-}
-.doc-list li{
-  font-family:var(--sans);font-size:13px;color:var(--t-mid);
-  line-height:1.8;padding:2px 0;
-}
-.doc-list li::before{content:'• ';color:rgba(var(--lime-rgb),.6);}
-.doc-callout{
-  background:rgba(255,255,255,.06);border:1px solid rgba(var(--lime-rgb),.25);
-  border-radius:8px;padding:16px 18px;margin-bottom:20px;
-  box-shadow:inset 0 1px rgba(255,255,255,.08);
-}
-.doc-callout p{font-family:var(--sans);font-size:13px;color:var(--t-mid);line-height:1.8;}
-
-footer{
-  border-top:1px solid var(--border);
-  padding:24px 32px;
-  display:flex;align-items:center;justify-content:space-between;
-  font-family:var(--mono);font-size:9px;color:var(--t-dim);
-  flex-wrap:wrap;gap:12px;
-}
-.footer-links{display:flex;gap:20px;}
-.footer-link{color:var(--t-dim);transition:color .15s;}
-.footer-link:hover{color:var(--lime);}
+.pw-icon{display:inline-block;vertical-align:middle;flex-shrink:0}
   </style>
 </head>
 <body>
+<div id="ambient"></div>
 
-<nav class="nav">
-  <a href="/" class="nav-brand"><img src="/brand-mark.png" alt="">Paperweight</a>
-  <div class="nav-links">
-    <a href="/landing/download" class="nav-link">Download</a>
-    <a href="/landing/content-responsibility" class="nav-link">Content Policy</a>
+<header class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-brand"><img src="/brand-mark.png" alt="">Paperweight</a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="/listen" class="nav-link">Listen</a>
+      <a href="/download" class="nav-link">Download</a>
+      <a href="https://discord.gg/AHE6VuPT" class="nav-cta" target="_blank" rel="noopener">Discord</a>
+    </nav>
+    <button type="button" class="pw-nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="mobile-nav" aria-label="Open menu">
+      <svg class="pw-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" id="nav-toggle-icon">
+        <path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/>
+      </svg>
+    </button>
+    <nav class="pw-mobile-nav" id="mobile-nav" aria-label="Main" hidden>
+      <a href="/listen">Listen</a>
+      <a href="/download">Download</a>
+      <a href="https://discord.gg/AHE6VuPT" target="_blank" rel="noopener">Discord ↗</a>
+    </nav>
   </div>
-</nav>
+</header>
 
-<div class="page-hero">
-  <div class="page-eyebrow">Legal</div>
-  <h1 class="page-title">License Agreement</h1>
-  <p class="page-subtitle">Paperweight Software License Agreement · Copyright © 2026 Paperweight Systems LLC</p>
-</div>
+<main>
 
-<div class="doc-body">
+  <section class="pw-section pw-section--doc">
+    <div class="pw-shell pw-shell--narrow">
+      <div class="eyebrow">Legal</div>
+      <h1 class="pw-h1">License Agreement</h1>
+      <p class="pw-body-muted" style="margin-top:14px">Paperweight Software License Agreement · Copyright © 2026 Paperweight Systems LLC</p>
 
-  <div class="doc-callout">
-    <p>IMPORTANT: By downloading, installing, copying, accessing, or using any component of the Paperweight Platform ("Software"), you agree to be bound by this License Agreement.</p>
-  </div>
+      <div class="prose-pw" style="margin-top:40px">
 
-  <div class="doc-section">
-    <div class="doc-section-title">1. Definitions</div>
-    <p class="doc-p">"Paperweight Platform" means all software, applications, services, interfaces, websites, hosting solutions, APIs, plugins, extensions, dashboards, tools, documentation, assets, and technologies distributed by Paperweight Systems LLC.</p>
-    <p class="doc-p">The Paperweight Platform currently includes, but is not limited to:</p>
-    <ul class="doc-list">
-      <li>Paperweight Core</li>
-      <li>Paperweight Play</li>
-      <li>Paperweight Studio</li>
-    </ul>
-    <p class="doc-p">Paperweight Systems LLC may add, remove, rename, combine, separate, discontinue, or replace components of the Paperweight Platform at any time.</p>
-  </div>
+        <div class="pw-callout">
+          <p>IMPORTANT: By downloading, installing, copying, accessing, or using any component of the Paperweight Platform (&ldquo;Software&rdquo;), you agree to be bound by this License Agreement.</p>
+        </div>
 
-  <div class="doc-section">
-    <div class="doc-section-title">2. License Grant</div>
-    <p class="doc-p">Paperweight Systems LLC grants you a limited, non-exclusive, non-transferable, revocable license to install and use the Software for personal, educational, non-profit, and commercial media playback, broadcasting, streaming, and distribution purposes.</p>
-    <p class="doc-p">This license grants only those rights expressly stated herein. All rights not expressly granted are reserved by Paperweight Systems LLC.</p>
-  </div>
+        <h2>1. Definitions</h2>
+        <p>&ldquo;Paperweight Platform&rdquo; means all software, applications, services, interfaces, websites, hosting solutions, APIs, plugins, extensions, dashboards, tools, documentation, assets, and technologies distributed by Paperweight Systems LLC.</p>
+        <p>The Paperweight Platform currently includes, but is not limited to:</p>
+        <ul>
+          <li>Paperweight Core</li>
+          <li>Paperweight Play</li>
+          <li>Paperweight Studio</li>
+        </ul>
+        <p>Paperweight Systems LLC may add, remove, rename, combine, separate, discontinue, or replace components of the Paperweight Platform at any time.</p>
 
-  <div class="doc-section">
-    <div class="doc-section-title">3. Ownership</div>
-    <p class="doc-p">The Software is licensed, not sold. Paperweight Systems LLC retains all right, title, and interest in and to the Paperweight Platform, including but not limited to: source code, object code, interfaces, designs, branding, documentation, trademarks, trade secrets, copyrights, and derivative works.</p>
-  </div>
+        <h2>2. License grant</h2>
+        <p>Paperweight Systems LLC grants you a limited, non-exclusive, non-transferable, revocable license to install and use the Software for personal, educational, non-profit, and commercial media playback, broadcasting, streaming, and distribution purposes.</p>
+        <p>This license grants only those rights expressly stated herein. All rights not expressly granted are reserved by Paperweight Systems LLC.</p>
 
-  <div class="doc-section">
-    <div class="doc-section-title">4. Permitted Uses</div>
-    <p class="doc-p">You may:</p>
-    <ul class="doc-list">
-      <li>Install and use the Software.</li>
-      <li>Organize and manage media.</li>
-      <li>Broadcast and stream content.</li>
-      <li>Operate listener experiences.</li>
-      <li>Monetize content you legally own or are authorized to distribute.</li>
-    </ul>
-  </div>
+        <h2>3. Ownership</h2>
+        <p>The Software is licensed, not sold. Paperweight Systems LLC retains all right, title, and interest in and to the Paperweight Platform, including but not limited to: source code, object code, interfaces, designs, branding, documentation, trademarks, trade secrets, copyrights, and derivative works.</p>
 
-  <div class="doc-section">
-    <div class="doc-section-title">5. Prohibited Activities</div>
-    <p class="doc-p">Without prior written permission from Paperweight Systems LLC, you may not:</p>
-    <ul class="doc-list">
-      <li>Redistribute the Software in any form.</li>
-      <li>Sell, rent, lease, sublicense, or commercially distribute the Software itself.</li>
-      <li>Host download mirrors of the Software.</li>
-      <li>Bundle the Software with another product or service.</li>
-      <li>Create derivative works based on the Software.</li>
-      <li>Modify, patch, alter, or remove functionality for redistribution.</li>
-      <li>Reverse engineer, decompile, or disassemble the Software except where required by law.</li>
-      <li>Remove or alter copyright notices, trademarks, or attribution notices.</li>
-      <li>Represent the Software as your own work.</li>
-      <li>Use the Software in violation of applicable laws.</li>
-    </ul>
-  </div>
+        <h2>4. Permitted uses</h2>
+        <p>You may:</p>
+        <ul>
+          <li>Install and use the Software.</li>
+          <li>Organize and manage media.</li>
+          <li>Broadcast and stream content.</li>
+          <li>Operate listener experiences.</li>
+          <li>Monetize content you legally own or are authorized to distribute.</li>
+        </ul>
 
-  <div class="doc-section">
-    <div class="doc-section-title">6. Trademarks and Branding</div>
-    <p class="doc-p">The names Paperweight, Paperweight Core, Paperweight Play, Paperweight Studio, Paperweight Cloud, and Paperweight API are the property of Paperweight Systems LLC. Nothing in this Agreement grants any right to use these marks without prior written permission.</p>
-  </div>
+        <h2>5. Prohibited activities</h2>
+        <p>Without prior written permission from Paperweight Systems LLC, you may not:</p>
+        <ul>
+          <li>Redistribute the Software in any form.</li>
+          <li>Sell, rent, lease, sublicense, or commercially distribute the Software itself.</li>
+          <li>Host download mirrors of the Software.</li>
+          <li>Bundle the Software with another product or service.</li>
+          <li>Create derivative works based on the Software.</li>
+          <li>Modify, patch, alter, or remove functionality for redistribution.</li>
+          <li>Reverse engineer, decompile, or disassemble the Software except where required by law.</li>
+          <li>Remove or alter copyright notices, trademarks, or attribution notices.</li>
+          <li>Represent the Software as your own work.</li>
+          <li>Use the Software in violation of applicable laws.</li>
+        </ul>
 
-  <div class="doc-section">
-    <div class="doc-section-title">7. Third-Party Software</div>
-    <p class="doc-p">The Software may contain components provided under separate third-party licenses. Those components remain subject to their respective licenses. Nothing in this Agreement supersedes rights granted under applicable third-party licenses.</p>
-  </div>
+        <h2>6. Trademarks and branding</h2>
+        <p>The names Paperweight, Paperweight Core, Paperweight Play, Paperweight Studio, Paperweight Cloud, and Paperweight API are the property of Paperweight Systems LLC. Nothing in this Agreement grants any right to use these marks without prior written permission.</p>
 
-  <div class="doc-section">
-    <div class="doc-section-title">8. Termination</div>
-    <p class="doc-p">This license automatically terminates upon violation of any provision of this Agreement. Upon termination, you must immediately cease use of the Software and destroy all copies within your possession or control.</p>
-  </div>
+        <h2>7. Third-party software</h2>
+        <p>The Software may contain components provided under separate third-party licenses. Those components remain subject to their respective licenses. Nothing in this Agreement supersedes rights granted under applicable third-party licenses.</p>
 
-  <div class="doc-section">
-    <div class="doc-section-title">9. Disclaimer of Warranties</div>
-    <p class="doc-p">THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE." PAPERWEIGHT SYSTEMS LLC DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, ACCURACY, RELIABILITY, OR AVAILABILITY.</p>
-  </div>
+        <h2>8. Termination</h2>
+        <p>This license automatically terminates upon violation of any provision of this Agreement. Upon termination, you must immediately cease use of the Software and destroy all copies within your possession or control.</p>
 
-  <div class="doc-section">
-    <div class="doc-section-title">10. Limitation of Liability</div>
-    <p class="doc-p">TO THE MAXIMUM EXTENT PERMITTED BY LAW, PAPERWEIGHT SYSTEMS LLC SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES ARISING OUT OF OR RELATING TO THE SOFTWARE.</p>
-  </div>
+        <h2>9. Disclaimer of warranties</h2>
+        <p>THE SOFTWARE IS PROVIDED &ldquo;AS IS&rdquo; AND &ldquo;AS AVAILABLE.&rdquo; PAPERWEIGHT SYSTEMS LLC DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, ACCURACY, RELIABILITY, OR AVAILABILITY.</p>
 
-  <div class="doc-section">
-    <div class="doc-section-title">11. Governing Law</div>
-    <p class="doc-p">This Agreement shall be governed by the laws of the State of Illinois, United States.</p>
-  </div>
+        <h2>10. Limitation of liability</h2>
+        <p>TO THE MAXIMUM EXTENT PERMITTED BY LAW, PAPERWEIGHT SYSTEMS LLC SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES ARISING OUT OF OR RELATING TO THE SOFTWARE.</p>
 
-  <div class="doc-section">
-    <div class="doc-section-title">12. Entire Agreement</div>
-    <p class="doc-p">This Agreement constitutes the entire agreement between the user and Paperweight Systems LLC regarding the Software.</p>
-  </div>
+        <h2>11. Governing law</h2>
+        <p>This Agreement shall be governed by the laws of the State of Illinois, United States.</p>
 
-</div>
+        <h2>12. Entire agreement</h2>
+        <p>This Agreement constitutes the entire agreement between the user and Paperweight Systems LLC regarding the Software.</p>
 
-<footer>
-  <span>Paperweight Systems LLC · 2026</span>
-  <div class="footer-links">
-    <a href="/landing/download" class="footer-link">Download</a>
-    <a href="/landing/content-responsibility" class="footer-link">Content Policy</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pw-footer">
+  <div class="pw-shell">
+    <div class="pw-footer-grid">
+      <div>
+        <div class="pw-footer-brand">Paperweight</div>
+        <p class="pw-footer-tag">Independent software for media you actually own.</p>
+      </div>
+      <nav aria-label="Paperweight">
+        <div class="pw-footer-heading">Paperweight</div>
+        <ul class="pw-footer-links">
+          <li><a href="/listen">Listen</a></li>
+          <li><a href="/download">Download</a></li>
+          <li><a href="https://discord.gg/AHE6VuPT" target="_blank" rel="noopener">Discord ↗</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Legal">
+        <div class="pw-footer-heading">Legal</div>
+        <ul class="pw-footer-links">
+          <li><a href="/privacy">Privacy</a></li>
+          <li><a href="/terms">Terms</a></li>
+          <li><a href="/license">License</a></li>
+          <li><a href="/content-responsibility">Content Responsibility</a></li>
+          <li><a href="/warranty">Warranty</a></li>
+          <li><a href="/refund">Refund</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Support">
+        <div class="pw-footer-heading">Support</div>
+        <ul class="pw-footer-links">
+          <li><a href="/support">Support</a></li>
+          <li><a href="/station-ops">Station Ops</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="pw-footer-bottom">
+      <span>© 2026 Paperweight Systems LLC</span>
+    </div>
   </div>
 </footer>
 
+<script>
+/* ── Mobile nav toggle ────────────────────────────────────────────────────── */
+(function () {
+  var toggle = document.getElementById('nav-toggle');
+  var toggleIcon = document.getElementById('nav-toggle-icon');
+  var mobileNav = document.getElementById('mobile-nav');
+  var menuPath = '<path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/>';
+  var xPath = '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>';
+  toggle.addEventListener('click', function () {
+    var opening = mobileNav.hidden;
+    mobileNav.hidden = !opening;
+    toggle.setAttribute('aria-expanded', String(opening));
+    toggle.setAttribute('aria-label', opening ? 'Close menu' : 'Open menu');
+    toggleIcon.innerHTML = opening ? xPath : menuPath;
+  });
+})();
+
+/* ── Visit beacon ─────────────────────────────────────────────────────────── */
+(function () {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var payload = JSON.stringify({
+      path: window.location.pathname,
+      source: params.get('utm_source') || params.get('source') || null,
+      medium: params.get('utm_medium') || null,
+      campaign: params.get('utm_campaign') || params.get('campaign') || null,
+      referrer: document.referrer || null,
+    });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/landing/pageview', new Blob([payload], { type: 'application/json' }));
+    } else {
+      fetch('/api/landing/pageview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+    }
+  } catch (e) { /* pageview tracking is best-effort */ }
+})();
+</script>
 </body>
 </html>
