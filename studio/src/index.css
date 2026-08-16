@@ -105,6 +105,12 @@
 
 :root {
   color-scheme: dark;
+  /* Critically-damped spring approximation (no CSS spring primitive exists,
+     so this cubic-bezier is tuned to settle like damping ~1.0 / response
+     ~0.35s) — used for anything that isn't gesture-driven (gesture-driven
+     motion uses real springs via the `motion` library instead, since only
+     JS springs can be interrupted and re-targeted mid-flight). */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .studio-app {
@@ -125,11 +131,14 @@
 .sidebar-shell { background: linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.035)); border-color: rgba(255,255,255,.11); box-shadow: inset -1px 0 rgba(255,255,255,.05), 18px 0 80px rgba(0,0,0,.42); backdrop-filter: blur(30px) saturate(150%); -webkit-backdrop-filter: blur(30px) saturate(150%); }
 .panel { background: linear-gradient(145deg, rgba(255,255,255,.12), rgba(255,255,255,.055)); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 24px 90px rgba(0,0,0,.38), inset 0 1px rgba(255,255,255,.14), inset 0 -1px rgba(255,255,255,.035); backdrop-filter: blur(28px) saturate(150%); -webkit-backdrop-filter: blur(28px) saturate(150%); }
 .panel-subtle { background: linear-gradient(145deg, rgba(255,255,255,.105), rgba(255,255,255,.04)); border: 1px solid rgba(255,255,255,.14); box-shadow: inset 0 1px rgba(255,255,255,.1); backdrop-filter: blur(22px) saturate(145%); -webkit-backdrop-filter: blur(22px) saturate(145%); }
-.lime-button { background: rgba(190, 255, 61, .72); color: #000; border: 1px solid rgba(229,255,156,.55); box-shadow: 0 12px 38px rgba(187, 255, 66, .16), inset 0 1px rgba(255,255,255,.35); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); transition: transform .2s, background-color .2s, box-shadow .2s, border-color .2s; }
+.lime-button { background: rgba(190, 255, 61, .72); color: #000; border: 1px solid rgba(229,255,156,.55); box-shadow: 0 12px 38px rgba(187, 255, 66, .16), inset 0 1px rgba(255,255,255,.35); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); transition: transform .18s var(--ease-spring), background-color .2s, box-shadow .2s, border-color .2s; }
 .lime-button:hover { transform: translateY(-2px); background: rgba(213, 255, 110, .86); border-color: rgba(242,255,190,.76); box-shadow: 0 16px 48px rgba(187, 255, 66, .24), inset 0 1px rgba(255,255,255,.42); }
-.ghost-button { background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.14); color: hsl(var(--foreground)); box-shadow: inset 0 1px rgba(255,255,255,.08); backdrop-filter: blur(18px) saturate(145%); -webkit-backdrop-filter: blur(18px) saturate(145%); transition: background-color .2s, border-color .2s, transform .2s, box-shadow .2s; }
+.lime-button:active { transform: scale(.96); transition-duration: .1s; }
+.ghost-button { background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.14); color: hsl(var(--foreground)); box-shadow: inset 0 1px rgba(255,255,255,.08); backdrop-filter: blur(18px) saturate(145%); -webkit-backdrop-filter: blur(18px) saturate(145%); transition: background-color .2s, border-color .2s, transform .18s var(--ease-spring), box-shadow .2s; }
 .ghost-button:hover { background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.28); box-shadow: inset 0 1px rgba(255,255,255,.14), 0 10px 30px rgba(0,0,0,.22); transform: translateY(-1px); }
-.nav-item { color: hsl(var(--muted-foreground)); transition: color .2s, background-color .2s, box-shadow .2s; }
+.ghost-button:active { transform: scale(.96); transition-duration: .1s; }
+.nav-item { color: hsl(var(--muted-foreground)); transition: color .2s, background-color .2s, box-shadow .2s, transform .15s var(--ease-spring); }
+.nav-item:active { transform: scale(.98); transition-duration: .08s; }
 .nav-item:hover, .nav-item.active { color: hsl(var(--foreground)); background: rgba(255,255,255,.095); box-shadow: inset 0 1px rgba(255,255,255,.07); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .nav-item.active { box-shadow: inset 2px 0 hsl(var(--primary)), inset 0 1px rgba(255,255,255,.08); }
 .title-gradient { background: linear-gradient(110deg, #f0f3ff 12%, #c9d1ed 78%); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -140,7 +149,7 @@
 .wave-bar:nth-child(4n) { animation-delay: -.9s; }
 @keyframes wave { 0%, 100% { transform: scaleY(.32); opacity: .5; } 50% { transform: scaleY(1); opacity: 1; } }
 @keyframes enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-.animate-enter { animation: enter .45s ease both; }
+.animate-enter { animation: enter .5s var(--ease-spring) both; }
 .delay-1 { animation-delay: .07s; } .delay-2 { animation-delay: .14s; } .delay-3 { animation-delay: .21s; }
 .scrollbar-thin::-webkit-scrollbar { width: 5px; height: 5px; }
 .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(194,203,238,.2); border-radius: 99px; }
@@ -155,9 +164,11 @@
 .sidebar-hidden { display: none; }
 .mode-switcher { display: inline-flex; align-items: center; gap: 3px; padding: 4px; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; background: rgba(255,255,255,.075); box-shadow: inset 0 1px rgba(255,255,255,.12), 0 10px 40px rgba(0,0,0,.24); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); }
 .mode-switcher-mark { display: inline-flex; align-items: center; justify-content: center; width: 27px; height: 27px; border-radius: 50%; color: hsl(var(--primary)); background: rgba(190,255,61,.13); box-shadow: inset 0 1px rgba(255,255,255,.12); }
-.mode-option { display: inline-flex; align-items: center; gap: 7px; min-height: 29px; padding: 0 10px; border-radius: 999px; color: rgba(225,230,255,.62); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: .13em; transition: color .2s, background .2s, box-shadow .2s, transform .2s; }
+.mode-option { position: relative; display: inline-flex; align-items: center; gap: 7px; min-height: 29px; padding: 0 10px; border-radius: 999px; color: rgba(225,230,255,.62); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: .13em; transition: color .2s, background .2s, box-shadow .2s, transform .15s var(--ease-spring); }
 .mode-option:hover { color: rgba(239,243,255,.94); background: rgba(255,255,255,.08); transform: translateY(-1px); }
-.mode-option.active { color: #000; background: rgba(190,255,61,.78); border: 1px solid rgba(233,255,160,.55); box-shadow: 0 5px 24px rgba(190,255,61,.2), inset 0 1px rgba(255,255,255,.35); }
+.mode-option:active { transform: scale(.96); }
+.mode-option.active { color: #000; }
+.mode-option-pill { position: absolute; inset: 0; z-index: -1; border-radius: 999px; background: rgba(190,255,61,.78); border: 1px solid rgba(233,255,160,.55); box-shadow: 0 5px 24px rgba(190,255,61,.2), inset 0 1px rgba(255,255,255,.35); }
 .mode-option.active .mode-label { font-size: 12px; font-weight: 700; }
 .mode-view-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.25rem; margin-bottom: 2rem; }
 .stack-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(290px, .8fr); gap: 1.25rem; }
@@ -176,8 +187,9 @@
 .stack-search-wrap input { width: 100%; padding: 11px 0; color: hsl(var(--foreground)); background: transparent; border: 0; outline: 0; font-size: 13px; }
 .stack-search-wrap input::placeholder { color: rgba(225,230,255,.4); }
 .stack-folder-grid { display: grid; gap: 9px; margin: 18px 0 24px; }
-.stack-folder { display: flex; align-items: center; gap: 12px; padding: 11px; text-align: left; color: inherit; border-radius: 15px; background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.14); box-shadow: inset 0 1px rgba(255,255,255,.07); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); transition: transform .2s, background .2s, border-color .2s, box-shadow .2s; }
+.stack-folder { display: flex; align-items: center; gap: 12px; padding: 11px; text-align: left; color: inherit; border-radius: 15px; background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.14); box-shadow: inset 0 1px rgba(255,255,255,.07); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); transition: transform .18s var(--ease-spring), background .2s, border-color .2s, box-shadow .2s; }
 .stack-folder:hover { transform: translateY(-2px); background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.25); box-shadow: inset 0 1px rgba(255,255,255,.12), 0 12px 34px rgba(0,0,0,.24); }
+.stack-folder:active { transform: scale(.98); transition-duration: .1s; }
 .stack-folder.selected { background: rgba(190,255,61,.1); border-color: rgba(190,255,61,.34); box-shadow: inset 0 1px rgba(255,255,255,.12), 0 12px 34px rgba(190,255,61,.08); }
 .stack-folder-orb { display: inline-flex; align-items: center; justify-content: center; width: 43px; height: 43px; border-radius: 13px; color: #000; background: linear-gradient(135deg, rgba(207,255,103,.86), rgba(92,117,82,.64)); }
 .stack-folder-orb.coral { background: linear-gradient(135deg, rgba(255,151,138,.86), rgba(117,77,89,.66)); }
@@ -218,8 +230,9 @@
 .player-copy { position: relative; max-width: 520px; margin: 0 auto; text-align: center; }
 .player-wave { margin: 3rem auto 0; max-width: 420px; }
 .player-controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 24px; }
-.player-play-button { display: inline-flex; align-items: center; justify-content: center; width: 58px; height: 58px; color: #000; border-radius: 50%; background: rgba(190,255,61,.78); border: 1px solid rgba(233,255,160,.55); box-shadow: 0 10px 35px rgba(190,255,61,.22), inset 0 1px rgba(255,255,255,.35); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); transition: transform .2s, box-shadow .2s, background .2s; }
+.player-play-button { display: inline-flex; align-items: center; justify-content: center; width: 58px; height: 58px; color: #000; border-radius: 50%; background: rgba(190,255,61,.78); border: 1px solid rgba(233,255,160,.55); box-shadow: 0 10px 35px rgba(190,255,61,.22), inset 0 1px rgba(255,255,255,.35); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); transition: transform .18s var(--ease-spring), box-shadow .2s, background .2s; }
 .player-play-button:hover { transform: scale(1.05); background: rgba(213,255,110,.86); box-shadow: 0 14px 42px rgba(190,255,61,.3), inset 0 1px rgba(255,255,255,.4); }
+.player-play-button:active { transform: scale(.94); transition-duration: .1s; }
 .player-lower-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(290px, .8fr); gap: 1.25rem; margin-top: 1.25rem; }
 .glass-dock:hover { color: hsl(var(--foreground)); background: rgba(255,255,255,.13); }
 .sticky-transport { position: fixed; top: 80px; left: 0; right: 0; z-index: 45; display: flex; justify-content: center; padding: 0 1rem; transform: translateY(-130%); opacity: 0; pointer-events: none; transition: transform .25s ease, opacity .2s ease; }
@@ -231,19 +244,21 @@
 .sticky-transport-meta { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
 .sticky-transport-swatch { display: block; width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0; }
 .sticky-transport-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.sticky-transport-play { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; color: #000; border-radius: 50%; background: rgba(190,255,61,.78); border: 1px solid rgba(233,255,160,.55); box-shadow: 0 6px 20px rgba(190,255,61,.22), inset 0 1px rgba(255,255,255,.35); transition: transform .2s, box-shadow .2s, background .2s; }
+.sticky-transport-play { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; color: #000; border-radius: 50%; background: rgba(190,255,61,.78); border: 1px solid rgba(233,255,160,.55); box-shadow: 0 6px 20px rgba(190,255,61,.22), inset 0 1px rgba(255,255,255,.35); transition: transform .18s var(--ease-spring), box-shadow .2s, background .2s; }
 .sticky-transport-play:hover { transform: scale(1.05); background: rgba(213,255,110,.86); }
+.sticky-transport-play:active { transform: scale(.92); transition-duration: .1s; }
 @media (max-width: 640px) {
   .sticky-transport { top: auto; bottom: 16px; }
   .sticky-transport.visible { transform: translateY(0); }
   .sticky-transport:not(.visible) { transform: translateY(130%); }
 }
 
-.sticky-transport-tip { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; color: hsl(var(--primary)); background: rgba(190,255,61,.12); border: 1px solid rgba(190,255,61,.4); box-shadow: inset 0 1px rgba(255,255,255,.12); transition: transform .2s, background .2s, box-shadow .2s; }
+.sticky-transport-tip { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; color: hsl(var(--primary)); background: rgba(190,255,61,.12); border: 1px solid rgba(190,255,61,.4); box-shadow: inset 0 1px rgba(255,255,255,.12); transition: transform .18s var(--ease-spring), background .2s, box-shadow .2s; }
 .sticky-transport-tip:hover { transform: scale(1.08); background: rgba(190,255,61,.2); }
+.sticky-transport-tip:active { transform: scale(.92); transition-duration: .1s; }
 
 @media (max-width: 767px) {
-  .mobile-drawer { transform: translateX(-100%); transition: transform .25s ease; }
+  .mobile-drawer { transform: translateX(-100%); transition: transform .32s var(--ease-spring); }
   .mobile-drawer.open { transform: translateX(0); }
   .mobile-overlay { opacity: 0; pointer-events: none; transition: opacity .25s ease; }
   .mobile-overlay.open { opacity: 1; pointer-events: auto; }
@@ -258,5 +273,38 @@
   .player-artwork { width: min(72vw, 280px); }
   .player-copy { padding: 0 .35rem 1rem; }
   .player-wave { margin-top: 2rem; }
+}
+
+/* Reduced motion doesn't mean no feedback — it means a gentler, non-vestibular
+   equivalent: cross-fades instead of slides/springs/parallax, no overshoot. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  .wave-bar { animation: none !important; transform: scaleY(.7) !important; opacity: .85 !important; }
+  .animate-enter { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .lime-button:hover, .ghost-button:hover, .stack-folder:hover, .player-play-button:hover, .sticky-transport-play:hover, .sticky-transport-tip:hover, .mode-option:hover { transform: none !important; }
+  .lime-button:active, .ghost-button:active, .nav-item:active, .stack-folder:active, .player-play-button:active, .sticky-transport-play:active, .sticky-transport-tip:active, .mode-option:active { transform: none !important; opacity: .7; }
+}
+
+/* Frostier / more opaque translucent surfaces when the OS asks for less
+   transparency — same materials, just heavier so legibility never depends
+   on what's behind the glass. */
+@media (prefers-reduced-transparency: reduce) {
+  .sidebar-shell, .panel, .panel-subtle, .glass-header, .modal-backdrop, .mode-switcher, .sticky-transport-inner, .stack-folder, .stack-search-wrap, .input-studio, .lime-button, .ghost-button, .stack-footer-glass, .glass-dock {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .panel, .panel-subtle, .stack-folder, .sticky-transport-inner { background: #101116 !important; }
+  .sidebar-shell, .glass-header { background: #000 !important; }
+  .modal-backdrop { background: rgba(0, 0, 0, .88) !important; }
+}
+
+/* Near-solid backgrounds with a clearly defined border instead of a soft
+   translucent edge. */
+@media (prefers-contrast: more) {
+  .panel, .panel-subtle, .sidebar-shell, .modal-panel, .stack-folder, .input-studio, .ghost-button {
+    border-width: 1.5px;
+    border-color: rgba(255,255,255,.4);
+  }
+  .title-gradient, .signal-gradient { -webkit-background-clip: unset; background-clip: unset; color: hsl(var(--foreground)); }
 }
 

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Bookmark, BookmarkCheck, LockKeyhole, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 
 import * as api from '@/lib/api';
@@ -57,13 +58,21 @@ export function StickyTransport({ engine, visible, offsetForSidebar, onTip, onNo
     engine.selectTrack(toOnDemandTrack(neighbor));
   };
 
-  if (!activeTrack && !engine.nowPlaying) return null;
-
+  const hasTrack = !!(activeTrack || engine.nowPlaying);
   const title = activeTrack?.title || engine.nowPlaying?.title || engine.stationName;
   const subtitle = activeTrack ? activeTrack.artist : (engine.nowPlaying?.artist || 'Live');
+  const reduceMotion = useReducedMotion();
 
   return (
-    <div className={cn('sticky-transport', visible && 'visible', offsetForSidebar && 'sticky-transport-sidebar-offset')} aria-hidden={!visible}>
+    <AnimatePresence>
+      {hasTrack && visible && (
+        <motion.div
+          className={cn('sticky-transport visible', offsetForSidebar && 'sticky-transport-sidebar-offset')}
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.96 }}
+          transition={reduceMotion ? { duration: 0.12 } : { type: 'spring', bounce: 0, duration: 0.35 }}
+        >
       <div className="sticky-transport-inner">
         <div className="sticky-transport-meta">
           <span className="sticky-transport-swatch" style={{ background: `linear-gradient(135deg, ${swatchFor(activeTrack?.id ?? 0)}, rgba(255,255,255,.1))` }} />
@@ -96,6 +105,8 @@ export function StickyTransport({ engine, visible, offsetForSidebar, onTip, onNo
           )}
         </div>
       </div>
-    </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

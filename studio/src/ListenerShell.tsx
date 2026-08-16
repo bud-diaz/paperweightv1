@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { Check, ChevronRight, UserRound } from 'lucide-react';
 
 import { AccountModal } from '@/components/AccountModal';
@@ -132,12 +133,12 @@ function ListenerApp() {
           onOpenLogin={(prefillEmail) => { setWelcomeDismissed(true); setAccountModal({ tab: 'login', email: prefillEmail }); }}
         />
       )}
-      {accountModal && <AccountModal onClose={() => setAccountModal(null)} onNotify={notify} initialTab={accountModal.tab} initialEmail={accountModal.email} />}
-      {checkoutModal && <CheckoutModal stationName={stationName} initialTab={checkoutModal.tab} thankYou={checkoutModal.thankYou} onClose={() => setCheckoutModal(null)} onNotify={notify} onOpenAccount={openAccount} />}
-      {vaultGateTrack && <VaultGateModal track={vaultGateTrack} onClose={() => setVaultGateTrack(null)} onNotify={notify} onOpenAccount={openAccount} />}
+      <AnimatePresence>{accountModal && <AccountModal onClose={() => setAccountModal(null)} onNotify={notify} initialTab={accountModal.tab} initialEmail={accountModal.email} />}</AnimatePresence>
+      <AnimatePresence>{checkoutModal && <CheckoutModal stationName={stationName} initialTab={checkoutModal.tab} thankYou={checkoutModal.thankYou} onClose={() => setCheckoutModal(null)} onNotify={notify} onOpenAccount={openAccount} />}</AnimatePresence>
+      <AnimatePresence>{vaultGateTrack && <VaultGateModal track={vaultGateTrack} onClose={() => setVaultGateTrack(null)} onNotify={notify} onOpenAccount={openAccount} />}</AnimatePresence>
       <EmailLinkHandler onNotify={notify} />
       <SettingsTour suppressed={!!accountModal} />
-      {showDashboardLogin && <DashboardLogin onClose={() => setShowDashboardLogin(false)} />}
+      <AnimatePresence>{showDashboardLogin && <DashboardLogin onClose={() => setShowDashboardLogin(false)} />}</AnimatePresence>
     </div>
   );
 }
