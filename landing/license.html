@@ -6,9 +6,7 @@
   <title>License Agreement — Paperweight</title>
   <link rel="icon" type="image/png" href="/favicon.png"/>
   <meta name="description" content="Paperweight Software License Agreement."/>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/vendor/fonts/fonts.css"/>
   <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{overflow-x:clip;scroll-behavior:smooth}
@@ -16,40 +14,47 @@ a{text-decoration:none;color:inherit}
 button{border:none;cursor:pointer;background:none;font:inherit}
 
 :root{
-  --bg:#080808;--bg2:#0d0d0d;
-  --neon:#39ff14;
-  --border:rgba(255,255,255,.08);--border-hi:rgba(255,255,255,.14);
-  --text:#fff;--t-mid:rgba(255,255,255,.45);
-  --t-muted:rgba(255,255,255,.25);--t-dim:rgba(255,255,255,.13);
-  --serif:'DM Serif Display',Georgia,serif;
-  --mono:'Space Mono',monospace;
+  --bg:#000;
+  --lime:#bcff42;--lime-rgb:190,255,66;
+  --coral:#ff8071;--coral-rgb:255,128,113;
+  --border:rgba(255,255,255,.14);--border-hi:rgba(255,255,255,.22);
+  --text:#eef0f7;--t-mid:rgba(225,230,255,.62);
+  --t-muted:rgba(225,230,255,.42);--t-dim:rgba(225,230,255,.22);
+  --sans:'Manrope',sans-serif;
+  --display:'Space Grotesk',sans-serif;
+  --mono:'DM Mono',monospace;
 }
-body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
 
 .nav{
   position:sticky;top:0;z-index:200;
   display:flex;align-items:center;justify-content:space-between;
   padding:0 32px;height:52px;
-  background:rgba(8,8,8,.88);
-  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  background:rgba(0,0,0,.8);
+  border-color:rgba(255,255,255,.11);
+  box-shadow:0 12px 60px rgba(0,0,0,.34),inset 0 -1px rgba(255,255,255,.055);
+  -webkit-backdrop-filter:blur(28px) saturate(155%);backdrop-filter:blur(28px) saturate(155%);
   border-bottom:1px solid var(--border);
 }
-.nav-brand{font-family:var(--serif);font-size:15px;letter-spacing:-.02em;color:var(--text)}
+.nav-brand{display:inline-flex;align-items:center;gap:8px;font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:-.02em;color:var(--text)}
+.nav-brand img{width:20px;height:20px;display:block}
 .nav-links{display:flex;align-items:center;gap:28px}
 .nav-link{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--t-muted);text-transform:uppercase;transition:color .15s}
-.nav-link:hover{color:var(--t-mid)}
+.nav-link:hover{color:var(--lime)}
 
 .page-hero{
   padding:64px 32px 40px;
   max-width:760px;margin:0 auto;
 }
 .page-eyebrow{
-  font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--neon);
+  font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--lime);
   text-transform:uppercase;margin-bottom:12px;
 }
 .page-title{
-  font-family:var(--serif);font-size:clamp(2rem,5vw,3rem);
-  font-weight:400;letter-spacing:-.02em;margin-bottom:8px;
+  font-family:var(--display);font-size:clamp(2rem,5vw,3rem);
+  font-weight:600;letter-spacing:-.02em;margin-bottom:8px;
+  background:linear-gradient(110deg,#f0f3ff 12%,#c9d1ed 78%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 .page-subtitle{
   font-family:var(--mono);font-size:10px;color:var(--t-muted);
@@ -67,25 +72,26 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:1
 }
 .doc-section-title{
   font-family:var(--mono);font-size:9px;letter-spacing:.18em;
-  color:var(--neon);text-transform:uppercase;margin-bottom:16px;
+  color:var(--lime);text-transform:uppercase;margin-bottom:16px;
 }
 .doc-p{
-  font-family:var(--mono);font-size:10px;color:var(--t-mid);
-  line-height:1.9;margin-bottom:12px;
+  font-family:var(--sans);font-size:13px;color:var(--t-mid);
+  line-height:1.8;margin-bottom:12px;
 }
 .doc-list{
   list-style:none;padding-left:12px;margin-bottom:12px;
 }
 .doc-list li{
-  font-family:var(--mono);font-size:10px;color:var(--t-mid);
-  line-height:1.9;padding:2px 0;
+  font-family:var(--sans);font-size:13px;color:var(--t-mid);
+  line-height:1.8;padding:2px 0;
 }
-.doc-list li::before{content:'• ';color:rgba(57,255,20,.5);}
+.doc-list li::before{content:'• ';color:rgba(var(--lime-rgb),.6);}
 .doc-callout{
-  background:rgba(57,255,20,.05);border:1px solid rgba(57,255,20,.2);
+  background:rgba(255,255,255,.06);border:1px solid rgba(var(--lime-rgb),.25);
   border-radius:8px;padding:16px 18px;margin-bottom:20px;
+  box-shadow:inset 0 1px rgba(255,255,255,.08);
 }
-.doc-callout p{font-family:var(--mono);font-size:10px;color:var(--t-mid);line-height:1.8;}
+.doc-callout p{font-family:var(--sans);font-size:13px;color:var(--t-mid);line-height:1.8;}
 
 footer{
   border-top:1px solid var(--border);
@@ -96,13 +102,13 @@ footer{
 }
 .footer-links{display:flex;gap:20px;}
 .footer-link{color:var(--t-dim);transition:color .15s;}
-.footer-link:hover{color:var(--t-mid);}
+.footer-link:hover{color:var(--lime);}
   </style>
 </head>
 <body>
 
 <nav class="nav">
-  <a href="/" class="nav-brand">Paperweight</a>
+  <a href="/" class="nav-brand"><img src="/brand-mark.png" alt="">Paperweight</a>
   <div class="nav-links">
     <a href="/landing/download" class="nav-link">Download</a>
     <a href="/landing/content-responsibility" class="nav-link">Content Policy</a>
