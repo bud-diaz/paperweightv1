@@ -80,7 +80,7 @@ function AudioPanel({ engine, onNotify }: { engine: LiveBroadcastEngine; onNotif
       const w = canvas.width, h = canvas.height;
       ctx.clearRect(0, 0, w, h);
       ctx.lineWidth = 2;
-      ctx.strokeStyle = '#a9d647';
+      ctx.strokeStyle = '#c84b20'; // oxide — canvas can't read CSS custom properties, keep in sync with --pw-oxide
       ctx.beginPath();
       const step = w / data.length;
       for (let i = 0; i < data.length; i++) {
@@ -137,7 +137,7 @@ function AudioPanel({ engine, onNotify }: { engine: LiveBroadcastEngine; onNotif
   if (showPending) {
     return <div className="space-y-5">
       <div className="panel-subtle rounded-xl p-4 flex gap-3 items-start">
-        <span className="h-2.5 w-2.5 rounded-full bg-accent animate-pulse mt-1 shrink-0" />
+        <span className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse mt-1 shrink-0" />
         <div><p className="text-sm font-medium">Waiting for OBS to connect…</p><p className="text-xs text-muted-foreground mt-1">Point OBS at the server and stream key below.</p></div>
       </div>
       {engine.externalAudioStatus?.rtmp && <RtmpFields url={engine.externalAudioStatus.rtmp.url} streamKey={engine.externalAudioStatus.rtmp.streamKey} onRegenerate={engine.regenerateExternalAudioKey} onNotify={onNotify} />}
@@ -148,7 +148,7 @@ function AudioPanel({ engine, onNotify }: { engine: LiveBroadcastEngine; onNotif
   return <div className="space-y-5">
     {engine.isDesktop && <div className="grid grid-cols-2 gap-3">
       <button type="button" data-testid="button-audio-source-mic" onClick={() => setSource('mic')} className={cn('panel-subtle rounded-xl p-4 text-left', source === 'mic' && 'ring-1 ring-primary')}><Mic2 className="text-primary" size={18} /><p className="text-sm mt-3">Mic</p><p className="text-[11px] text-muted-foreground mt-1">Broadcast from this browser</p></button>
-      <button type="button" data-testid="button-audio-source-rtmp" onClick={() => setSource('rtmp')} className={cn('panel-subtle rounded-xl p-4 text-left', source === 'rtmp' && 'ring-1 ring-primary')}><Video className="text-accent" size={18} /><p className="text-sm mt-3">External encoder</p><p className="text-[11px] text-muted-foreground mt-1">OBS Studio (audio only)</p></button>
+      <button type="button" data-testid="button-audio-source-rtmp" onClick={() => setSource('rtmp')} className={cn('panel-subtle rounded-xl p-4 text-left', source === 'rtmp' && 'ring-1 ring-primary')}><Video className="text-foreground" size={18} /><p className="text-sm mt-3">External encoder</p><p className="text-[11px] text-muted-foreground mt-1">OBS Studio (audio only)</p></button>
     </div>}
     {source === 'mic' ? <>
       {engine.micState.error && <p className="text-xs text-destructive">{engine.micState.error}</p>}
@@ -213,7 +213,7 @@ function VideoPanel({ engine, onNotify }: { engine: LiveBroadcastEngine; onNotif
   if (showPending) {
     return <div className="space-y-5">
       <div className="panel-subtle rounded-xl p-4 flex gap-3 items-start">
-        <span className="h-2.5 w-2.5 rounded-full bg-accent animate-pulse mt-1 shrink-0" />
+        <span className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse mt-1 shrink-0" />
         <div><p className="text-sm font-medium">Waiting for OBS to connect…</p><p className="text-xs text-muted-foreground mt-1">Point OBS at the server and stream key below.</p></div>
       </div>
       {engine.videoStatus?.rtmp && <RtmpFields url={engine.videoStatus.rtmp.url} streamKey={engine.videoStatus.rtmp.streamKey} onRegenerate={engine.regenerateVideoKey} onNotify={onNotify} />}
@@ -224,7 +224,7 @@ function VideoPanel({ engine, onNotify }: { engine: LiveBroadcastEngine; onNotif
   return <div className="space-y-5">
     {engine.isDesktop && <div className="grid grid-cols-2 gap-3">
       <button type="button" data-testid="button-video-source-browser" onClick={() => setSource('browser')} className={cn('panel-subtle rounded-xl p-4 text-left', source === 'browser' && 'ring-1 ring-primary')}><Video className="text-primary" size={18} /><p className="text-sm mt-3">Camera</p><p className="text-[11px] text-muted-foreground mt-1">Broadcast from this browser</p></button>
-      <button type="button" data-testid="button-video-source-rtmp" onClick={() => setSource('rtmp')} className={cn('panel-subtle rounded-xl p-4 text-left', source === 'rtmp' && 'ring-1 ring-primary')}><Video className="text-accent" size={18} /><p className="text-sm mt-3">External encoder</p><p className="text-[11px] text-muted-foreground mt-1">OBS Studio</p></button>
+      <button type="button" data-testid="button-video-source-rtmp" onClick={() => setSource('rtmp')} className={cn('panel-subtle rounded-xl p-4 text-left', source === 'rtmp' && 'ring-1 ring-primary')}><Video className="text-foreground" size={18} /><p className="text-sm mt-3">External encoder</p><p className="text-[11px] text-muted-foreground mt-1">OBS Studio</p></button>
     </div>}
     {source === 'browser' ? <>
       {engine.videoState.error && <p className="text-xs text-destructive">{engine.videoState.error}</p>}

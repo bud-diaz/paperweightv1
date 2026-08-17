@@ -28,8 +28,8 @@ function formatCents(cents: number) {
 const ACTIVITY_ICON = { tip: Wallet, unlock: LockKeyhole, subscription: Users } as const;
 const ACTIVITY_STYLE = {
   tip: 'h-8 w-8 rounded-lg flex items-center justify-center text-primary bg-primary/10',
-  unlock: 'h-8 w-8 rounded-lg flex items-center justify-center text-accent bg-accent/10',
-  subscription: 'h-8 w-8 rounded-lg flex items-center justify-center text-[#91a4ff] bg-[#91a4ff]/10',
+  unlock: 'h-8 w-8 rounded-lg flex items-center justify-center text-foreground bg-muted',
+  subscription: 'h-8 w-8 rounded-lg flex items-center justify-center text-foreground bg-muted',
 } as const;
 
 export function Overview({ onOpen, onPlay, playing, onNavigate }: { onOpen: (modal: ModalKey) => void; onPlay: () => void; playing: boolean; onNavigate: (view: ViewKey) => void }) {
@@ -55,11 +55,10 @@ export function Overview({ onOpen, onPlay, playing, onNavigate }: { onOpen: (mod
   return (
     <div className="animate-enter">
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 mb-8">
-        <div><p className="font-mono-ui text-[10px] uppercase tracking-[.25em] text-primary mb-3">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p><h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-[-.06em] title-gradient">Good evening.</h1><p className="text-muted-foreground mt-3 max-w-md">Your signal is clear. Here’s what moved while you were making things.</p></div>
+        <div><p className="font-mono-ui text-[10px] uppercase tracking-[.25em] text-primary mb-3">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p><h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-[-.06em]">Good evening.</h1><p className="text-muted-foreground mt-3 max-w-md">Your signal is clear. Here’s what moved while you were making things.</p></div>
         <div className="flex items-center gap-2"><button type="button" data-testid="button-open-library" onClick={() => onOpen('library')} className="ghost-button rounded-xl px-4 py-2.5 text-sm flex items-center gap-2"><BookOpen size={16} /> Library</button><button type="button" data-testid="button-upload-audio" onClick={() => onOpen('upload')} className="lime-button rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2"><CloudUpload size={16} /> Upload</button></div>
       </div>
       <div className="panel rounded-3xl p-5 sm:p-7 relative overflow-hidden mb-6">
-        <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(ellipse_at_90%_20%,rgba(185,255,60,.15),transparent_62%)] pointer-events-none" />
         <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-7">
           <div className="flex gap-4 items-center"><button type="button" data-testid="button-toggle-station" aria-label={playing ? 'Pause station signal' : 'Play station signal'} onClick={onPlay} className="h-16 w-16 rounded-2xl lime-button flex items-center justify-center">{playing ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}</button><div><div className="flex items-center gap-2 mb-1"><span className={`h-1.5 w-1.5 rounded-full bg-primary ${live || nowPlaying ? 'animate-pulse' : ''}`} /><span className="font-mono-ui text-[10px] uppercase tracking-[.16em] text-primary">{signalLabel}</span></div><h2 className="font-display text-xl font-semibold">{stationName} — Radio</h2><p className="text-sm text-muted-foreground">A private signal for your people</p></div></div>
           <div className="flex-1 max-w-sm"><div className="flex items-end gap-[3px] h-10" aria-label="Audio signal waveform">{Array.from({ length: 34 }, (_, index) => (<span key={index} className="wave-bar block w-[3px] rounded-full bg-primary" style={{ height: `${25 + ((index * 17) % 73)}%` }} />))}</div><div className="flex justify-between font-mono-ui text-[10px] text-muted-foreground mt-2"><span>{status?.listenerCount ?? 0} listening</span><span>{nowPlaying ? nowPlaying.title : 'Nothing queued'}</span></div></div>
@@ -68,8 +67,8 @@ export function Overview({ onOpen, onPlay, playing, onNavigate }: { onOpen: (mod
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <Metric label="Listeners now" value={String(status?.listenerCount ?? 0)} change={live ? 'Live broadcast active' : 'Automated rotation'} icon={Headphones} />
-        <Metric label="Catalog size" value={String(catalogCount)} change={`${structure?.projects.length ?? 0} collections`} icon={Users} accent="coral" />
-        <Metric label="Listening hours" value={`${listeningHours.toFixed(1)}h`} change="Last 30 days" icon={Clock3} accent="blue" />
+        <Metric label="Catalog size" value={String(catalogCount)} change={`${structure?.projects.length ?? 0} collections`} icon={Users} accent="neutral" />
+        <Metric label="Listening hours" value={`${listeningHours.toFixed(1)}h`} change="Last 30 days" icon={Clock3} accent="neutral" />
         <Metric label="This month" value={formatCents(monthRevenueCents)} change="Unlocks + tips" icon={Wallet} />
       </div>
       <div className="grid lg:grid-cols-[1.12fr_.88fr] gap-6">

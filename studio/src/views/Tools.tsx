@@ -52,6 +52,6 @@ export function Tools({ onNotify, onOpen }: { onNotify: (message: string) => voi
         </section>;
       })}
     </div>
-    <section className="panel rounded-2xl p-5 sm:p-6 mt-6"><div className="flex items-start gap-3"><CircleHelp size={18} className="text-accent" /><div><h2 className="font-display text-lg font-semibold">Need a hand with the release?</h2><p className="text-sm text-muted-foreground mt-1">Read the short guide to making your next drop feel like an event.</p><button type="button" data-testid="button-read-release-guide" onClick={() => onNotify('Release guide is wired in a later pass.')} className="text-xs text-primary mt-4">Read the guide <ArrowUpRight size={13} className="inline ml-1" /></button></div></div></section>
+    <section className="panel rounded-2xl p-5 sm:p-6 mt-6"><div className="flex items-start gap-3"><CircleHelp size={18} className="text-muted-foreground" /><div><h2 className="font-display text-lg font-semibold">Need a hand with the release?</h2><p className="text-sm text-muted-foreground mt-1">Read the short guide to making your next drop feel like an event.</p><button type="button" data-testid="button-read-release-guide" onClick={() => onNotify('Release guide is wired in a later pass.')} className="text-xs text-primary mt-4">Read the guide <ArrowUpRight size={13} className="inline ml-1" /></button></div></div></section>
   </div>;
 }

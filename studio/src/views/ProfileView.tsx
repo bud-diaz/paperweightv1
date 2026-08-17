@@ -111,7 +111,7 @@ export function ProfileView({ onNotify }: { onNotify: (message: string) => void 
             {hasPic ? (
               <img data-testid="img-profile-pic" src={`/api/creator/pic?v=${picVersion}`} alt={stationName} className="h-20 w-20 rounded-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
             ) : (
-              <div className="h-20 w-20 rounded-full flex items-center justify-center font-display font-bold text-black text-xl" style={{ background: 'linear-gradient(135deg, #dcff75, #ff8071 75%)' }}>{stationName.slice(0, 2).toUpperCase()}</div>
+              <div className="h-20 w-20 rounded-full flex items-center justify-center font-display font-bold bg-primary text-primary-foreground text-xl">{stationName.slice(0, 2).toUpperCase()}</div>
             )}
             <input ref={fileInputRef} type="file" accept="image/*" hidden data-testid="input-profile-pic" onChange={(event) => { const file = event.target.files?.[0]; if (file) uploadPic.mutate(file); }} />
             <button type="button" data-testid="button-change-avatar" onClick={() => fileInputRef.current?.click()} disabled={uploadPic.isPending} className="text-xs text-primary mt-4 disabled:opacity-50">{uploadPic.isPending ? 'Uploading…' : 'Change picture'}</button>

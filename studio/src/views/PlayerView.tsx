@@ -46,7 +46,7 @@ export function PlayerView({ engine, onOpen, onPlayButtonVisibilityChange }: { e
   return (
     <div className="animate-enter player-workspace">
       <div className="mode-view-intro player-intro">
-        <div><p className="font-mono-ui text-[10px] uppercase tracking-[.24em] text-primary">Play / Station</p><h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-[-.06em] title-gradient">{stationName}.</h1><p className="text-muted-foreground mt-3">{listenerCount} {listenerCount === 1 ? 'listener' : 'listeners'} tuned in right now.</p></div>
+        <div><p className="font-mono-ui text-[10px] uppercase tracking-[.24em] text-primary">Play / Station</p><h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-[-.06em]">{stationName}.</h1><p className="text-muted-foreground mt-3">{listenerCount} {listenerCount === 1 ? 'listener' : 'listeners'} tuned in right now.</p></div>
         <div className="flex gap-2"><button type="button" data-testid="button-player-share" onClick={() => onOpen('share')} className="ghost-button rounded-xl px-4 py-2.5 text-sm flex items-center gap-2"><Share2 size={15} /> Share</button><button type="button" data-testid="button-player-support" onClick={() => onOpen('support')} className="lime-button rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2"><Heart size={15} /> Support</button></div>
       </div>
       <div className="player-stage panel rounded-[2rem] overflow-hidden">
