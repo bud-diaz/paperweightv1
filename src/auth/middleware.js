@@ -135,7 +135,15 @@ function requireAllAccess(req, res, next) {
 }
 
 function hasDashboardSession(req) {
-  const sessionId = req.cookies?.pw_dashboard_session;
+  let sessionId = req.cookies?.pw_dashboard_session;
+
+  if (!sessionId) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      sessionId = authHeader.slice(7).trim();
+    }
+  }
+
   return !!sessionId && (validateSession(sessionId) || validateDeviceSession(sessionId));
 }
 

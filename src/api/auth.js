@@ -199,7 +199,11 @@ router.post('/dashboard/device/redeem', authLimiter, (req, res) => {
   const label = guessDeviceLabel(req.headers['user-agent']);
   const deviceToken = createDeviceSession(label);
   res.cookie(SESSION_COOKIE, deviceToken, deviceCookieOpts(req));
-  res.json({ ok: true });
+  // Also returned in the body (not just Set-Cookie) so clients without a
+  // cookie jar wired to this origin — e.g. a native mobile app — can carry
+  // it as `Authorization: Bearer <token>` instead. The web /pair page
+  // ignores this extra field and keeps using the cookie.
+  res.json({ ok: true, token: deviceToken });
 });
 
 // POST /api/auth/dashboard/logout

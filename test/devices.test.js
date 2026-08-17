@@ -69,6 +69,7 @@ test('a paired device can sign in via QR redeem and be revoked', async () => {
     const deviceCookie = cookieValue(redeem.res.headers.get('set-cookie'), 'pw_dashboard_session');
     assert.ok(deviceCookie);
     assert.notEqual(deviceCookie, desktopCookie);
+    assert.equal(redeem.body.token, deviceCookie);
 
     // The desktop's poll picks up the claim.
     const status = await request(baseUrl, `/api/dashboard/devices/pair/status?pt=${pair.body.pairToken}`, {
@@ -84,6 +85,14 @@ test('a paired device can sign in via QR redeem and be revoked', async () => {
     assert.equal(list.body.devices.length, 1);
     const deviceId = list.body.devices[0].id;
 
+    // The same device credential also works as a bearer token — how a native
+    // client without a cookie jar (e.g. the mobile app) authenticates.
+    const listViaBearer = await request(baseUrl, '/api/dashboard/devices', {
+      headers: { Authorization: `Bearer ${redeem.body.token}` },
+    });
+    assert.equal(listViaBearer.res.status, 200);
+    assert.equal(listViaBearer.body.devices.length, 1);
+
     // Revoking from the desktop session immediately invalidates the device's cookie.
     const revoke = await request(baseUrl, `/api/dashboard/devices/${deviceId}`, {
       method: 'DELETE',
@@ -95,6 +104,11 @@ test('a paired device can sign in via QR redeem and be revoked', async () => {
       headers: { Cookie: `pw_dashboard_session=${deviceCookie}` },
     });
     assert.equal(afterRevoke.res.status, 401);
+
+    const afterRevokeViaBearer = await request(baseUrl, '/api/dashboard/devices', {
+      headers: { Authorization: `Bearer ${redeem.body.token}` },
+    });
+    assert.equal(afterRevokeViaBearer.res.status, 401);
   });
 });
 
