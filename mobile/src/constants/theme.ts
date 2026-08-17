@@ -7,28 +7,39 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+/**
+ * Token values from `mobile/paperweight-new-design-spec.md` (ink / surface /
+ * raised / paper / concrete / oxide) — "heavy, grounded, architectural"
+ * industrial system, replacing an earlier pink/red accent draft. Oxide is
+ * deliberately reused for `live` too (the spec's own "Color means something
+ * is happening" rule: one accent for active/live/selected states, not a
+ * separate brand color per meaning). The spec only defines a single dark
+ * palette (section 7); `light` below is derived to preserve the same
+ * value relationships since the app supports OS-level light mode and the
+ * spec doesn't say to drop that.
+ */
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-    border: '#E0E1E6',
-    accent: '#E8195C',
-    accentSoft: 'rgba(232, 25, 92, 0.1)',
-    live: '#1FAE5F',
+    text: '#141414',
+    background: '#F5F4F0',
+    backgroundElement: '#EAE9E4',
+    backgroundSelected: '#DEDCD5',
+    textSecondary: '#6B6A65',
+    border: 'rgba(20, 20, 20, 0.08)',
+    accent: '#C84B20',
+    accentSoft: 'rgba(200, 75, 32, 0.12)',
+    live: '#C84B20',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-    border: 'rgba(255, 255, 255, 0.12)',
-    accent: '#FF3D71',
-    accentSoft: 'rgba(255, 61, 113, 0.14)',
-    live: '#3DDC84',
+    text: '#F0EFEA',
+    background: '#090909',
+    backgroundElement: '#121212',
+    backgroundSelected: '#1B1B1B',
+    textSecondary: '#8A8984',
+    border: 'rgba(240, 239, 234, 0.08)',
+    accent: '#C84B20',
+    accentSoft: 'rgba(200, 75, 32, 0.14)',
+    live: '#C84B20',
   },
 } as const;
 
@@ -69,5 +80,13 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+/** Corner radii from the design spec's "Component Shape Language" — small/medium-small, not the 20-30px pill radii it explicitly calls out to avoid. */
+export const Radius = {
+  sm: 6,
+  md: 8,
+  lg: 10,
+  xl: 12,
+} as const;
+
+export const BottomTabInset = Platform.select({ ios: 70, android: 120 }) ?? 0;
 export const MaxContentWidth = 800;

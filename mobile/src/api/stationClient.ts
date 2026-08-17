@@ -7,6 +7,82 @@
  * `Authorization: Bearer <token>` explicitly instead of relying on cookies.
  */
 
+export type StationTrack = {
+  id: number;
+  title: string;
+  artist: string | null;
+  category: string | null;
+  duration: number | null;
+  isVideo: boolean;
+};
+
+export type NowPlayingTrack = StationTrack & { startedAt?: string | null };
+
+export type RecentlyPlayedTrack = {
+  id: number;
+  title: string;
+  artist: string | null;
+  category: string | null;
+  playedAt: string;
+};
+
+export type CreatorPost = {
+  id: number;
+  title: string | null;
+  body: string;
+  visibility: 'public' | 'supporters_only';
+  published_at: string;
+};
+
+export type StreamStatus = {
+  isLive: boolean;
+  mode: 'shuffle' | 'scheduled';
+  isVideo: boolean;
+  recentlyPlayed: RecentlyPlayedTrack[];
+  stationQueue: StationTrack[];
+  nowPlaying: NowPlayingTrack | null;
+  updatedAt: string;
+  liveActive: boolean;
+  liveStartedAt: string | null;
+  liveVideoActive: boolean;
+  listenerCount: number;
+};
+
+function stripTrailingSlash(baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, '');
+}
+
+/** GET /hls/stream/index.m3u8 — the station's shuffled/scheduled rotation. */
+export function hlsStationUrl(baseUrl: string): string {
+  return `${stripTrailingSlash(baseUrl)}/hls/stream/index.m3u8`;
+}
+
+/** GET /hls/live/index.m3u8 — a creator's live mic/RTMP audio broadcast, when `liveActive`. */
+export function hlsLiveAudioUrl(baseUrl: string): string {
+  return `${stripTrailingSlash(baseUrl)}/hls/live/index.m3u8`;
+}
+
+/**
+ * GET /api/library/:id/stream — on-demand track playback (range-request
+ * capable direct file stream, not HLS). May 403 (vault/tier gate) or 429
+ * (free-tier hourly quota) — both are surfaced as a player status `error`,
+ * not thrown here, since this only builds the URL for the native player.
+ */
+export function libraryStreamUrl(baseUrl: string, trackId: number, opts?: { nextUp?: boolean }): string {
+  const suffix = opts?.nextUp ? '?nextUp=1' : '';
+  return `${stripTrailingSlash(baseUrl)}/api/library/${encodeURIComponent(String(trackId))}/stream${suffix}`;
+}
+
+/** GET /api/library/:id/preview — server-capped ~60s preview of a locked track; client stops itself at 30s. */
+export function libraryPreviewUrl(baseUrl: string, trackId: number): string {
+  return `${stripTrailingSlash(baseUrl)}/api/library/${encodeURIComponent(String(trackId))}/preview`;
+}
+
+/** GET /api/library/:id/artwork — per-track artwork, falls back server-side to a bundled default. */
+export function libraryArtworkUrl(baseUrl: string, trackId: number): string {
+  return `${stripTrailingSlash(baseUrl)}/api/library/${encodeURIComponent(String(trackId))}/artwork`;
+}
+
 export class StationClientError extends Error {
   status: number;
   data: unknown;
@@ -84,6 +160,21 @@ export class StationClient {
   /** GET /api/listener/me — current listener account details for the attached bearer token. */
   me(): Promise<{ email?: string; displayName?: string; hasAccount: boolean; hasPassword: boolean }> {
     return this.get('/api/listener/me');
+  }
+
+  /** GET /api/stream/status — now-playing/queue/live state; unauthenticated, polled every 10s by PlayerEngine. */
+  streamStatus(): Promise<StreamStatus> {
+    return this.get('/api/stream/status');
+  }
+
+  /** POST /api/stream/ping — listener keep-alive while live/station audio is actively playing; fire-and-forget. */
+  async ping(): Promise<void> {
+    await this.post('/api/stream/ping', undefined);
+  }
+
+  /** GET /api/posts — creator text updates, no attachments; `supporters_only` ones only come back when the attached bearer token's tier qualifies. */
+  listPosts(page = 1, limit = 20): Promise<{ posts: CreatorPost[]; page: number; limit: number }> {
+    return this.get(`/api/posts?page=${page}&limit=${limit}`);
   }
 }
 

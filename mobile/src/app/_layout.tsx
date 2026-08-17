@@ -1,21 +1,44 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
+import { LogBox } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { PlayerEngineProvider } from '@/player/PlayerEngine';
 import { StationStoreProvider } from '@/state/stationStore';
 
+if (__DEV__) {
+  // Expo Go can't run our expo-audio config plugin (no prebuild step), so
+  // it has no Android media-session service to bind lock-screen controls
+  // to — these two messages are expected there and don't indicate a real
+  // bug. They should not fire at all in a real dev-client/production build,
+  // where the plugin actually ran; if they do turn up there, that's a real
+  // regression worth un-ignoring this for.
+  LogBox.ignoreLogs([
+    'Failed to activate lock screen controls',
+    'Failed to start the expo-audio playback service',
+    'Cannot update lock screen metadata',
+  ]);
+}
+
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <StationStoreProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="listener-login"
-            options={{ presentation: 'modal', headerShown: true, title: 'Listener Login' }}
-          />
-        </Stack>
-      </StationStoreProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      {/* Dark is the only theme for now — see hooks/use-theme.ts. */}
+      <ThemeProvider value={DarkTheme}>
+        <StationStoreProvider>
+          <PlayerEngineProvider>
+            <BottomSheetModalProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen
+                  name="listener-login"
+                  options={{ presentation: 'modal', headerShown: true, title: 'Listener Login' }}
+                />
+              </Stack>
+            </BottomSheetModalProvider>
+          </PlayerEngineProvider>
+        </StationStoreProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

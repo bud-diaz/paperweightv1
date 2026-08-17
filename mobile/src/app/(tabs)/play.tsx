@@ -1,17 +1,11 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedView } from '@/components/themed-view';
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { PlayScreen } from '@/screens/PlayScreen';
 
-export default function PlayScreen() {
+export default function PlayTab() {
   return (
-    <ThemedView style={{ flex: 1 }}>
-      <SafeAreaView style={{ flex: 1 }}>
-        <PlaceholderScreen
-          title="Play"
-          body="Live/on-demand playback, the sticky transport, and the drawer land in Phase 3."
-        />
-      </SafeAreaView>
-    </ThemedView>
+    <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+      <PlayScreen />
+    </SafeAreaView>
   );
 }
