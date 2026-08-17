@@ -56,6 +56,15 @@ vendor/cloudflared/
 # Bundled FRP client binary — downloaded at build time by scripts/fetch-frp.js
 vendor/frp/
 
+# mobile/ (Expo/React Native workspace) build artifacts — node_modules/ already
+# covered generically above; these are Expo/native-build-specific.
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+mobile/ios/
+mobile/android/
+
 # Platform-specific native binding and FFmpeg/cloudflared/FRP bundles — generated at build time, NOT committed
 src/native-bundle.js
 src/ffmpeg-bundle.js

@@ -30,6 +30,8 @@
     "build:exe": "node scripts/build-exe.js",
     "build:studio": "npm --prefix studio install && npm --prefix studio run build",
     "dev:studio": "npm --prefix studio run dev",
+    "build:mobile": "npm --prefix mobile install && npm --prefix mobile run build",
+    "dev:mobile": "npm --prefix mobile run start",
     "check:terminology": "node scripts/check-terminology.js",
     "check:system-pape": "node scripts/check-system-pape-contract.js"
   },
