@@ -38,6 +38,9 @@ export type OnDemandTrack = {
   visibility: 'public' | 'supporters_only' | 'vault';
   unlocked?: boolean;
   isExternal?: boolean;
+  isVideo?: boolean;
+  mimeType?: string | null;
+  offlineAllowed?: boolean;
 };
 
 /**
@@ -52,6 +55,20 @@ export function isPlayableTrack(track: OnDemandTrack, isPaid: boolean): boolean 
   if (track.visibility === 'supporters_only') return track.unlocked === true || isPaid;
   if (track.visibility === 'vault') return track.unlocked === true;
   return true;
+}
+
+/**
+ * Mirrors studio/src/lib/hooks/usePlayerEngine.ts's canStash, with one
+ * mobile-specific narrowing: video tracks are excluded even when otherwise
+ * offline-eligible, since Stash (Phase 4) only ever downloads/plays local
+ * files through expo-audio — there's no local video player wired up here,
+ * matching Phase 3's "audio only" scope decision rather than silently
+ * mis-saving a file Stash can't actually play back.
+ */
+export function canStash(track: OnDemandTrack, isPaid: boolean): boolean {
+  if (track.isVideo) return false;
+  const playable = isPlayableTrack(track, isPaid);
+  return playable && (!!track.offlineAllowed || (track.visibility === 'vault' && track.unlocked === true));
 }
 
 export type ActiveSourceKind = 'none' | 'live-audio' | 'station' | 'on-demand';

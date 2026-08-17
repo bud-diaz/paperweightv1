@@ -1,17 +1,11 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedView } from '@/components/themed-view';
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { StudioScreen } from '@/screens/StudioScreen';
 
-export default function StudioScreen() {
+export default function StudioTab() {
   return (
-    <ThemedView style={{ flex: 1 }}>
-      <SafeAreaView style={{ flex: 1 }}>
-        <PlaceholderScreen
-          title="Studio"
-          body="QR device pairing and the curated essentials screens land in Phase 5."
-        />
-      </SafeAreaView>
-    </ThemedView>
+    <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+      <StudioScreen />
+    </SafeAreaView>
   );
 }

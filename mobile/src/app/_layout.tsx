@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { PlayerEngineProvider } from '@/player/PlayerEngine';
 import { StationStoreProvider } from '@/state/stationStore';
+import { StudioStoreProvider } from '@/state/studioStore';
 
 if (__DEV__) {
   // Expo Go can't run our expo-audio config plugin (no prebuild step), so
@@ -26,17 +27,19 @@ export default function RootLayout() {
       {/* Dark is the only theme for now — see hooks/use-theme.ts. */}
       <ThemeProvider value={DarkTheme}>
         <StationStoreProvider>
-          <PlayerEngineProvider>
-            <BottomSheetModalProvider>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen
-                  name="listener-login"
-                  options={{ presentation: 'modal', headerShown: true, title: 'Listener Login' }}
-                />
-              </Stack>
-            </BottomSheetModalProvider>
-          </PlayerEngineProvider>
+          <StudioStoreProvider>
+            <PlayerEngineProvider>
+              <BottomSheetModalProvider>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen
+                    name="listener-login"
+                    options={{ presentation: 'modal', headerShown: true, title: 'Listener Login' }}
+                  />
+                </Stack>
+              </BottomSheetModalProvider>
+            </PlayerEngineProvider>
+          </StudioStoreProvider>
         </StationStoreProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

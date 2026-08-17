@@ -48,6 +48,36 @@ export type StreamStatus = {
   listenerCount: number;
 };
 
+/** One row from GET /api/library/structure — field set per src/api/library.js's formatItem(). */
+export type LibraryTrack = {
+  id: number;
+  title: string;
+  artist: string | null;
+  album: string | null;
+  genre: string | null;
+  category: string | null;
+  duration: number | null;
+  visibility: 'public' | 'supporters_only' | 'vault';
+  mimeType: string | null;
+  isVideo: boolean;
+  isExternal: boolean;
+  offlineAllowed: boolean;
+  unlocked?: boolean;
+  downloadUrl?: string;
+};
+
+export type LibraryProject = {
+  id: number;
+  name: string;
+  description: string | null;
+  tracks: LibraryTrack[];
+};
+
+export type LibraryStructure = {
+  projects: LibraryProject[];
+  standalone: LibraryTrack[];
+};
+
 function stripTrailingSlash(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, '');
 }
@@ -175,6 +205,23 @@ export class StationClient {
   /** GET /api/posts — creator text updates, no attachments; `supporters_only` ones only come back when the attached bearer token's tier qualifies. */
   listPosts(page = 1, limit = 20): Promise<{ posts: CreatorPost[]; page: number; limit: number }> {
     return this.get(`/api/posts?page=${page}&limit=${limit}`);
+  }
+
+  /** GET /api/library/structure — full catalog (projects + standalone tracks) visible to the attached bearer token's tier. */
+  libraryStructure(): Promise<LibraryStructure> {
+    return this.get('/api/library/structure');
+  }
+
+  /**
+   * GET /api/library/:id/download — mints a short-lived, self-authorizing
+   * signed URL for saving a track to Stash. Requires a listener identity
+   * (401 without one) and 403s if the track isn't actually download-eligible
+   * — surfaced as `{ error }` rather than thrown, same shape as web's
+   * api.library.downloadUrl, since callers need to show the error inline.
+   */
+  async downloadUrl(id: number): Promise<{ signedUrl?: string; error?: string }> {
+    const res = await fetch(this.url(`/api/library/${id}/download`), { headers: this.headers() });
+    return (await safeJson(res)) as { signedUrl?: string; error?: string };
   }
 }
 

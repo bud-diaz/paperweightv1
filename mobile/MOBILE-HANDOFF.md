@@ -15,8 +15,8 @@ This file tracks *status only*. For *what* and *why*, see:
 | 1 | `mobile/` workspace scaffold + tab shell + CI | ✅ Done |
 | 2 | Discover tab: System.Pape + current-station + listener login | ✅ Done |
 | 3 | Play tab: playback engine + sticky transport + drawer | ✅ Done |
-| 4 | Stack tab: catalog + cross-station Stash | ⬜ Not started |
-| 5 | Studio pairing (QR scan) + curated essentials | ⬜ Not started |
+| 4 | Stack tab: catalog + cross-station Stash | ✅ Done |
+| 5 | Studio pairing (QR scan) + curated essentials | ✅ Done |
 | 6 | Studio media upload | ⬜ Not started |
 | 7 | Settings modals (App settings + Account settings) | ⬜ Not started |
 | 8 | Polish, store-readiness | ⬜ Not started |
@@ -735,13 +735,328 @@ clear gap between the mini player and the tab bar on Discover, both
 before/after screenshots compared directly.
 
 ### Phase 4 — Stack tab
-**Status: Not started**
+**Status: Done** (2026-08-17)
+
+What was built:
+- `mobile/src/api/stationClient.ts` — added `LibraryTrack`/`LibraryProject`/
+  `LibraryStructure` types (exact field set from `src/api/library.js`'s
+  `formatItem()`), `libraryStructure()` (`GET /api/library/structure`), and
+  `downloadUrl(id)` (`GET /api/library/:id/download` — returns `{signedUrl}`
+  or `{error}`, never throws, since callers need the error inline the same
+  way web's `api.library.downloadUrl` does).
+- `mobile/src/player/PlayerEngine.tsx` — `OnDemandTrack` gained `isVideo`/
+  `mimeType`/`offlineAllowed` (library items carry more fields than the
+  station-rotation items Phase 3 originally typed this for). Added an
+  exported `canStash()`, a direct port of
+  `studio/src/lib/hooks/usePlayerEngine.ts`'s `canStash`, with one
+  deliberate mobile-only narrowing: video tracks are always excluded, since
+  Stash only ever downloads/plays local files through `expo-audio` and
+  there's no local video player wired up (same "audio only" scope call
+  Phase 3 already made for live playback — not silently mis-saving a file
+  Stash can't actually play back).
+- `mobile/src/stash/stashStore.ts` — new. RN analog of
+  `studio/src/lib/hooks/useOfflineSaves.ts`. `canonicalizeBaseUrl()`
+  (scheme + lowercased host + non-default port, no trailing slash/path) is
+  the load-bearing dedup key the Phase 4 plan flagged — records are keyed
+  `${canonicalBaseUrl}::${trackId}` so the same station reached via
+  different casing/trailing-slash/manual-URL forms still aggregates
+  correctly, without conflating two different stations. Metadata is a
+  single JSON blob in AsyncStorage (same pattern as `stationStore`, not
+  `expo-sqlite` — the record count here is small); files download via SDK
+  57's new `expo-file-system` `File`/`Directory`/`Paths` API
+  (`File.downloadFileAsync` into `Paths.document/stash/`, `idempotent:
+  true`) rather than the legacy `createDownloadResumable` API the original
+  plan assumed, since that's what this SDK version actually ships. Local
+  playback uses its own second `useAudioPlayer` instance, kept completely
+  separate from `PlayerEngine`'s player — same isolation the web hook keeps
+  between its local `<audio>` element and the main engine, so Stash
+  playback and live/on-demand playback never fight over one player's state.
+- `mobile/src/screens/StackScreen.tsx` — new. Catalog (search + project
+  chips that filter the list, ANDed with search) and Stash (records list +
+  `storage used` total + per-row remove + "Clear Stash") as two
+  `SectionList` sections, avoiding a nested-FlatList-in-ScrollView
+  performance trap. No mockup existed for this tab (unlike Play's), so the
+  layout follows `DiscoverScreen.tsx`'s established row/chip/search
+  conventions rather than trying to mirror `studio/src/views/StackView.tsx`
+  pixel-for-pixel — the folder-grid-plus-drawer treatment there is a web-
+  specific interaction pattern, not something this port owed a 1:1 copy of.
+  Selecting a catalog track calls `stash.stop()` then
+  `engine.selectTrack()`; selecting a Stash row calls `engine.pause()` then
+  `stash.play()` — same crosstalk both directions the web version has, so
+  the two players never play simultaneously. A lock icon shows for
+  non-playable tracks (`isPlayableTrack`); a bookmark toggles Stash only
+  when `canStash()` is true.
+- `mobile/src/app/(tabs)/stack.tsx` — now renders `StackScreen` instead of
+  the Phase 1 placeholder, matching Discover's route-level
+  `SafeAreaView`-wrapping convention.
+- New dependency: `expo-file-system` (`npx expo install`, resolved
+  `~57.0.4` — was already present transitively, now pinned directly since
+  Stash calls it explicitly).
+
+**Real finding — `canStash`'s offline-eligibility gate is narrower than the
+backend's actual download permission**, and this port correctly preserves
+that gap rather than "fixing" it: `src/api/library.js`'s `canDownloadMedia`
+lets *any* subscriber-tier listener download *any* non-vault track
+regardless of `offline_allowed`, but both web's and this port's `canStash`
+only show the save affordance when `offlineAllowed` is true (or an unlocked
+vault item). Confirmed live via curl against the real dev backend
+(subscriber-tier token successfully signed a download URL for a plain
+`offline_allowed=0` public track). This is a pre-existing product
+inconsistency between client-side affordance and server-side permission,
+not something introduced here — mirrored faithfully per the plan's "ports
+canStash exactly" instruction, not overridden.
+
+Verification done:
+- `npx tsc --noEmit` and `npx expo export --platform web` — clean, both
+  before and after real-device testing.
+- Live backend smoke test against the real local "Rolling Woods" dev
+  server (`:3001`): curled `/api/library/structure` (response shape matches
+  the new `LibraryStructure`/`LibraryTrack` types exactly, including a real
+  vault track and real project groupings), `/api/library/:id/download`
+  unauthenticated (401), with a redeemed subscriber bearer token against a
+  track whose stored `filepath` resolves outside the configured
+  `VAULT_PATH` (403 "File path is outside the vault" — a pre-existing
+  dev-data issue, not a client bug, confirmed by reading `safeVaultPath`'s
+  actual comparison against `config.vault.path`), and against a vault track
+  the token hadn't unlocked (403 "Vault access required unlockOptions").
+  Confirms `stationClient.downloadUrl()`/`stashStore.save()` surface every
+  one of these as an inline error rather than throwing.
+- **Real-device pass (2026-08-17, same Galaxy A12, `adb` + Expo Go,
+  `__DEV__`-gated "[DEV] Use local test station" button added to
+  `DiscoverScreen.tsx` and removed again before finishing, not committed)**
+  against the real local dev backend on the LAN (`http://10.0.0.11:3001`,
+  same machine reached over WiFi rather than the USB-forwarded loopback
+  prior phases used, since Stack needed a real routable base URL for
+  `expo-file-system` downloads):
+  - Catalog: real project chips ("3 EP", "FREE PIERRE 2") and all 8 real
+    tracks rendered from the live `/api/library/structure` response; the
+    one vault track ("No Hits…") correctly showed a lock icon and its real
+    duration (2:44), tracks with `duration: null` in the DB correctly
+    showed `--:--` rather than a fake value.
+  - Search and the project-chip filter both verified independently and
+    combined (ANDed) correctly — typing "krazy" narrowed 8→1, selecting the
+    "3 EP" chip narrowed 8→3, both together correctly produced zero with an
+    empty-state message, deselecting the chip restored all 8.
+  - Selecting a catalog track really calls `PlayerEngine.selectTrack`:
+    confirmed a genuine `AudioFocus` grant via `adb shell dumpsys audio`
+    when tapping "Rearview," and confirmed the engine's existing
+    error-fallback (`goLive(true)` on a playback error) fired correctly and
+    reverted to live playback when that track's underlying file turned out
+    to be outside the configured vault path (same dev-data issue as the
+    curl check above) — a real exercise of that fallback path on-device,
+    not just a read of the source.
+  - Full Stash round-trip, done by temporarily setting
+    `offline_allowed = 1` on one real track (`UPDATE media SET
+    offline_allowed = 1 WHERE id = 4`, reverted to `0` immediately after —
+    same "harmless, reverted" dev-DB pattern Phase 2 used for its test
+    token) and logging in on-device via the real token-redeem flow: bookmark
+    icon appeared only once `offlineAllowed` flipped true, tapping it showed
+    "Saved for offline playback" and the icon filled in, the Stash section
+    correctly showed "1 saved · 2.8 MB" (matching the real source file's
+    actual ~2.9MB size), tapping the Stash row's play button produced a
+    second genuine `AudioFocus` grant (confirmed via `dumpsys audio`) while
+    correctly pausing the live station player first (crosstalk verified,
+    not assumed), and removing the record correctly deleted it, dropped the
+    Stash count back to "0 saved · 0 MB," reverted the bookmark to unsaved,
+    and stopped local playback.
+  - Not verified this pass: a second physical station (only one real
+    station was available), and Stash aggregation *across* two different
+    stations specifically — the per-station canonicalization logic was
+    code-reviewed and the single-station save/play/remove round-trip above
+    exercises the same code path, but the multi-station de-dup case the
+    plan's gotcha calls out is still only verified by reading
+    `canonicalizeBaseUrl()`, not by an actual second station.
 
 ### Phase 5 — Studio pairing + curated essentials
-**Status: Not started**
+**Status: Done** (2026-08-17)
 
-Confirm "notifications" in scope means viewing existing Discord-webhook
-notify events, not native push, before building that screen.
+**Scope-resolution research, done before writing any code** (the plan
+flagged both of these as needing confirmation, not assumption):
+- **"Notifications" = the notify-webhook settings, not an event log, not
+  native push.** Confirmed by reading the actual product rather than
+  guessing: `src/notify/` is fire-and-forget only (CLAUDE.md already says
+  so) — there is no `notify_log` table or any persisted history of past
+  sends anywhere in the schema. Web Studio's own closest equivalent
+  (`SettingsView.tsx`, `button-save-notifications`/`toggle-notify-live`) is
+  itself just this settings form, not a history view. So the mobile
+  Notifications screen ports that settings form, not an event log that
+  doesn't exist.
+- **"Release scheduling" has no reference UI anywhere to port** — genuinely
+  different from every other Phase 5 item, which all had a real web Studio
+  view to port from. Verified: no `release_at` field anywhere in
+  `studio/src/` outside one JSDoc comment, no datetime input in the posts
+  modal (`AppShell.tsx`'s `modal === 'posts'` block only has body +
+  visibility). The backend capability is fully real and wired
+  (`media.release_at` + `src/release/scheduler.js` auto-flips visibility;
+  confirmed by reading the actual `ALTER TABLE`/scheduler code, not
+  assumed) — it's just never had a front-end. Flagged this to the user
+  directly (AskUserQuestion) rather than guessing a design; they picked
+  "minimal: list + set release_at on tracks," which is what got built —
+  see below. `NowPlaying` and `QuickStats` both needed source reading too:
+  neither maps to a single web view 1:1 — `NowPlaying` ports
+  `studio/src/views/Broadcast.tsx`'s `RotationSection` (not the live
+  mic/video broadcast-origination half of that same view, which is a much
+  bigger out-of-scope feature — capturing real audio from the phone was
+  never in the Phase 5 file list); `QuickStats` ports the Metric-cards +
+  weekly-pulse-chart + recent-activity sections of `Overview.tsx`, swapping
+  "Catalog size" for "Active subscribers" since the latter is already in
+  the earnings response and the former would need a whole separate fetch
+  for one number.
+
+What was built:
+- `mobile/src/state/studioStore.tsx` — paired-device identity
+  (`{baseUrl, deviceToken, deviceLabel, pairedAt}`), persisted via
+  `expo-secure-store` (Keychain/Keystore-backed), not AsyncStorage — this is
+  a long-lived credential equivalent to the desktop's
+  `pw_dashboard_session` cookie, per the plan's explicit instruction.
+  Deliberately separate from `stationStore` — pairing authenticates a
+  different scope (`requireDashboard`'s bearer flow from Phase 0) than a
+  listener's `pw_token` bearer, and a creator might pair Studio without
+  that station being their selected "listening" station in Discover.
+  `useDashboardClient()` mirrors `stationStore`'s `useStationClient()`
+  memoization pattern exactly.
+- `mobile/src/api/dashboardClient.ts` — new. `DashboardClient` (bearer
+  `Authorization` header, `requireDashboard`-gated routes only:
+  broadcast mode/restart/queue/remove, earnings, analytics
+  history/activity, settings get/put, media list, media release_at patch)
+  plus a bare `redeemDevicePairing()` function — not a `DashboardClient`
+  method, since redeeming is how a device gets its *first* token, so
+  there's no token yet to attach. Deliberately excludes every
+  `requireDesktop`-gated route (tokens, cloudflare, radio-host,
+  external-search) — those 403 unconditionally on any non-desktop-platform
+  server regardless of auth, confirmed by reading `src/auth/platform.js`,
+  so there was never a reason to wire them into a phone client.
+- `mobile/src/screens/StudioGate.tsx` — unpaired-state gate:
+  `expo-camera`'s `useCameraPermissions()` + `CameraView` with
+  `barcodeScannerSettings={{barcodeTypes:['qr']}}`, a denied-permission
+  fallback (request again, or `Linking.openSettings()` once
+  `canAskAgain` is false), and copy that explicitly frames Studio as an
+  optional, desktop-first, creator-only surface — not a dead end — per the
+  plan's store-review gotcha. Scanning parses the QR payload as a URL
+  (`new URL(data)`, reading `.origin` + the `pt` query param — the QR
+  literally *is* `${publicBaseUrl()}/pair?pt=<pairToken>`, confirmed by
+  reading `src/api/dashboard.js`'s `POST /devices/pair` and
+  `src/runtime/base-url.js`), then calls
+  `POST /api/auth/dashboard/device/redeem` and stores the returned token.
+- `mobile/src/screens/studio/{NowPlaying,QuickStats,ReleaseScheduling,
+  Notifications,DeviceSettings}Screen.tsx` — the five essentials screens
+  (scope for each described above). Every screen that hits a
+  `requireDashboard` route catches `DashboardClientError` and calls
+  `studioStore.signOut()` on a 401, so a device revoked from web falls back
+  to `StudioGate` on its next call, per the plan's explicit requirement.
+  `ReleaseSchedulingScreen.tsx` filters `GET /api/dashboard/media` to
+  `visibility !== 'public'` (scheduling only means anything for tracks
+  that aren't already public) and offers five relative-time presets ("In 1
+  hour" … "In 1 week") plus "Clear schedule," instead of a native
+  date-picker dependency — the user's explicit "minimal" choice, and avoids
+  a new native module + iOS/Android picker UI divergence for a first cut.
+- `mobile/src/screens/StudioScreen.tsx` — top-level Studio tab: branches
+  `StudioGate` (unpaired) vs. a menu → detail-screen pattern (paired),
+  using local component state rather than expo-router sub-routes — a
+  `src/app/studio/*.tsx` directory would sit in ambiguous overlap with the
+  tab's own `(tabs)/studio.tsx` → `/studio` route, so this avoids that risk
+  entirely rather than working around it. Android hardware back inside a
+  detail screen returns to the menu (`BackHandler`), matching what a real
+  back-gesture would do instead of falling through to exiting the tab.
+- `mobile/app.json` — added the `expo-camera` config plugin block with
+  `cameraPermission` set to an explicit, QR-specific usage string (not the
+  generic default) and `microphonePermission`/`recordAudioAndroid` both
+  `false` — same "don't request permissions we don't need" discipline as
+  Phase 3's `expo-audio` plugin config, since `expo-camera` defaults to
+  also requesting microphone access for video recording this app never
+  does.
+- New dependencies: `expo-secure-store`, `expo-camera` (`npx expo install`,
+  both resolved for SDK 57).
+
+Verification done:
+- `npx tsc --noEmit` and `npx expo export --platform web` — clean, both
+  before and after real-device testing.
+- Live backend smoke test via curl against the real local dev server
+  (`:3001`) before touching the app: generated a real pairing token
+  (`POST /api/dashboard/devices/pair` with the real `DASHBOARD_TOKEN`),
+  redeemed it (`POST /api/auth/dashboard/device/redeem`) and confirmed a
+  real device token came back, confirmed redeeming the same token twice
+  correctly 401s the second time ("expired or already used").
+- **Real-device pass (2026-08-17, same Galaxy A12, `adb` + Expo Go).** The
+  QR-scanning motion itself can't be exercised in this sandbox (no way to
+  physically aim a phone camera at a screen this session controls), so a
+  `__DEV__`-gated "[DEV] Simulate QR scan" button was temporarily wired
+  into `StudioGate.tsx` — added and removed again before finishing, not
+  committed — that fed a *real* pairing URL (a real `pairToken` from a real
+  `POST /api/dashboard/devices/pair` call, with the LAN-reachable
+  `http://10.0.0.11:3001` origin swapped in for the configured
+  `publicUrl`, which turned out to be a stale/misconfigured DNS entry not
+  actually tunneled to this sandbox — checked via curl first rather than
+  assumed) into the exact same `processScannedUrl()` function a real
+  camera scan calls. Only the camera decode step itself is unverified on
+  real hardware this session; everything downstream of "a QR was
+  successfully decoded" is real, unmodified code, exercised with real
+  network calls:
+  - Camera permission flow: denial→request dialog verified live (the
+    native OS permission prompt), grant confirmed, `CameraView` mounts and
+    renders without crashing.
+  - Pairing: real redeem call succeeded, `Studio` menu rendered
+    immediately with the paired `baseUrl`, all 5 rows with icons.
+  - **Now playing**: real rotation state ("howtorollawood" / ripsnow & Bud
+    Diaz / shuffle) rendered from live `/api/stream/status`; tapped
+    "Switch to scheduled" — confirmed a **real** `POST
+    /api/dashboard/broadcast/mode` write via the paired bearer token (mode
+    badge flipped to "scheduled" on-device), then switched back to leave
+    the station as found.
+  - **Quick stats**: real numbers from live `/api/dashboard/earnings` +
+    `/api/analytics/history` + `/api/analytics/activity` (listeners now:
+    0, this month: $0, listening hours: 0.3h, active subscribers: 0,
+    weekly chart Aug 11–Aug 16 with real bars, empty recent-activity
+    state) — all genuinely fetched, not placeholder.
+  - **Notifications**: loaded real current settings (toggle on, empty
+    webhook URL, correct "email not configured" hint), typed a test
+    webhook URL, saved, and confirmed via a direct curl to
+    `GET /api/dashboard/settings` that the exact string round-tripped to
+    the real database — then reverted it back to empty via curl to leave
+    the dev DB clean.
+  - **Release scheduling**: correctly filtered the real catalog down to
+    the 2 actual non-public tracks (6 public tracks correctly excluded).
+    Tapped "In 3 days" on a real vault track — **found and fixed a real
+    bug this way**: the row showed the raw ISO string
+    (`2026-08-20T19:36:56.936Z`) instead of a formatted date. Root cause:
+    the optimistic local update stores the client-generated ISO string
+    (already zone-suffixed) directly, but `formatReleaseAt` unconditionally
+    appended another `Z` — correct for the server's SQLite-format response
+    shape (space-separated, no zone) but wrong for the already-ISO
+    optimistic value, producing an invalid double-zoned string that fell
+    through to the raw-string fallback. Fixed by detecting whether the
+    input already has a zone suffix before deciding whether to append one.
+    Re-verified live after the fix: correctly showed "Releases Aug 20,
+    3:36 PM". Then tapped "Clear schedule," confirmed the row reverted to
+    "Not scheduled" live (a real `PATCH .../media/:id` write with
+    `release_at: null`).
+  - **Device**: correctly showed the paired `baseUrl` and paired-date/
+    label; "Sign out this device" correctly cleared local state and fell
+    straight back to `StudioGate` (confirmed live, not just by reading the
+    code).
+- **Not verified this session, two related gaps, both left honestly
+  open rather than assumed:**
+  1. Whether the paired credential survives a full app **kill**, not just
+     an in-session state clear — `expo-secure-store`'s hydration path in
+     `studioStore.tsx` is structurally identical to `stationStore.tsx`'s
+     already-proven AsyncStorage hydration (real-device verified across
+     every earlier phase), so this is a reasoned-not-observed low-risk
+     gap, not an unknown mechanism.
+  2. The live "revoke from web → next mobile dashboard call 401s → falls
+     back to `StudioGate`" check the plan explicitly calls for. Blocked
+     this session by the backend's `generalLimiter` (300 req/15min,
+     shared across the whole server) — cumulative curl traffic plus this
+     same app's own background polling (`PlayerEngine`'s 10s status poll
+     never stops, regardless of which tab is focused) used up the budget
+     during the rest of this pass's testing. The 401-handling code itself
+     is simple and identical across all 5 screens
+     (`err instanceof DashboardClientError && err.status === 401 →
+     signOut()`) — code-reviewed, not live-traffic-verified. Both gaps are
+     good candidates to close opportunistically in Phase 6 or later, once
+     a fresh rate-limit window is available.
+- `node --test test/devices.test.js` (Phase 0's regression check) — 3/3
+  passing, own ephemeral DB, no interaction with the rate-limited dev
+  server above.
 
 ### Phase 6 — Studio media upload
 **Status: Not started**
@@ -776,8 +1091,26 @@ notify events, not native push, before building that screen.
   needs a real dev-client or EAS build, worth doing before or alongside
   Phase 8, not urgent before Phase 4.
 - On-demand track playback (`PlayerEngine.selectTrack`/`isPlayableTrack`)
-  is implemented but has never been exercised by any real UI or test yet —
-  there's no track-selection surface until Phase 4's Stack catalog exists.
-  Sanity-check it end-to-end as soon as Phase 4 wires a real call site,
-  rather than assuming the port from `usePlayerEngine.ts` is correct purely
-  because it typechecks.
+  was exercised end-to-end on real hardware in Phase 4 (see that phase's
+  log) — confirmed working (real `AudioFocus` grant) and confirmed its
+  error-fallback path works too, not just the happy path.
+- Stash's cross-station aggregation (Phase 4) is implemented and the
+  single-station save/play/remove round-trip is real-device verified, but
+  aggregating Stash across two *different* physical stations specifically
+  is still only code-reviewed, not device-verified — only one real station
+  was reachable this session. Low priority to chase down alone; verify
+  opportunistically if a second real station is ever available anyway.
+- Phase 5's paired-device credential surviving a full app **kill** (not
+  just an in-session sign-out/state clear) is unverified — reasoned as
+  low-risk since `studioStore.tsx`'s `expo-secure-store` hydration is
+  structurally identical to `stationStore.tsx`'s already-proven
+  AsyncStorage hydration, but worth an explicit kill+relaunch check next
+  time this device is in hand.
+- Phase 5's live "revoke a paired device from web → next mobile dashboard
+  call 401s → falls back to `StudioGate`" check (explicitly required by
+  the Phase 5 plan) was blocked by the backend's `generalLimiter`
+  (300 req/15min, shared server-wide) during that pass's own testing —
+  code-reviewed (identical `DashboardClientError.status === 401 →
+  signOut()` handling in all 5 Studio screens) but not live-verified.
+  Revisit once a fresh rate-limit window is available, ideally before
+  relying on this fallback in front of a real user.
