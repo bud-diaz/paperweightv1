@@ -30,7 +30,7 @@ export function SettingsTour({ suppressed }: { suppressed?: boolean }) {
     <div className="fixed inset-0 z-[85]">
       <div
         className="fixed rounded-lg pointer-events-none"
-        style={{ left: rect.left - pad, top: rect.top - pad, width: rect.width + pad * 2, height: rect.height + pad * 2, boxShadow: '0 0 0 2000px rgba(0,0,0,.78), 0 0 0 2px #a9d647' }}
+        style={{ left: rect.left - pad, top: rect.top - pad, width: rect.width + pad * 2, height: rect.height + pad * 2, boxShadow: '0 0 0 2000px rgba(0,0,0,.78), 0 0 0 2px #c84b20' }}
       />
       <div className="fixed panel rounded-xl p-3.5" style={{ right: Math.max(12, window.innerWidth - rect.right), top: rect.bottom + pad + 8, maxWidth: 220 }}>
         <p className="text-xs text-white/85 leading-relaxed mb-3">New: manage your account, email verification, and preferences here.</p>

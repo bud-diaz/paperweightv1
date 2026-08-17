@@ -35,7 +35,7 @@ export function Earnings({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => vo
       <section className="panel rounded-2xl p-6 sm:p-8 relative overflow-hidden">
         <div className="absolute -right-14 -top-14 w-56 h-56 rounded-full border border-primary/10" />
         <p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">All-time revenue</p>
-        <p className="font-display text-5xl sm:text-6xl font-semibold mt-4 signal-gradient">{isLoading ? '—' : formatCents(totals?.revenueCents ?? 0)}</p>
+        <p className="font-display text-5xl sm:text-6xl font-semibold mt-4">{isLoading ? '—' : formatCents(totals?.revenueCents ?? 0)}</p>
         <p className="text-sm text-muted-foreground mt-4">{formatCents(totals?.todayRevenueCents ?? 0)} today · {totals?.activeSubscriptions ?? 0} active subscriptions</p>
         <p className="text-[11px] text-muted-foreground mt-6 max-w-sm">Payments settle directly to your connected Stripe/PayPal account — Paperweight doesn't hold or route funds.</p>
       </section>
@@ -49,8 +49,8 @@ export function Earnings({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => vo
         </div>
         <div className="h-2 bg-white/[.07] rounded-full mt-7 overflow-hidden flex">
           <div className="h-full bg-primary" style={{ width: `${pct(totals?.unlockRevenueCents ?? 0)}%` }} />
-          <div className="h-full bg-accent" style={{ width: `${pct(totals?.tipRevenueCents ?? 0)}%` }} />
-          <div className="h-full bg-[#8193ff]" style={{ width: `${pct(totals?.knownMonthlyRecurringCents ?? 0)}%` }} />
+          <div className="h-full bg-foreground/50" style={{ width: `${pct(totals?.tipRevenueCents ?? 0)}%` }} />
+          <div className="h-full bg-foreground/25" style={{ width: `${pct(totals?.knownMonthlyRecurringCents ?? 0)}%` }} />
         </div>
       </section>
     </div>

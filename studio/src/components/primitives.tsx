@@ -18,11 +18,11 @@ function initials(name: string) {
 export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
   return (
     <div data-testid="img-avatar" className={cn(
-      'shrink-0 rounded-full flex items-center justify-center font-display font-bold text-black',
+      'shrink-0 rounded-full flex items-center justify-center font-display font-bold bg-primary text-primary-foreground',
       size === 'sm' && 'h-8 w-8 text-[11px]',
       size === 'md' && 'h-10 w-10 text-xs',
       size === 'lg' && 'h-20 w-20 text-xl',
-    )} style={{ background: 'linear-gradient(135deg, #dcff75, #ff8071 75%)' }}>{initials(name)}</div>
+    )}>{initials(name)}</div>
   );
 }
 
@@ -69,7 +69,7 @@ export function Waveform({ engine, compact = false }: { engine: Pick<PlayerEngin
       const barWidth = (w - gap * (barCount - 1)) / barCount;
       const radius = barWidth / 2;
       const analyser = engine.getAnalyser();
-      ctx.fillStyle = analyser ? '#bcff42' : 'rgba(190,255,61,.35)';
+      ctx.fillStyle = analyser ? '#c84b20' : 'rgba(200,75,32,.35)'; // oxide — canvas can't read CSS custom properties, keep in sync with --pw-oxide
       if (!analyser) {
         for (let i = 0; i < barCount; i++) drawBar(ctx, i * (barWidth + gap), h - h * 0.08, barWidth, h * 0.08, radius);
         return;
@@ -126,8 +126,6 @@ export function Modal({ title, eyebrow, onClose, children, width = 'max-w-lg' }:
         exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 10 }}
         transition={reduceMotion ? { duration: 0.12 } : { type: 'spring', bounce: 0, duration: 0.4 }}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
-        <div className="pointer-events-none absolute -top-20 left-1/2 h-40 w-2/3 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
         <div className="relative flex items-start justify-between gap-4 mb-6">
           <div>{eyebrow && <p className="font-mono-ui text-[10px] uppercase tracking-[.22em] text-primary mb-2">{eyebrow}</p>}<h2 className="font-display text-2xl font-semibold tracking-[-.03em]">{title}</h2></div>
           <IconButton label="Close dialog" onClick={onClose}><X size={17} /></IconButton>
@@ -162,9 +160,9 @@ export function TrackRow({ track, index, playing, onPlay, onAdd, onRemove, onMov
   );
 }
 
-export function Metric({ label, value, change, icon: Icon, accent = 'lime' }: { label: string; value: string; change: string; icon: typeof Play; accent?: 'lime' | 'coral' | 'blue' }) {
-  const colors = { lime: 'text-primary bg-primary/10', coral: 'text-accent bg-accent/10', blue: 'text-white/80 bg-white/10' };
-  return <div className="panel rounded-2xl p-4 sm:p-5"><div className="flex items-start justify-between gap-2"><span className="text-xs text-muted-foreground">{label}</span><span className={cn('rounded-lg p-2', colors[accent])}><Icon size={15} /></span></div><p className="font-display text-2xl sm:text-3xl font-semibold mt-4 tracking-tight">{value}</p><p className={cn('font-mono-ui text-[10px] mt-2', accent === 'coral' ? 'text-accent' : 'text-primary')}>{change}</p></div>;
+export function Metric({ label, value, change, icon: Icon, accent = 'oxide' }: { label: string; value: string; change: string; icon: typeof Play; accent?: 'oxide' | 'neutral' }) {
+  const colors = { oxide: 'text-primary bg-primary/10', neutral: 'text-foreground bg-muted' };
+  return <div className="panel rounded-2xl p-4 sm:p-5"><div className="flex items-start justify-between gap-2"><span className="text-xs text-muted-foreground">{label}</span><span className={cn('rounded-lg p-2', colors[accent])}><Icon size={15} /></span></div><p className="font-display text-2xl sm:text-3xl font-semibold mt-4 tracking-tight">{value}</p><p className={cn('font-mono-ui text-[10px] mt-2', accent === 'oxide' ? 'text-primary' : 'text-muted-foreground')}>{change}</p></div>;
 }
 
 export function ViewHeader({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: ReactNode }) {

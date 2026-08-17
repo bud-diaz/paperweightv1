@@ -34,15 +34,15 @@ export function Analytics({ onNotify }: { onNotify: (message: string) => void })
     <ViewHeader eyebrow="Signal / Analytics" title="Know what resonates." description="The useful version of the numbers: where people found you, what they stayed for, and when they come back." action={<button type="button" data-testid="button-export-analytics" onClick={() => onNotify('Analytics export is wired in a later pass.')} className="ghost-button rounded-xl px-4 py-2.5 text-sm flex items-center gap-2"><Download size={15} /> Export report</button>} />
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
       <Metric label="Listening now" value={String(live?.currentListeners ?? 0)} change="Live" icon={Headphones} />
-      <Metric label="Peak today" value={String(live?.peakToday ?? 0)} change="Unique listeners" icon={TrendingUp} accent="coral" />
-      <Metric label="Active subscribers" value={String(subscribers?.activeTotal ?? 0)} change={`+${newSubscribersInRange} in 30 days`} icon={Users} accent="blue" />
+      <Metric label="Peak today" value={String(live?.peakToday ?? 0)} change="Unique listeners" icon={TrendingUp} accent="neutral" />
+      <Metric label="Active subscribers" value={String(subscribers?.activeTotal ?? 0)} change={`+${newSubscribersInRange} in 30 days`} icon={Users} accent="neutral" />
       <Metric label="Listeners, 30 days" value={String(totalListenersRange)} change="Summed daily uniques" icon={CirclePlay} />
     </div>
     <div className="grid lg:grid-cols-[1.3fr_.7fr] gap-6">
       <section className="panel rounded-2xl p-5 sm:p-6">
         <div className="flex items-start justify-between"><div><p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">Audience over time</p><h2 className="font-display text-2xl font-semibold mt-1">Last 30 days</h2></div></div>
         {days.length ? <>
-          <div className="h-52 mt-8 flex items-end gap-[3px] sm:gap-1 border-b border-l border-white/[.1] pl-3 pb-0">{days.map((d, i) => <div key={d.date} className="flex-1 rounded-t-sm bg-gradient-to-t from-[#91a4ff]/20 to-[#a9d647]" style={{ height: `${Math.max(2, (d.unique_listeners / maxListeners) * 100)}%`, opacity: .52 + (i / (days.length * 2)) }} title={`${d.date}: ${d.unique_listeners}`} />)}</div>
+          <div className="h-52 mt-8 flex items-end gap-[3px] sm:gap-1 border-b border-l border-white/[.1] pl-3 pb-0">{days.map((d, i) => <div key={d.date} className="flex-1 rounded-t-sm bg-primary" style={{ height: `${Math.max(2, (d.unique_listeners / maxListeners) * 100)}%`, opacity: .52 + (i / (days.length * 2)) }} title={`${d.date}: ${d.unique_listeners}`} />)}</div>
           <div className="flex justify-between text-[10px] font-mono-ui text-muted-foreground pt-3"><span>{days[0]?.date}</span><span>{days[days.length - 1]?.date}</span></div>
         </> : <p className="text-sm text-muted-foreground py-10 text-center">No listening data yet.</p>}
       </section>
