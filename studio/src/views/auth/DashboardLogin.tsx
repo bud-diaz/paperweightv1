@@ -14,13 +14,13 @@ function Shell({ children, onClose }: { children: React.ReactNode; onClose: () =
     <div className="fixed inset-0 z-[70] modal-backdrop flex items-center justify-center p-5" role="dialog" aria-modal="true">
       <button type="button" aria-label="Close dialog backdrop" data-testid="button-close-dialog-backdrop" className="absolute inset-0 cursor-default" onClick={onClose} />
       <div className="relative w-full max-w-sm modal-panel rounded-3xl p-7 sm:p-8 animate-enter">
-        <div className="flex items-center gap-3 mb-7">
+        <a href="https://paperweighthq.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 mb-7">
           <Logo size={36} />
           <div>
             <p className="font-mono-ui text-[9px] uppercase tracking-[.18em] text-muted-foreground">Paperweight:</p>
             <p className="font-display font-bold tracking-[-.03em] text-lg">STUDIO</p>
           </div>
-        </div>
+        </a>
         {children}
       </div>
     </div>

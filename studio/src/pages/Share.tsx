@@ -78,7 +78,7 @@ export default function Share() {
     <div className="studio-app noise min-h-[100dvh] flex items-center justify-center p-5">
       <div className="w-full max-w-lg">
         <div className="flex items-center gap-2 justify-center mb-8">
-          <Logo size={28} />
+          <a href="https://paperweighthq.com" target="_blank" rel="noopener noreferrer"><Logo size={28} /></a>
           <span className="font-mono-ui text-[10px] uppercase tracking-[.24em] text-primary">Shared link</span>
         </div>
 
