@@ -640,11 +640,19 @@ function handleDownloadClick(e) {
     downloadWindow.document.body.textContent = 'Preparing Paperweight download…';
   }
 
+  // Opened synchronously alongside downloadWindow (same popup-blocker dodge)
+  // so the thanks-page redirect below isn't blocked once it fires later.
+  const thanksWindow = window.open('about:blank', '_blank');
+  if (thanksWindow) thanksWindow.opener = null;
+
   function openDownload() {
     if (downloadWindow) {
       downloadWindow.location.href = platform.href;
     } else {
       window.location.href = platform.href;
+    }
+    if (thanksWindow) {
+      thanksWindow.location.href = 'https://paperweighthq.com/thanks';
     }
   }
 
