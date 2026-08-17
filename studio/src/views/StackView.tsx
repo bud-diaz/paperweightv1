@@ -19,7 +19,9 @@ function TrackRowReal({ track, collection, active, playing, isPaid, saved, onSel
   return (
     <div data-testid={`row-track-${track.id}`} className={cn('group flex items-center gap-3 py-3 border-b border-white/[.07] last:border-0', active && 'text-primary')}>
       <button type="button" aria-label={`Play ${track.title}`} data-testid={`button-play-track-${track.id}`} onClick={onSelect} className="relative h-9 w-9 shrink-0 rounded-md flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${swatchFor(track.id)}, rgba(255,255,255,.1))` }}>
-        {active && playing ? <Pause size={14} fill="currentColor" className="text-[#1b1d2a]" /> : <Play size={14} fill="currentColor" className="text-[#1b1d2a]" />}
+        <img src={`/api/library/${track.id}/artwork`} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+        <span className="absolute inset-0 bg-black/25" />
+        {active && playing ? <Pause size={14} fill="currentColor" className="relative text-white" /> : <Play size={14} fill="currentColor" className="relative text-white" />}
       </button>
       <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{track.title}</p><p className="truncate text-xs text-muted-foreground">{[track.artist, collection].filter(Boolean).join(' · ')}</p></div>
       {locked && <LockKeyhole size={13} className="text-muted-foreground shrink-0" />}
@@ -34,7 +36,9 @@ function StashRow({ record, track, active, playing, onSelect, onRemove }: { reco
   return (
     <div data-testid={`row-stash-${record.id}`} className={cn('group flex items-center gap-3 py-3 border-b border-white/[.07] last:border-0', active && 'text-primary')}>
       <button type="button" aria-label={`Play ${title}`} data-testid={`button-play-stash-${record.id}`} onClick={onSelect} className="relative h-9 w-9 shrink-0 rounded-md flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${swatchFor(record.id)}, rgba(255,255,255,.1))` }}>
-        {active && playing ? <Pause size={14} fill="currentColor" className="text-[#1b1d2a]" /> : <Play size={14} fill="currentColor" className="text-[#1b1d2a]" />}
+        <img src={`/api/library/${record.id}/artwork`} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+        <span className="absolute inset-0 bg-black/25" />
+        {active && playing ? <Pause size={14} fill="currentColor" className="relative text-white" /> : <Play size={14} fill="currentColor" className="relative text-white" />}
       </button>
       <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{title}</p><p className="truncate text-xs text-muted-foreground">{track?.artist || 'Saved for offline'}</p></div>
       <IconButton label={`Remove ${title} from stash`} onClick={onRemove} className="opacity-60 group-hover:opacity-100"><Trash2 size={14} /></IconButton>
@@ -100,7 +104,9 @@ export function StackView({ engine, onNotify, onLockedTrack, onVideoTrackSelecte
             <div className="stack-search-wrap"><Search size={14} /><input id="stack-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search the catalog…" aria-label="Search the catalog" /></div>
             {projects.length > 0 && <div className="stack-folder-grid">
               {projects.map((project) => <button type="button" key={project.id} className={cn('stack-folder', selectedProjectId === project.id && 'selected')} onClick={() => setSelectedProjectId(selectedProjectId === project.id ? null : project.id)} aria-expanded={selectedProjectId === project.id}>
-                <span className="stack-folder-orb"><Disc3 size={18} /></span>
+                <span className="stack-folder-orb">
+                  {project.tracks[0] ? <img src={`/api/library/${project.tracks[0].id}/artwork`} alt="" loading="lazy" /> : <Disc3 size={18} />}
+                </span>
                 <span className="stack-folder-copy"><strong>{project.name}</strong><small>{project.tracks.length} tracks</small></span>
                 <ChevronDown size={14} className={cn('stack-card-chevron', selectedProjectId === project.id && 'open')} />
               </button>)}

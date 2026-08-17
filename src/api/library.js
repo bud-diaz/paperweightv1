@@ -29,6 +29,8 @@ const ARTWORK_DIR = path.join(config.paths.data, 'artwork');
 const ARTWORK_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
 const ARTWORK_MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif' };
 const DEFAULT_ARTWORK_PATHS = [
+  path.join(config.paths.root, 'client', 'brand-mark.png'),
+  path.join(config.paths.app, 'client', 'brand-mark.png'),
   path.join(config.paths.root, 'client', 'icon.png'),
   path.join(config.paths.app, 'client', 'icon.png'),
   path.join(config.paths.app, 'client', 'favicon.png'),
@@ -46,7 +48,8 @@ function getDefaultArtwork() {
   }
 
   try {
-    const bundled = require('../client-bundle')['/icon.png'] || require('../client-bundle')['/favicon.png'];
+    const bundle = require('../client-bundle');
+    const bundled = bundle['/brand-mark.png'] || bundle['/icon.png'] || bundle['/favicon.png'];
     if (bundled?.data) {
       defaultArtworkCache = { data: bundled.data, mime: bundled.mime || 'image/png' };
       return defaultArtworkCache;

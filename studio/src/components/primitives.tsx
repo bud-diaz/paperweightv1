@@ -145,8 +145,10 @@ export function TrackRow({ track, index, playing, onPlay, onAdd, onRemove, onMov
   return (
     <div data-testid={`row-track-${track.id}`} className="group flex items-center gap-3 py-3 border-b border-white/[.07] last:border-0">
       <button type="button" aria-label={`Play ${track.title}`} data-testid={`button-play-track-${track.id}`} onClick={onPlay} className="relative h-9 w-9 shrink-0 rounded-md flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${track.color}, rgba(255,255,255,.1))` }}>
-        {playing ? <Pause size={14} fill="currentColor" /> : <span className="font-mono-ui text-[10px] text-[#1b1d2a] group-hover:hidden">{String(index + 1).padStart(2, '0')}</span>}
-        {!playing && <Play size={14} fill="currentColor" className="hidden group-hover:block text-[#1b1d2a]" />}
+        <img src={`/api/library/${track.id}/artwork`} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+        <span className="absolute inset-0 bg-black/25" />
+        {playing ? <Pause size={14} fill="currentColor" className="relative text-white" /> : <span className="relative font-mono-ui text-[10px] text-white group-hover:hidden">{String(index + 1).padStart(2, '0')}</span>}
+        {!playing && <Play size={14} fill="currentColor" className="relative hidden group-hover:block text-white" />}
       </button>
       <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{track.title}</p><p className="truncate text-xs text-muted-foreground">{track.collection}{track.kind && ` · ${track.kind}`}</p></div>
       <span className="hidden sm:block font-mono-ui text-[11px] text-muted-foreground">{track.plays}</span>

@@ -30,6 +30,7 @@ export function PlayerView({ engine, onOpen, onPlayButtonVisibilityChange }: { e
     return () => observer.disconnect();
   }, [onPlayButtonVisibilityChange]);
 
+  const artworkId = track?.id ?? nowPlaying?.id ?? null;
   const title = track ? track.title : (nowPlaying?.title || 'Nothing playing yet');
   const subtitle = track ? [track.artist, track.category].filter(Boolean).join(' · ') : ([nowPlaying?.artist, nowPlaying?.category].filter(Boolean).join(' · ') || stationName);
   const quotaText = !track && quota && quota.limit != null && !quota.unlimited
@@ -57,7 +58,17 @@ export function PlayerView({ engine, onOpen, onPlayButtonVisibilityChange }: { e
             {!playing && <div className="player-video-idle"><Play size={24} fill="currentColor" /></div>}
           </div>
         ) : (
-          <div className="player-artwork" aria-label={`${stationName} artwork`}><div className="artwork-ring artwork-ring-one" /><div className="artwork-ring artwork-ring-two" /><div className="artwork-core"><Music2 size={38} /></div></div>
+          <div className="player-artwork" aria-label={`${stationName} artwork`}>
+            {artworkId != null ? (
+              <img src={`/api/library/${artworkId}/artwork`} alt="" className="player-artwork-img" />
+            ) : (
+              <>
+                <div className="artwork-ring artwork-ring-one" />
+                <div className="artwork-ring artwork-ring-two" />
+                <div className="artwork-core"><Music2 size={38} /></div>
+              </>
+            )}
+          </div>
         )}
         <div className="player-copy">
           <span className="font-mono-ui text-[10px] uppercase tracking-[.22em] text-primary flex items-center gap-2">

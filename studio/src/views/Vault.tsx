@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, ArrowUpRight, Copy, Disc3, FileAudio, ImagePlus, Link2, LockKeyhole, Plus, ShieldCheck, Star, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpRight, Copy, Disc3, ImagePlus, Link2, LockKeyhole, Plus, ShieldCheck, Star, Trash2 } from 'lucide-react';
 
 import { EmptyState, Field, Modal, ViewHeader } from '@/components/primitives';
 import * as api from '@/lib/api';
@@ -308,7 +308,9 @@ export function Vault({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => void;
         <div className="grid md:grid-cols-2 gap-3">
           {projects.map((project) => (
             <button type="button" key={project.id} data-testid={`button-manage-collection-${project.id}`} onClick={() => setEditingProjectId(project.id)} className="panel rounded-2xl p-4 flex gap-3 items-center text-left hover:bg-white/[.04]">
-              <div className="h-12 w-12 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${swatchFor(project.id)}, #272a46)` }}><Disc3 size={17} className="text-[#161827]" /></div>
+              <div className="h-12 w-12 rounded-xl flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${swatchFor(project.id)}, #272a46)` }}>
+                {project.items[0] ? <img src={`/api/library/${project.items[0].content_id}/artwork`} alt="" loading="lazy" className="h-full w-full object-cover" /> : <Disc3 size={17} className="text-[#161827]" />}
+              </div>
               <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{project.name}</p><p className="text-xs text-muted-foreground mt-1">{project.items.length} {project.items.length === 1 ? 'track' : 'tracks'} · {formatPriceCents(project.suggested_price, !!project.allow_free)}</p></div>
               <Star size={14} className={highlight?.highlight_type === 'project' && highlight.highlight_id === project.id ? 'text-primary' : 'text-muted-foreground'} onClick={(event) => { event.stopPropagation(); toggleHighlight('project', project.id); }} />
               <ArrowUpRight size={14} className="text-muted-foreground" />
@@ -321,7 +323,9 @@ export function Vault({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => void;
         <div className="grid md:grid-cols-2 gap-3">
           {trackPrices.map((track) => (
             <div className="panel rounded-2xl p-4 flex gap-3 items-center" key={track.content_id}>
-              <div className="h-12 w-12 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${swatchFor(track.content_id)}, #272a46)` }}><FileAudio size={17} className="text-[#161827]" /></div>
+              <div className="h-12 w-12 rounded-xl flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${swatchFor(track.content_id)}, #272a46)` }}>
+                <img src={`/api/library/${track.content_id}/artwork`} alt="" loading="lazy" className="h-full w-full object-cover" />
+              </div>
               <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{track.title || track.filename}</p><p className="text-xs text-muted-foreground mt-1">{formatPriceCents(track.suggested_price, !!track.allow_free)}</p></div>
               <TrackArtworkButton trackId={track.content_id} onNotify={onNotify} />
               <button type="button" data-testid={`button-highlight-track-${track.content_id}`} onClick={() => toggleHighlight('track', track.content_id)} className="ghost-button h-8 px-2.5 rounded-lg text-xs flex items-center gap-1.5"><Star size={13} className={highlight?.highlight_type === 'track' && highlight.highlight_id === track.content_id ? 'text-primary' : ''} /> Highlight</button>
@@ -335,7 +339,9 @@ export function Vault({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => void;
         <div className="grid md:grid-cols-2 gap-3">
           {unpricedVaultTracks.map((track) => (
             <div className="panel rounded-2xl p-4 flex gap-3 items-center" key={track.content_id}>
-              <div className="h-12 w-12 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${swatchFor(track.content_id)}, #272a46)` }}><FileAudio size={17} className="text-[#161827]" /></div>
+              <div className="h-12 w-12 rounded-xl flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${swatchFor(track.content_id)}, #272a46)` }}>
+                <img src={`/api/library/${track.content_id}/artwork`} alt="" loading="lazy" className="h-full w-full object-cover" />
+              </div>
               <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{track.title || track.filename}</p><p className="text-xs text-muted-foreground mt-1">Marked vault, no price set</p></div>
               <button type="button" data-testid={`button-set-track-price-${track.content_id}`} onClick={() => setEditingTrackId(track.content_id)} className="lime-button h-8 px-2.5 rounded-lg text-xs font-semibold">Set price</button>
             </div>

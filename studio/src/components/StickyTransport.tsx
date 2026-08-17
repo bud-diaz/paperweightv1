@@ -75,7 +75,9 @@ export function StickyTransport({ engine, visible, offsetForSidebar, onTip, onNo
         >
       <div className="sticky-transport-inner">
         <div className="sticky-transport-meta">
-          <span className="sticky-transport-swatch" style={{ background: `linear-gradient(135deg, ${swatchFor(activeTrack?.id ?? 0)}, rgba(255,255,255,.1))` }} />
+          <span className="sticky-transport-swatch" style={{ background: `linear-gradient(135deg, ${swatchFor(currentId ?? 0)}, rgba(255,255,255,.1))` }}>
+            {currentId != null && <img src={`/api/library/${currentId}/artwork`} alt="" loading="lazy" />}
+          </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{title}</p>
             {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
