@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowDown, ArrowUp, CloudUpload, Disc3, Edit3, Globe2, ListMusic, ListX, Music2, Plus, RefreshCw,
+  ArrowDown, ArrowUp, CloudUpload, Disc3, Edit3, Globe2, ListMusic, ListX, LockKeyhole, Music2, Plus, RefreshCw,
 } from 'lucide-react';
 
 import { ActionCard, EmptyState, Field, Modal, TrackRow, ViewHeader, type TrackMenuAction } from '@/components/primitives';
@@ -77,7 +77,7 @@ function TrackEditModal({ track, collectionSize, onClose, onNotify }: { track: D
   </Modal>;
 }
 
-export function Releases({ onOpen, onNotify, playing, onPlay }: { onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void; playing: boolean; onPlay: () => void }) {
+export function Releases({ onOpen, onNotify, playing, onPlay, focusProjectId, onConsumeFocus, onManagePricing }: { onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void; playing: boolean; onPlay: () => void; focusProjectId?: number | null; onConsumeFocus?: () => void; onManagePricing?: (projectId: number) => void }) {
   const queryClient = useQueryClient();
   const { data: structure, isLoading } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure() });
   const { data: mediaList = [] } = useQuery<DashboardMediaItem[]>({ queryKey: ['dashboard', 'media'], queryFn: () => api.dashboard.media.list() });
@@ -93,6 +93,13 @@ export function Releases({ onOpen, onNotify, playing, onPlay }: { onOpen: (modal
     if (projects.length) setSelected(projects[0].id);
     else if (standalone.length) setSelected(STANDALONE_KEY);
   }, [projects, standalone, selected]);
+
+  useEffect(() => {
+    if (focusProjectId == null) return;
+    if (!projects.some((project) => project.id === focusProjectId)) return;
+    setSelected(focusProjectId);
+    onConsumeFocus?.();
+  }, [focusProjectId, projects, onConsumeFocus]);
 
   const selectedProject = projects.find((project) => project.id === selected);
   const rawCollectionTracks = selected === STANDALONE_KEY ? standalone : (selectedProject?.tracks || []);
@@ -160,7 +167,10 @@ export function Releases({ onOpen, onNotify, playing, onPlay }: { onOpen: (modal
             <p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">{selected === STANDALONE_KEY ? 'Not in a collection' : 'Collection'}</p>
             <h2 className="font-display text-2xl font-semibold mt-1">{selected === STANDALONE_KEY ? 'Standalone' : selectedProject?.name}</h2>
           </div>
-          <button type="button" data-testid="button-add-track" onClick={() => onOpen('library')} className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2"><Plus size={14} /> Add track</button>
+          <div className="flex items-center gap-2">
+            {selectedProject && onManagePricing && <button type="button" data-testid="button-manage-pricing" onClick={() => onManagePricing(selectedProject.id)} className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2"><LockKeyhole size={14} /> Manage pricing</button>}
+            <button type="button" data-testid="button-add-track" onClick={() => onOpen('library')} className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2"><Plus size={14} /> Add track</button>
+          </div>
         </div>
         <div className="mt-2">
           {collectionTracks.length ? collectionTracks.map((track, i) => {
