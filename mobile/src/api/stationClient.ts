@@ -78,6 +78,27 @@ export type LibraryStructure = {
   standalone: LibraryTrack[];
 };
 
+/**
+ * GET /api/listener/me response — field set per src/api/listener.js.
+ * `hasAccount: false` covers "profile only" listeners (a display name/email
+ * saved from the welcome page, no full account yet) — several fields are
+ * always null/false in that shape since they only apply to full accounts.
+ */
+export type ListenerMe = {
+  email: string | null;
+  displayName: string | null;
+  tier: string;
+  hasAccount: boolean;
+  hasPassword: boolean;
+  marketingOptIn: boolean;
+  subscriptionStatus: string | null;
+  currentPeriodEnd: string | null;
+  provider: string | null;
+  emailVerified?: boolean;
+  emailVerificationRequiredAt?: string | null;
+  settingsTourSeenAt?: string | null;
+};
+
 function stripTrailingSlash(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, '');
 }
@@ -188,8 +209,19 @@ export class StationClient {
   }
 
   /** GET /api/listener/me — current listener account details for the attached bearer token. */
-  me(): Promise<{ email?: string; displayName?: string; hasAccount: boolean; hasPassword: boolean }> {
+  me(): Promise<ListenerMe> {
     return this.get('/api/listener/me');
+  }
+
+  /**
+   * POST /api/listener/resend-verification — requires login; quietly no-ops
+   * if already verified or the station has no SMTP configured (same
+   * no-enumeration style as the password-reset flow), so the response is
+   * intentionally not very informative either way.
+   */
+  async resendVerification(): Promise<{ ok?: boolean; error?: string }> {
+    const { data } = await this.post<{ ok?: boolean; error?: string }>('/api/listener/resend-verification');
+    return data;
   }
 
   /** GET /api/stream/status — now-playing/queue/live state; unauthenticated, polled every 10s by PlayerEngine. */

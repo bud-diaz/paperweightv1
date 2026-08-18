@@ -36,6 +36,14 @@ export default function RootLayout() {
                     name="listener-login"
                     options={{ presentation: 'modal', headerShown: true, title: 'Listener Login' }}
                   />
+                  <Stack.Screen
+                    name="app-settings"
+                    options={{ presentation: 'modal', headerShown: true, title: 'App Settings' }}
+                  />
+                  <Stack.Screen
+                    name="account-settings"
+                    options={{ presentation: 'modal', headerShown: true, title: 'Account' }}
+                  />
                 </Stack>
               </BottomSheetModalProvider>
             </PlayerEngineProvider>

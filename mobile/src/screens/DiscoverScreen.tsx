@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -16,7 +17,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 export function DiscoverScreen() {
   const colors = useTheme();
   const router = useRouter();
-  const { station, baseUrl, setStation } = useStationStore();
+  const { station, baseUrl, listenerAuth, setStation } = useStationStore();
 
   const [query, setQuery] = useState('');
   const [stations, setStations] = useState<DirectoryStation[]>([]);
@@ -61,11 +62,16 @@ export function DiscoverScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
+      <View style={styles.headerRow}>
         <ThemedText type="title" style={styles.title}>
           Discover
         </ThemedText>
+        <Pressable onPress={() => router.push('/app-settings')} hitSlop={8} style={styles.settingsButton}>
+          <Ionicons name="settings-outline" size={22} color={colors.textSecondary} />
+        </Pressable>
+      </View>
 
+      <View style={styles.header}>
         {station ? (
           <View style={[styles.currentStation, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
             <View style={styles.currentStationInfo}>
@@ -77,13 +83,13 @@ export function DiscoverScreen() {
               </ThemedText>
             </View>
             <Pressable
-              onPress={() => router.push('/listener-login')}
+              onPress={() => router.push(listenerAuth ? '/account-settings' : '/listener-login')}
               style={({ pressed }) => [
                 styles.loginButton,
                 { backgroundColor: colors.accentSoft, opacity: pressed ? 0.7 : 1 },
               ]}>
               <ThemedText type="smallBold" themeColor="accent">
-                Log in
+                {listenerAuth ? 'Account' : 'Log in'}
               </ThemedText>
             </Pressable>
           </View>
@@ -192,9 +198,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.three,
+  },
+  settingsButton: {
+    padding: Spacing.one,
+  },
+  header: {
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
     gap: Spacing.two,
   },
   title: {
