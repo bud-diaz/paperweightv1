@@ -181,7 +181,15 @@
 .wave-bar:nth-child(4n) { animation-delay: -.9s; }
 @keyframes wave { 0%, 100% { transform: scaleY(.32); opacity: .5; } 50% { transform: scaleY(1); opacity: 1; } }
 @keyframes enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-.animate-enter { animation: enter .5s var(--ease-spring) both; }
+/* fill-mode `backwards`, not `both`: with `forwards` in the mix the 100%
+   keyframe's `transform: translateY(0)` stays applied after the animation
+   ends, and any transform other than the literal keyword `none` makes the
+   element a containing block for `position: fixed` descendants — pinning
+   modals rendered inside an `.animate-enter` view to that view's box
+   instead of the viewport, off-screen below the fold rather than centered.
+   `backwards` still covers the `.delay-1/2/3` pre-animation state below,
+   it just doesn't freeze the post-animation transform too. */
+.animate-enter { animation: enter .5s var(--ease-spring) backwards; }
 .delay-1 { animation-delay: .07s; } .delay-2 { animation-delay: .14s; } .delay-3 { animation-delay: .21s; }
 .scrollbar-thin::-webkit-scrollbar { width: 5px; height: 5px; }
 .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(240,239,234,.2); border-radius: 99px; }

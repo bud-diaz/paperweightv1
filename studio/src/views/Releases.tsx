@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowDown, ArrowUp, CloudUpload, Disc3, Edit3, Globe2, ListMusic, Music2, Plus, RefreshCw,
+  ArrowDown, ArrowUp, CloudUpload, Disc3, Edit3, Globe2, ListMusic, ListX, LockKeyhole, Music2, Plus, RefreshCw,
 } from 'lucide-react';
 
-import { ActionCard, EmptyState, Field, Modal, TrackRow, ViewHeader } from '@/components/primitives';
+import { ActionCard, EmptyState, Field, Modal, TrackRow, ViewHeader, type TrackMenuAction } from '@/components/primitives';
 import * as api from '@/lib/api';
 import { toDisplayTrack, type LibraryStructure } from '@/lib/library';
 import { cn } from '@/lib/utils';
@@ -77,7 +77,7 @@ function TrackEditModal({ track, collectionSize, onClose, onNotify }: { track: D
   </Modal>;
 }
 
-export function Releases({ onOpen, onNotify, playing, onPlay }: { onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void; playing: boolean; onPlay: () => void }) {
+export function Releases({ onOpen, onNotify, playing, onPlay, focusProjectId, onConsumeFocus, onManagePricing }: { onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void; playing: boolean; onPlay: () => void; focusProjectId?: number | null; onConsumeFocus?: () => void; onManagePricing?: (projectId: number) => void }) {
   const queryClient = useQueryClient();
   const { data: structure, isLoading } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure() });
   const { data: mediaList = [] } = useQuery<DashboardMediaItem[]>({ queryKey: ['dashboard', 'media'], queryFn: () => api.dashboard.media.list() });
@@ -93,6 +93,13 @@ export function Releases({ onOpen, onNotify, playing, onPlay }: { onOpen: (modal
     if (projects.length) setSelected(projects[0].id);
     else if (standalone.length) setSelected(STANDALONE_KEY);
   }, [projects, standalone, selected]);
+
+  useEffect(() => {
+    if (focusProjectId == null) return;
+    if (!projects.some((project) => project.id === focusProjectId)) return;
+    setSelected(focusProjectId);
+    onConsumeFocus?.();
+  }, [focusProjectId, projects, onConsumeFocus]);
 
   const selectedProject = projects.find((project) => project.id === selected);
   const rawCollectionTracks = selected === STANDALONE_KEY ? standalone : (selectedProject?.tracks || []);
@@ -122,6 +129,17 @@ export function Releases({ onOpen, onNotify, playing, onPlay }: { onOpen: (modal
     reorder.mutate({ projectId: selectedProject.id, contentIds: next });
   };
 
+  const removeFromCollection = useMutation({
+    mutationFn: ({ projectId, contentId }: { projectId: number; contentId: number }) => api.dashboard.vault.removeCollectionTrack(projectId, contentId),
+    onSuccess: ({ res, data }: { res: Response; data: { error?: string } }) => {
+      if (!res.ok) { onNotify(data.error || 'Failed to remove track from collection.'); return; }
+      queryClient.invalidateQueries({ queryKey: ['library', 'structure'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'vault', 'pricing'] });
+      onNotify('Track removed from collection.');
+    },
+    onError: () => onNotify('Failed to remove track from collection — connection error.'),
+  });
+
   return <div className="animate-enter"><ViewHeader eyebrow="Catalog / Releases" title="Your body of work." description="Shape the way people enter your world. Releases, broadcasts, and the fragments between." action={<button type="button" data-testid="button-create-collection" onClick={() => onOpen('collection')} className="lime-button rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2"><Plus size={16} /> New collection</button>} />
 
     {isLoading ? <p className="text-sm text-muted-foreground py-6">Loading your catalog…</p> : !hasAnything ? (
@@ -149,17 +167,25 @@ export function Releases({ onOpen, onNotify, playing, onPlay }: { onOpen: (modal
             <p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">{selected === STANDALONE_KEY ? 'Not in a collection' : 'Collection'}</p>
             <h2 className="font-display text-2xl font-semibold mt-1">{selected === STANDALONE_KEY ? 'Standalone' : selectedProject?.name}</h2>
           </div>
-          <button type="button" data-testid="button-add-track" onClick={() => onOpen('library')} className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2"><Plus size={14} /> Add track</button>
+          <div className="flex items-center gap-2">
+            {selectedProject && onManagePricing && <button type="button" data-testid="button-manage-pricing" onClick={() => onManagePricing(selectedProject.id)} className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2"><LockKeyhole size={14} /> Manage pricing</button>}
+            <button type="button" data-testid="button-add-track" onClick={() => onOpen('library')} className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2"><Plus size={14} /> Add track</button>
+          </div>
         </div>
         <div className="mt-2">
-          {collectionTracks.length ? collectionTracks.map((track, i) => <div key={track.id} className="flex items-center gap-2 border-b border-white/[.07] last:border-0">
-            <div className="flex-1 min-w-0"><TrackRow track={track} index={i} playing={playing && i === 0} onPlay={onPlay} /></div>
+          {collectionTracks.length ? collectionTracks.map((track, i) => {
+            const menuActions: TrackMenuAction[] = selectedProject
+              ? [{ label: 'Remove from collection', icon: ListX, destructive: true, onClick: () => removeFromCollection.mutate({ projectId: selectedProject.id, contentId: track.id }) }]
+              : [];
+            return <div key={track.id} className="flex items-center gap-2 border-b border-white/[.07] last:border-0">
+            <div className="flex-1 min-w-0"><TrackRow track={track} index={i} playing={playing && i === 0} onPlay={onPlay} menuActions={menuActions} /></div>
             {selectedProject && <div className="flex items-center gap-1">
               <button type="button" aria-label={`Move ${track.title} up`} data-testid={`button-release-track-up-${track.id}`} onClick={() => moveTrack(track.id, -1)} disabled={i === 0 || reorder.isPending} className="ghost-button h-8 px-2 rounded-lg text-xs disabled:opacity-40"><ArrowUp size={13} /></button>
               <button type="button" aria-label={`Move ${track.title} down`} data-testid={`button-release-track-down-${track.id}`} onClick={() => moveTrack(track.id, 1)} disabled={i === collectionTracks.length - 1 || reorder.isPending} className="ghost-button h-8 px-2 rounded-lg text-xs disabled:opacity-40"><ArrowDown size={13} /></button>
             </div>}
             <button type="button" data-testid={`button-edit-track-info-${track.id}`} onClick={() => setEditingTrackId(track.id)} className="ghost-button h-8 px-2.5 rounded-lg text-xs flex items-center gap-1.5"><Edit3 size={13} /> Info</button>
-          </div>) : <EmptyState icon={Music2} title="No tracks here yet" body="Bring in a work from your library or upload something new." action="Add a track" onClick={() => onOpen('library')} />}
+          </div>;
+          }) : <EmptyState icon={Music2} title="No tracks here yet" body="Bring in a work from your library or upload something new." action="Add a track" onClick={() => onOpen('library')} />}
         </div>
         {selected !== STANDALONE_KEY && <div className="mt-5 pt-4 border-t border-white/[.08] flex items-center gap-3 text-xs text-muted-foreground"><Globe2 size={14} className="text-primary" /> Use the arrows to set collection track order. Edit Info to copy Artist, Genre, and Artwork across the collection.</div>}
       </section>

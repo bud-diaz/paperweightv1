@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, ArrowUpRight, Copy, Disc3, FileAudio, ImagePlus, Link2, LockKeyhole, Plus, ShieldCheck, Star, Trash2 } from 'lucide-react';
 
@@ -79,7 +79,7 @@ function TrackPriceModal({ track, onClose, onNotify }: { track: VaultTrackPrice;
   </Modal>;
 }
 
-function ProjectPriceModal({ project, availableTracks, onClose, onNotify }: { project: VaultProject; availableTracks: { id: number; title: string }[]; onClose: () => void; onNotify: (message: string) => void }) {
+function ProjectPriceModal({ project, availableTracks, onClose, onNotify, onManageTracks }: { project: VaultProject; availableTracks: { id: number; title: string }[]; onClose: () => void; onNotify: (message: string) => void; onManageTracks?: (projectId: number) => void }) {
   const queryClient = useQueryClient();
   const [suggestedPrice, setSuggestedPrice] = useState(String(project.suggested_price / 100));
   const [minimumPrice, setMinimumPrice] = useState(String(project.minimum_price / 100));
@@ -165,7 +165,10 @@ function ProjectPriceModal({ project, availableTracks, onClose, onNotify }: { pr
   return <Modal title={`Manage “${project.name}”`} eyebrow="Vault / Collection pricing" onClose={onClose} width="max-w-xl">
     <PricingFields suggestedPrice={suggestedPrice} setSuggestedPrice={setSuggestedPrice} minimumPrice={minimumPrice} setMinimumPrice={setMinimumPrice} allowFree={allowFree} setAllowFree={setAllowFree} paymentType={paymentType} setPaymentType={setPaymentType} recurringInterval={recurringInterval} setRecurringInterval={setRecurringInterval} />
     <div className="mt-6 pt-5 border-t border-white/[.08]">
-      <p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground mb-3">Tracks in this collection</p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">Tracks in this collection</p>
+        {onManageTracks && <button type="button" data-testid="button-manage-tracks" onClick={() => onManageTracks(project.id)} className="text-xs text-primary flex items-center gap-1">Manage in Releases <ArrowUpRight size={12} /></button>}
+      </div>
       {project.items.length ? project.items.map((item) => (
         <div key={item.content_id} data-testid={`row-project-item-${item.content_id}`} className="flex items-center gap-3 py-2.5 border-b border-white/[.07] last:border-0">
           <span className="flex-1 text-sm truncate">{item.title || item.filename}</span>
@@ -255,7 +258,7 @@ function TrackArtworkButton({ trackId, onNotify }: { trackId: number; onNotify: 
   return <label className="ghost-button h-8 px-2.5 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"><ImagePlus size={13} /> Art<input type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) upload.mutate(file); event.target.value = ''; }} /></label>;
 }
 
-export function Vault({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void }) {
+export function Vault({ onOpen, onNotify, focusProjectId, onConsumeFocus, onManageTracks }: { onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void; focusProjectId?: number | null; onConsumeFocus?: () => void; onManageTracks?: (projectId: number) => void }) {
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery<VaultPricing>({ queryKey: ['dashboard', 'vault', 'pricing'], queryFn: () => api.dashboard.vault.pricing() });
   const { data: highlight } = useQuery<Highlight>({ queryKey: ['dashboard', 'vault', 'highlight'], queryFn: () => api.dashboard.vault.getHighlight() });
@@ -264,6 +267,13 @@ export function Vault({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => void;
   const { data: mediaList } = useQuery<DashboardMediaItem[]>({ queryKey: ['dashboard', 'media'], queryFn: () => api.dashboard.media.list() });
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (focusProjectId == null) return;
+    if (!(data?.projects || []).some((project) => project.id === focusProjectId)) return;
+    setEditingProjectId(focusProjectId);
+    onConsumeFocus?.();
+  }, [focusProjectId, data, onConsumeFocus]);
 
   const trackPrices = data?.trackPrices || [];
   const projects = data?.projects || [];
@@ -348,6 +358,6 @@ export function Vault({ onOpen, onNotify }: { onOpen: (modal: ModalKey) => void;
     <TokenManager accounts={accounts} onNotify={onNotify} />
     <div className="panel rounded-2xl p-5 sm:p-6 mt-6"><div className="flex items-start gap-3"><ShieldCheck size={18} className="text-primary mt-0.5" /><div><h2 className="font-display text-lg font-semibold">A little privacy, by design.</h2><p className="text-xs text-muted-foreground mt-2 max-w-xl leading-relaxed">Vault links are encrypted and expire when you choose. Anyone with a link can listen, but downloads stay off unless you explicitly turn them on.</p><button type="button" data-testid="button-learn-vault" onClick={() => onOpen('vault')} className="text-xs text-primary mt-4">Manage vault policy <ArrowUpRight size={13} className="inline ml-1" /></button></div></div></div>
     {editingTrack && <TrackPriceModal track={editingTrack} onClose={() => setEditingTrackId(null)} onNotify={onNotify} />}
-    {editingProject && <ProjectPriceModal project={editingProject} availableTracks={availableTracks} onClose={() => setEditingProjectId(null)} onNotify={onNotify} />}
+    {editingProject && <ProjectPriceModal project={editingProject} availableTracks={availableTracks} onClose={() => setEditingProjectId(null)} onNotify={onNotify} onManageTracks={onManageTracks} />}
   </div>;
 }
