@@ -14,12 +14,19 @@ function openSetupWindow({ dataRoot, onComplete, icon }) {
     resizable: false,
     title: 'Paperweight Setup',
     icon,
+    // Matches setup.css's body background so there's no flash of stark white
+    // between window creation and first paint (see main.js's mainWindow for
+    // the same treatment on the dashboard window).
+    backgroundColor: '#0c0c0f',
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+
+  win.once('ready-to-show', () => win.show());
 
   registerSetupHandlers({ dataRoot, win, onComplete });
 

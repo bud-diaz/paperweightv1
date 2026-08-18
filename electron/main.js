@@ -165,12 +165,19 @@ async function openMainWindow() {
     useContentSize: true,
     title: config.station.name || 'Paperweight',
     icon: windowIcon,
+    // Matches the Studio SPA's own background (see manifest.json's
+    // background_color / theme_color in src/index.js) so there's no flash of
+    // stark white between window creation and first paint.
+    backgroundColor: '#0a0a0a',
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+
+  mainWindow.once('ready-to-show', () => mainWindow.show());
 
   registerAppHandlers({
     serverApp,
@@ -322,6 +329,18 @@ function boot() {
   } else {
     openSetupWindow({ dataRoot, onComplete: onSetupComplete, icon: windowIcon });
   }
+}
+
+// Chromium's GPU process is frequently unavailable or blocklisted on Linux
+// (VMs, containers, remote desktops, some driver/compositor combos) — when
+// that happens the renderer never paints and the window just stays a blank
+// white rectangle with no error surfaced anywhere. Falling back to software
+// rendering trades some GPU-accelerated smoothness for a window that
+// actually shows its content, which matters far more for a mostly static
+// dashboard UI than for the GPU-heavy apps this workaround exists for.
+// Must run before app.whenReady() — Electron ignores it after that.
+if (process.platform === 'linux') {
+  app.disableHardwareAcceleration();
 }
 
 const gotLock = app.requestSingleInstanceLock();
