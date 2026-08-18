@@ -12,11 +12,13 @@ import { NotificationsScreen } from '@/screens/studio/NotificationsScreen';
 import { NowPlayingScreen } from '@/screens/studio/NowPlayingScreen';
 import { QuickStatsScreen } from '@/screens/studio/QuickStatsScreen';
 import { ReleaseSchedulingScreen } from '@/screens/studio/ReleaseSchedulingScreen';
+import { UploadScreen } from '@/screens/studio/UploadScreen';
 import { useStudioStore } from '@/state/studioStore';
 
-type Section = 'menu' | 'now-playing' | 'quick-stats' | 'release-scheduling' | 'notifications' | 'device';
+type Section = 'menu' | 'now-playing' | 'quick-stats' | 'release-scheduling' | 'notifications' | 'device' | 'upload';
 
 const MENU_ITEMS: { section: Section; icon: keyof typeof Ionicons.glyphMap; label: string; description: string }[] = [
+  { section: 'upload', icon: 'cloud-upload-outline', label: 'Upload', description: 'Add a track or video to the vault' },
   { section: 'now-playing', icon: 'radio-outline', label: 'Now playing', description: 'Rotation mode, restart, broadcast queue' },
   { section: 'quick-stats', icon: 'stats-chart-outline', label: 'Quick stats', description: 'Listeners, revenue, recent activity' },
   { section: 'release-scheduling', icon: 'time-outline', label: 'Release scheduling', description: 'Schedule non-public tracks to auto-publish' },
@@ -58,6 +60,8 @@ export function StudioScreen() {
         <ReleaseSchedulingScreen />
       ) : section === 'notifications' ? (
         <NotificationsScreen />
+      ) : section === 'upload' ? (
+        <UploadScreen />
       ) : (
         <DeviceSettingsScreen />
       );

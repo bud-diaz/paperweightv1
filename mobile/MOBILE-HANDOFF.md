@@ -17,7 +17,7 @@ This file tracks *status only*. For *what* and *why*, see:
 | 3 | Play tab: playback engine + sticky transport + drawer | ✅ Done |
 | 4 | Stack tab: catalog + cross-station Stash | ✅ Done |
 | 5 | Studio pairing (QR scan) + curated essentials | ✅ Done |
-| 6 | Studio media upload | ⬜ Not started |
+| 6 | Studio media upload | ✅ Done |
 | 7 | Settings modals (App settings + Account settings) | ⬜ Not started |
 | 8 | Polish, store-readiness | ⬜ Not started |
 
@@ -1059,7 +1059,122 @@ Verification done:
   server above.
 
 ### Phase 6 — Studio media upload
-**Status: Not started**
+**Status: Done** (2026-08-17)
+
+What was built:
+- `mobile/src/api/dashboardClient.ts` — `upload()` and `uploadArtwork()`, both
+  built on `expo-file-system`'s SDK-57 `File.createUploadTask()` (real
+  multipart uploads with byte-level progress via `onProgress`), targeting
+  the same `POST /api/dashboard/upload` and `POST /api/dashboard/media/:id/
+  artwork` routes `studio/src/lib/api.js` already calls — no backend change,
+  per the plan. Also added `libraryStructure()` (reuses `stationClient.ts`'s
+  `LibraryStructure` type against the same public `GET /api/library/
+  structure` route, just for its `projects` list) and
+  `addTrackToCollection()` (`POST /api/dashboard/vault/projects/:id/items`).
+  `UploadMediaResult`/`UploadMediaParams` types added; both new upload
+  methods throw `DashboardClientError` on a non-2xx response, matching the
+  rest of the client's error contract.
+- `mobile/src/screens/studio/UploadScreen.tsx` — new. Mirrors web Studio's
+  upload modal (`AppShell.tsx`) field-for-field: file, title (auto-filled
+  from filename, editable), category, visibility, an optional "add to
+  collection" pick (from the real project list), and optional cover art —
+  same three-call sequence (upload → addTrack → uploadArtwork) with the
+  same non-blocking-toast treatment web uses when either optional follow-up
+  call fails after a successful upload.
+- **No new native dependency was needed for file/image selection.**
+  SDK 57's `expo-file-system` (already a dependency since Phase 4) ships its
+  own native picker, `File.pickFileAsync({ mimeTypes })`, which returns a
+  `File` instance directly — exactly what `createUploadTask` needs. Found
+  by reading the installed package's actual `.d.ts` files rather than
+  assuming `expo-document-picker`/`expo-image-picker` (the plan's original
+  guess) were required; used it for both the main media file
+  (`audio/*`/`video/*`) and the optional cover art (`image/*`), same
+  "don't add an unverified native dep you don't need" discipline as Phase
+  2's dropped `expo-linear-gradient` and Phase 3's dropped custom font.
+- `mobile/src/screens/StudioScreen.tsx` — added `Upload` as a new first menu
+  item (`cloud-upload-outline`), same menu→detail local-state pattern as
+  the other four sections.
+- Explicit v1 behavior for the plan's "app backgrounded mid-upload" gotcha:
+  a static warning line ("Keep this screen open until the upload
+  finishes…") rather than any AppState-driven detection — chosen for the
+  same reason Phase 5 chose relative-time presets over a date-picker
+  dependency: covers the realistic case without new surface area.
+
+**Real bug found on real hardware, fixed in this same pass:** `UploadScreen`
+initially used `Spacing.six` as its `ScrollView` `contentContainerStyle`
+bottom padding, matching what looked like the app's existing convention —
+but on-device this left the "Add to library" submit button (and the safety
+warning above it) partially hidden under the always-present sticky
+mini-player (`StickyTransportBar`, which floats over the last
+`BottomTabInset` px of every tab). Neither `DiscoverScreen` nor
+`StackScreen` surfaced this before now since neither has critical content
+at the very end of its scroll. Fixed by adding `BottomTabInset` to this
+screen's own bottom padding; confirmed live afterward that both the warning
+text and the button clear the mini-player with visible margin. Not fixed
+(out of scope for this phase, flagged here instead): `StudioGate.tsx`'s
+own error text sits in the same blind spot when a station is actively
+selected, since that screen doesn't account for `BottomTabInset` either —
+worth a look whenever that screen is next touched.
+
+Verification done:
+- `npx tsc --noEmit` and `npx expo export --platform web` — clean, both
+  before and after real-device testing.
+- **Full live backend smoke test** against the real local "Rolling Woods"
+  dev server (`:3001`), exercising the exact multipart shape
+  `dashboardClient.ts` sends, before any device involvement: generated a
+  real pairing token and redeemed it for a real bearer device token (same
+  Phase 0 flow), then `curl -F`'d a real 2.1MB MP3 through
+  `POST /api/dashboard/upload` (`category=music`, `visibility=vault`,
+  `title=...`) — got back a real `{id, filename, filepath, size, category,
+  visibility, title, artist, album}` matching `UploadMediaResult` exactly.
+  Followed with a real `POST .../vault/projects/1/items` (confirmed the
+  track really appeared in that collection via `GET /api/library/
+  structure`) and a real `POST .../media/:id/artwork` with a real PNG
+  (confirmed `{ok, artworkUrl}`). All three endpoints work exactly as the
+  client calls them. Cleaned up afterward: deleted the test media row and
+  its collection membership directly from the dev DB, deleted the artwork
+  file from disk, and revoked the test device pairing — dev DB and vault
+  left exactly as found.
+- **Real-device pass (2026-08-17 night, same Galaxy A12, `adb` + Expo Go):**
+  confirmed live — the new Upload menu item renders correctly in Studio;
+  the Upload screen renders all fields correctly including a real,
+  live-fetched "Add to collection" chip row (`3 EP`, `FREE PIERRE 2` — the
+  same two real projects Phase 4 exercised); tapping the dropzone launches
+  the real native Android document picker, correctly pre-filtered to
+  audio/video (confirmed the OS picker's own "Audio"/"Videos" quick-filter
+  chips, and that non-media files rendered greyed-out/unselectable in it);
+  the `BottomTabInset` fix above confirmed live, scrolled the sticky bar
+  clear of the submit button.
+  - **Not completed this pass:** actually selecting a file inside the
+    native picker and driving the real submit → progress → success flow
+    in the RN UI. Every tap on a file/folder row inside the OS picker's
+    list was silently swallowed (no navigation, no selection) even though
+    taps clearly worked everywhere else this session (search icon, filter
+    chips, back button, and every other screen in the app) — tried grid
+    view, list view, and search-result view, and confirmed via
+    `uiautomator dump` that tap coordinates landed exactly on the right
+    elements. Best guess, not confirmed: a leftover Device-Owner/MDM
+    policy from this phone's former life as the unrelated `~/a12` kiosk
+    project (see `[[a12-project-paused]]`) silently blocking SAF content
+    grants, since general navigation was unaffected. User's call, given
+    the time already spent: stop here rather than keep retrying, and rely
+    on the backend smoke test (all three endpoints, real data, real
+    round-trip) plus the on-device UI/picker-launch verification above as
+    sufficient for now. **The actual upload→progress→success round trip in
+    the RN UI, and the plan's own required 500MB-over-WiFi and
+    real-cellular tests, remain unverified** — pick up with a device that
+    doesn't have this restriction, or once this A12's policy state is
+    understood.
+- All real-device testing used a `.env.local`-based, `__DEV__`-only QR-
+  pairing bypass (an `EXPO_PUBLIC_DEV_PAIR_URL` env var read by a temporary
+  button in `StudioGate.tsx`) rather than Phase 5's original approach of
+  hardcoding a real pairing token directly into the source file — the
+  permission system flagged that pattern as credential leakage (a live,
+  if short-lived and single-use, token materializing in a tracked,
+  on-disk file). `.env.local` is already covered by `mobile/.gitignore`'s
+  `.env*.local` rule. Both the source edit and the `.env.local` file were
+  fully removed before finishing, same as every prior phase's dev-only
+  bypass.
 
 ### Phase 7 — Settings modals
 **Status: Not started**
@@ -1114,3 +1229,19 @@ Verification done:
   signOut()` handling in all 5 Studio screens) but not live-verified.
   Revisit once a fresh rate-limit window is available, ideally before
   relying on this fallback in front of a real user.
+- Phase 6's actual upload round trip (select a real file on-device → submit
+  → progress → success) is unverified — the physical Galaxy A12's native
+  file picker silently swallowed every tap on a file/folder row this
+  session (see Phase 6 log for the full investigation), most likely a
+  leftover Device-Owner/MDM restriction from that phone's former life as
+  the `~/a12` kiosk project. The backend itself is fully verified (real
+  curl round trip through all three endpoints — upload, add-to-collection,
+  artwork — with real data). Needs either a device without this
+  restriction, or that restriction understood/cleared, before the plan's
+  own required 500MB-over-WiFi and real-cellular tests can run.
+- `StudioGate.tsx`'s error text can end up in the same blind spot
+  `UploadScreen` hit and fixed (Phase 6): it doesn't add `BottomTabInset`
+  padding, so a pairing-error message could render partly behind the
+  sticky mini-player when a station is already selected. Not fixed here
+  (out of Phase 6's scope) — worth a one-line fix whenever that screen is
+  next touched.
