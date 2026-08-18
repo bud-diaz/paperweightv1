@@ -5,9 +5,14 @@ import {
   LayoutDashboard, MoreHorizontal, Pause, Play, Plus, Trash2, X,
 } from 'lucide-react';
 
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import type { PlayerEngine } from '@/lib/hooks/usePlayerEngine';
 import type { ModeKey, Track } from '@/types';
+
+export type TrackMenuAction = { label: string; icon: typeof Play; onClick: () => void; destructive?: boolean };
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -141,7 +146,7 @@ export function Field({ label, value, onChange, placeholder, multiline = false }
   return <label className="block text-sm text-muted-foreground">{label}{multiline ? <textarea {...shared} rows={4} className={cn(shared.className, 'resize-none mt-2')} /> : <input {...shared} className={cn(shared.className, 'mt-2')} />}</label>;
 }
 
-export function TrackRow({ track, index, playing, onPlay, onAdd, onRemove, onMoveUp, onMoveDown }: { track: Track; index: number; playing: boolean; onPlay: () => void; onAdd?: () => void; onRemove?: () => void; onMoveUp?: () => void; onMoveDown?: () => void }) {
+export function TrackRow({ track, index, playing, onPlay, onAdd, onRemove, onMoveUp, onMoveDown, menuActions }: { track: Track; index: number; playing: boolean; onPlay: () => void; onAdd?: () => void; onRemove?: () => void; onMoveUp?: () => void; onMoveDown?: () => void; menuActions?: TrackMenuAction[] }) {
   return (
     <div data-testid={`row-track-${track.id}`} className="group flex items-center gap-3 py-3 border-b border-white/[.07] last:border-0">
       <button type="button" aria-label={`Play ${track.title}`} data-testid={`button-play-track-${track.id}`} onClick={onPlay} className="relative h-9 w-9 shrink-0 rounded-md flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${track.color}, rgba(255,255,255,.1))` }}>
@@ -155,7 +160,23 @@ export function TrackRow({ track, index, playing, onPlay, onAdd, onRemove, onMov
       {onMoveDown && <IconButton label={`Move ${track.title} down`} onClick={onMoveDown} className="hidden sm:inline-flex opacity-50 group-hover:opacity-100"><ChevronRight size={14} className="rotate-90" /></IconButton>}
       {onAdd && <IconButton label={`Add ${track.title} to queue`} onClick={onAdd} className="opacity-60 group-hover:opacity-100"><Plus size={15} /></IconButton>}
       {onRemove && <IconButton label={`Remove ${track.title}`} onClick={onRemove} className="opacity-60 group-hover:opacity-100"><Trash2 size={14} /></IconButton>}
-      <IconButton label={`More options for ${track.title}`} onClick={() => undefined} className="opacity-50 group-hover:opacity-100"><MoreHorizontal size={15} /></IconButton>
+      {menuActions && menuActions.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" aria-label={`More options for ${track.title}`} data-testid={`button-more-track-${track.id}`} className="h-9 w-9 rounded-lg inline-flex items-center justify-center ghost-button opacity-50 group-hover:opacity-100"><MoreHorizontal size={15} /></button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {menuActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <DropdownMenuItem key={action.label} data-testid={`menuitem-${action.label.toLowerCase().replaceAll(' ', '-')}-${track.id}`} onSelect={action.onClick} className={action.destructive ? 'text-destructive focus:text-destructive' : undefined}>
+                  <Icon size={14} /> {action.label}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 }
