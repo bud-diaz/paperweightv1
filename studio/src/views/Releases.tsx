@@ -80,7 +80,8 @@ function TrackEditModal({ track, collectionSize, onClose, onNotify }: { track: D
 export function Releases({ onOpen, onNotify, playing, onPlay, focusProjectId, onConsumeFocus, onManagePricing }: { onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void; playing: boolean; onPlay: () => void; focusProjectId?: number | null; onConsumeFocus?: () => void; onManagePricing?: (projectId: number) => void }) {
   const queryClient = useQueryClient();
   const { data: structure, isLoading } = useQuery<LibraryStructure>({ queryKey: ['library', 'structure'], queryFn: () => api.library.structure() });
-  const { data: mediaList = [] } = useQuery<DashboardMediaItem[]>({ queryKey: ['dashboard', 'media'], queryFn: () => api.dashboard.media.list() });
+  const { data: mediaListRaw } = useQuery<DashboardMediaItem[]>({ queryKey: ['dashboard', 'media'], queryFn: () => api.dashboard.media.list() });
+  const mediaList = Array.isArray(mediaListRaw) ? mediaListRaw : [];
   const [selected, setSelected] = useState<number | null>(null);
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
 
