@@ -3,6 +3,11 @@
 const { ipcMain, shell } = require('electron');
 
 const { checkForUpdates } = require('../../src/updates/checkForUpdates');
+const { isTrustedAppUrl, safeOpenExternal } = require('../security');
+
+function isAppSender(event, config) {
+  return isTrustedAppUrl(event.senderFrame?.url || '', config);
+}
 
 // Wires the desktop power/update/uninstall controls to the Electron main
 // process via electron/preload.js's window.desktopAPI bridge. Business logic
@@ -16,23 +21,29 @@ const { checkForUpdates } = require('../../src/updates/checkForUpdates');
 // wired and ready; a future pass needs to add the equivalent controls to
 // studio/src (see CLAUDE.md's Creator Studio section for the tracked gap).
 function registerAppHandlers({ serverApp, config, quitApp, restartApp, autostartFile, desktopPath }) {
-  ipcMain.handle('app:quit', () => {
+  ipcMain.handle('app:quit', event => {
+    if (!isAppSender(event, config)) return false;
     quitApp();
+    return true;
   });
 
-  ipcMain.handle('app:restart', async () => {
+  ipcMain.handle('app:restart', async event => {
+    if (!isAppSender(event, config)) return false;
     await restartApp();
+    return true;
   });
 
-  ipcMain.handle('app:check-for-updates', async () => {
+  ipcMain.handle('app:check-for-updates', async event => {
+    if (!isAppSender(event, config)) return { error: 'Invalid app window' };
     const result = await checkForUpdates(config.version);
     if (result.updateAvailable) {
-      shell.openExternal(result.releaseUrl);
+      safeOpenExternal(shell, result.releaseUrl, ['github.com']);
     }
     return result;
   });
 
   ipcMain.handle('app:uninstall', async (event, confirmPhrase) => {
+    if (!isAppSender(event, config)) return { ok: false, error: 'Invalid app window' };
     if (confirmPhrase !== config.station.name) {
       return { ok: false, error: 'Confirmation text did not match.' };
     }

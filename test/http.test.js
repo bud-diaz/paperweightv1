@@ -633,7 +633,8 @@ test('listen landing page serves with directory CSP', async () => {
     const csp = page.res.headers.get('content-security-policy') || '';
     assert.match(csp, /connect-src 'self' https:\/\/system\.paperweighthq\.com/);
     assert.match(csp, /frame-src https:/);
-    assert.match(csp, /https:\/\/fonts\.googleapis\.com/);
+    assert.match(csp, /font-src 'self'/);
+    assert.doesNotMatch(csp, /https:\/\/fonts\.googleapis\.com/);
   });
 });
 

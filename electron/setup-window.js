@@ -1,9 +1,10 @@
 'use strict';
 
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, shell } = require('electron');
 const path = require('path');
 
 const { registerSetupHandlers } = require('./ipc/setup-handlers');
+const { isTrustedSetupUrl, safeOpenExternal } = require('./security');
 
 // Creates the first-run wizard window. No server/port exists yet at this
 // point — the wizard only writes .env + creates directories via provisionEnv().
@@ -23,7 +24,19 @@ function openSetupWindow({ dataRoot, onComplete, icon }) {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
+  });
+
+  win.webContents.on('will-navigate', (event, url) => {
+    if (isTrustedSetupUrl(url)) return;
+    event.preventDefault();
+    safeOpenExternal(shell, url);
+  });
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    safeOpenExternal(shell, url);
+    return { action: 'deny' };
   });
 
   win.once('ready-to-show', () => win.show());

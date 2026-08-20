@@ -1,10 +1,11 @@
 'use strict';
 
-const { app, BrowserWindow, session, Tray, Menu, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, session, Tray, Menu, nativeImage, dialog, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { configureAppIdentity } = require('./product');
+const { isTrustedAppUrl, safeOpenExternal } = require('./security');
 
 // Must happen before src/config.js (and src/index.js, which requires it) are
 // ever required — config.js reads process.env at module-load time.
@@ -174,7 +175,19 @@ async function openMainWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
+  });
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (isTrustedAppUrl(url, config)) return;
+    event.preventDefault();
+    safeOpenExternal(shell, url);
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    safeOpenExternal(shell, url);
+    return { action: 'deny' };
   });
 
   mainWindow.once('ready-to-show', () => mainWindow.show());

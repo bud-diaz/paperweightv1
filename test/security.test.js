@@ -20,6 +20,11 @@ const config = require('../src/config');
 const { ARTWORK_DIR } = require('../src/api/library');
 const { csvEscape, updateEnvKey } = require('../src/api/dashboard');
 const { publicBaseUrl } = require('../src/runtime/base-url');
+const {
+  isAllowedExternalUrl,
+  isTrustedAppUrl,
+  isTrustedSetupUrl,
+} = require('../electron/security');
 
 const DASH_HEADER = { 'X-Dashboard-Token': 'test-dashboard-token', 'Content-Type': 'application/json' };
 
@@ -258,6 +263,27 @@ test('csvEscape neutralizes leading formula and carriage-return characters', () 
   const cr = csvEscape('\r=HYPERLINK(0)');
   assert.ok(cr.includes("'"), 'CR-prefixed value should be apostrophe-guarded');
   assert.ok(!cr.startsWith('\r'), 'CR-prefixed value should not start with a bare CR');
+});
+
+test('Electron desktop trust checks reject untrusted navigation and external URLs', () => {
+  const desktopConfig = { host: '127.0.0.1', port: 3456 };
+
+  assert.equal(isTrustedAppUrl('http://127.0.0.1:3456/', desktopConfig), true);
+  assert.equal(isTrustedAppUrl('http://127.0.0.1:3456/api/health', desktopConfig), true);
+  assert.equal(isTrustedAppUrl('http://127.0.0.1:3457/', desktopConfig), false);
+  assert.equal(isTrustedAppUrl('http://evil.example:3456/', desktopConfig), false);
+  assert.equal(isTrustedAppUrl('https://127.0.0.1:3456/', desktopConfig), false);
+  assert.equal(isTrustedAppUrl('javascript:alert(1)', desktopConfig), false);
+
+  assert.equal(isTrustedSetupUrl('file:///opt/Paperweight/resources/app.asar/renderer/setup.html'), true);
+  assert.equal(isTrustedSetupUrl('file:///tmp/renderer/not-setup.html'), false);
+  assert.equal(isTrustedSetupUrl('http://127.0.0.1:3456/renderer/setup.html'), false);
+
+  assert.equal(isAllowedExternalUrl('https://github.com/bud-diaz/paper-packs/releases/latest', ['github.com']), true);
+  assert.equal(isAllowedExternalUrl('https://docs.github.com/', ['github.com']), true);
+  assert.equal(isAllowedExternalUrl('javascript:alert(1)', ['github.com']), false);
+  assert.equal(isAllowedExternalUrl('http://github.com/bud-diaz/paper-packs/releases/latest', ['github.com']), false);
+  assert.equal(isAllowedExternalUrl('https://github.com.evil.example/', ['github.com']), false);
 });
 
 test('listener token logout paths clear cookies with matching attributes', async () => {

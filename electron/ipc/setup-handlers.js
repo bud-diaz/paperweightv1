@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { provisionEnv } = require('../../src/setup/provision');
+const { isTrustedSetupUrl } = require('../security');
 
 const SETUP_CHANNELS = [
   'setup:get-data-root',
@@ -22,8 +23,7 @@ function unregisterSetupHandlers() {
 }
 
 function isSetupSender(event) {
-  const url = event.senderFrame?.url || '';
-  return url.startsWith('file://') && /\/renderer\/setup\.html$/i.test(url.replace(/\\/g, '/'));
+  return isTrustedSetupUrl(event.senderFrame?.url || '');
 }
 
 // Wires the setup wizard's IPC calls (see electron/preload.js) to the shared
