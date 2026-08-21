@@ -93,7 +93,7 @@ export const library = {
 
   /**
    * GET /api/creator/profile — public creator bio/profile (player-side).
-   * @returns {{ enabled, creatorName, stationName, bio, social, latestTrack, creatorSince, profilePicUrl }}
+   * @returns {{ enabled, creatorName, stationName, bio, social, latestTrack, creatorSince, profilePicUrl, pressPhotoUrl }}
    */
   creatorProfile() {
     return _json('/api/creator/profile');
@@ -1672,7 +1672,7 @@ export const dashboard = {
   creator: {
     /**
      * GET /api/creator/dashboard/profile
-     * @returns {{ bio_enabled, bio, social_*, profile_pic_url }}
+     * @returns {{ bio_enabled, bio, social_*, profile_pic_url, press_photo_url }}
      */
     profile() {
       return _json('/api/creator/dashboard/profile');
@@ -1694,6 +1694,15 @@ export const dashboard = {
      */
     uploadPic(formData) {
       return _fetch('/api/creator/dashboard/pic', { method: 'POST', body: formData });
+    },
+
+    /**
+     * POST /api/creator/dashboard/press-pic — multipart player-hero press photo upload.
+     * @param {FormData} formData  — must contain field 'pic'
+     * @returns {Response}
+     */
+    uploadPressPic(formData) {
+      return _fetch('/api/creator/dashboard/press-pic', { method: 'POST', body: formData });
     },
   },
 

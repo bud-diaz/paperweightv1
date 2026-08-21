@@ -38,7 +38,9 @@ router.get('/profile', (req, res) => {
   const row = db.prepare('SELECT * FROM creator_profile WHERE id = 1').get();
 
   if (!row || !row.bio_enabled) {
-    return res.json({ enabled: false });
+    // The bio page itself may be hidden, but the player hero's press photo
+    // isn't part of that page — surface it regardless.
+    return res.json({ enabled: false, pressPhotoUrl: row?.press_photo_url || null });
   }
 
   const registry = db.prepare('SELECT claimed_at FROM station_registry WHERE id = 1').get();
@@ -54,6 +56,7 @@ router.get('/profile', (req, res) => {
     enabled: true,
     bio: row.bio || null,
     profilePicUrl: row.profile_pic_url || null,
+    pressPhotoUrl: row.press_photo_url || null,
     social: {
       instagram:  row.social_instagram  || null,
       twitter:    row.social_twitter    || null,
@@ -80,6 +83,18 @@ router.get('/pic', (req, res) => {
   const row = getDb().prepare('SELECT profile_pic_url FROM creator_profile WHERE id = 1').get();
   if (!row || !row.profile_pic_url) return res.status(404).end();
   const p = path.join(PIC_DIR, path.basename(row.profile_pic_url));
+  if (!fs.existsSync(p)) return res.status(404).end();
+  const ext = path.extname(p).toLowerCase();
+  const mime = Object.entries(IMAGE_EXTS).find(([, e]) => e === ext)?.[0] || 'application/octet-stream';
+  setImageHeaders(res, mime);
+  res.sendFile(p);
+});
+
+// GET /api/creator/press-pic — serve player-hero press photo
+router.get('/press-pic', (req, res) => {
+  const row = getDb().prepare('SELECT press_photo_url FROM creator_profile WHERE id = 1').get();
+  if (!row || !row.press_photo_url) return res.status(404).end();
+  const p = path.join(PIC_DIR, path.basename(row.press_photo_url));
   if (!fs.existsSync(p)) return res.status(404).end();
   const ext = path.extname(p).toLowerCase();
   const mime = Object.entries(IMAGE_EXTS).find(([, e]) => e === ext)?.[0] || 'application/octet-stream';
@@ -167,6 +182,45 @@ router.post('/dashboard/pic', requireDashboard, (req, res) => {
     ).run(picUrl);
 
     res.json({ url: `/api/creator/pic` });
+  });
+});
+
+// POST /api/creator/dashboard/press-pic
+router.post('/dashboard/press-pic', requireDashboard, (req, res) => {
+  uploadPic.single('pic')(req, res, err => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const detectedMime = sniffImageFile(req.file.path);
+    if (!detectedMime || !IMAGE_MIMES.has(detectedMime)) {
+      removeFile(req.file.path);
+      return res.status(400).json({ error: 'Uploaded press photo is not a supported image file' });
+    }
+
+    const ext = IMAGE_EXTS[detectedMime];
+    const finalName = `press${ext}`;
+    const finalPath = path.join(PIC_DIR, finalName);
+
+    // Remove old press photos across all extensions
+    for (const e of Object.values(IMAGE_EXTS)) {
+      const old = path.join(PIC_DIR, `press${e}`);
+      if (fs.existsSync(old)) removeFile(old);
+    }
+
+    try {
+      fs.renameSync(req.file.path, finalPath);
+    } catch (moveErr) {
+      removeFile(req.file.path);
+      log('error', 'creator', `Press photo move failed: ${moveErr.message}`);
+      return res.status(500).json({ error: 'Upload failed while saving press photo' });
+    }
+
+    const picUrl = finalName;
+    getDb().prepare(
+      "UPDATE creator_profile SET press_photo_url = ?, updated_at = datetime('now') WHERE id = 1"
+    ).run(picUrl);
+
+    res.json({ url: `/api/creator/press-pic` });
   });
 });
 
