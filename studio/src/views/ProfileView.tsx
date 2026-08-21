@@ -16,6 +16,7 @@ type CreatorProfile = {
   social_spotify: string | null;
   social_bandcamp: string | null;
   profile_pic_url: string | null;
+  press_photo_url: string | null;
 };
 
 type Draft = {
@@ -57,7 +58,9 @@ export function ProfileView({ onNotify }: { onNotify: (message: string) => void 
   const { data, isLoading } = useQuery<CreatorProfile>({ queryKey: ['dashboard', 'creator-profile'], queryFn: () => api.dashboard.creator.profile() });
   const [draft, setDraft] = useState<Draft>(draftFrom(undefined));
   const [picVersion, setPicVersion] = useState(0);
+  const [pressPicVersion, setPressPicVersion] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pressFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (data) setDraft(draftFrom(data)); }, [data]);
 
@@ -95,7 +98,22 @@ export function ProfileView({ onNotify }: { onNotify: (message: string) => void 
     onError: () => onNotify('Failed to upload profile picture.'),
   });
 
+  const uploadPressPic = useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData();
+      formData.append('pic', file);
+      return api.dashboard.creator.uploadPressPic(formData);
+    },
+    onSuccess: (res: Response) => {
+      if (!res.ok) { onNotify('Failed to upload press photo.'); return; }
+      setPressPicVersion((v) => v + 1);
+      onNotify('Press photo updated.');
+    },
+    onError: () => onNotify('Failed to upload press photo.'),
+  });
+
   const hasPic = !!data?.profile_pic_url;
+  const hasPressPic = !!data?.press_photo_url;
 
   return (
     <div className="animate-enter">
@@ -131,6 +149,21 @@ export function ProfileView({ onNotify }: { onNotify: (message: string) => void 
               >
                 <span className={`block h-5 w-5 rounded-full bg-[#171a28] transition-transform ${draft.bioEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
+            </div>
+            <div className="w-full mt-6 pt-5 border-t border-white/[.08] text-left">
+              <p className="text-sm">Player press photo</p>
+              <p className="text-xs text-muted-foreground mt-1">Shown on your player page when video isn't playing.</p>
+              <div className="flex items-center gap-3 mt-3">
+                {hasPressPic ? (
+                  <img data-testid="img-press-pic" src={`/api/creator/press-pic?v=${pressPicVersion}`} alt="Press photo" className="h-16 w-16 rounded-xl object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+                ) : (
+                  <div className="h-16 w-16 rounded-xl flex items-center justify-center bg-white/5 text-muted-foreground text-[10px] font-mono-ui uppercase tracking-wide">None</div>
+                )}
+                <div>
+                  <input ref={pressFileInputRef} type="file" accept="image/*" hidden data-testid="input-press-pic" onChange={(event) => { const file = event.target.files?.[0]; if (file) uploadPressPic.mutate(file); }} />
+                  <button type="button" data-testid="button-change-press-pic" onClick={() => pressFileInputRef.current?.click()} disabled={uploadPressPic.isPending} className="text-xs text-primary disabled:opacity-50">{uploadPressPic.isPending ? 'Uploading…' : hasPressPic ? 'Change photo' : 'Upload photo'}</button>
+                </div>
+              </div>
             </div>
           </div>
         </section>

@@ -1,9 +1,13 @@
 import { useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
-  Link2, Music2, Pause, Play, Radio, Share2, Heart,
+  Link2, Music2, Pause, Play, Radio, Share2, Heart, Copy, Mail,
 } from 'lucide-react';
 
 import { Waveform } from '@/components/primitives';
+import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
+import { useIsMobile } from '@/hooks/use-mobile';
+import * as api from '@/lib/api';
 import type { PlayerEngine } from '@/lib/hooks/usePlayerEngine';
 import type { ModalKey } from '@/types';
 
@@ -15,9 +19,20 @@ function formatDuration(seconds: number | null | undefined) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+function XIcon({ size = 15 }: { size?: number }) {
+  return <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>;
+}
+
+function FacebookIcon({ size = 15 }: { size?: number }) {
+  return <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.891h-2.33v6.987C18.343 21.128 22 16.991 22 12z" /></svg>;
+}
+
 export function PlayerView({ engine, onOpen, onPlayButtonVisibilityChange }: { engine: PlayerEngine; onOpen: (modal: ModalKey) => void; onNotify: (message: string) => void; onPlayButtonVisibilityChange?: (visible: boolean) => void }) {
   const { playing, reconnecting, toggle, stationName, nowPlaying, listenerCount, liveActive, liveVideoActive, stationQueue, recentlyPlayed, track, isPreview, odProgress, odElapsed, quota, goLive, isVideoActive, videoRef } = engine;
   const playButtonRef = useRef<HTMLButtonElement>(null);
+  const isMobile = useIsMobile();
+  const { data: creatorProfile } = useQuery({ queryKey: ['creator-profile'], queryFn: () => api.library.creatorProfile() });
+  const pressPhotoUrl: string | null = creatorProfile?.pressPhotoUrl || null;
 
   // Feeds the sticky transport (mounted outside this view, so it survives
   // tab switches) — it should only show once this button scrolls out of view.
@@ -43,6 +58,61 @@ export function PlayerView({ engine, onOpen, onPlayButtonVisibilityChange }: { e
           : playing ? (isVideoActive ? 'Watching now' : 'Playing now')
             : 'Station paused';
 
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const shareText = `${title} — ${stationName}`;
+
+  const pressBox = (
+    <div className="player-press-box panel-subtle rounded-2xl overflow-hidden" data-testid="player-press-box">
+      {isVideoActive ? (
+        <div className="player-video-shell" data-testid="player-video-shell">
+          <video ref={videoRef} data-testid="player-video" className="player-video" playsInline controls aria-label={title} />
+          {!playing && <div className="player-video-idle"><Play size={24} fill="currentColor" /></div>}
+        </div>
+      ) : pressPhotoUrl ? (
+        <img src={pressPhotoUrl} alt={`${stationName} press photo`} className="player-press-photo" />
+      ) : (
+        <div className="player-press-empty"><Music2 size={28} /></div>
+      )}
+    </div>
+  );
+
+  const artworkBox = (
+    <div className="player-artwork" aria-label={`${stationName} artwork`}><div className="artwork-ring artwork-ring-one" /><div className="artwork-ring artwork-ring-two" /><div className="artwork-core"><Music2 size={38} /></div></div>
+  );
+
+  const copyBox = (
+    <div className="player-copy">
+      <span className="font-mono-ui text-[10px] uppercase tracking-[.22em] text-primary flex items-center gap-2">
+        {!track && (liveActive || liveVideoActive) && <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />}
+        {statusLabel}
+      </span>
+      <h2 className="font-display text-3xl sm:text-4xl font-semibold mt-3">{title}</h2>
+      <p className="text-muted-foreground mt-2">{subtitle}</p>
+      {track ? <>
+        <div className="h-1.5 rounded-full bg-white/10 mt-8 overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${Math.round(odProgress * 100)}%` }} /></div>
+        <div className="flex items-center justify-between font-mono-ui text-[10px] text-muted-foreground mt-2"><span>{formatDuration(odElapsed)}</span><span>{isPreview ? '0:30 preview' : formatDuration(track.duration)}</span></div>
+      </> : isVideoActive ? <p className="text-sm text-muted-foreground mt-8 leading-relaxed">Video is routed through the same creator-owned station signal. Use the player controls for fullscreen, seek, and device volume.</p> : <div className="player-wave"><Waveform engine={engine} /></div>}
+      <div className="player-controls">
+        <button type="button" ref={playButtonRef} data-testid="button-player-play" onClick={toggle} className="player-play-button">{playing ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}</button>
+        {track && <button type="button" data-testid="button-player-back-live" onClick={() => goLive(true)} className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2 ml-3"><Radio size={13} /> Back to live</button>}
+      </div>
+      {quotaText && <p className="text-xs text-muted-foreground mt-4">{quotaText}</p>}
+    </div>
+  );
+
+  const shareBox = (
+    <div className="player-share-box panel-subtle rounded-2xl" data-testid="player-share-box">
+      <p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">Share</p>
+      <h3 className="font-display text-lg font-semibold mt-1">Send this station.</h3>
+      <div className="player-share-actions">
+        <button type="button" data-testid="button-share-copy" onClick={() => onOpen('share')} className="ghost-button rounded-xl px-3 py-2.5 text-xs flex items-center gap-2"><Copy size={14} /> Copy link</button>
+        <a data-testid="button-share-x" href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`} target="_blank" rel="noopener noreferrer" className="player-share-icon" aria-label="Share on X"><XIcon /></a>
+        <a data-testid="button-share-facebook" href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" className="player-share-icon" aria-label="Share on Facebook"><FacebookIcon /></a>
+        <a data-testid="button-share-email" href={`mailto:?subject=${encodeURIComponent(shareText)}&body=${encodeURIComponent(shareUrl)}`} className="player-share-icon" aria-label="Share by email"><Mail size={15} /></a>
+      </div>
+    </div>
+  );
+
   return (
     <div className="animate-enter player-workspace">
       <div className="mode-view-intro player-intro">
@@ -51,31 +121,29 @@ export function PlayerView({ engine, onOpen, onPlayButtonVisibilityChange }: { e
       </div>
       <div className="player-stage panel rounded-[2rem] overflow-hidden">
         <div className="player-stage-glow" />
-        {isVideoActive ? (
-          <div className="player-video-shell" data-testid="player-video-shell">
-            <video ref={videoRef} data-testid="player-video" className="player-video" playsInline controls aria-label={title} />
-            {!playing && <div className="player-video-idle"><Play size={24} fill="currentColor" /></div>}
+        {isMobile ? (
+          <div className="player-stage-carousels">
+            <Carousel className="player-carousel" opts={{ align: 'start' }}>
+              <CarouselContent>
+                <CarouselItem>{pressBox}</CarouselItem>
+                <CarouselItem className="flex items-center justify-center">{artworkBox}</CarouselItem>
+              </CarouselContent>
+            </Carousel>
+            <Carousel className="player-carousel" opts={{ align: 'start' }}>
+              <CarouselContent>
+                <CarouselItem>{copyBox}</CarouselItem>
+                <CarouselItem>{shareBox}</CarouselItem>
+              </CarouselContent>
+            </Carousel>
           </div>
         ) : (
-          <div className="player-artwork" aria-label={`${stationName} artwork`}><div className="artwork-ring artwork-ring-one" /><div className="artwork-ring artwork-ring-two" /><div className="artwork-core"><Music2 size={38} /></div></div>
-        )}
-        <div className="player-copy">
-          <span className="font-mono-ui text-[10px] uppercase tracking-[.22em] text-primary flex items-center gap-2">
-            {!track && (liveActive || liveVideoActive) && <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />}
-            {statusLabel}
-          </span>
-          <h2 className="font-display text-3xl sm:text-4xl font-semibold mt-3">{title}</h2>
-          <p className="text-muted-foreground mt-2">{subtitle}</p>
-          {track ? <>
-            <div className="h-1.5 rounded-full bg-white/10 mt-8 overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${Math.round(odProgress * 100)}%` }} /></div>
-            <div className="flex items-center justify-between font-mono-ui text-[10px] text-muted-foreground mt-2"><span>{formatDuration(odElapsed)}</span><span>{isPreview ? '0:30 preview' : formatDuration(track.duration)}</span></div>
-          </> : isVideoActive ? <p className="text-sm text-muted-foreground mt-8 leading-relaxed">Video is routed through the same creator-owned station signal. Use the player controls for fullscreen, seek, and device volume.</p> : <div className="player-wave"><Waveform engine={engine} /></div>}
-          <div className="player-controls">
-            <button type="button" ref={playButtonRef} data-testid="button-player-play" onClick={toggle} className="player-play-button">{playing ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}</button>
-            {track && <button type="button" data-testid="button-player-back-live" onClick={() => goLive(true)} className="ghost-button rounded-lg px-3 py-2 text-xs flex items-center gap-2 ml-3"><Radio size={13} /> Back to live</button>}
+          <div className="player-stage-grid">
+            {pressBox}
+            <div className="flex items-center justify-center">{artworkBox}</div>
+            {copyBox}
+            {shareBox}
           </div>
-          {quotaText && <p className="text-xs text-muted-foreground mt-4">{quotaText}</p>}
-        </div>
+        )}
       </div>
       <div className="player-lower-grid">
         <section className="panel rounded-2xl p-5 sm:p-6"><div className="flex items-center justify-between mb-4"><div><p className="font-mono-ui text-[10px] uppercase tracking-[.2em] text-muted-foreground">Rotation</p><h2 className="font-display text-xl font-semibold mt-1">Up next</h2></div></div>

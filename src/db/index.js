@@ -247,6 +247,13 @@ function runMigrations(database) {
       column: 'billing_interval',
       sql: 'ALTER TABLE subscriptions ADD COLUMN billing_interval TEXT',
     },
+    {
+      // Player hero press photo — separate from profile_pic_url, shown on the
+      // public player page and replaced by the video element when active.
+      table:  'creator_profile',
+      column: 'press_photo_url',
+      sql:    'ALTER TABLE creator_profile ADD COLUMN press_photo_url TEXT',
+    },
   ];
 
   for (const guard of alterGuards) {
