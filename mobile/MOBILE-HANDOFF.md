@@ -16,7 +16,7 @@ This file tracks *status only*. For *what* and *why*, see:
 | 2 | Discover tab: System.Pape + current-station + listener login | ✅ Done |
 | 3 | Play tab: playback engine + sticky transport + drawer | ✅ Done (unverified on hardware — see log) |
 | 4 | Stack tab: catalog + cross-station Stash | ✅ Done (unverified on hardware — see log) |
-| 5 | Studio pairing (QR scan) + curated essentials | ⬜ Not started |
+| 5 | Studio pairing (QR scan) + curated essentials | ✅ Done (unverified on hardware — see log) |
 | 6 | Studio media upload | ⬜ Not started |
 | 7 | Settings modals (App settings + Account settings) | ⬜ Not started |
 | 8 | Polish, store-readiness | ⬜ Not started |
@@ -451,10 +451,157 @@ JSX literal in these three files, with no separate mock-data file to clean
 up separately.
 
 ### Phase 5 — Studio pairing + curated essentials
-**Status: Not started**
+**Status: Done** (2026-08-30)
 
-Confirm "notifications" in scope means viewing existing Discord-webhook
-notify events, not native push, before building that screen.
+Two research spikes run before implementation, with decisions:
+
+- **Notifications scope**: the phase doc assumed a viewable log of outbound
+  Discord-webhook notify events already existed. It didn't —
+  `src/notify/index.js`'s `fireWebhook()` was fire-and-forget, only written
+  to the server log file, no DB table. **Decided to add a minimal backend
+  `notify_log` table** (migration `039_notify_log.sql`) rather than
+  descope to settings-only, so the mobile screen has real history to show.
+  `fireWebhook` now writes a `sent`/`failed`/`skipped` row per attempt
+  (trimmed to the most recent 200), and a new `GET
+  /api/dashboard/notify-log?limit=` route (not `requireDesktop` — paired
+  mobile devices need it too) serves it. Covered by
+  `test/notify-log.test.js` (added to root `package.json`'s `npm test`
+  file list): a direct-unit test of the write/trim behavior (the 'failed'
+  path is only reachable via a real network error, which
+  `src/runtime/net-guard.js` blocks for any private/loopback target — so
+  it's exercised by calling `logNotifyEvent` directly rather than via a
+  live failing webhook), a real end-to-end `fireWebhook`-through-`notify_log`
+  check for the 'skipped' (no webhook configured) path, and an HTTP-level
+  auth/shape/ordering check on the new endpoint. Full backend suite (216
+  tests) and `npm run check:migrations` (39 migrations) both green.
+- **Live control scope**: asked for full up-next queue management (not
+  just view). While implementing, found `POST /api/dashboard/live/start`
+  is not a simple toggle — it opens a mic-live session the client must
+  then continuously stream raw PCM audio to via `POST
+  /api/dashboard/live/chunk` (the same way web Studio's in-browser
+  `MediaRecorder` does), a real audio-capture-and-streaming feature, not a
+  curated-essentials control. **Descoped mic start/stop out of this
+  phase** — flagging the course-correction rather than quietly building a
+  half-working recorder. Now Playing instead covers: now-playing/live
+  *display* (`GET /api/stream/status`, `GET /api/dashboard/live/status`,
+  `GET /api/schedule/current` for the current dayparting block), the
+  station **broadcast engine** controls (`restart`/`stop`/`mode` — simple
+  POSTs, unrelated to mic streaming), and **full up-next queue
+  management** (view, add via an in-screen search picker over `GET
+  /api/dashboard/media` filtered to `visibility: 'public'`, remove) — this
+  satisfies "full queue management" for the actual queue feature.
+
+What was built:
+- `mobile/src/state/dashboardAuthStore.tsx` — `DashboardAuthProvider`/
+  `useDashboardAuth()`/`useDashboardClient()`. A pairing identity
+  deliberately separate from `stationStore`'s listening station (per the
+  scope doc: Studio only ever controls the one station the phone is
+  paired to) — `{ baseUrl, token, label, pairedAt }` persisted via
+  **`expo-secure-store`** (Keychain/Keystore-backed), not AsyncStorage,
+  since this is a long-lived credential per the phase doc's explicit
+  gotcha. `useDashboardClient()` wires a 401 (device revoked from web
+  Security.tsx) straight to `signOut()`, so any screen's next auth error
+  clears the credential and the Studio tab falls back to `StudioGate`
+  automatically.
+- `mobile/src/api/dashboardClient.ts` — `DashboardClient` class mirroring
+  `stationClient.ts`'s conventions (constructor, `get`/`post` primitives,
+  one-line JSDoc per method) plus `patch`/`put`/`del` and the
+  `onUnauthorized` hook. Typed methods for stream/live/schedule status,
+  broadcast queue + engine controls, media list/update (release
+  scheduling + queue picker), posts list/update, analytics
+  live/history/activity, earnings, and the new notify-log endpoint. Plus
+  a free `redeemPairToken(baseUrl, pairToken)` for the unauthenticated
+  redeem call made during pairing itself.
+- `mobile/src/screens/StudioGate.tsx` — unpaired state, framed as an
+  optional creator-only feature (not a dead end) per the scope doc's
+  app-store-review concern.
+- `mobile/src/app/studio-pair.tsx` + `mobile/src/screens/studio/StudioPairScreen.tsx`
+  — `expo-camera`'s `useCameraPermissions()`/`CameraView` with
+  `barcodeScannerSettings={{ barcodeTypes: ['qr'] }}`, denied-permission
+  fallback via `expo-linking`'s `openSettings()`. Parses the scanned
+  `{publicUrl}/pair?pt={token}` string with the global `URL` constructor,
+  falling back to manual regex extraction if that throws (flagged as
+  needing real-device confirmation — Hermes/RN's built-in `URL` support
+  isn't verifiable from this non-interactive session). On successful
+  redeem, stores the device token via `dashboardAuth.pair()` and pops
+  back to the Studio tab.
+- `mobile/src/screens/studio/StudioHome.tsx` — paired-state menu (station
+  baseUrl header + 5 rows), pushed-screen navigation matching the
+  `ProjectDetailScreen` pattern rather than a nested tab bar.
+- `mobile/src/screens/studio/NowPlayingScreen.tsx` — now-playing/live
+  display, broadcast restart/stop/mode-toggle buttons, up-next queue with
+  per-item remove, and an in-screen "Add track" search picker (debounced
+  client-side filter, no separate modal route) over public catalog
+  tracks.
+- `mobile/src/screens/studio/QuickStatsScreen.tsx` — stat tiles (current/
+  peak listeners, 30-day listener/hour totals, today's + all-time vault
+  revenue) and the recent-activity feed. No chart library — aggregated
+  numbers only, consistent with the phase doc's "not a full analytics
+  suite" framing.
+- `mobile/src/screens/studio/ReleaseSchedulingScreen.tsx` — two sections:
+  scheduled media (`release_at`, cancel via `PATCH .../media/:id`) and
+  scheduled posts (future `published_at`, publish-now via `PUT
+  .../posts/:id`). Skipped the unused `release_campaign` API — grepped
+  every `studio/src/views/*` and confirmed no desktop Studio view calls
+  it either, so it's not a parity gap. **v1 scope note**: this screen can
+  view and cancel/publish-now, not reschedule to a new date — a real
+  date-picker UI would need a new native dependency not yet in the
+  project; deferred rather than absorbed silently.
+- `mobile/src/screens/studio/NotificationsScreen.tsx` — lists the new
+  `notify_log` rows with friendly context labels and a sent/failed/
+  skipped status pill; empty state explains nothing has fired yet.
+- `mobile/src/screens/studio/DeviceSettings.tsx` — paired station +
+  paired-at display, "Sign out this device" (clears the local secure
+  token only, per plan — no remote revoke call; that stays on web
+  Security.tsx).
+- Route wrappers: `mobile/src/app/studio/{now-playing,quick-stats,
+  release-scheduling,notifications,device}.tsx`, each a thin
+  import+render, matching the established split.
+- `mobile/src/app/(tabs)/studio.tsx` — now branches
+  `!hydrated` (spinner) → `isPaired` (`StudioHome`) → else (`StudioGate`),
+  replacing the Phase 1 placeholder.
+- `mobile/src/app/_layout.tsx` — mounted `DashboardAuthProvider` (nested
+  inside `StashProvider`, alongside the other providers) and registered
+  `studio-pair` as a modal `Stack.Screen` plus the five `studio/*` pushed
+  screens with headers/titles, matching `listener-login`/`project/[id]`'s
+  existing pattern.
+- New deps: `expo-camera` (`~57.0.4`) and `expo-secure-store` (`~57.0.2`),
+  added via plain `npm install` pinned to the SDK 57 line rather than
+  `npx expo install` — `api.expo.dev`/`reactnative.directory` are blocked
+  by this session's network policy (`registry.npmjs.org` itself is
+  allowlisted and worked fine). `app.json`'s `expo-camera` plugin entry
+  carries the `NSCameraUsageDescription` copy (final review-facing wording
+  still belongs to Phase 8).
+
+Verification done:
+- Backend: `npm test` — 216/216 passing (215 prior + the new
+  `test/notify-log.test.js`, 3 tests). `npm run check:migrations` — 39
+  migrations applied once, clean.
+- `npx tsc --noEmit` — clean for every new/changed file; the same single
+  pre-existing `@/global.css` resolution error in `constants/theme.ts`
+  noted in Phases 3-4 remains, untouched by this phase.
+- `npx expo export --platform web` — all 18 routes bundle, including
+  every new Phase 5 route (`/studio-pair`, `/studio/now-playing`,
+  `/studio/quick-stats`, `/studio/release-scheduling`,
+  `/studio/notifications`, `/studio/device`).
+- Manual backend smoke: exercised `GET /api/dashboard/notify-log` against
+  a running `npm run dev` instance via the test suite's own HTTP harness
+  (no separate manual curl pass this session).
+- **Not verified — needs a real-device pass before shipping** (same
+  caveat as Phases 3-4 — this is a non-interactive cloud session with no
+  physical iOS/Android hardware): the entire QR-scan pairing flow
+  end-to-end against a real web Studio `Security.tsx` QR code and a real
+  camera (including whether the global `URL` constructor parses the
+  scanned pairUrl on-device, or falls through to the regex fallback);
+  camera-permission grant/deny/Settings-deep-link flow; whether a
+  revoked-device 401 actually surfaces mid-session and falls back to
+  `StudioGate` cleanly during an active screen (the redirect-on-401 logic
+  is implemented and typechecks, but its timing against React's render
+  cycle is unconfirmed without a device); the broadcast
+  restart/stop/mode/queue controls against a real running broadcast
+  engine; and general layout on real screen sizes (each essentials screen
+  scrolls via `ScrollView`, but spacing/wrapping on a small device is
+  unconfirmed).
 
 ### Phase 6 — Studio media upload
 **Status: Not started**

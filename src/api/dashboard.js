@@ -1845,6 +1845,21 @@ router.put('/payment-config', asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// GET /api/dashboard/notify-log?limit=50
+// Returns recent outbound notify-webhook fires (go-live/post/media-release
+// pings), most recent first. Backs the mobile Studio "Notifications" screen.
+// Not requireDesktop — paired mobile devices need this too.
+router.get('/notify-log', (req, res) => {
+  const limitNum = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+  const rows = getDb().prepare(`
+    SELECT id, context, content, status, error_msg, created_at
+    FROM notify_log
+    ORDER BY created_at DESC, id DESC
+    LIMIT ?
+  `).all(limitNum);
+  res.json({ events: rows });
+});
+
 // GET /api/dashboard/webhook-log?limit=50&provider=stripe
 // Returns recent webhook events for production debugging.
 router.get('/webhook-log', requireDesktop, (req, res) => {

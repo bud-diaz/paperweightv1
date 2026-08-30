@@ -47,6 +47,12 @@
         {
           "supportsBackgroundPlayback": true
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Paperweight uses your camera to scan the QR pairing code shown on your station's desktop dashboard."
+        }
       ]
     ],
     "experiments": {
