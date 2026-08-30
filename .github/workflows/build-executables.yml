@@ -2,9 +2,14 @@ name: Build Executables
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - master
+  # Automatic push trigger disabled while iterating on the mobile app so
+  # every push doesn't kick off Linux/Windows/macOS executable + Electron
+  # builds. Re-add a `push:` trigger (e.g. `branches: [master]`) once
+  # that's no longer disruptive. Manual runs still work via
+  # workflow_dispatch (Actions tab -> Build Executables -> Run workflow).
+  # push:
+  #   branches:
+  #     - master
 
 permissions:
   contents: read
