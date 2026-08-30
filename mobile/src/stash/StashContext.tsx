@@ -29,7 +29,7 @@ export function StashProvider({ children }: { children: ReactNode }) {
 
   const stash = useStashStoreState({
     stationClient,
-    station: station && baseUrl ? { baseUrl, name: station.name } : null,
+    station: baseUrl ? { baseUrl, name: station?.name ?? baseUrl } : null,
     isPaid: listenerAuth?.tier !== undefined && listenerAuth.tier !== 'free',
     onNotify: setNotification,
   });

@@ -1,12 +1,17 @@
+import * as SplashScreen from 'expo-splash-screen';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { useCallback } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { PlayerEngineProvider } from '@/player/PlayerEngineContext';
 import { StashProvider } from '@/stash/StashContext';
+import { Toast } from '@/components/Toast';
 import { AppSettingsProvider, useAppSettings } from '@/state/appSettingsStore';
 import { DashboardAuthProvider } from '@/state/dashboardAuthStore';
 import { StationStoreProvider } from '@/state/stationStore';
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function AppShell() {
   const systemScheme = useColorScheme();
@@ -48,6 +53,7 @@ function AppShell() {
                 <Stack.Screen name="studio/notifications" options={{ headerShown: true, title: 'Notifications' }} />
                 <Stack.Screen name="studio/device" options={{ headerShown: true, title: 'Device' }} />
               </Stack>
+              <Toast />
             </DashboardAuthProvider>
           </StashProvider>
         </PlayerEngineProvider>
@@ -57,8 +63,14 @@ function AppShell() {
 }
 
 export default function RootLayout() {
+  const onRootLayout = useCallback(() => {
+    SplashScreen.hideAsync().catch((error) => {
+      console.warn('Failed to hide splash screen', error);
+    });
+  }, []);
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onRootLayout}>
       <AppSettingsProvider>
         <AppShell />
       </AppSettingsProvider>

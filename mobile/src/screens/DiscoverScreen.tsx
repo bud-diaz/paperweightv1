@@ -81,14 +81,14 @@ export function DiscoverScreen() {
           </View>
         </View>
 
-        {station ? (
+        {baseUrl ? (
           <View style={[styles.currentStation, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
             <View style={styles.currentStationInfo}>
               <ThemedText type="small" themeColor="textSecondary">
                 Listening station
               </ThemedText>
               <ThemedText type="smallBold" numberOfLines={1}>
-                {station.name}
+                {station?.name ?? baseUrl}
               </ThemedText>
             </View>
             <Pressable

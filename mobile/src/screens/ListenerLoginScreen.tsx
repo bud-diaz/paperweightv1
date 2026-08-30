@@ -14,7 +14,7 @@ type Mode = 'login' | 'redeem';
 export function ListenerLoginScreen() {
   const colors = useTheme();
   const router = useRouter();
-  const { station, listenerAuth, setListenerAuth } = useStationStore();
+  const { station, baseUrl, listenerAuth, setListenerAuth } = useStationStore();
   const client = useStationClient();
 
   const [mode, setMode] = useState<Mode>('login');
@@ -24,7 +24,7 @@ export function ListenerLoginScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!client || !station) {
+  if (!client) {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.centerFill}>
@@ -78,7 +78,7 @@ export function ListenerLoginScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.content} edges={['bottom', 'left', 'right']}>
         <ThemedText type="small" themeColor="textSecondary">
-          {station.name}
+          {station?.name ?? baseUrl}
         </ThemedText>
 
         {listenerAuth ? (

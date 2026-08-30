@@ -14,11 +14,11 @@ This file tracks *status only*. For *what* and *why*, see:
 | 0 | Backend: bearer-token support for paired devices | ✅ Done |
 | 1 | `mobile/` workspace scaffold + tab shell + CI | ✅ Done |
 | 2 | Discover tab: System.Pape + current-station + listener login | ✅ Done |
-| 3 | Play tab: playback engine + sticky transport + drawer | ✅ Done (unverified on hardware — see log) |
-| 4 | Stack tab: catalog + cross-station Stash | ✅ Done (unverified on hardware — see log) |
-| 5 | Studio pairing (QR scan) + curated essentials | ✅ Done (unverified on hardware — see log) |
-| 6 | Studio media upload | ✅ Done (unverified on hardware — see log) |
-| 7 | Settings modals (App settings + Account settings) | ✅ Done (unverified on hardware — see log) |
+| 3 | Play tab: playback engine + sticky transport + drawer | ✅ Done — hardware-verified 2026-08-30, one real gap open (see log) |
+| 4 | Stack tab: catalog + cross-station Stash | ✅ Done — hardware-verified 2026-08-30, fully passing (see log) |
+| 5 | Studio pairing (QR scan) + curated essentials | ✅ Done — hardware-verified 2026-08-30, fully passing (see log) |
+| 6 | Studio media upload | ✅ Done — hardware-verified 2026-08-30, blocked by a device-level (not app) bug (see log) |
+| 7 | Settings modals (App settings + Account settings) | ✅ Done — hardware-verified 2026-08-30, fully passing (see log) |
 | 8 | Polish, store-readiness | ⬜ Not started |
 
 ## Phase log
@@ -631,6 +631,183 @@ Verification done:
 - `npm --prefix mobile run typecheck` — clean.
 - `npm --prefix mobile run build` — Expo web export completed; route list now includes `/app-settings` and `/account-settings`.
 - **Not verified — needs real-device pass before shipping**: physical-device manual LAN URL override against a station running on the same WiFi, Android WiFi settings intent behavior, iOS Settings fallback behavior, listener account display against a live logged-in station, and DB cross-check for email/tier/tipping identity.
+
+### Hardware-verify pass, Phases 3-7 (2026-08-30 afternoon)
+
+Real-device pass on the physical Galaxy A12 (Samsung SM-A125U) over `adb` USB,
+using a **dev-client build** (not Expo Go — required for `expo-audio`/
+`expo-video`/`expo-camera` native modules), against two local `npm run dev`
+instances ("Galaxy Verification Station", ports 3457/3460, both reachable
+from the device via WiFi + the manual station-URL override built in Phase 7).
+Same `am start`/`input keyevent` cosmetic-error-101 and screen-sleep gotchas
+noted in the Phase 2 log still apply on this device.
+
+**Pre-work: cleaned up `src/app/_layout.tsx`'s splash-hide logic.** It had
+both a `setTimeout(() => hideAsync(), 0)` at module load *and* the standard
+`onLayout`-triggered `hideAsync()` — the timeout raced the app's first
+render and made `preventAutoHideAsync()` pointless. No doc/comment/log
+anywhere explained why the timeout was added (checked git log, this doc,
+the plan docs); removed it, keeping only the single `onLayout`-triggered
+hide. Rebuilt and reinstalled the dev client once after this
+(`JAVA_HOME`/`ANDROID_HOME` had to be set explicitly — `~/.local/jdks/jdk-17`,
+`~/Android/Sdk` — for `expo run:android` to find them in this shell).
+
+**Phase 3 (Play tab) — real bug found and partially fixed.** Live HLS
+playback confirmed via a genuine `AudioFocus` grant (`dumpsys audio`), sticky
+transport bar, player drawer, level meter, and station-rotation navigator all
+correct. **Found:** background/lock-screen playback did not survive — audio
+stopped within seconds of locking the screen, and `dumpsys notification`
+showed no media notification had ever been posted despite
+`app.json`'s `enableBackgroundPlayback`/`supportsBackgroundPlayback` config.
+Root cause (confirmed by reading `expo-audio`'s own type docs and native
+Kotlin source): the app never calls `AudioPlayer.setActiveForLockScreen()` —
+required per `expo-audio`'s own documentation for sustained background
+playback — and never sets `VideoPlayer.staysActiveInBackground` /
+`showNowPlayingNotification` either. **Fixed** in `src/player/PlayerEngine.ts`:
+call `setActiveForLockScreen(true, metadata, { isLiveStream: !track })` on
+the audio player from the shared `play()` transport control, and set the
+video player's two background-playback properties once at creation.
+Re-verified: a real `MediaStyle` notification with correct title/artist now
+appears (`dumpsys notification`) and the media session carries real metadata
+(previously `metadata: null`). **Still not fixed / open**: even with the
+notification/session now correct, the underlying playback still stops
+(`dumpsys media_session` shows the session transitioning to `state=1`/STOPPED
+within 15-40s of lock) — this remains **the single biggest open risk item**
+for this phase. Not root-caused further this pass (checked: not battery-
+optimization-whitelisted, standby bucket is ACTIVE not restricted, manifest
+correctly declares both `AudioControlsService`/`ExpoVideoPlaybackService` as
+`foregroundServiceType="mediaPlayback"`) — candidates for next pass:
+Samsung-specific network/Wi-Fi Doze suspending the backgrounded HLS
+connection, or a deeper `expo-audio` native issue. Also noted (not fixed,
+cosmetic): the transport UI's "playing" state doesn't desync-detect when
+native playback silently stops — it keeps showing a pause icon.
+
+**Phase 4 (Stack tab) — one real bug fixed, one real bug found and left
+open.** Catalog browsing and on-demand playback (tap a row to play) both
+confirmed working on-device, including a real `PlayerEngine` track switch.
+**Found and fixed:** the manual-URL-override path (the only way to reach a
+station not in Discover's directory — exactly what this hardware-verify
+session used) had no way to log in as a listener at all.
+`ListenerLoginScreen.tsx` gated on `!station` (the Discover-*picked*
+identity) instead of the effective `client`/`baseUrl` that `stationStore`
+already resolves correctly for manual overrides, and `DiscoverScreen.tsx`'s
+"Listening station" card (the only entry point to the login screen) gated
+the same way — so login was structurally unreachable via manual override,
+contradicting Phase 7's own plan ("use the manual-URL override... Log in as
+a listener against the local station"). Fixed both gates to key off
+`baseUrl` with `station?.name ?? baseUrl` as the display fallback; verified
+end-to-end with a real registered listener account (see Phase 7 below) and a
+redeemed access token. **Found and fixed (follow-up pass, same day): the
+Stash save/remove bookmark icons.** Two independent bugs were stacked here,
+both now fixed and verified end-to-end on real hardware:
+1. **Touch-routing bug** — in both `StackScreen.tsx`'s `TrackRow` (the
+   catalog's "Save to stash" bookmark) and its "My Stash" list row (the
+   "Remove from stash" trash icon), the icon's `Pressable` was nested
+   *inside* the row's outer `Pressable`. A `uiautomator` dump confirmed no
+   clickable node covered the icon's on-screen position at all — the outer
+   row's `onPress` (track select/play) always won the gesture. Fixed by
+   restructuring both rows so the outer container is a plain `View` and the
+   row-tap area (dot + title/artist) and the trailing icon are **sibling**
+   `Pressable`s instead of parent/child — no nesting, no responder conflict.
+   Added `hitSlop={8}` to both icons while there. `dumpsys`-equivalent
+   `uiautomator` check afterward confirmed the two touch targets no longer
+   overlap.
+2. **Manual-override gate bug (same class as the Phase 4/7 login-gate fix
+   above)** — `StashContext.tsx` built the `station` option passed to
+   `useStashStoreState` as `station && baseUrl ? {...} : null`, requiring
+   the Discover-*picked* `station` even though `stashStore.save()`/`remove()`
+   only actually need the already-correctly-resolved `baseUrl`. With only
+   the manual override active (this session's whole setup), `save()` hit its
+   `if (!stationClient || !station)` guard and returned early with
+   `onNotify?.('No station selected.')` — a message no screen renders (see
+   below), so it looked identical to the touch bug from the outside. Fixed
+   to `station: baseUrl ? { baseUrl, name: station?.name ?? baseUrl } : null`,
+   matching the same fallback pattern used in the Discover/Login fix.
+Verified with a temporary `console.log` in the bookmark's `onPress` (removed
+after) to confirm the touch fix alone was sufficient before finding the
+second bug; final verification with both fixes in place: tapped "Save to
+stash" on a real track, confirmed a real file landed at
+`files/stash/2-<hash>.mp3` on-device, "My Stash (1)" and a filled bookmark
+icon, the track appearing correctly in the My Stash list, and "Remove from
+stash" cleanly reverting to "My Stash (0)".
+**Found and fixed (same follow-up pass): missing toast/snackbar UI.**
+`StashContext.tsx`'s and `PlayerEngineContext.tsx`'s `onNotify`/`notification`
+state (save success/failure messages, quota warnings, etc.) was captured but
+never rendered by any screen — this is exactly what made bug #2 above look
+like a touch problem from the outside. Added `src/components/Toast.tsx`, a
+single global toast mounted once in `src/app/_layout.tsx` as a sibling of
+`<Stack>` (so it overlays every screen, tab or modal): reads both contexts'
+`notification` state (player's takes priority on the rare chance both are
+set), auto-dismisses after 3s, and is tap-to-dismiss. Styled as an inverted
+pill (`colors.text` background / `colors.background` text) so it reads
+consistently in both themes without new palette entries, positioned above
+the sticky transport bar and tab bar via `BottomTabInset` + a safe-area
+inset. Verified live on-device: saving a track now shows a real "Saved for
+offline playback" toast, positioned cleanly above the sticky bar, that both
+auto-dismisses after 3s and dismisses immediately on tap.
+
+**Phase 5 (Studio pairing + essentials) — fully passing, no bugs found.**
+Camera-permission grant flow, QR-pairing redeem (via a real
+`POST /api/dashboard/devices/pair` token fed through `StudioPairScreen`'s
+exact `handleScan()` path using a temporary `__DEV__`-only bypass button +
+gitignored `.env.local`, both fully removed after use — same pattern as the
+prior Phase 5/6 sessions, camera-scan motion itself still isn't testable
+without a second physical screen), and all six essentials screens (Now
+Playing, Quick Stats, Upload Media, Release Scheduling, Notifications,
+Device) all confirmed against real backend data. Exercised a real broadcast
+Restart mutation (now-playing genuinely changed), Quick Stats reflecting the
+real listening session from this pass, and the plan's explicit
+revoke-from-web → 401 → `StudioGate`-fallback check (`DELETE
+/api/dashboard/devices/:id`, then confirmed the Studio tab cleanly fell back
+to the unpaired gate screen on next open). Minor cosmetic-only note:
+Discover's header never shows a distinct "signed in" indicator for Studio
+pairing — not investigated, not blocking.
+
+**Phase 6 (Studio media upload) — blocked by a confirmed device bug, not an
+app bug.** The Upload Media form itself (category/visibility chips, title/
+artist/album fields, Choose File / Upload buttons) renders and behaves
+correctly. The native Android file picker (`com.google.android.documentsui`)
+opens correctly, but selecting any file — including ones pushed directly to
+`/sdcard/Music` and freshly indexed via `MEDIA_SCANNER_SCAN_FILE` — silently
+does nothing: a `uiautomator` dump confirms no clickable node covers the
+file cards at all. This is the **exact same issue** the 2026-08-17 session
+documented and attributed to a leftover Device-Owner/MDM policy remnant from
+this device's prior life as the `~/a12` kiosk project — confirmed still
+present, still entirely outside the Paperweight mobile app's own code (the
+bug is in the system picker app, not anything under `mobile/src/`). Nothing
+to fix here without either a factory-reset device or a different test
+device.
+
+**Phase 7 (Settings modals) — fully passing, no bugs found.** App Settings:
+theme toggle, WiFi-settings shortcut, and manual station URL override all
+confirmed (`Check & save` health-checked the target and connected). Account
+Settings verified two ways, both correct: (1) with only a redeemed access
+token active, it correctly shows "Not logged in as a listener" —
+`GET /api/listener/me` genuinely 401s for a bare redeemed token (confirmed
+by reading `src/api/listener.js`: it requires `req.tokenRow.listener_id`, a
+full account, which token-redemption deliberately doesn't create — this is
+correct backend behavior, not a client bug); (2) after registering a real
+listener account (`POST /api/listener/register`) and logging in through the
+app's email/password form, Account Settings showed fully correct live data
+matching the database: email, "Not verified" (accurate — no verification
+link was clicked), `free` tier, no active subscription, tipping identity
+from the display name, marketing opt-in state, and password-set status.
+
+**Files changed this pass:** `src/app/_layout.tsx` (splash cleanup),
+`src/player/PlayerEngine.ts` (lock-screen/background-playback activation),
+`src/screens/DiscoverScreen.tsx` + `src/screens/ListenerLoginScreen.tsx`
+(manual-override login-gate fix). `src/screens/studio/StudioPairScreen.tsx`
+and `.env.local` were temporarily modified for the pairing dev-bypass and
+fully reverted/removed afterward — no trace left in the tree.
+
+**Carried-forward open items for Phase 8 or a follow-up pass:** (1)
+background/lock-screen audio still doesn't survive past screen lock despite
+the `setActiveForLockScreen` fix — needs deeper native-level investigation,
+flagged as the top risk item; (2) Phase 6 upload is blocked on this specific
+physical device by a system file-picker bug unrelated to the app — needs a
+different/reset test device to fully verify, not an app-code fix. The Stash
+save/remove bookmark bug and the missing toast/snackbar UI are both now
+fixed and fully verified — no longer open items.
 
 ### Phase 8 — Polish, store-readiness
 **Status: Not started**

@@ -53,6 +53,10 @@ export function usePlayerEngineState(options: PlayerEngineOptions) {
   const videoPlayerRef = useRef<VideoPlayer | null>(null);
   if (videoPlayerRef.current === null) {
     videoPlayerRef.current = createVideoPlayer(null);
+    // expo-video's equivalent of the audio player's setActiveForLockScreen —
+    // both are required for playback to survive past screen lock on Android.
+    videoPlayerRef.current.staysActiveInBackground = true;
+    videoPlayerRef.current.showNowPlayingNotification = true;
   }
 
   useEffect(() => {
@@ -446,9 +450,22 @@ export function usePlayerEngineState(options: PlayerEngineOptions) {
 
   // ── Shared transport controls (live + on-demand) ─────────────────────────
   const play = useCallback(() => {
+    // Required by expo-audio for sustained background playback on Android —
+    // without it, playback stops shortly after the screen locks (OS
+    // limitation, not a bug in the retry/backoff loop above). expo-video's
+    // equivalent (staysActiveInBackground/showNowPlayingNotification) is set
+    // once at player creation, above.
+    if (activeKind === 'audio') {
+      const nowPlaying = track ?? status?.nowPlaying ?? null;
+      audioPlayerRef.current?.setActiveForLockScreen(
+        true,
+        { title: nowPlaying?.title ?? stationName, artist: nowPlaying?.artist ?? stationName },
+        { isLiveStream: !track }
+      );
+    }
     activePlayer?.play();
     setPlaying(true);
-  }, [activePlayer]);
+  }, [activePlayer, activeKind, track, status?.nowPlaying, stationName]);
   const pause = useCallback(() => {
     activePlayer?.pause();
     setPlaying(false);

@@ -187,24 +187,24 @@ export function StackScreen() {
             ) : null
           }
           renderItem={({ item }) => (
-            <Pressable
-              onPress={() => stash.playWithPause(item.key)}
-              style={[styles.stashRow, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
-              <View style={[styles.projectArt, styles.stashArt, { backgroundColor: swatchFor(item.trackId) }]}>
-                <Ionicons name={stash.playingKey === item.key ? 'pause' : 'play'} size={16} color="#fff" />
-              </View>
-              <View style={styles.stashInfo}>
-                <ThemedText type="smallBold" numberOfLines={1}>
-                  {item.title}
-                </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-                  {item.artist || item.stationName}
-                </ThemedText>
-              </View>
-              <Pressable accessibilityLabel="Remove from stash" onPress={() => stash.remove(item.key)}>
+            <View style={[styles.stashRow, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+              <Pressable onPress={() => stash.playWithPause(item.key)} style={styles.stashRowMain}>
+                <View style={[styles.projectArt, styles.stashArt, { backgroundColor: swatchFor(item.trackId) }]}>
+                  <Ionicons name={stash.playingKey === item.key ? 'pause' : 'play'} size={16} color="#fff" />
+                </View>
+                <View style={styles.stashInfo}>
+                  <ThemedText type="smallBold" numberOfLines={1}>
+                    {item.title}
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                    {item.artist || item.stationName}
+                  </ThemedText>
+                </View>
+              </Pressable>
+              <Pressable accessibilityLabel="Remove from stash" hitSlop={8} onPress={() => stash.remove(item.key)}>
                 <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
               </Pressable>
-            </Pressable>
+            </View>
           )}
           ListEmptyComponent={
             <View style={styles.centerFill}>
@@ -239,30 +239,33 @@ function TrackRow({
   const stashable = canStash(track, isPaid);
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.trackRow, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
-      <View style={[styles.playDot, { backgroundColor: swatchFor(track.id) }]}>
-        <Ionicons name={active && playing ? 'pause' : 'play'} size={14} color="#fff" />
-      </View>
-      <View style={styles.trackInfo}>
-        <ThemedText type="smallBold" numberOfLines={1}>
-          {track.title}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          {[track.artist, formatDuration(track.duration)].filter(Boolean).join(' · ')}
-        </ThemedText>
-      </View>
+    <View style={[styles.trackRow, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+      <Pressable onPress={onPress} style={styles.trackRowMain}>
+        <View style={[styles.playDot, { backgroundColor: swatchFor(track.id) }]}>
+          <Ionicons name={active && playing ? 'pause' : 'play'} size={14} color="#fff" />
+        </View>
+        <View style={styles.trackInfo}>
+          <ThemedText type="smallBold" numberOfLines={1}>
+            {track.title}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+            {[track.artist, formatDuration(track.duration)].filter(Boolean).join(' · ')}
+          </ThemedText>
+        </View>
+      </Pressable>
       {locked ? (
         <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
       ) : stashable ? (
-        <Pressable accessibilityLabel={saved ? 'Remove from stash' : 'Save to stash'} onPress={() => (saved ? stash.remove(key!) : stash.save(track))}>
+        <Pressable
+          accessibilityLabel={saved ? 'Remove from stash' : 'Save to stash'}
+          hitSlop={8}
+          onPress={() => (saved ? stash.remove(key!) : stash.save(track))}>
           <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={16} color={saved ? colors.accent : colors.textSecondary} />
         </Pressable>
       ) : (
         <Ionicons name="lock-closed-outline" size={16} color={`${colors.textSecondary}55`} />
       )}
-    </Pressable>
+    </View>
   );
 }
 
@@ -281,9 +284,11 @@ const styles = StyleSheet.create({
   projectArt: { aspectRatio: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   stashArt: { width: 40, height: 40, aspectRatio: undefined },
   trackRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, borderRadius: 14, borderWidth: 1, padding: Spacing.two },
+  trackRowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   playDot: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   trackInfo: { flex: 1, gap: 1 },
   stashRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, borderRadius: 14, borderWidth: 1, padding: Spacing.two },
+  stashRowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   stashInfo: { flex: 1, gap: 1 },
   storageCard: {
     flexDirection: 'row',
