@@ -202,15 +202,17 @@
 .mode-main { max-width: 1240px; margin: 0 auto; }
 .mode-content { padding-top: 3rem; }
 .sidebar-hidden { display: none; }
-/* Segmented mode control stays a pill — semantically appropriate for a
-   3-way toggle (spec §8: "Pill: only when semantically appropriate"). */
-.mode-switcher { display: inline-flex; align-items: center; gap: 3px; padding: 4px; border: 1px solid var(--pw-border); border-radius: 999px; background: var(--pw-surface); box-shadow: none; }
+/* Morphing mode control inspired by expo-motion-tabs: the active tab owns a
+   shared pill that glides between STACK / PLAY / STUDIO while the workspace
+   panel cross-slides in the same direction. */
+.mode-switcher { isolation: isolate; display: inline-flex; align-items: center; gap: 3px; padding: 4px; border: 1px solid var(--pw-border); border-radius: 999px; background: var(--pw-surface); box-shadow: none; }
 .mode-switcher-mark { display: inline-flex; align-items: center; justify-content: center; width: 27px; height: 27px; border-radius: 50%; color: var(--pw-oxide); background: color-mix(in srgb, var(--pw-oxide) 14%, transparent); }
-.mode-option { position: relative; display: inline-flex; align-items: center; gap: 7px; min-height: 29px; padding: 0 10px; border-radius: 999px; color: var(--pw-concrete); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: .13em; transition: color .16s, transform .1s var(--ease-spring); }
+.mode-option { position: relative; z-index: 0; display: inline-flex; align-items: center; gap: 7px; min-height: 29px; padding: 0 10px; border-radius: 999px; color: var(--pw-concrete); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: .13em; background: transparent; transition: color .16s, transform .1s var(--ease-spring); overflow: hidden; }
 .mode-option:hover { color: var(--pw-paper); }
 .mode-option:active { transform: scale(.97); }
 .mode-option.active { color: var(--pw-oxide); }
-.mode-option-pill { position: absolute; inset: 0; z-index: -1; border-radius: 999px; background: var(--pw-raised); border: 1px solid var(--pw-border-strong); }
+.mode-icon-layer, .mode-label { position: relative; z-index: 1; display: inline-flex; align-items: center; }
+.mode-option-pill { position: absolute; inset: 0; z-index: 0; border-radius: 999px; background: var(--pw-raised); border: 1px solid var(--pw-border-strong); }
 .mode-option.active .mode-label { font-size: 12px; font-weight: 700; }
 .mode-view-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.25rem; margin-bottom: 2rem; }
 .stack-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(290px, .8fr); gap: 1.25rem; }
@@ -306,6 +308,11 @@
 .sticky-transport-tip:active { transform: scale(.92); transition-duration: .1s; }
 
 @media (max-width: 767px) {
+  .listening-shell .glass-header {
+    min-height: calc(5rem + env(safe-area-inset-top, 0px) + 14px);
+    padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
+    padding-bottom: 4px;
+  }
   .mobile-drawer { transform: translateX(-100%); transition: transform .32s var(--ease-spring); }
   .mobile-drawer.open { transform: translateX(0); }
   .mobile-overlay { opacity: 0; pointer-events: none; transition: opacity .25s ease; }

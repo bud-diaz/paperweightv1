@@ -211,27 +211,37 @@ export function ModeSwitcher({ mode, onChange }: { mode: ModeKey; onChange: (mod
   return (
     <div className="mode-switcher" role="tablist" aria-label="Workspace view">
       <span className="mode-switcher-mark" aria-hidden="true"><Aperture size={13} /></span>
-      {modes.map(({ id, label, icon: Icon }) => (
-        <button
-          key={id}
-          type="button"
-          role="tab"
-          aria-selected={mode === id}
-          data-testid={`mode-${id}`}
-          onClick={() => onChange(id)}
-          className={cn('mode-option', mode === id && 'active')}
-        >
-          {mode === id && (
-            <motion.span
-              layoutId="mode-switcher-pill"
-              className="mode-option-pill"
-              transition={reduceMotion ? { duration: 0.12 } : { type: 'spring', bounce: 0, duration: 0.4 }}
-            />
-          )}
-          <Icon size={13} />
-          <span className="mode-label">{label}</span>
-        </button>
-      ))}
+      {modes.map(({ id, label, icon: Icon }) => {
+        const active = mode === id;
+        return (
+          <motion.button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            data-testid={`mode-${id}`}
+            data-mode={id}
+            onClick={() => onChange(id)}
+            className={cn('mode-option', active && 'active')}
+            layout
+            whileTap={reduceMotion ? undefined : { scale: 0.97 }}
+          >
+            {active && (
+              <motion.span
+                layoutId="mode-switcher-pill"
+                className="mode-option-pill"
+                transition={reduceMotion ? { duration: 0.12 } : { type: 'spring', bounce: 0, duration: 0.38 }}
+              />
+            )}
+            <motion.span className="mode-icon-layer" animate={{ opacity: active ? 1 : 0.72 }} transition={{ duration: 0.16 }}>
+              <Icon size={13} />
+            </motion.span>
+            <motion.span className="mode-label" layout animate={{ opacity: active ? 1 : 0.74 }} transition={{ duration: 0.16 }}>
+              {label}
+            </motion.span>
+          </motion.button>
+        );
+      })}
     </div>
   );
 }

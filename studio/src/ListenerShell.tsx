@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
-import { Check, ChevronRight, UserRound } from 'lucide-react';
+import { Check, ChevronRight, Copy, Globe2, Mail, Music2, Share2, UserRound } from 'lucide-react';
 
 import { AccountModal } from '@/components/AccountModal';
 import { CheckoutModal } from '@/components/CheckoutModal';
 import { EmailLinkHandler } from '@/components/EmailLinkHandler';
 import { Logo } from '@/components/Logo';
 import { PostsTicker } from '@/components/PostsTicker';
-import { IconButton, ModeSwitcher } from '@/components/primitives';
+import { IconButton, Modal, ModeSwitcher } from '@/components/primitives';
 import { SettingsTour } from '@/components/SettingsTour';
 import { StickyTransport } from '@/components/StickyTransport';
 import { VaultGateModal } from '@/components/VaultGateModal';
@@ -33,6 +33,7 @@ function ListenerApp() {
   const [accountModal, setAccountModal] = useState<{ tab: 'login' | 'register'; email?: string } | null>(null);
   const [checkoutModal, setCheckoutModal] = useState<{ tab?: 'tip' | 'subscribe' | 'all-access'; thankYou?: boolean } | null>(null);
   const [vaultGateTrack, setVaultGateTrack] = useState<OnDemandTrack | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [welcomeDismissed, setWelcomeDismissed] = useState(isWelcomeDismissed());
   const [showDashboardLogin, setShowDashboardLogin] = useState(false);
   const [playButtonVisible, setPlayButtonVisible] = useState(true);
@@ -100,14 +101,60 @@ function ListenerApp() {
   };
 
   const handleOpen = (modal: ModalKey) => {
-    if (modal === 'share') {
-      navigator.clipboard?.writeText(window.location.href).catch(() => undefined);
-      notify('Station link copied.');
-      return;
-    }
+    if (modal === 'share') { setShareModalOpen(true); return; }
     if (modal === 'support') { setCheckoutModal({}); return; }
     notify('That feature is wired in a later pass.');
   };
+
+  const shareUrl = window.location.href;
+  const shareText = `${stationName} — listen on Paperweight`;
+  const copyShareLink = async () => {
+    try {
+      if (!navigator.clipboard) throw new Error('Clipboard API unavailable');
+      await navigator.clipboard.writeText(shareUrl);
+      notify('Station link copied.');
+    } catch {
+      notify('Copy failed — select the link and copy it manually.');
+    }
+  };
+  const openNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: stationName, text: shareText, url: shareUrl });
+        return;
+      } catch (error) {
+        if ((error as DOMException)?.name === 'AbortError') return;
+      }
+    }
+    await copyShareLink();
+  };
+
+  const shareModal = shareModalOpen ? (
+    <Modal title="Share this station." eyebrow="Share" onClose={() => setShareModalOpen(false)}>
+      <div className="panel-subtle rounded-xl p-5">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-xl flex items-center justify-center bg-primary">
+            <Music2 size={19} className="text-primary-foreground" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-medium truncate">{stationName}</p>
+            <p className="text-xs text-muted-foreground mt-1">Public listening link</p>
+          </div>
+        </div>
+        <div className="mt-5 flex gap-2 rounded-xl border border-white/[.08] bg-black/20 p-2">
+          <input readOnly value={shareUrl} data-testid="input-share-link" onFocus={(event) => event.currentTarget.select()} className="min-w-0 flex-1 bg-transparent px-2 text-xs text-muted-foreground outline-none" />
+          <button type="button" data-testid="button-copy-share-link" onClick={copyShareLink} className="lime-button rounded-lg px-3 py-2 text-xs font-semibold flex items-center gap-2">
+            <Copy size={14} /> Copy
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 mt-5">
+        <button type="button" data-testid="button-native-share" onClick={openNativeShare} className="ghost-button rounded-xl py-3 text-sm flex items-center justify-center gap-2"><Share2 size={15} /> Share sheet</button>
+        <a data-testid="button-share-email" href={`mailto:?subject=${encodeURIComponent(shareText)}&body=${encodeURIComponent(shareUrl)}`} className="ghost-button rounded-xl py-3 text-sm flex items-center justify-center gap-2"><Mail size={15} /> Email</a>
+      </div>
+      <div className="mt-6 flex items-center justify-between text-xs text-muted-foreground"><span>Public sharing</span><span className="text-primary flex items-center gap-1"><Globe2 size={13} /> On</span></div>
+    </Modal>
+  ) : null;
 
   return (
     <div className="studio-app noise min-h-[100dvh] listening-shell">
@@ -134,6 +181,7 @@ function ListenerApp() {
         />
       )}
       <AnimatePresence>{accountModal && <AccountModal onClose={() => setAccountModal(null)} onNotify={notify} initialTab={accountModal.tab} initialEmail={accountModal.email} />}</AnimatePresence>
+      <AnimatePresence>{shareModal}</AnimatePresence>
       <AnimatePresence>{checkoutModal && <CheckoutModal stationName={stationName} initialTab={checkoutModal.tab} thankYou={checkoutModal.thankYou} onClose={() => setCheckoutModal(null)} onNotify={notify} onOpenAccount={openAccount} />}</AnimatePresence>
       <AnimatePresence>{vaultGateTrack && <VaultGateModal track={vaultGateTrack} onClose={() => setVaultGateTrack(null)} onNotify={notify} onOpenAccount={openAccount} />}</AnimatePresence>
       <EmailLinkHandler onNotify={notify} />
