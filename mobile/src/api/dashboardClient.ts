@@ -9,6 +9,8 @@
  * fall-back to StudioGate instead of an error loop.
  */
 
+import { File, UploadType, type UploadProgress } from 'expo-file-system';
+
 import type { StreamStatus } from '@/player/types';
 
 export class DashboardClientError extends Error {
@@ -117,6 +119,31 @@ export type NotifyLogEvent = {
   status: 'sent' | 'failed' | 'skipped';
   error_msg: string | null;
   created_at: string;
+};
+
+export type UploadMediaInput = {
+  uri: string;
+  name: string;
+  mimeType?: string | null;
+  category: 'music' | 'video' | 'podcast' | 'other';
+  visibility: 'public' | 'supporters_only' | 'vault';
+  title?: string;
+  artist?: string;
+  album?: string;
+  onProgress?: (progress: UploadProgress) => void;
+};
+
+export type UploadMediaResult = {
+  id: number | null;
+  filename: string;
+  filepath?: string;
+  size?: number;
+  category: string;
+  visibility: string;
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  error?: string;
 };
 
 /**
@@ -287,6 +314,33 @@ export class DashboardClient {
   /** GET /api/dashboard/notify-log?limit= — recent outbound notify-webhook fires (go-live/post/media-release). */
   notifyLog(limit = 50): Promise<{ events: NotifyLogEvent[] }> {
     return this.get(`/api/dashboard/notify-log?limit=${limit}`);
+  }
+
+  /** POST /api/dashboard/upload — multipart media upload into the station vault. */
+  async uploadMedia(input: UploadMediaInput): Promise<UploadMediaResult> {
+    const file = new File(input.uri);
+    const result = await file.upload(this.url('/api/dashboard/upload'), {
+      httpMethod: 'POST',
+      uploadType: UploadType.MULTIPART,
+      fieldName: 'media',
+      mimeType: input.mimeType || 'application/octet-stream',
+      headers: this.headers(),
+      parameters: {
+        category: input.category,
+        visibility: input.visibility,
+        title: input.title?.trim() || '',
+        artist: input.artist?.trim() || '',
+        album: input.album?.trim() || '',
+      },
+      sessionType: 'foreground',
+      onProgress: input.onProgress,
+    });
+    const data = result.body ? (JSON.parse(result.body) as UploadMediaResult) : ({} as UploadMediaResult);
+    if (result.status === 401) this.onUnauthorized?.();
+    if (result.status < 200 || result.status >= 300) {
+      throw new DashboardClientError(result.status, data);
+    }
+    return data;
   }
 }
 

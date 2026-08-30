@@ -88,8 +88,21 @@ export class StationClient {
     return this.post<{ tier?: string; error?: string }>('/api/tokens/redeem', { token });
   }
 
-  /** GET /api/listener/me — current listener account details for the attached bearer token. */
-  me(): Promise<{ email?: string; displayName?: string; hasAccount: boolean; hasPassword: boolean }> {
+  /** GET /api/listener/me — current listener account/profile details for the attached bearer token. */
+  me(): Promise<{
+    email?: string | null;
+    displayName?: string | null;
+    tier?: string;
+    hasAccount: boolean;
+    hasPassword: boolean;
+    marketingOptIn?: boolean;
+    subscriptionStatus?: string | null;
+    currentPeriodEnd?: string | null;
+    provider?: string | null;
+    emailVerified?: boolean;
+    emailVerificationRequiredAt?: string | null;
+    settingsTourSeenAt?: string | null;
+  }> {
     return this.get('/api/listener/me');
   }
 

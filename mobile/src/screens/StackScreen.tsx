@@ -128,7 +128,7 @@ export function StackScreen() {
                       {projects.map((project: LibraryProject) => (
                         <Pressable
                           key={project.id}
-                          onPress={() => router.push({ pathname: '/project/[id]', params: { id: String(project.id) } })}
+                          onPress={() => router.push({ pathname: '/project/[id]' as never, params: { id: String(project.id) } })}
                           style={[styles.projectCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
                           <View style={[styles.projectArt, { backgroundColor: swatchFor(project.id) }]}>
                             <Ionicons name="albums" size={28} color="#fff" />

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -62,9 +63,23 @@ export function DiscoverScreen() {
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
-        <ThemedText type="title" style={styles.title}>
-          Discover
-        </ThemedText>
+        <View style={styles.titleRow}>
+          <ThemedText type="title" style={styles.title}>
+            Discover
+          </ThemedText>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => router.push('/account-settings')}
+              style={({ pressed }) => [styles.iconButton, { backgroundColor: colors.backgroundElement, opacity: pressed ? 0.75 : 1 }]}>
+              <Ionicons name="person-circle-outline" size={22} color={colors.text} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/app-settings')}
+              style={({ pressed }) => [styles.iconButton, { backgroundColor: colors.backgroundElement, opacity: pressed ? 0.75 : 1 }]}>
+              <Ionicons name="settings-outline" size={21} color={colors.text} />
+            </Pressable>
+          </View>
+        </View>
 
         {station ? (
           <View style={[styles.currentStation, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
@@ -197,9 +212,26 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.three,
     gap: Spacing.two,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
   title: {
-    fontSize: 32,
-    lineHeight: 38,
+    fontSize: 34,
+    lineHeight: 40,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   currentStation: {
     flexDirection: 'row',

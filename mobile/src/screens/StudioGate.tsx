@@ -39,7 +39,7 @@ export function StudioGate() {
       </ThemedText>
 
       <Pressable
-        onPress={() => router.push('/studio-pair')}
+        onPress={() => router.push('/studio-pair' as never)}
         style={({ pressed }) => [styles.button, { backgroundColor: colors.accent, opacity: pressed ? 0.85 : 1 }]}>
         <Ionicons name="qr-code" size={18} color="#fff" />
         <ThemedText style={styles.buttonLabel}>Scan QR to pair</ThemedText>

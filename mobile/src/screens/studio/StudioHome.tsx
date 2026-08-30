@@ -8,9 +8,10 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useDashboardAuth } from '@/state/dashboardAuthStore';
 
-const MENU: { href: '/studio/now-playing' | '/studio/quick-stats' | '/studio/release-scheduling' | '/studio/notifications' | '/studio/device'; icon: keyof typeof Ionicons.glyphMap; title: string; subtitle: string }[] = [
+const MENU: { href: '/studio/now-playing' | '/studio/quick-stats' | '/studio/upload' | '/studio/release-scheduling' | '/studio/notifications' | '/studio/device'; icon: keyof typeof Ionicons.glyphMap; title: string; subtitle: string }[] = [
   { href: '/studio/now-playing', icon: 'radio-outline', title: 'Now Playing', subtitle: 'Live status, broadcast controls, up-next queue' },
   { href: '/studio/quick-stats', icon: 'stats-chart-outline', title: 'Quick Stats', subtitle: 'Listeners, earnings, recent activity' },
+  { href: '/studio/upload', icon: 'cloud-upload-outline', title: 'Upload Media', subtitle: 'Send audio/video from this phone to your vault' },
   { href: '/studio/release-scheduling', icon: 'calendar-outline', title: 'Release Scheduling', subtitle: 'Scheduled tracks and posts' },
   { href: '/studio/notifications', icon: 'notifications-outline', title: 'Notifications', subtitle: 'Recent go-live/post/release webhook activity' },
   { href: '/studio/device', icon: 'phone-portrait-outline', title: 'Device', subtitle: 'This phone’s pairing' },
@@ -43,7 +44,7 @@ export function StudioHome() {
         {MENU.map((item) => (
           <Pressable
             key={item.href}
-            onPress={() => router.push(item.href)}
+            onPress={() => router.push(item.href as never)}
             style={({ pressed }) => [
               styles.row,
               { backgroundColor: colors.backgroundElement, opacity: pressed ? 0.8 : 1 },

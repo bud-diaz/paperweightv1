@@ -17,8 +17,8 @@ This file tracks *status only*. For *what* and *why*, see:
 | 3 | Play tab: playback engine + sticky transport + drawer | ✅ Done (unverified on hardware — see log) |
 | 4 | Stack tab: catalog + cross-station Stash | ✅ Done (unverified on hardware — see log) |
 | 5 | Studio pairing (QR scan) + curated essentials | ✅ Done (unverified on hardware — see log) |
-| 6 | Studio media upload | ⬜ Not started |
-| 7 | Settings modals (App settings + Account settings) | ⬜ Not started |
+| 6 | Studio media upload | ✅ Done (unverified on hardware — see log) |
+| 7 | Settings modals (App settings + Account settings) | ✅ Done (unverified on hardware — see log) |
 | 8 | Polish, store-readiness | ⬜ Not started |
 
 ## Phase log
@@ -604,10 +604,33 @@ Verification done:
   unconfirmed).
 
 ### Phase 6 — Studio media upload
-**Status: Not started**
+**Status: Done** (2026-08-30)
+
+What was built:
+- `mobile/src/api/dashboardClient.ts` now has `uploadMedia(...)`, a bearer-authenticated multipart uploader for the existing `POST /api/dashboard/upload` endpoint. It uses Expo SDK 57's `expo-file-system` `File.upload(...)` + `UploadType.MULTIPART`, sends the file under field `media`, forwards `category`, `visibility`, `title`, `artist`, and `album`, reports progress via the native `onProgress` callback, and uses `sessionType: 'foreground'` intentionally.
+- `mobile/src/screens/studio/UploadScreen.tsx` — paired-Studio upload UI: native file picker via `File.pickFileAsync({ mimeTypes: ['audio/*', 'video/*'] })`, category/visibility chips, metadata fields, progress bar, backend error surfacing, and explicit v1 copy warning creators to keep the app foregrounded because uploads are not resumable after JS runtime termination.
+- `mobile/src/app/studio/upload.tsx`, `mobile/src/app/_layout.tsx`, and `mobile/src/screens/studio/StudioHome.tsx` route the new Upload Media screen from the paired Studio menu.
+
+Verification done:
+- `npm --prefix mobile run typecheck` — clean.
+- `npm --prefix mobile run build` — Expo web export completed; route list now includes `/studio/upload`.
+- **Not verified — needs real-device pass before shipping**: actual phone media/file picker behavior, small-file upload into a paired station's vault, 500MB+ WiFi upload with progress and file integrity, and one real-cellular upload. If cellular/large-upload testing shows failed/resumable needs, that is backend/protocol scope for a later phase rather than something this v1 client silently solves.
 
 ### Phase 7 — Settings modals
-**Status: Not started**
+**Status: Done** (2026-08-30)
+
+What was built:
+- `mobile/src/state/appSettingsStore.tsx` — AsyncStorage-persisted app-level settings with `themeMode: system | light | dark`.
+- `mobile/src/hooks/use-theme.ts` and `mobile/src/app/_layout.tsx` now respect the persisted theme override while preserving system-mode behavior.
+- `mobile/src/screens/modals/AppSettingsModal.tsx` + `mobile/src/app/app-settings.tsx` — app settings modal with theme toggle, WiFi settings launcher, and manual station URL/LAN-IP override. The override normalizes user input, health-checks the target via `GET /api/health`, then writes through the `stationStore` capability built in Phase 2. UI copy explicitly reflects the platform asymmetry: Android attempts `android.settings.WIFI_SETTINGS`, iOS opens the Settings app root only.
+- `mobile/src/screens/modals/AccountSettingsModal.tsx` + `mobile/src/app/account-settings.tsx` — listener account settings modal backed by `GET /api/listener/me`, showing email verification state, supporter tier, subscription/provider, tipping identity, marketing opt-in, password status, and listener sign-out for the selected/effective station.
+- `mobile/src/api/stationClient.ts` expanded the `me()` response type to match the actual backend `src/api/listener.js` payload fields used by account settings.
+- `mobile/src/screens/DiscoverScreen.tsx` now exposes App Settings and Account Settings from the Discover header.
+
+Verification done:
+- `npm --prefix mobile run typecheck` — clean.
+- `npm --prefix mobile run build` — Expo web export completed; route list now includes `/app-settings` and `/account-settings`.
+- **Not verified — needs real-device pass before shipping**: physical-device manual LAN URL override against a station running on the same WiFi, Android WiFi settings intent behavior, iOS Settings fallback behavior, listener account display against a live logged-in station, and DB cross-check for email/tier/tipping identity.
 
 ### Phase 8 — Polish, store-readiness
 **Status: Not started**
