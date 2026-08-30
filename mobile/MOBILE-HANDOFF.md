@@ -14,8 +14,8 @@ This file tracks *status only*. For *what* and *why*, see:
 | 0 | Backend: bearer-token support for paired devices | ✅ Done |
 | 1 | `mobile/` workspace scaffold + tab shell + CI | ✅ Done |
 | 2 | Discover tab: System.Pape + current-station + listener login | ✅ Done |
-| 3 | Play tab: playback engine + sticky transport + drawer | ⬜ Not started |
-| 4 | Stack tab: catalog + cross-station Stash | ⬜ Not started |
+| 3 | Play tab: playback engine + sticky transport + drawer | ✅ Done (unverified on hardware — see log) |
+| 4 | Stack tab: catalog + cross-station Stash | ✅ Done (unverified on hardware — see log) |
 | 5 | Studio pairing (QR scan) + curated essentials | ⬜ Not started |
 | 6 | Studio media upload | ⬜ Not started |
 | 7 | Settings modals (App settings + Account settings) | ⬜ Not started |
@@ -260,10 +260,195 @@ Verification done:
 Nothing else left open in this phase.
 
 ### Phase 3 — Play tab
-**Status: Not started**
+**Status: Done** (2026-08-30)
+
+Source: `mobile/new_play/play.tsx`, a designer-supplied visual mockup (plain
+web JSX/Tailwind/`@iconify/react` — not working RN code, see
+`mobile/DESIGN-SPEC.md`) — ported into real RN screens/components below,
+then retired (see "Retiring `mobile/new_play/`" at the end of this entry).
+
+Decisions pinned:
+- **`expo-audio` + `expo-video`** (SDK 57), not `expo-av`, matching the Phase
+  1 decision log. Verified directly against the installed packages' type
+  declarations rather than assumed:
+  - `expo-audio`'s config plugin defaults `enableBackgroundPlayback: true`,
+    which auto-injects iOS `UIBackgroundModes: ["audio"]` and Android's
+    `FOREGROUND_SERVICE`/`FOREGROUND_SERVICE_MEDIA_PLAYBACK` permissions at
+    prebuild time — just adding the plugin to `app.json` was enough, no
+    hand-written platform config needed (resolves the Phase 3 plan's "not
+    deferred" gotcha directly). Passed `recordAudioAndroid: false` explicitly
+    since this app never records — the plugin's default is `true` and would
+    otherwise request `RECORD_AUDIO` unnecessarily. **Caveat found**: the
+    plugin unconditionally adds `NSMicrophoneUsageDescription` to iOS
+    Info.plist regardless of any option (its `createPermissionsPlugin` call
+    isn't gated) — flagging for Phase 8's store-review pass since we never
+    actually request microphone access.
+  - `expo-video`'s config plugin is a no-op unless `supportsBackgroundPlayback`/
+    `supportsPictureInPicture` are explicitly passed (unlike `expo-audio`'s
+    default-on behavior) — passed `{ supportsBackgroundPlayback: true }`
+    explicitly in `app.json`.
+  - Real-time level metering is genuinely possible: `expo-audio`'s
+    `useAudioSampleListener` delivers normalized PCM frames per channel
+    while `player.isAudioSamplingSupported` is true — `LevelMeter` uses this
+    for real RMS-per-bucket bars, falling back to a looping idle animation
+    on devices/builds where sampling isn't supported, rather than being a
+    permanently-fake bar chart.
+- **PlayerDrawer as a global overlay** (`@gorhom/bottom-sheet`, plain
+  `BottomSheet` not `BottomSheetModal` — no portal needed since it's mounted
+  once at the tabs-layout level, already inside `GestureHandlerRootView`
+  added to root `_layout.tsx`), single snap point (`92%`), closed by
+  default. The Play *tab* route (`(tabs)/play.tsx`) has no screen content of
+  its own — visiting it just calls `playerDrawerRef.current?.expand()`
+  (a module-scoped ref, since only one drawer instance is ever mounted) via
+  `useFocusEffect`; `StickyTransportBar` opens it the same way when tapped.
+- **One shared `PlayerEngine` instance app-wide**, not per-screen — added
+  `mobile/src/player/PlayerEngineContext.tsx` (not in the phase doc's literal
+  file list, but required: `StickyTransportBar`, `PlayScreen`/`PlayerDrawer`,
+  and `StackScreen` all need to observe/control the *same* playback session,
+  or each would spin up its own `AudioPlayer`/`VideoPlayer` + 10s poll loop).
+  Mounted in root `_layout.tsx`, inside `StationStoreProvider`.
+- One persistent `AudioPlayer` and one persistent `VideoPlayer` (not a fresh
+  element per track like the web engine's `new Audio()` trick) — `.replace()`
+  swaps sources. This meant on-demand playback listeners had to be tracked
+  in a ref (`odSubsRef`) and explicitly torn down before attaching a new set,
+  or stale listeners from a previous track would keep firing against the new
+  source — a real correctness difference from the web engine's per-track
+  element isolation, not just a naming difference.
+
+What was built:
+- `mobile/src/api/stationClient.ts` — added `streamStatus()`, `ping()`,
+  `libraryStructure()`, `streamQuota()`, `downloadUrl()`, `streamUrl()`,
+  `previewUrl()`, `artworkUrl()`, `hlsUrl()`, `authHeader()`, `resolveUrl()`.
+- `mobile/src/player/types.ts` — `StreamStatus`/`LibraryItem`/`LibraryStructure`/
+  `OnDemandTrack`/etc. types (field names confirmed against `src/api/library.js`'s
+  `formatItem()`, including `offlineAllowed` camelCase), plus
+  `isPlayableTrack`/`canStash`/`swatchFor`/`formatDuration` ported verbatim
+  from `studio/src/lib/hooks/usePlayerEngine.ts` and `studio/src/lib/library.ts`.
+- `mobile/src/player/PlayerEngine.ts` + `PlayerEngineContext.tsx` — the
+  engine itself: 10s status polling (paused in background unless something's
+  playing, resumed immediately on foreground via `AppState`), live HLS
+  attach with the same `[3000, 6000, 12000, 30000]` exponential-backoff
+  reconnect as web (audio via `AudioStatus.error`, video via `expo-video`'s
+  different `statusChange` event — the two packages have unrelated event
+  surfaces, handled with separate listeners), on-demand/preview playback
+  with 30s preview timer and 30s revert-to-live, quota/next-up-arming logic
+  ported from the web engine.
+- `mobile/src/components/LevelMeter.tsx`, `PlayerDrawer.tsx`,
+  `StickyTransportBar.tsx` (filled in from its Phase 1 empty shell),
+  `mobile/src/screens/PlayScreen.tsx` — UI layer, shaped like
+  `new_play/play.tsx`'s mockup (phone-width layout, not `PlayerView.tsx`'s
+  desktop grid): live/on-demand status header, artwork placeholder (no
+  press-photo API on mobile yet — Studio-only content), level meter or
+  progress bar, transport controls, up-next/recently-played lists sourced
+  directly off `PlayerEngine` (no separate query, per plan). Share/tip
+  buttons from the mockup were **not** wired — no mobile modal exists for
+  either yet, out of this phase's file list.
+- `app.json` — `expo-audio`/`expo-video` plugin entries (see decisions
+  above).
+
+Verification done:
+- `npx tsc --noEmit` — clean for every new/changed file (four pre-existing
+  errors remain, all in `mobile/new_play/*.tsx` — deleted at the end of this
+  entry — and one unrelated pre-existing `@/global.css` resolution error in
+  `constants/theme.ts` predating this phase, confirmed via `git diff`/`git log`
+  on that file).
+- Manual line-by-line review against `usePlayerEngine.ts`,
+  `StickyTransport.tsx`, `PlayerView.tsx` for logic parity.
+- **Not verified — needs a real-device pass before shipping**: this is a
+  non-interactive cloud session with no physical iOS/Android hardware, and
+  the phase plan's own verification section requires real devices for
+  exactly this reason (background audio is unreliable in
+  simulators/emulators). Specifically unverified:
+  - Live HLS audio/video playback and the reconnect/backoff loop against a
+    real network.
+  - Background/lock-screen audio surviving app suspend — the single biggest
+    risk item in this phase.
+  - Whether an `expo-video` `VideoPlayer` truly keeps emitting audio with no
+    `VideoView` currently mounted (assumed yes, based on `staysActiveInBackground`/
+    `showNowPlayingNotification` being player-level properties independent of
+    any view in the type declarations — not confirmed by an actual on-device
+    test).
+  - `useAudioSampleListener`/`isAudioSamplingSupported`'s real behavior on
+    iOS vs. Android.
 
 ### Phase 4 — Stack tab
-**Status: Not started**
+**Status: Done** (2026-08-30)
+
+Source: `mobile/new_play/stack.tsx` (same mockup-not-code caveat as Phase 3).
+
+Decisions pinned:
+- **Canonicalization rule** for the cross-station Stash key (lowercase
+  scheme+host, strip default port 443/80 and trailing slash(es), drop
+  query/hash) — implemented in `canonicalizeBaseUrl()`,
+  `mobile/src/stash/stashStore.ts`. Known limitation, documented in code: two
+  differently-formed URLs for the same physical station (e.g. a manual LAN
+  IP vs. System.Pape's `publicUrl`) will not collide unless they canonicalize
+  identically — true station-identity resolution is out of scope.
+- **`expo-file-system`'s new `File`/`Directory`/`Paths` API**, not the legacy
+  `createDownloadResumable` the phase doc's prose assumed — confirmed by
+  reading the installed package's types: SDK 57's default export is the new
+  API (`expo-file-system/legacy` carries the old one).
+  `File.createDownloadTask(url, destination).downloadAsync()` downloads to
+  `Paths.document/stash/` (not cache — iOS can evict cache files under
+  storage pressure, per the plan).
+- **AsyncStorage-only metadata** (a single JSON array under one key,
+  consistent with `stationStore.tsx`'s existing pattern) — not
+  `expo-sqlite`, which the phase doc offered as an either/or. A simple list
+  didn't need a second persistence mechanism.
+- **No separate `StashList.tsx` screen** — folded into `StackScreen.tsx`'s
+  "My Stash" segment behind a segmented control ("Station Stack" / "My Stash
+  (N)"), matching `new_play/stack.tsx`'s actual layout rather than web
+  `StackView.tsx`'s two-accordion-card split. The phase doc offered this as
+  an either/or; the approved mockup picks the in-screen-section option.
+- **`offlineAllowed` field confirmed present** on every catalog item
+  (`src/api/library.js:266`, `offlineAllowed: row.offline_allowed === 1`) —
+  resolving that Phase 4 gotcha by direct code read, not by assumption.
+- Project/collection detail is a **separate pushed screen**
+  (`mobile/src/app/project/[id].tsx` → `ProjectDetailScreen.tsx`), not an
+  in-place expanding drawer like web's `StackView.tsx` — matches the
+  mockup's flatter top-level layout (grid, then a flat on-demand list).
+
+What was built:
+- `mobile/src/stash/types.ts`, `stashStore.ts` (`useStashStoreState` hook:
+  `save`/`remove`/`play`/`stop`, `records`/`savedKeys`/`playingKey`/
+  `totalSizeBytes`), `StashContext.tsx` (`StashProvider`/`useStash()`,
+  mounted in root `_layout.tsx` nested inside `PlayerEngineProvider` — Stash
+  playback calls `engine.pause()` first, since it's intentionally a separate
+  player from the main `PlayerEngine`, matching web's same separation
+  between the live element and offline `Blob` playback).
+- `mobile/src/screens/StackScreen.tsx` — catalog segment (debounced search,
+  same 300ms pattern as `DiscoverScreen`; 2-column project grid; flat
+  on-demand tracks list with lock/stash icons) and Stash segment (saved
+  tracks, storage-used indicator, Clear action). No second footer/status
+  strip — relies on the already-global `StickyTransportBar` for that role
+  (an intentional simplification versus web's separate `stack-footer-glass`
+  strip).
+- `mobile/src/screens/ProjectDetailScreen.tsx` + `mobile/src/app/project/[id].tsx`
+  — full collection tracklist, credits/genre chips, runtime.
+- `mobile/src/app/(tabs)/stack.tsx` — swapped off `PlaceholderScreen` onto
+  `StackScreen`, same pattern as `index.tsx` → `DiscoverScreen`.
+
+Verification done:
+- `npx tsc --noEmit` — clean (same four pre-existing/unrelated errors as
+  Phase 3's entry, nothing new from this phase's files).
+- Manual review against `StackView.tsx`/`useOfflineSaves.ts` for stash
+  eligibility (`canStash`) and catalog-shape parity.
+- **Not verified — needs a real-device pass before shipping**: actual file
+  downloads via `File.createDownloadTask` to real device storage, airplane-
+  mode offline playback, storage-used accounting against real file sizes,
+  and Stash aggregation across two real station instances on one phone (the
+  phase doc's "run a second local instance on another port" test) — none of
+  this touches real device storage/network in this sandboxed session.
+
+### Retiring `mobile/new_play/`
+Once both phases above were wired and visually reconciled against the
+mockups, `mobile/new_play/discover.tsx` (already superseded by the real
+`DiscoverScreen.tsx` since Phase 2), `play.tsx`, and `stack.tsx` — along with
+the now-empty `mobile/new_play/` directory — were deleted. This *is* the
+"remove the seeded mock data" step: all of the mock content (station names,
+track lists, listener counts, the hardcoded level-meter bars) was inline
+JSX literal in these three files, with no separate mock-data file to clean
+up separately.
 
 ### Phase 5 — Studio pairing + curated essentials
 **Status: Not started**
@@ -298,3 +483,14 @@ notify events, not native push, before building that screen.
   auto-cleanup by the destructive-action classifier since it wasn't
   explicitly requested. Fine to leave; flag if it ever causes confusion
   (e.g. someone assumes `git log` inside `mobile/` reflects real history).
+- Phases 3-4 (2026-08-30) were built and typechecked in a non-interactive
+  cloud session with no physical iOS/Android hardware available — real-device
+  verification (background/lock-screen audio, actual HLS reconnect behavior,
+  on-device Stash downloads + airplane-mode playback, cross-station Stash
+  aggregation with two real running stations) is still outstanding. Pick
+  this up on real hardware before shipping either tab; see each phase's log
+  entry above for the exact unverified list. Also carry forward from Phase
+  3: confirm whether an `expo-video` player really keeps emitting audio with
+  no `VideoView` mounted (assumed yes from its type declarations, not
+  device-tested) — if it turns out not to, live-video needs to fall back to
+  the live-audio HLS URL whenever no `VideoView` is visible.

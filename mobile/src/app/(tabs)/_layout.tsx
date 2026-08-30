@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
 
+import { PlayerDrawer } from '@/components/PlayerDrawer';
 import { StickyTransportBar } from '@/components/StickyTransportBar';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -56,12 +57,13 @@ export default function TabsLayout() {
       </Tabs>
 
       {/*
-        Mounted as a sibling of <Tabs>, not inside any one screen, so it
-        survives tab switches instead of remounting per screen. Phase 3
-        positions this above the tab bar and wires it to PlayerEngine; for
-        now it renders collapsed (see StickyTransportBar).
+        Mounted as siblings of <Tabs>, not inside any one screen, so they
+        survive tab switches instead of remounting per screen — the mini
+        player persists and the drawer's playback state is never lost when
+        moving between tabs.
       */}
       <StickyTransportBar />
+      <PlayerDrawer />
     </View>
   );
 }
