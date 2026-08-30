@@ -73,10 +73,30 @@ async function postWebhook(content) {
 
 function fireWebhook(content, context) {
   setImmediate(() => {
-    postWebhook(content).catch(err => {
-      log('warn', 'notify', `${context} webhook failed: ${err.message}`);
-    });
+    postWebhook(content)
+      .then(sent => logNotifyEvent(context, content, sent ? 'sent' : 'skipped', null))
+      .catch(err => {
+        log('warn', 'notify', `${context} webhook failed: ${err.message}`);
+        logNotifyEvent(context, content, 'failed', err.message);
+      });
   });
+}
+
+// Records every webhook fire attempt (sent/failed/skipped) for the Studio
+// "Notifications" essentials screen, trimmed to the most recent 200 rows so
+// the table never grows unbounded.
+function logNotifyEvent(context, content, status, errorMsg) {
+  try {
+    const db = getDb();
+    db.prepare(
+      'INSERT INTO notify_log (context, content, status, error_msg) VALUES (?, ?, ?, ?)'
+    ).run(context, content, status, errorMsg);
+    db.prepare(
+      'DELETE FROM notify_log WHERE id NOT IN (SELECT id FROM notify_log ORDER BY created_at DESC, id DESC LIMIT 200)'
+    ).run();
+  } catch (err) {
+    log('warn', 'notify', `Failed to record notify_log entry: ${err.message}`);
+  }
 }
 
 // Called when the creator starts a live mic broadcast.
@@ -157,4 +177,15 @@ function releasePublished(release) {
   fireWebhook(`📀 ${stationName()} released: ${title} — ${stationUrl()}`, 'release-campaign');
 }
 
-module.exports = { liveStarted, liveVideoStarted, postPublished, mediaReleased, releasePublished, postWebhook, supporterEmails };
+module.exports = {
+  liveStarted,
+  liveVideoStarted,
+  postPublished,
+  mediaReleased,
+  releasePublished,
+  postWebhook,
+  supporterEmails,
+  // Exported for direct unit testing of the notify_log write/trim behavior
+  // (test/notify-log.test.js) — not otherwise called outside this module.
+  logNotifyEvent,
+};
