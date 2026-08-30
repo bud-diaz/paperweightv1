@@ -1,17 +1,20 @@
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 
-import { ThemedView } from '@/components/themed-view';
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { playerDrawerRef } from '@/components/PlayerDrawer';
 
-export default function PlayScreen() {
-  return (
-    <ThemedView style={{ flex: 1 }}>
-      <SafeAreaView style={{ flex: 1 }}>
-        <PlaceholderScreen
-          title="Play"
-          body="Live/on-demand playback, the sticky transport, and the drawer land in Phase 3."
-        />
-      </SafeAreaView>
-    </ThemedView>
+/**
+ * The Play tab route has no screen content of its own — visiting it expands
+ * the globally-mounted PlayerDrawer (see (tabs)/_layout.tsx) to its full
+ * snap point, since PlayerDrawer's content (PlayScreen) is the drawer's body
+ * regardless of whether it was opened from this tab or from
+ * StickyTransportBar.
+ */
+export default function PlayScreenRoute() {
+  useFocusEffect(
+    useCallback(() => {
+      playerDrawerRef.current?.expand();
+    }, [])
   );
+  return null;
 }
