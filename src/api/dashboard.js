@@ -857,6 +857,23 @@ router.delete('/tokens/:id/assignments/:listener_id', requireDesktop, (req, res)
 // GET /api/dashboard/station
 // Returns the slug → URL registration for this station.
 // Auto-claims from config on first call if STATION_SLUG + STATION_PUBLIC_URL are set.
+// Read-only mirror of System.Pape's mobile-app listing verdict, cached by the
+// telemetry reporter on each successful ingest. Purely informational: the
+// creator has no toggle for this and the station enforces nothing locally —
+// eligibility is computed inside System.Pape because this server is open source
+// and any local gate could be patched. See docs/system-pape-contract.md.
+function readAppListing() {
+  const checkedAt = getSetting('app_listing_checked_at');
+  if (!checkedAt) {
+    return { eligible: false, reason: 'unreported', checkedAt: null };
+  }
+  return {
+    eligible: getBoolSetting('app_listing_eligible', false),
+    reason: getSetting('app_listing_reason', 'unknown'),
+    checkedAt,
+  };
+}
+
 router.get('/station', (req, res) => {
   const db = getDb();
   let row = db.prepare('SELECT * FROM station_registry WHERE id = 1').get();
@@ -897,6 +914,7 @@ router.get('/station', (req, res) => {
       claimedAt: null,
       updatedAt: null,
       searchable: getBoolSetting('station_searchable', false),
+      appListing: readAppListing(),
       requirements: {
         cloudflareTunnel: publicTunnelConfigured,
         publicUrlSet: false,
@@ -915,6 +933,7 @@ router.get('/station', (req, res) => {
     claimedAt: row.claimed_at,
     updatedAt: row.updated_at,
     searchable: getBoolSetting('station_searchable', false),
+    appListing: readAppListing(),
     requirements: {
       cloudflareTunnel: publicTunnelConfigured,
       publicUrlSet: !!(row && row.url),

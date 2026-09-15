@@ -45,6 +45,20 @@ async function getJson(path) {
   checks.push(['directory', directory]);
   if (directory.error || directory.status !== 200 || !Array.isArray(directory.body)) fail('directory response is not compatible');
 
+  // The paid mobile-app directory must exist and must refuse an unidentified
+  // caller. 503 means System.Pape has no app keys configured, which is a valid
+  // deployment state; 200 would mean the app surface is serving the free list
+  // to anyone, which is the failure this whole split exists to prevent.
+  const appDirectory = await getJson('/api/modules/paperweight/app/directory').catch(err => ({ error: err }));
+  checks.push(['app directory (unidentified)', appDirectory]);
+  if (appDirectory.error) {
+    fail(`app directory unreachable (${appDirectory.error.message})`);
+  } else if (appDirectory.status === 404) {
+    fail('app directory endpoint is missing — System.Pape predates app-listing eligibility');
+  } else if (appDirectory.status !== 403 && appDirectory.status !== 503) {
+    fail(`app directory must reject callers without an app key (got ${appDirectory.status})`);
+  }
+
   if (allowWrite) {
     const secret = process.env.PAPE_TELEMETRY_SECRET;
     if (!secret) {

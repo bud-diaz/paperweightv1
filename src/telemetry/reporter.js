@@ -13,6 +13,13 @@
  *   searchable             — per-report opt-in flag for the public directory;
  *                            see docs/system-pape-directory.md
  *
+ * The ingest response carries a read-only `appListing` verdict (whether this
+ * station is listed in the paid mobile app, and if not, why). It is cached in
+ * app_settings purely so the dashboard can show the creator a reason. It is
+ * never an access gate here: eligibility is computed and enforced inside
+ * System.Pape precisely because this server is open source and anything gated
+ * locally could be patched. See docs/system-pape-contract.md.
+ *
  * If neither STATION_KEY nor STATION_SLUG is set, Paperweight creates a stable
  * anonymous install key in DATA_PATH so first-launch telemetry can still be
  * deduplicated in system.pape.
@@ -29,7 +36,7 @@ const { getDb } = require('../db');
 const broadcast = require('../broadcast');
 const { getListenerCount } = require('../api/stream');
 const config = require('../config');
-const { getBoolSetting } = require('../db/settings');
+const { getBoolSetting, setSetting } = require('../db/settings');
 const { getMilestones } = require('../runtime/funnel');
 
 const PAPE_URL = process.env.PAPE_URL;
@@ -145,6 +152,22 @@ async function buildPayload() {
   };
 }
 
+// Mirror System.Pape's app-listing verdict into app_settings for display only.
+// An older System.Pape that doesn't send the field leaves the cache untouched
+// rather than clearing it, so a mid-rollout deploy can't make the dashboard
+// claim the station was de-listed.
+function cacheAppListing(appListing) {
+  if (!appListing || typeof appListing !== 'object') return;
+  try {
+    setSetting('app_listing_eligible', appListing.eligible === true ? '1' : '0');
+    setSetting('app_listing_reason', typeof appListing.reason === 'string' ? appListing.reason : 'unknown');
+    setSetting('app_listing_checked_at', new Date().toISOString());
+  } catch (err) {
+    // Never let a display-only cache write break telemetry reporting.
+    console.warn(`[telemetry] could not cache app listing status: ${err.message}`);
+  }
+}
+
 async function report() {
   try {
     const payload = await buildPayload();
@@ -162,6 +185,9 @@ async function report() {
       console.warn(`[telemetry] Slug conflict: ${body.error ?? 'slug already claimed by another station'}. Clear STATION_SLUG or set a unique STATION_KEY.`);
     } else if (!res.ok) {
       console.warn(`[telemetry] system.pape ingest failed: ${res.status}`);
+    } else {
+      const body = await res.json().catch(() => null);
+      cacheAppListing(body && body.appListing);
     }
   } catch (err) {
     // Network errors are non-fatal — don't crash the station.
@@ -191,6 +217,7 @@ module.exports = {
   getStationKey,
   _private: {
     buildPayload,
+    cacheAppListing,
     getStationKey,
     readInstallKey,
     createInstallKey,
