@@ -1,0 +1,28 @@
+diff --git a/node_modules/expo-splash-screen/android/src/main/java/expo/modules/splashscreen/SplashScreenManager.kt b/node_modules/expo-splash-screen/android/src/main/java/expo/modules/splashscreen/SplashScreenManager.kt
+index 0dcb89e..236fd93 100644
+--- a/node_modules/expo-splash-screen/android/src/main/java/expo/modules/splashscreen/SplashScreenManager.kt
++++ b/node_modules/expo-splash-screen/android/src/main/java/expo/modules/splashscreen/SplashScreenManager.kt
+@@ -17,6 +17,7 @@ object SplashScreenManager {
+   private var keepSplashScreenOnScreen = true
+   var preventAutoHideCalled: Boolean = false
+   private lateinit var splashScreen: SplashScreen
++  private var rootContentView: View? = null
+ 
+   private val contentAppearedListener = ReactMarker.MarkerListener { name, _, _ ->
+     if (name == ReactMarkerConstants.CONTENT_APPEARED) {
+@@ -60,6 +61,7 @@ object SplashScreenManager {
+     // Using `splashScreen.setKeepOnScreenCondition()` does not work on apis below 33
+     // so we need to implement this ourselves.
+     val contentView = mainActivity.findViewById<View>(android.R.id.content)
++    rootContentView = contentView
+     val observer = contentView.viewTreeObserver
+     observer.addOnPreDrawListener(object : OnPreDrawListener {
+       override fun onPreDraw(): Boolean {
+@@ -99,6 +101,7 @@ object SplashScreenManager {
+ 
+   fun hide() {
+     keepSplashScreenOnScreen = false
++    rootContentView?.postInvalidateOnAnimation()
+   }
+ 
+   fun setSplashScreenOptions(options: SplashScreenOptions) {

@@ -3,7 +3,7 @@ import { Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { BottomTabBarBaseHeight, MiniPlayerGap, MiniPlayerHeight, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePlayerEngine } from '@/player/PlayerEngineContext';
 import { useStash } from '@/stash/StashContext';
@@ -46,8 +46,10 @@ export function Toast() {
 
   if (!message) return null;
 
+  const bottomOffset = BottomTabBarBaseHeight + insets.bottom + MiniPlayerGap + MiniPlayerHeight + Spacing.two;
+
   return (
-    <View pointerEvents="box-none" style={[styles.container, { bottom: BottomTabInset + Spacing.six + insets.bottom }]}>
+    <View pointerEvents="box-none" style={[styles.container, { bottom: bottomOffset }]}>
       <Animated.View style={[styles.toast, { backgroundColor: colors.text, opacity, transform: [{ translateY }] }]}>
         <Pressable onPress={dismiss}>
           <ThemedText type="small" themeColor="background" numberOfLines={2} style={styles.text}>

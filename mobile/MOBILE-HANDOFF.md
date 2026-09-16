@@ -14,7 +14,7 @@ This file tracks *status only*. For *what* and *why*, see:
 | 0 | Backend: bearer-token support for paired devices | ✅ Done |
 | 1 | `mobile/` workspace scaffold + tab shell + CI | ✅ Done |
 | 2 | Discover tab: System.Pape + current-station + listener login | ✅ Done |
-| 3 | Play tab: playback engine + sticky transport + drawer | ✅ Done — hardware-verified 2026-08-30, one real gap open (see log) |
+| 3 | Play tab: playback engine + sticky transport + drawer | ✅ Done — hardware-verified 2026-08-30, background-audio root cause fixed (see log) |
 | 4 | Stack tab: catalog + cross-station Stash | ✅ Done — hardware-verified 2026-08-30, fully passing (see log) |
 | 5 | Studio pairing (QR scan) + curated essentials | ✅ Done — hardware-verified 2026-08-30, fully passing (see log) |
 | 6 | Studio media upload | ✅ Done — hardware-verified 2026-08-30, blocked by a device-level (not app) bug (see log) |
@@ -669,18 +669,76 @@ the audio player from the shared `play()` transport control, and set the
 video player's two background-playback properties once at creation.
 Re-verified: a real `MediaStyle` notification with correct title/artist now
 appears (`dumpsys notification`) and the media session carries real metadata
-(previously `metadata: null`). **Still not fixed / open**: even with the
-notification/session now correct, the underlying playback still stops
-(`dumpsys media_session` shows the session transitioning to `state=1`/STOPPED
-within 15-40s of lock) — this remains **the single biggest open risk item**
-for this phase. Not root-caused further this pass (checked: not battery-
-optimization-whitelisted, standby bucket is ACTIVE not restricted, manifest
-correctly declares both `AudioControlsService`/`ExpoVideoPlaybackService` as
-`foregroundServiceType="mediaPlayback"`) — candidates for next pass:
-Samsung-specific network/Wi-Fi Doze suspending the backgrounded HLS
-connection, or a deeper `expo-audio` native issue. Also noted (not fixed,
-cosmetic): the transport UI's "playing" state doesn't desync-detect when
-native playback silently stops — it keeps showing a pause icon.
+(previously `metadata: null`).
+
+**Root-caused and fixed in a follow-up pass, same day: the actual
+background-playback death.** Even with the notification/session fix above,
+playback still silently stopped 15-40s after lock, with no error, no
+exception, and — critically — the audio hardware genuinely stopped
+(`dumpsys audio`'s `AudioPlaybackConfiguration` showed `state:stopped` for
+our `AudioTrack`, the real ground truth, not just a session-state cosmetic
+issue). Ruled out first: Samsung's per-app "Optimize battery usage" toggle
+(confirmed via Settings → App info → Battery, and `dumpsys deviceidle
+whitelist`) and the device's WiFi sleep policy (`wifi_sleep_policy=2` =
+`NEVER`, already correct). **Actual root cause**, found by reading
+`expo-audio`'s and `expo-video`'s native Kotlin source directly: neither
+library ever calls `ExoPlayer.setWakeMode()`, so ExoPlayer defaults to
+`WAKE_MODE_NONE` — no `PARTIAL_WAKE_LOCK`, no WiFi lock. Confirmed via
+`dumpsys power`'s Wake Locks history: `com.paperweight.mobile` never once
+acquired a wake lock across the entire session. Without one, Android is free
+to suspend the CPU shortly after screen-off regardless of the foreground
+service's notification being valid — the service and its notification
+survive fine (confirmed via `dumpsys activity services`, `isForeground=true`
+throughout), but nothing stops the system from halting the process that
+feeds the audio buffer.
+
+**Fix**: patched both libraries via `patch-package` (added as a new
+devDependency, `patches/expo-audio+57.0.4.patch` and
+`patches/expo-video+57.0.3.patch`, applied automatically via a new
+`postinstall` script) to call `.setWakeMode(C.WAKE_MODE_NETWORK)` on the
+`ExoPlayer` instance right after building it — the standard, documented Media3
+fix for exactly this scenario. Also added `android.permission.WAKE_LOCK` to
+`app.json`'s `android.permissions` (required for `PowerManager` wake locks;
+neither library declared it either) and re-ran `expo prebuild` to bake it
+into the manifest. **Verified emphatically on real hardware**: `dumpsys
+power` now shows a real `PARTIAL_WAKE_LOCK 'ExoPlayer:WakeLockManager'`
+held by `com.paperweight.mobile` immediately on lock, and — the actual
+ground-truth check — `AudioPlaybackConfiguration` for our `AudioTrack`
+stayed `state:started` through a full 60+ second locked-screen window,
+versus dying by ~30s in every pre-fix test.
+
+**Second bug this fix surfaced** (only reachable once background execution
+genuinely continued long enough to hit it): after roughly a minute of
+sustained background playback, `ExoPlayerImplInternal` started throwing a
+real `ExoPlaybackException: Source error`, caused by
+`FileDataSource$FileDataSourceException: ... EACCES` trying to open `"/"` —
+proof the player was handed an **empty URI string**, not a real network
+failure. Traced to `activePlaybackFor()` in `PlayerEngine.ts`: its
+`stationClient?.hlsUrl(kind) ?? ''` fallback returns `''` whenever
+`stationClient` is transiently `null`, and `attachLive()` had no guard
+before calling `.replace({ uri: activePlayback.url, ... })` — feeding
+ExoPlayer an empty URI, which it interpreted as a local file path. Fixed
+with a guard (`if (!activePlayback.url) return;`) in `attachLive()` so a
+momentarily-null `stationClient` is a harmless skip instead of a crash; the
+next status poll or scheduled retry supplies a real URL. **Not fully
+root-caused**: why `stationClient`/`baseUrl` goes transiently null during
+extended background operation isn't understood yet — flagged for a future
+pass, but no longer crashes.
+
+**Final verification**: a clean 3-minute locked-screen test with both fixes
+in place showed **zero** `ExoPlaybackException`s (down from repeated
+occurrences every retry cycle pre-fix) and multiple successful play/stop/
+restart cycles over the full window — a dramatic improvement over the
+original bug's permanent, silent death within 15-40s. **Remaining, lower-
+severity open item**: playback still isn't *perfectly* continuous — it goes
+through natural stop/restart cycles a few times per minute during extended
+background play, sometimes with a multi-minute gap between cycles. Not yet
+root-caused; the leading theory is that it's specific to this QA backend's
+sparse 2-track (8-12s each) shuffle rotation rather than a general app bug,
+but that's unconfirmed. Worth a longer real-content test in a follow-up
+pass. Also still open (cosmetic): the transport UI's "playing" state doesn't
+desync-detect when native playback naturally stops between cycles — it can
+briefly show a pause icon while actually silent.
 
 **Phase 4 (Stack tab) — one real bug fixed, one real bug found and left
 open.** Catalog browsing and on-demand playback (tap a row to play) both
@@ -794,20 +852,38 @@ link was clicked), `free` tier, no active subscription, tipping identity
 from the display name, marketing opt-in state, and password-set status.
 
 **Files changed this pass:** `src/app/_layout.tsx` (splash cleanup),
-`src/player/PlayerEngine.ts` (lock-screen/background-playback activation),
-`src/screens/DiscoverScreen.tsx` + `src/screens/ListenerLoginScreen.tsx`
-(manual-override login-gate fix). `src/screens/studio/StudioPairScreen.tsx`
-and `.env.local` were temporarily modified for the pairing dev-bypass and
-fully reverted/removed afterward — no trace left in the tree.
+`src/player/PlayerEngine.ts` (lock-screen/background-playback activation,
+later also the empty-URL crash guard), `src/screens/DiscoverScreen.tsx` +
+`src/screens/ListenerLoginScreen.tsx` (manual-override login-gate fix),
+`src/screens/StackScreen.tsx` + `src/stash/StashContext.tsx` (Stash
+touch-routing + manual-override fixes), `src/components/Toast.tsx` (new —
+global toast UI). `src/screens/studio/StudioPairScreen.tsx` and `.env.local`
+were temporarily modified for the pairing dev-bypass and fully reverted/
+removed afterward — no trace left in the tree.
+
+**Follow-up pass (background-audio root cause):** `app.json` (added
+`android.permission.WAKE_LOCK`), `package.json` (added `patch-package` +
+`postinstall` script), `patches/expo-audio+57.0.4.patch` and
+`patches/expo-video+57.0.3.patch` (new — both call `setWakeMode
+(C.WAKE_MODE_NETWORK)` on their respective `ExoPlayer` instances), and
+`src/player/PlayerEngine.ts` (the empty-URL guard in `attachLive()`). The
+two `.kt` patches only take effect after `expo prebuild` + a native rebuild
+(a pure JS/Metro reload is not enough) — anyone picking this up should run
+`npx expo prebuild --platform android` once after `npm install` if the
+`android/` folder predates this change.
 
 **Carried-forward open items for Phase 8 or a follow-up pass:** (1)
-background/lock-screen audio still doesn't survive past screen lock despite
-the `setActiveForLockScreen` fix — needs deeper native-level investigation,
-flagged as the top risk item; (2) Phase 6 upload is blocked on this specific
-physical device by a system file-picker bug unrelated to the app — needs a
-different/reset test device to fully verify, not an app-code fix. The Stash
-save/remove bookmark bug and the missing toast/snackbar UI are both now
-fixed and fully verified — no longer open items.
+background playback during extended (multi-minute) locked-screen sessions
+still cycles through occasional natural stop/restart gaps rather than being
+perfectly continuous — much lower severity than the original bug (no crash,
+no permanent silence, real audio confirmed playing across a full 3-minute
+test), not yet root-caused, needs a longer real-content test to confirm
+whether it's specific to this QA backend's sparse test catalog; (2) Phase 6
+upload is blocked on this specific physical device by a system file-picker
+bug unrelated to the app — needs a different/reset test device to fully
+verify, not an app-code fix. The Stash save/remove bookmark bug, the missing
+toast/snackbar UI, and the background-audio wake-lock root cause are all now
+fixed and verified — no longer open items.
 
 ### Phase 8 — Polish, store-readiness
 **Status: Not started**

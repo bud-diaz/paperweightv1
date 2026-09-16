@@ -69,5 +69,14 @@ export const Spacing = {
   six: 64,
 } as const;
 
+export const BottomTabBarBaseHeight = Platform.select({ ios: 64, android: 72, default: 64 }) ?? 64;
+export const MiniPlayerHeight = 62;
+export const MiniPlayerGap = Spacing.two;
+
+/**
+ * Legacy fallback for older callers. Prefer BottomTabBarBaseHeight + safe-area
+ * insets for bottom-overlay code so touch targets never overlap the tab bar on
+ * Galaxy A12-sized screens.
+ */
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;

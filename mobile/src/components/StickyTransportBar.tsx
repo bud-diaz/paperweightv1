@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { BottomTabBarBaseHeight, MiniPlayerGap, MiniPlayerHeight, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePlayerEngine } from '@/player/PlayerEngineContext';
 import { canStash, isPlayableTrack, type LibraryItem } from '@/player/types';
-import { playerDrawerRef } from '@/components/PlayerDrawer';
+import { openPlayerDrawer } from '@/components/PlayerDrawer';
 import { canonicalizeBaseUrl } from '@/stash/stashStore';
 import { useStash } from '@/stash/StashContext';
 import { useStationClient, useStationStore } from '@/state/stationStore';
@@ -21,6 +22,7 @@ import { useStationClient, useStationStore } from '@/state/stationStore';
  */
 export function StickyTransportBar() {
   const colors = useTheme();
+  const insets = useSafeAreaInsets();
   const engine = usePlayerEngine();
   const stash = useStash();
   const stationClient = useStationClient();
@@ -55,11 +57,17 @@ export function StickyTransportBar() {
 
   const title = activeTrack?.title || engine.nowPlaying?.title || engine.stationName;
   const subtitle = activeTrack ? activeTrack.artist : engine.nowPlaying?.artist || 'Live';
+  const bottomOffset = BottomTabBarBaseHeight + insets.bottom + MiniPlayerGap;
 
   return (
     <Pressable
-      onPress={() => playerDrawerRef.current?.expand()}
-      style={[styles.bar, { backgroundColor: colors.backgroundElement, borderColor: colors.border, bottom: BottomTabInset }]}>
+      accessibilityLabel="Open player"
+      accessibilityRole="button"
+      onPress={openPlayerDrawer}
+      style={[
+        styles.bar,
+        { backgroundColor: colors.backgroundElement, borderColor: colors.border, bottom: bottomOffset, minHeight: MiniPlayerHeight },
+      ]}>
       <View style={[styles.swatch, { backgroundColor: colors.accentSoft }]}>
         <Ionicons name="radio" size={16} color={colors.accent} />
       </View>

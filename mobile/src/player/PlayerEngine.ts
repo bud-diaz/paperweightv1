@@ -205,6 +205,13 @@ export function usePlayerEngineState(options: PlayerEngineOptions) {
 
   const attachLive = useCallback(() => {
     if (track) return; // on-demand/preview is showing — don't clobber it
+    // activePlayback.url is '' when stationClient is momentarily null (see
+    // activePlaybackFor's `?? ''` fallback) — feeding that to .replace() makes
+    // ExoPlayer treat it as a local file path and crash with a real
+    // ExoPlaybackException (FileDataSource EACCES opening "/"), confirmed on
+    // real hardware during extended background playback. Skip and let the
+    // next status poll or retry attempt supply a real URL instead.
+    if (!activePlayback.url) return;
     const headers = stationClient?.authHeader();
     if (activePlayback.kind === 'video') {
       videoPlayerRef.current?.replace({ uri: activePlayback.url, headers });

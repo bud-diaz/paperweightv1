@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "patch-package": "^8.0.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -43,6 +44,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "build": "expo export --platform web"
+    "build": "expo export --platform web",
+    "postinstall": "patch-package"
   }
 }

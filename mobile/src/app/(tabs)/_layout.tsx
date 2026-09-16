@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { PlayerDrawer } from '@/components/PlayerDrawer';
 import { StickyTransportBar } from '@/components/StickyTransportBar';
+import { BottomTabBarBaseHeight } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function TabsLayout() {
@@ -16,7 +17,23 @@ export default function TabsLayout() {
           headerShown: false,
           tabBarActiveTintColor: colors.text,
           tabBarInactiveTintColor: colors.textSecondary,
-          tabBarStyle: { backgroundColor: colors.background },
+          tabBarStyle: {
+            backgroundColor: colors.background,
+            borderTopColor: colors.border,
+            height: BottomTabBarBaseHeight,
+            paddingTop: 6,
+            paddingBottom: 8,
+          },
+          tabBarItemStyle: {
+            paddingVertical: 2,
+          },
+          tabBarButton: ({ ref: _ref, style, ...props }) => (
+            <Pressable
+              {...props}
+              hitSlop={{ top: 24, bottom: 8, left: 0, right: 0 }}
+              style={({ pressed }) => [style, pressed && { opacity: 0.72 }]}
+            />
+          ),
         }}>
         <Tabs.Screen
           name="index"
@@ -62,8 +79,10 @@ export default function TabsLayout() {
         player persists and the drawer's playback state is never lost when
         moving between tabs.
       */}
-      <StickyTransportBar />
-      <PlayerDrawer />
+      <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+        <StickyTransportBar />
+        <PlayerDrawer />
+      </View>
     </View>
   );
 }

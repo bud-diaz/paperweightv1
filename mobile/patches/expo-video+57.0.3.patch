@@ -1,0 +1,15 @@
+diff --git a/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayer.kt b/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayer.kt
+index 8bae522..86f62bb 100644
+--- a/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayer.kt
++++ b/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayer.kt
+@@ -85,6 +85,10 @@ class VideoPlayer(val context: Context, appContext: AppContext, source: VideoSou
+         setSeekForwardIncrementMs((it).toLong(DurationUnit.MILLISECONDS).coerceIn(1, 999_000))
+       }
+     }.build()
++    // patch-package: without this, ExoPlayer defaults to WAKE_MODE_NONE and holds no
++    // CPU/WiFi lock, so background playback silently stops shortly after the screen
++    // locks and the device suspends (confirmed via real-device AudioTrack/wakelock dumps).
++    .apply { setWakeMode(androidx.media3.common.C.WAKE_MODE_NETWORK) }
+ 
+   internal val firstFrameEventGenerator: FirstFrameEventGenerator
+   val serviceConnection = PlaybackServiceConnection(WeakReference(this), appContext)
