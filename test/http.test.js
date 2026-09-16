@@ -324,6 +324,24 @@ test('dashboard station read includes searchability and requirements', async () 
         cloudflareTunnel: true,
         publicUrlSet: true,
       });
+
+      // App-directory listing is reported separately from web searchability and
+      // is read-only here — System.Pape decides it, the station only displays
+      // it. Nothing has reported yet in this fixture.
+      assert.deepEqual(station.body.appListing, {
+        eligible: false,
+        reason: 'unreported',
+        checkedAt: null,
+      });
+
+      setSetting('app_listing_eligible', '1');
+      setSetting('app_listing_reason', 'ok');
+      setSetting('app_listing_checked_at', '2026-09-15T12:00:00.000Z');
+      const listed = await request(baseUrl, '/api/dashboard/station', auth);
+      assert.equal(listed.body.appListing.eligible, true);
+      assert.equal(listed.body.appListing.reason, 'ok');
+      // Web searchability is untouched by any of it.
+      assert.equal(listed.body.searchable, true);
     });
   } finally {
     config.station.cloudflareTunnel = originalTunnel;

@@ -61,6 +61,13 @@ Decisions pinned:
 - **EAS Build with EAS-managed credentials** for code-signing — not
   initialized yet (`eas init` needs an authenticated Expo account, out of
   scope for a scaffold-only phase); pinned so Phase 8 doesn't have to choose.
+  **Update:** `mobile/eas.json` now exists with development/preview/production
+  profiles. `appVersionSource` is `local` on purpose — `app.json`'s `version`
+  is what `Constants.expoConfig?.version` reports in the
+  `x-pape-app-version` header that System.Pape's app directory checks against
+  its minimum-version floor, so the version stays authoritative in the repo
+  rather than drifting to a remote counter. `eas init`/credentials still need
+  an authenticated Expo account.
 
 What was built:
 - `mobile/` scaffolded via `npx create-expo-app@latest` (SDK 57, TypeScript +
@@ -111,6 +118,29 @@ What was built:
   runs `npm --prefix mobile install && npm --prefix mobile run typecheck`.
   Kept separate from `pr-check.yml`'s backend-only `release:check` gate, per
   plan.
+
+Build-time configuration:
+- `EXPO_PUBLIC_PAPE_APP_KEY` — the app's client identifier for System.Pape's
+  `/app/directory` and `/app/stations` endpoints (see
+  `docs/system-pape-contract.md`). It must match one entry in System.Pape's
+  `PAPERWEIGHT_APP_KEYS` allowlist.
+
+  Set it as an EAS environment variable rather than committing it:
+
+  ```sh
+  eas env:create --name EXPO_PUBLIC_PAPE_APP_KEY --value <key> \
+    --environment production --visibility sensitive
+  ```
+
+  For local `expo start`, put it in `mobile/.env.local` (gitignored).
+
+  It is not a secret in the cryptographic sense — `EXPO_PUBLIC_*` values are
+  inlined into the JS bundle and are extractable from any shipped build, which
+  is why nothing security-critical hangs on it. It is kept out of the repo
+  anyway: this repo is being open-sourced, and a key that is merely
+  *extractable* is a meaningfully higher bar than one that is *published*.
+  Rotating it is cheap — add the new value to System.Pape's allowlist, ship a
+  build, then drop the old one.
 
 Verification done:
 - `npx tsc --noEmit` — clean.
@@ -204,6 +234,29 @@ What was built:
   `expo-linear-gradient` — the mockups' gradient accents are approximated
   with solid `accent`/`accentSoft` tokens instead, to avoid introducing an
   unverified native dependency (see verification note below).
+
+Build-time configuration:
+- `EXPO_PUBLIC_PAPE_APP_KEY` — the app's client identifier for System.Pape's
+  `/app/directory` and `/app/stations` endpoints (see
+  `docs/system-pape-contract.md`). It must match one entry in System.Pape's
+  `PAPERWEIGHT_APP_KEYS` allowlist.
+
+  Set it as an EAS environment variable rather than committing it:
+
+  ```sh
+  eas env:create --name EXPO_PUBLIC_PAPE_APP_KEY --value <key> \
+    --environment production --visibility sensitive
+  ```
+
+  For local `expo start`, put it in `mobile/.env.local` (gitignored).
+
+  It is not a secret in the cryptographic sense — `EXPO_PUBLIC_*` values are
+  inlined into the JS bundle and are extractable from any shipped build, which
+  is why nothing security-critical hangs on it. It is kept out of the repo
+  anyway: this repo is being open-sourced, and a key that is merely
+  *extractable* is a meaningfully higher bar than one that is *published*.
+  Rotating it is cheap — add the new value to System.Pape's allowlist, ship a
+  build, then drop the old one.
 
 Verification done:
 - `npx tsc --noEmit` — clean.
@@ -346,6 +399,29 @@ What was built:
 - `app.json` — `expo-audio`/`expo-video` plugin entries (see decisions
   above).
 
+Build-time configuration:
+- `EXPO_PUBLIC_PAPE_APP_KEY` — the app's client identifier for System.Pape's
+  `/app/directory` and `/app/stations` endpoints (see
+  `docs/system-pape-contract.md`). It must match one entry in System.Pape's
+  `PAPERWEIGHT_APP_KEYS` allowlist.
+
+  Set it as an EAS environment variable rather than committing it:
+
+  ```sh
+  eas env:create --name EXPO_PUBLIC_PAPE_APP_KEY --value <key> \
+    --environment production --visibility sensitive
+  ```
+
+  For local `expo start`, put it in `mobile/.env.local` (gitignored).
+
+  It is not a secret in the cryptographic sense — `EXPO_PUBLIC_*` values are
+  inlined into the JS bundle and are extractable from any shipped build, which
+  is why nothing security-critical hangs on it. It is kept out of the repo
+  anyway: this repo is being open-sourced, and a key that is merely
+  *extractable* is a meaningfully higher bar than one that is *published*.
+  Rotating it is cheap — add the new value to System.Pape's allowlist, ship a
+  build, then drop the old one.
+
 Verification done:
 - `npx tsc --noEmit` — clean for every new/changed file (four pre-existing
   errors remain, all in `mobile/new_play/*.tsx` — deleted at the end of this
@@ -427,6 +503,29 @@ What was built:
   — full collection tracklist, credits/genre chips, runtime.
 - `mobile/src/app/(tabs)/stack.tsx` — swapped off `PlaceholderScreen` onto
   `StackScreen`, same pattern as `index.tsx` → `DiscoverScreen`.
+
+Build-time configuration:
+- `EXPO_PUBLIC_PAPE_APP_KEY` — the app's client identifier for System.Pape's
+  `/app/directory` and `/app/stations` endpoints (see
+  `docs/system-pape-contract.md`). It must match one entry in System.Pape's
+  `PAPERWEIGHT_APP_KEYS` allowlist.
+
+  Set it as an EAS environment variable rather than committing it:
+
+  ```sh
+  eas env:create --name EXPO_PUBLIC_PAPE_APP_KEY --value <key> \
+    --environment production --visibility sensitive
+  ```
+
+  For local `expo start`, put it in `mobile/.env.local` (gitignored).
+
+  It is not a secret in the cryptographic sense — `EXPO_PUBLIC_*` values are
+  inlined into the JS bundle and are extractable from any shipped build, which
+  is why nothing security-critical hangs on it. It is kept out of the repo
+  anyway: this repo is being open-sourced, and a key that is merely
+  *extractable* is a meaningfully higher bar than one that is *published*.
+  Rotating it is cheap — add the new value to System.Pape's allowlist, ship a
+  build, then drop the old one.
 
 Verification done:
 - `npx tsc --noEmit` — clean (same four pre-existing/unrelated errors as
@@ -573,6 +672,29 @@ What was built:
   carries the `NSCameraUsageDescription` copy (final review-facing wording
   still belongs to Phase 8).
 
+Build-time configuration:
+- `EXPO_PUBLIC_PAPE_APP_KEY` — the app's client identifier for System.Pape's
+  `/app/directory` and `/app/stations` endpoints (see
+  `docs/system-pape-contract.md`). It must match one entry in System.Pape's
+  `PAPERWEIGHT_APP_KEYS` allowlist.
+
+  Set it as an EAS environment variable rather than committing it:
+
+  ```sh
+  eas env:create --name EXPO_PUBLIC_PAPE_APP_KEY --value <key> \
+    --environment production --visibility sensitive
+  ```
+
+  For local `expo start`, put it in `mobile/.env.local` (gitignored).
+
+  It is not a secret in the cryptographic sense — `EXPO_PUBLIC_*` values are
+  inlined into the JS bundle and are extractable from any shipped build, which
+  is why nothing security-critical hangs on it. It is kept out of the repo
+  anyway: this repo is being open-sourced, and a key that is merely
+  *extractable* is a meaningfully higher bar than one that is *published*.
+  Rotating it is cheap — add the new value to System.Pape's allowlist, ship a
+  build, then drop the old one.
+
 Verification done:
 - Backend: `npm test` — 216/216 passing (215 prior + the new
   `test/notify-log.test.js`, 3 tests). `npm run check:migrations` — 39
@@ -611,6 +733,29 @@ What was built:
 - `mobile/src/screens/studio/UploadScreen.tsx` — paired-Studio upload UI: native file picker via `File.pickFileAsync({ mimeTypes: ['audio/*', 'video/*'] })`, category/visibility chips, metadata fields, progress bar, backend error surfacing, and explicit v1 copy warning creators to keep the app foregrounded because uploads are not resumable after JS runtime termination.
 - `mobile/src/app/studio/upload.tsx`, `mobile/src/app/_layout.tsx`, and `mobile/src/screens/studio/StudioHome.tsx` route the new Upload Media screen from the paired Studio menu.
 
+Build-time configuration:
+- `EXPO_PUBLIC_PAPE_APP_KEY` — the app's client identifier for System.Pape's
+  `/app/directory` and `/app/stations` endpoints (see
+  `docs/system-pape-contract.md`). It must match one entry in System.Pape's
+  `PAPERWEIGHT_APP_KEYS` allowlist.
+
+  Set it as an EAS environment variable rather than committing it:
+
+  ```sh
+  eas env:create --name EXPO_PUBLIC_PAPE_APP_KEY --value <key> \
+    --environment production --visibility sensitive
+  ```
+
+  For local `expo start`, put it in `mobile/.env.local` (gitignored).
+
+  It is not a secret in the cryptographic sense — `EXPO_PUBLIC_*` values are
+  inlined into the JS bundle and are extractable from any shipped build, which
+  is why nothing security-critical hangs on it. It is kept out of the repo
+  anyway: this repo is being open-sourced, and a key that is merely
+  *extractable* is a meaningfully higher bar than one that is *published*.
+  Rotating it is cheap — add the new value to System.Pape's allowlist, ship a
+  build, then drop the old one.
+
 Verification done:
 - `npm --prefix mobile run typecheck` — clean.
 - `npm --prefix mobile run build` — Expo web export completed; route list now includes `/studio/upload`.
@@ -626,6 +771,29 @@ What was built:
 - `mobile/src/screens/modals/AccountSettingsModal.tsx` + `mobile/src/app/account-settings.tsx` — listener account settings modal backed by `GET /api/listener/me`, showing email verification state, supporter tier, subscription/provider, tipping identity, marketing opt-in, password status, and listener sign-out for the selected/effective station.
 - `mobile/src/api/stationClient.ts` expanded the `me()` response type to match the actual backend `src/api/listener.js` payload fields used by account settings.
 - `mobile/src/screens/DiscoverScreen.tsx` now exposes App Settings and Account Settings from the Discover header.
+
+Build-time configuration:
+- `EXPO_PUBLIC_PAPE_APP_KEY` — the app's client identifier for System.Pape's
+  `/app/directory` and `/app/stations` endpoints (see
+  `docs/system-pape-contract.md`). It must match one entry in System.Pape's
+  `PAPERWEIGHT_APP_KEYS` allowlist.
+
+  Set it as an EAS environment variable rather than committing it:
+
+  ```sh
+  eas env:create --name EXPO_PUBLIC_PAPE_APP_KEY --value <key> \
+    --environment production --visibility sensitive
+  ```
+
+  For local `expo start`, put it in `mobile/.env.local` (gitignored).
+
+  It is not a secret in the cryptographic sense — `EXPO_PUBLIC_*` values are
+  inlined into the JS bundle and are extractable from any shipped build, which
+  is why nothing security-critical hangs on it. It is kept out of the repo
+  anyway: this repo is being open-sourced, and a key that is merely
+  *extractable* is a meaningfully higher bar than one that is *published*.
+  Rotating it is cheap — add the new value to System.Pape's allowlist, ship a
+  build, then drop the old one.
 
 Verification done:
 - `npm --prefix mobile run typecheck` — clean.

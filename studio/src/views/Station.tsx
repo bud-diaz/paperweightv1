@@ -15,10 +15,36 @@ type StationData = {
   cloudflareApiConfigured?: boolean;
   cloudflareTunnelManaged?: boolean;
   requirements?: { cloudflareTunnel?: boolean; publicUrlSet?: boolean };
+  appListing?: { eligible?: boolean; reason?: string; checkedAt?: string | null };
 };
 type Health = { reachable?: boolean; latencyMs?: number; error?: string };
 type Zone = { id: string; name: string };
 type SetupProgress = { milestones?: Record<string, boolean>; signupDismissed?: boolean };
+
+// Read-only mirror of System.Pape's verdict on this station's mobile-app
+// listing. There is deliberately no toggle: eligibility is decided upstream, in
+// the closed control plane, because anything gated in this open-source server
+// could be patched by whoever runs it. The creator sees the reason so they know
+// what (if anything) is theirs to fix.
+const APP_LISTING_COPY: Record<string, string> = {
+  ok: 'Listed in the Paperweight app.',
+  not_searchable: 'Turn on station search above to appear in the app.',
+  no_public_url: 'Register a public URL to appear in the app.',
+  no_slug: 'Claim a station slug to appear in the app.',
+  no_subscription: 'Requires an app-listing subscription.',
+  past_due: 'Payment past due — update billing to stay listed.',
+  canceled: 'App-listing subscription canceled.',
+  stale: 'No recent telemetry reached PaperweightHQ.',
+  suspended: 'Removed from the app. Contact support.',
+  unreported: 'Not reported yet — needs telemetry configured.',
+  unknown: 'Status unavailable.',
+};
+
+function appListingText(data?: StationData): string {
+  const listing = data?.appListing;
+  if (!listing) return APP_LISTING_COPY.unreported;
+  return APP_LISTING_COPY[listing.reason || 'unknown'] || APP_LISTING_COPY.unknown;
+}
 
 const SETUP_STEPS = [
   ['install_completed', 'Installed and running'],
@@ -154,6 +180,11 @@ export function Station({ onNotify }: { onNotify: (message: string) => void }) {
           <div className="flex items-center gap-3 mb-4"><Search size={18} className="text-primary" /><h2 className="font-display text-xl font-semibold">Station search</h2></div>
           <p className="text-xs text-muted-foreground">{missing.length ? `Requires ${missing.join(' and ')}.` : 'Reachability is verified when you switch this on.'}</p>
           <button type="button" role="switch" aria-checked={!!data?.searchable} data-testid="toggle-station-searchable" onClick={() => searchable.mutate(!data?.searchable)} disabled={!!missing.length || searchable.isPending} className={`mt-4 h-8 w-14 rounded-full p-1 transition-colors disabled:opacity-50 ${data?.searchable ? 'bg-primary' : 'bg-white/15'}`}><span className={`block h-6 w-6 rounded-full bg-[#171a28] transition-transform ${data?.searchable ? 'translate-x-6' : ''}`} /></button>
+          <div className="panel-subtle rounded-xl p-4 mt-5" data-testid="status-app-listing">
+            <p className="text-xs text-muted-foreground">Mobile app directory</p>
+            <p className={data?.appListing?.eligible ? 'text-primary mt-2 text-sm' : 'mt-2 text-sm'}>{data?.appListing?.eligible ? 'Listed' : 'Not listed'}</p>
+            <p className="text-xs text-muted-foreground mt-1">{appListingText(data)}</p>
+          </div>
         </section>
         <section className="panel rounded-2xl p-5 sm:p-6">
           <div className="flex items-center gap-3 mb-4"><ShieldCheck size={18} className="text-primary" /><h2 className="font-display text-xl font-semibold">Telemetry secret</h2></div>

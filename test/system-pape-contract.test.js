@@ -71,6 +71,60 @@ test('telemetry payload reads searchability on every build', async () => {
   assert.equal((await _private.buildPayload()).searchable, false);
 });
 
+// The station must never be able to assert its own app-directory eligibility:
+// this repo is open source, so a payload field for it would be trivially
+// patchable. Eligibility is computed inside System.Pape and only ever travels
+// back to the station in the ingest *response*.
+test('telemetry payload cannot assert app-listing eligibility', async () => {
+  freshDb();
+  const { _private } = require('../src/telemetry/reporter');
+  const payload = await _private.buildPayload();
+
+  for (const key of Object.keys(payload)) {
+    assert.ok(
+      !/^app(Listing|Subscription|Moderation|Eligible)/.test(key),
+      `telemetry payload must not carry app-listing field "${key}"`
+    );
+  }
+
+  const reporterSource = fs.readFileSync(require.resolve('../src/telemetry/reporter'), 'utf8');
+  const payloadBody = reporterSource.slice(
+    reporterSource.indexOf('async function buildPayload'),
+    reporterSource.indexOf('function cacheAppListing')
+  );
+  assert.ok(
+    !/app_listing_eligible/.test(payloadBody),
+    'the cached listing status is for display only and must not be reported upstream'
+  );
+});
+
+test('ingest response app-listing status is cached for display', () => {
+  freshDb();
+  const { getSetting, getBoolSetting } = require('../src/db/settings');
+  const { _private } = require('../src/telemetry/reporter');
+
+  _private.cacheAppListing({ eligible: true, reason: 'ok', periodEnd: null });
+  assert.equal(getBoolSetting('app_listing_eligible', false), true);
+  assert.equal(getSetting('app_listing_reason'), 'ok');
+  assert.ok(getSetting('app_listing_checked_at'));
+
+  _private.cacheAppListing({ eligible: false, reason: 'not_searchable', periodEnd: null });
+  assert.equal(getBoolSetting('app_listing_eligible', true), false);
+  assert.equal(getSetting('app_listing_reason'), 'not_searchable');
+
+  // An older System.Pape that omits the field must leave the cache alone rather
+  // than clearing it — otherwise a mid-rollout deploy would make the dashboard
+  // claim the station had been de-listed.
+  for (const absent of [undefined, null, 'nope', 42]) {
+    _private.cacheAppListing(absent);
+    assert.equal(getSetting('app_listing_reason'), 'not_searchable');
+  }
+
+  // A malformed reason degrades to 'unknown' rather than writing junk.
+  _private.cacheAppListing({ eligible: false });
+  assert.equal(getSetting('app_listing_reason'), 'unknown');
+});
+
 test('stationKey precedence is STATION_KEY, then slug, then install key', () => {
   freshDb();
   const reporterPath = require.resolve('../src/telemetry/reporter');
