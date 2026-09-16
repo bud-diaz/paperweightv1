@@ -732,6 +732,36 @@ export const dashboard = {
     },
 
     /**
+     * POST /api/dashboard/station/app-listing/checkout
+     * Starts a Stripe checkout for the paid mobile-app directory listing.
+     * Returns a hosted Stripe URL for the caller to open — the station never
+     * handles card data, and never decides entitlement.
+     * @returns {{ res: Response, data: { url?: string, error?: string } }}
+     */
+    appListingCheckout() {
+      return _send('/api/dashboard/station/app-listing/checkout', {}, 'POST');
+    },
+
+    /**
+     * POST /api/dashboard/station/app-listing/claim
+     * Redeems a claim code from a purchase made on paperweighthq.com.
+     * @param {string} code
+     * @returns {{ res: Response, data: { appListing?: object, error?: string } }}
+     */
+    appListingClaim(code) {
+      return _send('/api/dashboard/station/app-listing/claim', { code }, 'POST');
+    },
+
+    /**
+     * POST /api/dashboard/station/app-listing/portal
+     * Opens the Stripe billing portal so the creator can update or cancel.
+     * @returns {{ res: Response, data: { url?: string, error?: string } }}
+     */
+    appListingPortal() {
+      return _send('/api/dashboard/station/app-listing/portal', {}, 'POST');
+    },
+
+    /**
      * PUT /api/dashboard/station/cloudflare/token — save + verify a Cloudflare API token.
      * @param {string} apiToken
      * @returns {{ res: Response, data: { error?: string } }}

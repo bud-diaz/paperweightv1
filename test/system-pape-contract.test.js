@@ -125,6 +125,38 @@ test('ingest response app-listing status is cached for display', () => {
   assert.equal(getSetting('app_listing_reason'), 'unknown');
 });
 
+// The purchase routes are pure forwarders. If any of them ever wrote local
+// eligibility state, the open-source station would be deciding its own paid
+// listing — the exact thing System.Pape exists to prevent.
+test('app-listing purchase routes forward without granting anything locally', () => {
+  const dashboard = fs.readFileSync(require.resolve('../src/api/dashboard.js'), 'utf8');
+  const section = dashboard.slice(
+    dashboard.indexOf('// ─── App-listing subscription'),
+    dashboard.indexOf('// ─── Cloudflare API-token automation')
+  );
+
+  assert.ok(section.length > 0, 'app-listing section not found in dashboard.js');
+
+  for (const route of ['/station/app-listing/checkout', '/station/app-listing/claim', '/station/app-listing/portal']) {
+    assert.ok(
+      section.includes(`router.post('${route}', requireDesktop`),
+      `${route} must be desktop-gated`
+    );
+  }
+
+  // No local persistence of entitlement, in any form.
+  for (const forbidden of ['app_listing_eligible', 'setSetting(', 'station_searchable']) {
+    assert.ok(
+      !section.includes(forbidden),
+      `the purchase routes must not write local state ("${forbidden}")`
+    );
+  }
+
+  // Every upstream call carries the per-station telemetry secret.
+  assert.match(section, /'x-telemetry-secret': secret/);
+  assert.match(section, /stationKey: telemetryReporter\.getStationKey\(\)/);
+});
+
 test('stationKey precedence is STATION_KEY, then slug, then install key', () => {
   freshDb();
   const reporterPath = require.resolve('../src/telemetry/reporter');

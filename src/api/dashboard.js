@@ -1102,6 +1102,72 @@ router.put('/station/searchable', requireDesktop, asyncHandler(async (req, res) 
   res.json({ ok: true, searchable: true, checks });
 }));
 
+// ─── App-listing subscription (System.Pape billing) ──────────────────────────
+//
+// These three routes only ever FORWARD to System.Pape and hand back a hosted
+// Stripe URL. Nothing here grants, records, or asserts entitlement — this
+// server is open source, so any local gate would be patchable by whoever runs
+// it. System.Pape computes eligibility from Stripe's own confirmation, and the
+// station finds out afterwards through the read-only `appListing` block on its
+// next telemetry report. See docs/system-pape-contract.md.
+
+async function postToSystemPape(path, body) {
+  const secret = process.env.PAPE_TELEMETRY_SECRET;
+  if (!secret) {
+    const err = new Error('Connect this station to PaperweightHQ first.');
+    err.status = 409;
+    throw err;
+  }
+
+  let response;
+  try {
+    response = await fetch(new NodeURL(path, config.telemetry.url), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-telemetry-secret': secret },
+      body: JSON.stringify({ stationKey: telemetryReporter.getStationKey(), ...body }),
+    });
+  } catch (cause) {
+    const err = new Error(`Could not reach PaperweightHQ: ${cause.message}`);
+    err.status = 502;
+    throw err;
+  }
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const err = new Error(payload.error || `PaperweightHQ request failed (HTTP ${response.status})`);
+    // Pass the upstream status through so Studio can distinguish "already
+    // subscribed" (409) from a genuine outage (502).
+    err.status = response.status >= 400 && response.status < 500 ? response.status : 502;
+    throw err;
+  }
+  return payload;
+}
+
+// POST /api/dashboard/station/app-listing/checkout
+router.post('/station/app-listing/checkout', requireDesktop, asyncHandler(async (req, res) => {
+  const payload = await postToSystemPape('/api/modules/paperweight/app-listing/checkout', {});
+  log('info', 'dashboard', 'App-listing checkout started');
+  res.json({ ok: true, url: payload.url });
+}));
+
+// POST /api/dashboard/station/app-listing/claim
+// Body: { code: string } — redeems a code from a purchase made on the public
+// site, where the buyer had no way to prove which station they run.
+router.post('/station/app-listing/claim', requireDesktop, asyncHandler(async (req, res) => {
+  const code = req.body && typeof req.body.code === 'string' ? req.body.code.trim() : '';
+  if (!code) return res.status(400).json({ error: 'Enter the claim code from your receipt.' });
+
+  const payload = await postToSystemPape('/api/modules/paperweight/app-listing/claim', { code });
+  log('info', 'dashboard', 'App-listing claim code redeemed');
+  res.json({ ok: true, appListing: payload.appListing });
+}));
+
+// POST /api/dashboard/station/app-listing/portal
+router.post('/station/app-listing/portal', requireDesktop, asyncHandler(async (req, res) => {
+  const payload = await postToSystemPape('/api/modules/paperweight/app-listing/portal', {});
+  res.json({ ok: true, url: payload.url });
+}));
+
 // ─── Cloudflare API-token automation (optional) ───────────────────────────────
 // Distinct from CLOUDFLARE_TUNNEL_TOKEN above: this lets the dashboard call
 // Cloudflare's REST API on the owner's behalf to create a tunnel and DNS

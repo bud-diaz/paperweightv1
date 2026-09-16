@@ -59,6 +59,11 @@ They are often equal but are not aliases. A station may have a stable install ke
 | `GET /api/modules/paperweight/directory` | none | none | `[{ slug, publicUrl, broadcasting, listeners, currentTrack }]` | Public directory list. Freshness must match search. |
 | `GET /api/modules/paperweight/app/stations?q=&limit=` | `x-pape-app-key` | query string | `{ stations: [...] }` | Same shape as `/stations`, filtered to app-eligible stations. `403` unknown key, `426` below minimum app version, `503` not configured. |
 | `GET /api/modules/paperweight/app/directory` | `x-pape-app-key` | none | `[{ slug, publicUrl, broadcasting, listeners, currentTrack }]` | Same shape as `/directory`, filtered to app-eligible stations. Same error codes as above. |
+| `POST /api/modules/paperweight/app-listing/checkout` | `x-telemetry-secret` | `{ stationKey }` | `{ ok: true, url }` | Starts a Stripe checkout for this station. `409` if already subscribed. |
+| `POST /api/modules/paperweight/app-listing/checkout/public` | none; rate-limited | `{ slug, email? }` | `{ ok: true, url }` | Public purchase from `paperweighthq.com/app-listing`. Grants nothing directly — mints a claim code. |
+| `POST /api/modules/paperweight/app-listing/claim` | `x-telemetry-secret` | `{ stationKey, code }` | `{ ok: true, appListing }` | Redeems a claim code for the calling station. |
+| `POST /api/modules/paperweight/app-listing/portal` | `x-telemetry-secret` | `{ stationKey }` | `{ ok: true, url }` | Stripe billing portal for an existing subscription. |
+| `POST /api/modules/paperweight/billing/stripe/webhook` | Stripe signature | Stripe event | `{ ok: true, handled }` | **Stripe → System.Pape only.** Paperweight v1 never calls this. |
 | `POST /api/download-lead` | `x-analytics-secret` when configured | `{ email, platform?, updatesOptIn? }` | `{ ok: true, id, createdAt }` | Landing/download lead capture. |
 | `POST /api/download-events` | `x-analytics-secret` when configured | `{ email?, platform, artifact?, version?, source?, medium?, campaign?, referrer? }` | `{ ok: true, id, createdAt }` | Landing/download click/event capture. |
 | `GET /api/download-analytics/summary` | `x-analytics-secret` when configured | none | `{ ok: true, summary: ... }` | Internal summary endpoint; protect in production. |
@@ -160,6 +165,34 @@ the station was de-listed.
 System.Pape's own design record for this is
 `docs/paperweight-app-listing-eligibility.md` in the system.pape repo.
 
+### Buying a listing
+
+A station may **start** a checkout; it can never **confirm** one. Confirmation
+arrives at System.Pape from Stripe, over a verified signature. This repo is open
+source, so anything the station asserted about its own entitlement would be a
+line of code its operator could patch — the payment provider is the only party
+whose word can be trusted here.
+
+Two paths, both ending at the same webhook:
+
+1. **From Studio.** `POST /api/dashboard/station/app-listing/checkout`
+   (`requireDesktop`) forwards to System.Pape with the station's own
+   `x-telemetry-secret`, which already proves station identity, and returns a
+   hosted Stripe URL for the dashboard to open. On payment, the entitlement is
+   granted directly.
+2. **From `paperweighthq.com/app-listing`.** A browser has no telemetry secret,
+   so payment there mints a one-time **claim code** instead and grants nothing.
+   The creator pastes it into Studio, which redeems it via
+   `POST /api/dashboard/station/app-listing/claim` — the station's own secret is
+   what binds the subscription to it. Codes are stored hashed, expire after 30
+   days, and cannot be redeemed twice.
+
+`POST /api/dashboard/station/app-listing/portal` returns a Stripe billing-portal
+URL so a creator can update a card or cancel without contacting support.
+
+None of these three dashboard routes write eligibility locally. The station still
+learns the outcome only from the `appListing` block on its next ingest.
+
 ## Download Analytics Semantics
 
 The static download page must post same-origin to Paperweight's serverless proxy functions:
@@ -191,6 +224,9 @@ Before release or a tunnel/directory refactor is called done:
 - [ ] `/app/directory` without `x-pape-app-key` returns `403` (or `503` when System.Pape has no app keys configured) — never `200`.
 - [ ] Suspending a station in System.Pape removes it from `/app/directory` on the next fetch while leaving `/directory` untouched.
 - [ ] The dashboard's Station view shows an app-directory reason matching the `appListing` block returned by ingest.
+- [ ] A Stripe test-mode checkout started from Studio flips the station to listed in `/app/directory` without any manual console edit, and leaves `/directory` unchanged.
+- [ ] A claim code from a public purchase activates only the station that redeems it, and a second redemption of the same code fails.
+- [ ] Cancelling in the Stripe billing portal removes the station from `/app/directory` while leaving `/directory` untouched.
 - [ ] FRP one-click returns a hostname and Paperweight persists FRP config locally.
 - [ ] Download page lead/event reaches System.Pape analytics summary.
 - [ ] Public Paperweight UI copy says “collections” for creator content groupings unless the context is an explicit legacy/internal DB note.

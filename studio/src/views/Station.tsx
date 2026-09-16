@@ -40,6 +40,11 @@ const APP_LISTING_COPY: Record<string, string> = {
   unknown: 'Status unavailable.',
 };
 
+// Reasons a purchase actually resolves. Deliberately excludes the creator's own
+// configuration (they need the toggle above, not a card) and 'suspended', which
+// is a moderation decision that paying again would not lift.
+const BILLABLE_REASONS = new Set(['no_subscription', 'canceled', 'past_due']);
+
 function appListingText(data?: StationData): string {
   const listing = data?.appListing;
   if (!listing) return APP_LISTING_COPY.unreported;
@@ -73,6 +78,7 @@ export function Station({ onNotify }: { onNotify: (message: string) => void }) {
   const [hostname, setHostname] = useState('');
   const [telemetrySecret, setTelemetrySecret] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
+  const [claimCode, setClaimCode] = useState('');
 
   useEffect(() => { setPublicUrl(data?.url || ''); }, [data?.url]);
   useEffect(() => { if (!zoneId && zonesData?.zones?.[0]) setZoneId(zonesData.zones[0].id); }, [zoneId, zonesData?.zones]);
@@ -102,6 +108,37 @@ export function Station({ onNotify }: { onNotify: (message: string) => void }) {
     mutationFn: () => data?.cloudflareTunnelPaused ? api.dashboard.station.tunnelConnect() : api.dashboard.station.tunnelDisconnect(),
     ...wrapMutation(data?.cloudflareTunnelPaused ? 'Tunnel reconnected.' : 'Tunnel disconnected.'),
   });
+  // Opens a hosted Stripe page. Kept off wrapMutation on purpose — that helper
+  // treats a returned `url` as a new public station URL and would overwrite the
+  // Public URL field with a checkout link.
+  const openHostedUrl = (label: string) => ({
+    onSuccess: ({ res, data: result }: { res: Response; data: { error?: string; url?: string } }) => {
+      if (!res.ok || !result.url) { onNotify(result.error || `Could not open ${label}.`); return; }
+      const opened = window.open(result.url, '_blank', 'noopener,noreferrer');
+      if (!opened) onNotify(`Allow pop-ups to open ${label}, or copy this link: ${result.url}`);
+    },
+    onError: () => onNotify(`Could not open ${label}.`),
+  });
+
+  const startCheckout = useMutation({
+    mutationFn: () => api.dashboard.station.appListingCheckout(),
+    ...openHostedUrl('checkout'),
+  });
+  const openBillingPortal = useMutation({
+    mutationFn: () => api.dashboard.station.appListingPortal(),
+    ...openHostedUrl('the billing portal'),
+  });
+  const redeemClaim = useMutation({
+    mutationFn: () => api.dashboard.station.appListingClaim(claimCode.trim()),
+    onSuccess: ({ res, data: result }: { res: Response; data: { error?: string } }) => {
+      if (!res.ok) { onNotify(result.error || 'That claim code could not be redeemed.'); return; }
+      setClaimCode('');
+      invalidate();
+      onNotify('Claim code redeemed. Your station is now listed in the app.');
+    },
+    onError: () => onNotify('That claim code could not be redeemed.'),
+  });
+
   const searchable = useMutation({
     mutationFn: (enabled: boolean) => api.dashboard.station.setSearchable(enabled),
     onSuccess: ({ res, data: result }: { res: Response; data: { error?: string; checks?: Record<string, boolean> } }) => {
@@ -184,6 +221,21 @@ export function Station({ onNotify }: { onNotify: (message: string) => void }) {
             <p className="text-xs text-muted-foreground">Mobile app directory</p>
             <p className={data?.appListing?.eligible ? 'text-primary mt-2 text-sm' : 'mt-2 text-sm'}>{data?.appListing?.eligible ? 'Listed' : 'Not listed'}</p>
             <p className="text-xs text-muted-foreground mt-1">{appListingText(data)}</p>
+
+            {data?.appListing?.eligible ? (
+              <button type="button" data-testid="button-app-listing-portal" onClick={() => openBillingPortal.mutate()} disabled={openBillingPortal.isPending} className="ghost-button rounded-lg px-3 py-2 text-xs mt-3 disabled:opacity-50">Manage billing</button>
+            ) : BILLABLE_REASONS.has(data?.appListing?.reason || '') ? (
+              <div className="mt-3 space-y-3">
+                <button type="button" data-testid="button-app-listing-subscribe" onClick={() => startCheckout.mutate()} disabled={startCheckout.isPending} className="lime-button w-full rounded-xl px-4 py-3 text-xs font-semibold disabled:opacity-50">{data?.appListing?.reason === 'past_due' ? 'Update payment' : 'Subscribe'}</button>
+                <div>
+                  <label className="block text-xs text-muted-foreground" htmlFor="app-listing-claim">Bought on paperweighthq.com? Enter your claim code.</label>
+                  <div className="flex gap-2 mt-2">
+                    <input id="app-listing-claim" data-testid="input-app-listing-claim" value={claimCode} onChange={(event) => setClaimCode(event.target.value)} placeholder="XXXXX-XXXXX" autoCapitalize="characters" className="input-studio flex-1 min-w-0 rounded-xl px-3.5 py-2.5 text-xs" />
+                    <button type="button" data-testid="button-app-listing-claim" onClick={() => redeemClaim.mutate()} disabled={!claimCode.trim() || redeemClaim.isPending} className="ghost-button shrink-0 rounded-lg px-3 py-2 text-xs disabled:opacity-50">Redeem</button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </section>
         <section className="panel rounded-2xl p-5 sm:p-6">
