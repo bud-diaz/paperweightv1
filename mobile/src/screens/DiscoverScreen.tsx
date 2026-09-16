@@ -3,7 +3,14 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { getDirectory, searchStations, sortStations, type DirectoryStation } from '@/api/systemPape';
+import {
+  DirectoryError,
+  getDirectory,
+  searchStations,
+  sortStations,
+  type DirectoryErrorKind,
+  type DirectoryStation,
+} from '@/api/systemPape';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -14,6 +21,23 @@ type LoadState = 'loading' | 'ready' | 'error';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
+// A revoked app key or a version floor is not a transient failure, so those
+// states drop the "Try again" affordance rather than inviting a retry loop.
+const ERROR_COPY: Record<DirectoryErrorKind, { message: string; retryable: boolean }> = {
+  'upgrade-required': {
+    message: 'Update Paperweight: Play to keep browsing stations.',
+    retryable: false,
+  },
+  unavailable: {
+    message: 'Station discovery is unavailable for this version of the app.',
+    retryable: false,
+  },
+  network: {
+    message: 'The station directory is unreachable right now.',
+    retryable: true,
+  },
+};
+
 export function DiscoverScreen() {
   const colors = useTheme();
   const router = useRouter();
@@ -23,6 +47,7 @@ export function DiscoverScreen() {
   const [stations, setStations] = useState<DirectoryStation[]>([]);
   const [mode, setMode] = useState<'directory' | 'search'>('directory');
   const [loadState, setLoadState] = useState<LoadState>('loading');
+  const [errorKind, setErrorKind] = useState<DirectoryErrorKind>('network');
 
   const requestIdRef = useRef(0);
 
@@ -37,8 +62,10 @@ export function DiscoverScreen() {
       if (requestId !== requestIdRef.current) return;
       setStations(sortStations(results));
       setLoadState('ready');
-    } catch {
-      if (requestId === requestIdRef.current) setLoadState('error');
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+      setErrorKind(err instanceof DirectoryError ? err.kind : 'network');
+      setLoadState('error');
     }
   }, []);
 
@@ -134,11 +161,13 @@ export function DiscoverScreen() {
       ) : loadState === 'error' ? (
         <View style={styles.centerFill}>
           <ThemedText themeColor="textSecondary" style={styles.centerText}>
-            The station directory is unreachable right now.
+            {ERROR_COPY[errorKind].message}
           </ThemedText>
-          <Pressable onPress={() => load(query)} style={styles.retryButton}>
-            <ThemedText themeColor="accent">Try again</ThemedText>
-          </Pressable>
+          {ERROR_COPY[errorKind].retryable ? (
+            <Pressable onPress={() => load(query)} style={styles.retryButton}>
+              <ThemedText themeColor="accent">Try again</ThemedText>
+            </Pressable>
+          ) : null}
         </View>
       ) : stations.length === 0 ? (
         <View style={styles.centerFill}>
